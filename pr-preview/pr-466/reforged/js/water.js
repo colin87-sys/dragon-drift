@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Reflector } from '../lib/objects/Reflector.js';
-import { SUN_DIR } from './biomes.js';
+import { SUN_DIR, TEMPEST_WIND } from './biomes.js';
 import { atmosUniforms } from './atmosphere.js';
 
 // Endless water plane that replaces the snow floor. One GLSL source, two
@@ -61,6 +61,13 @@ const sharedUniforms = {
   // there), so paint a horizonward aurora-green glow into it. 0 in every other biome (byte-identical);
   // reflective tiers ignore it. MUST live here or it vanishes on the reflective↔cheap rebuild.
   uAuroraGlow: { value: 0 },
+  // STORMSEA gate (Tempest): 0 = shipped calm sea (byte-identical). 1 = violent storm sea
+  // (2nd swell + fragment trough-darkening + wind-combed foam streaks). MUST live here or
+  // it vanishes on the reflective↔cheap/swell tier rebuild.
+  uStormSea: { value: 0 },
+  // Rain LAYER B — splash rings where the rain hits the sea (welds sky to sea). 0 = off
+  // (byte-identical). MUST live here or it vanishes on the tier rebuild.
+  uRainRipple: { value: 0 },
   // Fix C — PREMIUM HEAVEN HORIZON: weight (0 off-heaven ⇒ byte-identical) driving a graded blast-haze
   // horizon + a broad reflection column + the shared heartbeat, so the sea ANSWERS the detonation instead
   // of being two flat cardboard bands (gold sky / flat violet fogged sea) with a hard seam. MUST live here
@@ -95,15 +102,34 @@ const sharedUniforms = {
 // a GLSL ES int/float type error. All current values have a decimal point.
 export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.28 };
 
+// STORMSEA (Tempest Reach): ONE wind vector drives the storm sea — a 2nd wind-aligned
+// swell (garnish; only displaces when uSwellAmp is on) PLUS the fragment terms (trough
+// darkening + wind-combed foam streaks) that carry the violence with the swell OFF / on
+// tier 2. Gated by uStormSea (0 everywhere else = byte-identical). λ≈55m (shorter/steeper
+// than the global 105m swell). All values FRACTIONAL (the GLSL int/float trap).
+// TEMPEST_WIND now lives in biomes.js (the single wind source, imported above) so foam + rain +
+// cloud-crawl can't diverge. STORM_SWELL reuses the same axis (kept as literals for the GLSL template).
+export const STORM_SWELL = { dirx: 0.851, dirz: 0.525, freq: 0.115, amp: 1.45, speed: 0.55 };
+
+// A/B pin: ?stormsea=0 forces the shipped calm sea, ?stormsea=1 forces the storm sea (any biome),
+// so the owner can flip the fix live in one flight. null = per-biome env value (normal play).
+const _stormSeaForce = (() => {
+  try { const v = new URLSearchParams(location.search).get('stormsea'); return v == null ? null : (v === '0' ? 0 : 1); }
+  catch { return null; }
+})();
+
 const vertexShader = /* glsl */`
-  uniform float time, waveAmp, uSwellAmp;
+  uniform float time, waveAmp, uSwellAmp, uStormSea;
   varying vec3 vWorldPos;
   #ifdef USE_REFLECTION
     uniform mat4 textureMatrix;
     varying vec4 vUvProj;
   #endif
   float _swellH(vec2 p) {
-    return waveAmp * ${SWELL.amp} * sin(dot(p, vec2(${SWELL.dirx}, ${SWELL.dirz})) * ${SWELL.freq} + time * ${SWELL.speed});
+    float base = waveAmp * ${SWELL.amp} * sin(dot(p, vec2(${SWELL.dirx}, ${SWELL.dirz})) * ${SWELL.freq} + time * ${SWELL.speed});
+    // STORMSEA garnish: a shorter, steeper 2nd swell along the wind (uStormSea 0 = base only).
+    float storm = uStormSea * waveAmp * ${STORM_SWELL.amp} * sin(dot(p, vec2(${STORM_SWELL.dirx}, ${STORM_SWELL.dirz})) * ${STORM_SWELL.freq} + time * ${STORM_SWELL.speed});
+    return base + storm;
   }
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -131,6 +157,8 @@ const fragmentShader = /* glsl */`
   uniform float uAtmosInscatter;
   uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
   uniform float uAuroraGlow; // Aurora Shallows tier2 analytic-reflection sheen (0 = shipped)
+  uniform float uStormSea;   // STORMSEA violence (0 = shipped calm sea)
+  uniform float uRainRipple; // rain LAYER B — splash rings (0 = off)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
@@ -150,6 +178,18 @@ const fragmentShader = /* glsl */`
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
 
+  // Rain LAYER B splash ring: one expanding ring per live hashed cell — radius 0→0.45m over ~0.4s
+  // at a random per-cell phase; ~1/3 of cells live. The ring FRONT lifts brightness (rain landing).
+  float _rainRing(vec2 pw, float cell, float salt, float t) {
+    vec2 gi = floor(pw / cell);
+    if (hash(gi + vec2(salt, salt * 1.7)) > 0.34) return 0.0;
+    float ph = hash(gi + vec2(salt + 7.3, salt + 2.1));
+    float tt = fract(t * 2.5 + ph);
+    vec2 c = (gi + 0.5) * cell;
+    float r = tt * 0.45;
+    return smoothstep(0.06, 0.0, abs(length(pw - c) - r)) * (1.0 - tt);
+  }
+
   void main() {
     vec2 p = vWorldPos.xz;
     float h = 0.0;
@@ -157,6 +197,11 @@ const fragmentShader = /* glsl */`
     wave(p, normalize(vec2( 0.8,  0.6)), 0.50, 0.16 * waveAmp, 1.10, h, grad);
     wave(p, normalize(vec2(-0.6,  0.8)), 0.90, 0.08 * waveAmp, 1.70, h, grad);
     wave(p, normalize(vec2( 0.2, -1.0)), 1.70, 0.045 * waveAmp, 2.40, h, grad);
+    // STORMSEA — two wind-aligned CHOP octaves that SHATTER the mirror (0 = shipped, byte-identical).
+    // The shipped normal field tops out ~0.2 slope; these add ~0.6 so fresnel + the reflection angle
+    // vary per-pixel and the clean sky-double breaks into storm chop (the owner's real-device tell).
+    wave(p, normalize(vec2(0.851, 0.525)), 1.30, 0.22 * waveAmp * uStormSea, 2.10, h, grad);
+    wave(p, normalize(vec2(0.60, -0.80)), 2.90, 0.11 * waveAmp * uStormSea, 3.30, h, grad);
     vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
 
     vec3 V = normalize(cameraPosition - vWorldPos);
@@ -182,7 +227,7 @@ const fragmentShader = /* glsl */`
 
     vec3 refl;
     #ifdef USE_REFLECTION
-      vec2 distort = N.xz * 0.42;
+      vec2 distort = N.xz * (0.42 + 1.1 * uStormSea);   // STORMSEA: scatter the mirror sample → the clean reflection lane shatters into broken speckle
       vec4 proj = vUvProj;
       proj.xy += distort * proj.w;
       refl = texture2DProj(tDiffuse, proj).rgb;
@@ -197,14 +242,25 @@ const fragmentShader = /* glsl */`
       refl += vec3(0.33, 1.0, 0.52) * 0.4 * pow(1.0 - clamp(R.y, 0.0, 1.0), 3.0) * uAuroraGlow;
     #endif
 
-    vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0));
+    // STORMSEA — READABILITY: no reflection may be brighter than its source. A COMPRESSIVE luminance
+    // cap (~0.85, hue preserved) so bloom-hot objects (rings/gates/pickups) can't STROBE when the
+    // broken chop decorrelates their reflection frame-to-frame — they become glints, not flicker.
+    float _rl = dot(refl, vec3(0.2126, 0.7152, 0.0722));
+    refl *= mix(1.0, 0.85 / max(0.85, _rl), uStormSea);   // cap only under storm; byte-identical elsewhere
+    // MATTE IT DOWN: an overcast storm sea is dull, not chrome — dim the reflected sample + cap the
+    // mirror at ~55% even at grazing angles so the dark water body always owns ≥45%.
+    refl *= mix(1.0, 0.55, uStormSea);
+    vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0) * (1.0 - 0.45 * uStormSea));
 
     // Golden sun streak: compress the normal's x so the highlight stretches
     // toward the camera (classic low-sun water glitter lane).
-    vec3 Ns = normalize(vec3(N.x * 0.30, N.y, N.z));
+    // STORMSEA: the sun is HIDDEN behind the deck — there is no coherent specular PATH to the viewer.
+    // Relax the toward-camera stretch (rounder/shorter lobe) so the glitter confines to a DISTANT
+    // horizon band instead of a calm "moonlit lane" running to the foreground; and dim the gain.
+    vec3 Ns = normalize(vec3(N.x * mix(0.30, 0.70, uStormSea), N.y, N.z));
     vec3 H = normalize(normalize(sunDir) + V);
     float spec = pow(max(dot(Ns, H), 0.0), 240.0);
-    col += sunColor * spec * 2.6;
+    col += sunColor * spec * 2.6 * (1.0 - 0.45 * uStormSea);
     // HEAVEN reflection COLUMN: a broad soft gold lobe under the detonation — the sea-scale answer to the
     // sky-scale blast (the thin pow-240 glitter alone was nowhere near the scale of the fire). Breathes.
     col += sunColor * pow(max(dot(Ns, H), 0.0), 18.0) * 0.35 * uHeavenGlow * breath;   // 0.35 (not 0.5): the column sits in the parry corridor — keep fairness headroom under the p90 cap
@@ -215,14 +271,72 @@ const fragmentShader = /* glsl */`
     float crest = smoothstep(0.13 * waveAmp + 0.03, 0.26 * waveAmp + 0.05, h);
     float foamN = hash(floor(p * 3.0) + floor(time * 1.6));
     float foam = crest * smoothstep(0.55, 1.0, foamN);
-    col += vec3(0.82, 0.92, 1.0) * foam * 0.4;
+    col += vec3(0.82, 0.92, 1.0) * foam * 0.4 * (1.0 - 0.7 * uStormSea); // storm replaces this blue-white foam with its own overcast streaks below
+
+    // --- STORMSEA (uStormSea 0 = shipped calm sea). Computed in-fragment from world xz so the
+    // violence reads with the vertex swell OFF / on tier2. Built to the Fable STORMSEA gate order. ---
+    if (uStormSea > 0.001) {
+      vec2 wind = vec2(${TEMPEST_WIND.x}, ${TEMPEST_WIND.z});
+      vec2 windP = vec2(-wind.y, wind.x);
+      vec2 wf = vec2(dot(p, wind), dot(p, windP));   // wind space: x = along-wind, y = across
+      float sStorm = sin(dot(p, wind) * ${STORM_SWELL.freq} + time * ${STORM_SWELL.speed});
+
+      // (a) Trough darkening — EASED (×0.73) with a HARD FLOOR #182026 so the Thunderhead's
+      // charcoal (0x232836) never melts into the sea (Law 8). Violence = white-on-dark CONTRAST,
+      // kept by limiting the WHITE fraction, not by crushing the black.
+      // PRESENCE FIELD (~180m smooth value noise): windrow FIELDS come and go — clusters of lanes,
+      // then open dark water (the sea-level negative-space rhythm; Fable substrate-gate order #2).
+      vec2 pc = wf * 0.0055;
+      vec2 pci = floor(pc), pcf = fract(pc);
+      vec2 pw = pcf * pcf * (3.0 - 2.0 * pcf);
+      float pres = mix(mix(hash(pci), hash(pci + vec2(1.0, 0.0)), pw.x),
+                       mix(hash(pci + vec2(0.0, 1.0)), hash(pci + vec2(1.0, 1.0)), pw.x), pw.y);
+      pres = 0.5 + 0.5 * smoothstep(0.30, 0.72, pres);   // foam always half-present; windrow FIELDS go full, never fully bare
+
+      // (a) Trough darkening — eased average, #182026 FLOOR held (dragon guard). Open water (low
+      // presence) goes a touch DEEPER — the dark is half the drama.
+      float trough = 1.0 - smoothstep(-0.7, 0.15, sStorm);
+      vec3 dk = max(col * mix(1.0, mix(0.62, 0.70, pres), trough), vec3(0.094, 0.125, 0.149));
+      col = mix(col, dk, uStormSea);
+
+      // (b) PRIMARY combed lanes — CONTINUOUS along the wind (~55m modulation, LOW threshold so a
+      // lane stays continuous 30m+), thin across (~2.5m of a 10m band), lanes ~10m apart. Each lane's
+      // along-pattern is keyed to its OWN id so the lane reads as one line, not a grid of dashes.
+      float laneId = floor(wf.y * 0.10);
+      float alongA = wf.x * 0.018 + time * 0.5;
+      float lnoise = mix(hash(vec2(floor(alongA), laneId)), hash(vec2(floor(alongA) + 1.0, laneId)),
+                         smoothstep(0.0, 1.0, fract(alongA)));
+      float lane = smoothstep(0.46, 0.9, lnoise);
+      float fAc = fract(wf.y * 0.10);
+      lane *= smoothstep(0.26, 0.45, fAc) * smoothstep(0.68, 0.45, fAc);   // ~2.5–3m lane centered in the 10m band
+      lane *= smoothstep(-0.05, 0.55, sStorm) * (0.6 + 0.4 * smoothstep(0.1, 0.5, h + 0.2)); // crest-biased + torn by ripple
+      // SECONDARY flecks — spray torn OFF lanes: ELONGATED along the wind (≈7:1 smears, not chips),
+      // SOFT-edged (no rectilinear border), masked to the lane neighborhood, near-field contrast damped.
+      float fleckN = hash(floor(vec2(wf.x * 0.22, wf.y * 1.7) + 31.0));   // ~4.5m along × ~0.6m across
+      float fleck = smoothstep(0.72, 1.0, fleckN) * 0.12;                 // wide soft edge → smear, not tile
+      fleck *= smoothstep(0.40, 0.62, lnoise);                           // only near a primary lane — never free sprinkle
+      fleck *= mix(0.5, 1.0, smoothstep(0.0, 35.0, dist));               // damp fleck CONTRAST directly under the camera (primary lanes stay full)
+      float foamS = (lane + fleck) * pres;        // clustered by the presence field
+      foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
+      foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
+      // #c4cdce overcast foam; peak lifted now that the matte/broken field is ~⅓ darker.
+      col = mix(col, vec3(0.77, 0.80, 0.80), clamp(foamS * uStormSea, 0.0, 0.48));
+    }
+
+    // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
+    // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
+    if (uRainRipple > 0.001) {
+      float ring = _rainRing(p, 1.1, 0.0, time) + _rainRing(p, 1.7, 5.0, time);
+      ring *= smoothstep(58.0, 24.0, dist) * uRainRipple;
+      col += vec3(0.80, 0.82, 0.82) * ring * 0.16;
+    }
 
     // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
     // twinkle gated to glancing angles (both water variants; the reflective path
     // otherwise has no micro-sparkle of its own). Kept rare so it reads as
     // catch-lights, not noise.
     float glit = hash(floor(p * 4.0) + floor(time * 3.0));
-    col += sunColor * step(0.9965 - 0.002 * uHeavenGlow * az, glit) * pow(1.0 - NdotV, 1.6) * 1.5;   // a few more catch-lights inside the blast column
+    col += sunColor * step(0.9965 - 0.002 * uHeavenGlow * az, glit) * pow(1.0 - NdotV, 1.6) * 1.5 * (1.0 - 0.5 * uStormSea);   // a few more catch-lights inside the blast column; halved under storm (overcast, and foam must not stack to over-bright white)
 
     // Manual fog (matches scene linear fog) — dual-color (§5.2): the fog
     // itself grades from the NEAR color into the FAR color with the same
@@ -490,14 +604,21 @@ export function getWaterDepthOn() { return depthOn; } // perf-HUD gfx readout
 export function waterSurfaceHeight(x, z) {
   if (!swellOn || !water) return 0;
   const u = water.material.uniforms;
-  return u.waveAmp.value * SWELL.amp *
+  const base = u.waveAmp.value * SWELL.amp *
     Math.sin((x * SWELL.dirx + z * SWELL.dirz) * SWELL.freq + u.time.value * SWELL.speed);
+  // STORMSEA 2nd swell — mirror of the vertex _swellH so the contact shadow + foam collars
+  // ride the true storm surface (0 when uStormSea is off → shipped).
+  const storm = (u.uStormSea?.value || 0) * u.waveAmp.value * STORM_SWELL.amp *
+    Math.sin((x * STORM_SWELL.dirx + z * STORM_SWELL.dirz) * STORM_SWELL.freq + u.time.value * STORM_SWELL.speed);
+  return base + storm;
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple }) {
   if (!water) return;
   const u = water.material.uniforms;
+  u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
+  u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);

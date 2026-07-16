@@ -47,6 +47,7 @@ import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
 import { setAmbientQuality } from './ambient.js';
+import { setRainTier } from './rain.js';
 import { initRecords, settleRecords } from './records.js';
 import { initFeats, settleFeats, claimFeat } from './feats.js';
 import { settleWeekly } from './weekly.js';
@@ -65,11 +66,14 @@ import { BUILD, BUILT } from './buildId.js';
 // worker cache). The id is the SW content hash, so it changes whenever any asset
 // changes; if the number on screen matches the latest deploy, you're current.
 // U1 (UI-PREMIUM-OVERHAUL): dev chrome never ships to players — the on-screen
-// stamp only renders under ?debug; the console line stays for everyone.
+// stamp only renders under ?debug OR when a ?biome= pin is present (both are
+// testing contexts, never a real player's URL), so the owner's `?biome=N`
+// preview links show which build actually loaded; the console line stays for everyone.
 (function showBuildStamp() {
   try {
     console.log(`[Dragon Drift] build ${BUILD} · built ${BUILT}`);
-    if (!new URLSearchParams(location.search).has('debug')) return;
+    const q = new URLSearchParams(location.search);
+    if (!q.has('debug') && !q.has('biome')) return;
     const el = document.createElement('div');
     el.id = 'build-stamp';
     el.textContent = 'build ' + BUILD;
@@ -79,6 +83,13 @@ import { BUILD, BUILT } from './buildId.js';
       'font:10px/1 ui-monospace,Menlo,Consolas,monospace;color:rgba(255,255,255,.5);' +
       'letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.6)';
     document.body.appendChild(el);
+    // Live perf read (pin/debug only): the graphics tier is dynamic — it degrades under load — and
+    // the water swell geometry is FLAT at tier 2, so a struggling device silently loses the wave roll.
+    // Surface both so a device-only "sea won't swell" is one screenshot, not a guessing game.
+    setInterval(() => {
+      const t = document.body.dataset.qtier;
+      el.textContent = `build ${BUILD} · tier ${t} · swell ${getWaterSwellOn() ? 'on' : 'off'}`;
+    }, 1000);
   } catch (e) { /* non-fatal cosmetic */ }
 })();
 
@@ -218,6 +229,12 @@ if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(t
 // so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
 // then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
+// A storm biome FORCES the rolling swell geometry ON (like it force-enables the cloud deck) so the
+// violent sea rolls for every capable device, not only where the player toggled water-swell. Weak
+// tier-2 devices auto-stay flat (buildGeometry returns the flat plane at geomTier>=2), so the
+// 60fps-on-weak-mobile budget holds. Tempest is currently pin-only (not yet cycled) → read the pin;
+// when it joins CYCLE the runtime transition gets wired in the CYCLE-insertion PR.
+if (urlParams.has('biome') && BIOMES[parseInt(urlParams.get('biome'), 10)]?.water?.swellForce) setWaterSwell(true);
 // N10b water depth: apply the saved toggle; ?depth forces on (live uniform, no rebuild).
 if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
 // N10c foam collars: apply the saved toggle; ?foam forces on (visibility flip).
@@ -1443,6 +1460,7 @@ function applyQuality(tier) {
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
   setAmbientQuality(QUALITY_SCALARS[tier]);
+  setRainTier(tier);   // storm rain: halve segments per tier
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
   setAuroraQuality(tier); // Aurora Shallows: tier0 2 layers+rays / tier1 1 layer / tier2 smooth quiet arc
