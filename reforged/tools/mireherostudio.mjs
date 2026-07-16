@@ -25,27 +25,27 @@ await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
 const err = await page.evaluate(() => document.getElementById('err').textContent);
 if (err) { console.error('STUDIO ERROR:', err); await browser.close(); srv.close?.(); process.exit(1); }
 
-// HERO CANDIDATE COMPARISON — each candidate at the GAMEPLAY angle + a worm's-eye, so the
-// owner can choose the hero shape. 4 candidates × 2 angles = a 4×2 sheet (one row per candidate).
+// HERO CANDIDATE GALLERY — all four candidates at the GAMEPLAY angle in ONE compact 2×2
+// square (so it never truncates on display) so the owner can see + choose the hero shape.
+// Each candidate is ALSO written to its own file (grabbed straight off the gl canvas, so the
+// sheet overlay can't clobber it — the old bug that made every file the archway).
 const CANDS = [
-  { key: 'candArch',  label: 'A) GLOWING ARCHWAY (fly through it)' },
+  { key: 'candArch',  label: 'A) FLY-THROUGH ARCHWAY' },
   { key: 'candTree',  label: 'B) GLOWING WORLD-TREE' },
-  { key: 'candCap',   label: 'C) GLOWING MUSHROOM (done right)' },
-  { key: 'candBloom', label: 'D) GLOWING SWAMP-FLOWERS' },
+  { key: 'candCap',   label: 'C) GLOWING MUSHROOM' },
+  { key: 'candBloom', label: 'D) GLOWING SWAMP-BLOOMS' },
 ];
-const CELL = 620, COLS = 2, ROWS = CANDS.length;
+const CELL = 640, COLS = 2, ROWS = 2;
 await page.evaluate(({ COLS, ROWS, CELL }) => window.psSheetInit(COLS, ROWS, CELL), { COLS, ROWS, CELL });
-for (let r = 0; r < CANDS.length; r++) {
-  const c = CANDS[r];
-  // col 0: gameplay (how you see it flying), col 1: worm's-eye (colossal read)
-  await page.evaluate((o) => window.psRender(o), { key: c.key, angle: 'gameplay', bg: 'dark', rig: 'mire', opts: { single: true }, fill: 0.72 });
-  await page.evaluate(({ i, label }) => window.psTile(i, label), { i: r * COLS + 0, label: c.label });
-  const buf = await page.screenshot({ clip: { x: 0, y: 0, width: CELL, height: CELL } });
-  writeFileSync(`/tmp/mire-cand-${c.key}.png`, buf);
-  await page.evaluate((o) => window.psReframe(o), { angle: 'worm', fill: 0.72 });
-  await page.evaluate(({ i }) => window.psTile(i, ''), { i: r * COLS + 1 });
+for (let i = 0; i < CANDS.length; i++) {
+  const c = CANDS[i];
+  await page.evaluate((o) => window.psRender(o), { key: c.key, angle: 'gameplay', bg: 'dark', rig: 'mire', opts: { single: true }, fill: 0.74 });
+  // per-candidate file straight off the gl canvas (correct — not clipped from cell 0)
+  const durl = await page.evaluate(() => window.psGrab());
+  writeFileSync(`/tmp/mire-cand-${c.key}.png`, Buffer.from(durl.split(',')[1], 'base64'));
+  await page.evaluate(({ i, label }) => window.psTile(i, label), { i, label: c.label });
 }
 const sheet = await page.screenshot({ clip: { x: 0, y: 0, width: COLS * CELL, height: ROWS * CELL } });
-writeFileSync('/tmp/mire-hero-candidates.png', sheet);
+writeFileSync('/tmp/mire-hero-gallery.png', sheet);
 await browser.close(); srv.close?.();
-console.log('wrote /tmp/mire-hero-candidates.png + per-candidate /tmp/mire-cand-*.png');
+console.log('wrote /tmp/mire-hero-gallery.png + per-candidate /tmp/mire-cand-*.png');

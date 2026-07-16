@@ -86,6 +86,8 @@
     function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
 
     window.psRender = (o) => { build(o.key, o.opts || { single: true }); setBg(o.bg || 'dark'); setRig(o.rig || 'mire'); const a = ANGLES[o.angle] || ANGLES.gameplay; fit(a.dir, a.up, o.fill); render(); return true; };
+    // grab the ACTUAL gl canvas (preserveDrawingBuffer) — the sheet overlay can't corrupt this.
+    window.psGrab = () => gl.toDataURL('image/png');
     window.psReframe = (o) => { if (o.bg) setBg(o.bg); if (o.rig) setRig(o.rig); const a = ANGLES[o.angle] || ANGLES.gameplay; fit(a.dir, a.up, o.fill); render(); return true; };
 
     const _sheet = document.getElementById('sheet');
