@@ -224,7 +224,7 @@ export function initObstacles(s) {
     // never the body — identical geometry, so the spin never reads as a hitbox glitch).
     calBombHot: new THREE.MeshStandardMaterial({
       color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.4, metalness: 0.02,
-      emissive: 0xff7a2a, emissiveIntensity: 0.95,
+      emissive: 0xff7a2a, emissiveIntensity: 0.5,   // clamped: emissive×vColor keeps the dark plates dark and whitens only the ember FRACTURE faces (Fable: don't flood the whole body at peak)
     }),
     // Ancient fossil bone for the Dragon Spine Canyon — warm ivory, faceted, a
     // touch of emissive so the skeleton reads (and blooms) against any biome sky.
@@ -884,8 +884,10 @@ export function shardColliderSupport() {
 // EXPLICIT Caldera stops + a world-DOWN axis (static hazards) — omitting stops would
 // default to Frozen blue ice (the named Part B trap), so we pass them at every call.
 const _CALH_BELLY = [0.98, 0.30, 0.06];    // down-faces → hot ember belly (frost stop, world-DOWN)
-const _CALH_BASALT = [0.085, 0.06, 0.055]; // verticals → near-black basalt (mid stop)
-const _CALH_CRUST = [0.36, 0.31, 0.33];    // up-faces → ash crust (belly stop)
+const _CALH_BASALT = [0.070, 0.050, 0.048]; // verticals → near-black basalt (mid stop)
+const _CALH_CRUST = [0.20, 0.165, 0.185];   // up-faces → DARK charcoal-ash crust (belly stop) — hazards
+                                            // show a lot of up-face; a pale ash read as "sanded plank",
+                                            // so the crust is charcoal here (Fable hazard gate: mass is DARK).
 const _CAL_STOPS = { frost: _CALH_BELLY, mid: _CALH_BASALT, belly: _CALH_CRUST };
 // DARK stop set (no ember belly) — for the horizontal BEAM, whose whole underside faces
 // down: a world-DOWN ember belly would flood it orange. Here the body stays dark basalt
@@ -901,18 +903,20 @@ function bakeCalLadder(geo, ax = 0, ay = -1, az = 0, frostT = 0.28, tealT = -0.3
 // (half-depth 0.85, half-height 0.64 → corner radius 1.06 < hex inradius 0.866·1.4=1.21)
 // at every x, so the silhouette never leaves a gap (numeric coverage below). NO spin.
 // [len, cx, cy, cz, R, roll] — 4 overlapping columns spanning x −15..16.6 (covers the ±13
-// lane + veil); staggered fracture-lengths + rolls for the broken read. (4 not 5 → ≤150 tris.)
+// lane + veil). Per-column radius + roll variance and a SAG in the span (middle columns dip)
+// so it reads as a rank of FALLEN columns, not one machined beam. (4 not 5 → ≤150 tris.)
 const CAL_BAR_COLUMNS = [
-  [8.8, -10.5, 0.05, 0.03, 1.44, 0.10],
-  [8.4, -2.5, -0.06, -0.04, 1.42, -0.22],
-  [8.6, 5.5, 0.07, 0.04, 1.43, 0.28],
-  [8.2, 12.5, 0.06, 0.02, 1.44, -0.14],
+  [8.8, -10.5, 0.06, 0.03, 1.50, 0.14],
+  [8.4, -2.5, -0.12, -0.05, 1.43, -0.36],
+  [8.6, 5.5, -0.10, 0.05, 1.47, 0.40],
+  [8.2, 12.5, 0.05, 0.02, 1.44, -0.20],
 ];
-// Sheared JOINT-CRACKS — recessed magma slivers on the front (+z) face at the column
-// junctions, backed by a dark socket and overhung by a proud lip (fire escaping a
-// fracture, not an LED strip; the LOW-in-cracks address). [cx, cy, len, hh]
-const CAL_BAR_JOINTS = [[-7.6, 0.20, 3.2, 0.30], [3.6, 0.24, 3.0, 0.28]];
-const _CAL_BAR_HEX_INRADIUS = 0.866 * 1.42;   // worst-case column inradius (min R in the data)
+// Sheared JOINT-CRACKS — recessed magma dashes on the front (+z) face AT the column
+// JUNCTIONS (where columns sheared), backed by a dark socket + overhung lip (fire escaping a
+// fracture, not a mid-segment LED strip; the LOW-in-cracks address). Broken into short
+// irregular dashes at varied y. [cx, cy, len, hh]
+const CAL_BAR_JOINTS = [[-6.4, 0.10, 1.9, 0.26], [-6.2, -0.55, 1.3, 0.20], [1.45, -0.05, 2.1, 0.24]];
+const _CAL_BAR_HEX_INRADIUS = 0.866 * 1.43;   // worst-case column inradius (min R in the data)
 
 function buildCalderaBar() {
   const body = [], glow = [], shadow = [];
@@ -924,9 +928,10 @@ function buildCalderaBar() {
     body.push(c);
   }
   for (const [cx, cy, len, hh] of CAL_BAR_JOINTS) {
-    shadow.push(xf(new THREE.PlaneGeometry(len + 0.5, hh + 0.30), { x: cx, y: cy, z: 1.30 }));   // dark socket
-    glow.push(xf(new THREE.BoxGeometry(len, hh, 0.05), { x: cx, y: cy, z: 1.33 }));              // magma sliver
-    body.push(xf(new THREE.BoxGeometry(len + 0.6, 0.16, 0.12), { x: cx, y: cy + hh / 2 + 0.20, z: 1.37 })); // brow lip
+    // A dark socket (recess) + a magma dash SET BACK in it — the adjacent columns' rounded
+    // faces overhang it, so grazing angles occlude the glow (recessed, not a proud strip).
+    shadow.push(xf(new THREE.PlaneGeometry(len + 0.6, hh + 0.34), { x: cx, y: cy, z: 1.24 }));   // dark socket, set back
+    glow.push(xf(new THREE.BoxGeometry(len, hh, 0.05), { x: cx, y: cy, z: 1.27 }));              // magma dash, recessed under the column brows
   }
   const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
   // DARK stops (no ember belly) — the fallen colonnade is dark basalt; fire only in the joints.
@@ -995,11 +1000,13 @@ function buildCalderaPillar() {
   {
     const [by0, by1, , bwz, bcx, bcz, byaw] = CAL_PILLAR_SEGS[2];   // the re-flare block
     const [sy0, sy1, wide, tilt] = CAL_PILLAR_THROAT;
-    const cy = (sy0 + sy1) / 2 - (by0 + by1) / 2, hh = sy1 - sy0;
-    const front = bwz;
-    const mk = (geo, z) => { geo.rotateZ(tilt); geo.translate(0.04, cy, z); geo.rotateY(byaw); geo.translate(bcx, (by0 + by1) / 2 - 0.5, bcz); return geo; };
-    shadow.push(mk(new THREE.PlaneGeometry(wide + 0.12, hh + 0.06), front + 0.01));
-    glow.push(mk(new THREE.PlaneGeometry(wide, hh), front + 0.03));
+    const cyW = (sy0 + sy1) / 2 - 0.5, hh = sy1 - sy0;
+    // Throat faces the LANE (+z, the approach direction) — NOT the re-flare block's yaw
+    // (which pointed it sideways): occluded from the side, revealed on approach (Fable).
+    const front = 0.78;
+    const mk = (geo, z) => { geo.rotateZ(tilt); geo.translate(bcx * 0.5 + 0.02, cyW, z); return geo; };
+    shadow.push(mk(new THREE.PlaneGeometry(wide + 0.18, hh + 0.12), front));        // deep dark socket (the recess)
+    glow.push(mk(new THREE.PlaneGeometry(wide, hh), front + 0.035));                // magma core, set in the socket
   }
   for (const [ang, dist, size] of CAL_PILLAR_RUBBLE) {
     const t = new THREE.TetrahedronGeometry(size);
