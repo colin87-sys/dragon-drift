@@ -8,6 +8,7 @@ import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, deb
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
+import { initBossBar, updateBossBar } from './bossBar.js';
 import { lockHudState } from './lockLayer.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
@@ -834,6 +835,7 @@ ui.init({
   },
 });
 initReticle(camera);
+initBossBar(camera);   // EMBERSIGHT H5 — the Mews plate (boss HP) + off-screen chevrons
 cameraCtl.init(camera, player);
 
 // --- Boot-time return triggers ---
@@ -1716,6 +1718,10 @@ function tick() {
     if (bi !== currentBiome) {
       currentBiome = bi;
       music.setKeyShift(BIOMES[bi].keyShift);
+      // EMBERSIGHT H6 skyLuma (§0/§B): a per-biome class (deterministic, no sampling)
+      // — over a bright sky the Bell/Tape/Tally keylines swap to a higher-contrast
+      // ember-core variant so the hairlines survive the washout.
+      document.body.classList.toggle('biome-bright', !!BIOMES[bi].bright);
       if (player.dist > 100) {
         ui.biomePopup(BIOMES[bi].name);
         sfx.milestone();
@@ -1836,6 +1842,7 @@ function tick() {
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    updateBossBar();   // EMBERSIGHT H5 — drain-lag ease + off-screen threat chevrons
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's
     // whole job is the no-reticle acquire loop. Silences on lock (aimHeld → the

@@ -8,6 +8,21 @@ import { setFeverWarm } from './environment.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
+import { on } from './events.js';
+
+// EMBERSIGHT H6 — the ember SWALLOW (§B.7): a 150ms coreGlow opacity tick on ember
+// pickup — the dragon eats the ember. One module-level subscription (events are
+// singletons); the tick is applied in the coreGlow update below and decays out.
+const SWALLOW_DUR = 0.15;
+let swallowT = 0;
+on('ember', () => { swallowT = SWALLOW_DUR; });
+
+// EMBERSIGHT H6 — the overtake trail flash (§B.12): on a rival overtake the trail
+// flashes gold for 1s (the world echo of the Bell's RIVAL BEATEN). Rides the
+// existing per-dragon trail-tint seam (pickTrailHex); decays in updateFx.
+const OVERTAKE_GOLD = 0xffd86a;
+let trailGoldT = 0;
+on('overtake', () => { trailGoldT = 1.0; });
 import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
 import { createPulseTimer, mulberry32 } from './pulseTimer.js';
 import { createArcCrown } from './stormArcs.js';
@@ -196,6 +211,7 @@ let aeroShearTimer = 0;
 // Trail color for a freshly-spawned sprite: cycles the equipped flightmark's
 // trailPalette (aurora/goldleaf) when present, else the flat per-dragon color.
 function pickTrailHex(fallback) {
+  if (trailGoldT > 0) return OVERTAKE_GOLD;   // H6 §B.12 the 1s overtake gold flash overrides the tint
   const pal = activeDef && activeDef.trailPalette;
   if (pal && pal.length) return pal[trailPaletteIdx++ % pal.length];
   return fallback;
@@ -287,7 +303,10 @@ export function createDragon(scene, def, riderDef) {
   // edge clears bright water instead of collapsing to a silhouette (glow-up P1b).
   const rpm = def.rimPowerMul ?? 1;
   applyRim(bodyMat, { strength: 0.0, power: 3.2 * rpm, mul: def.rimBodyMul ?? 1 });
-  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm });
+  // rimWingMul tames the wing rim per-dragon: flat faceted wings catch far more grazing-angle rim than the
+  // rounded body, so a body-tuned cruise rim washes the whole wing in a cheap chrome outline the body
+  // lacks. The Tempest (hot P1b rim + flat storm panels) drops it hard so the wing matches the body.
+  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm, mul: def.rimWingMul ?? 1 });
   for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 * rpm });
   surgeMix = 0;
   surgeAnimT = 0;
@@ -525,6 +544,13 @@ export function rebuildDragon(def, riderDef, player) {
 export function setDragonFxVisible(v) {
   for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) s.visible = v;
 }
+
+// EMBERSIGHT H6 — the wingbeat clock (Law's garnish clause): the integrated flap
+// phase (0..2π), exposed cheaply so idle HUD breathe/ghost fades can quantize to
+// the dragon's heartbeat. Wiring it into the ghost-breath is intentionally deferred
+// (that would mean editing the protected H1-H3 rest rules — the clause says skip
+// rather than disturb them); the clock is now available for a future subtle pass.
+export function wingbeatPhase() { return flapPhase; }
 
 // Debug seam (exposed via window.__dd under ?debug): live count of visible FX
 // sprites per emitter, so tests can prove a trail is actually emitting.
@@ -1309,11 +1335,15 @@ export function updateDragon(dt, player, time) {
   } else {
     stormCoreKick = 1;
   }
+  if (trailGoldT > 0) trailGoldT = Math.max(0, trailGoldT - dt);   // H6 §B.12 overtake gold flash decay
   // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
+    if (swallowT > 0) swallowT = Math.max(0, swallowT - dt);   // H6 §B.7 the swallow tick
+    const swallow01 = swallowT / SWALLOW_DUR;
     const cb = (coreGlow.userData.base || 0.3) * stormCoreKick;
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
-      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4;   // PR-C: interior ember charges
+      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4   // PR-C: interior ember charges
+      + swallow01 * 0.5;   // the ember swallow: a brief core flare as it's eaten
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
   // THE HAUNTING gap-pulse (Revenant): walk a brightness wave tail→head across the 3 dorsal

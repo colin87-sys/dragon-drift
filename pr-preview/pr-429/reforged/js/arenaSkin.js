@@ -22,7 +22,7 @@ const COLOR_KEYS = [
 const SCALAR_KEYS = [
   'fogNear', 'fogFar', 'fogFarMix', 'lightSunI', 'waveAmp',
   'ambFall', 'ambSway', 'ambSize', 'ambOpacity', 'faunaScale', 'faunaFlap',
-  'starMix', 'whaleMix', 'flybyMix',
+  'starMix', 'whaleMix', 'flybyMix', 'auroraMix',   // auroraMix (aurora sky-splice) — the arena OWNS it so the biome curtain can't rise inside the void/heaven (the Godhead Detonation is no aurora night)
   'atmosHeightK', 'atmosInscatter', 'cloudAmount',   // N8 atmosphere + N9 cloud coverage — arena zeroes them (a clean authored sky, no biome clouds/scatter leaking in)
 ];
 export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
@@ -39,7 +39,7 @@ export const VOID_HEX = {
   waterDeep: 0x0a061c, waterShallow: 0x1c1236, waveAmp: 0.15,
   ambColor: 0xcfc2ee, ambFall: -0.45, ambSway: 0.4, ambSize: 0.4, ambOpacity: 0.9,
   faunaColor: 0xcfc2ee, faunaScale: 0, faunaFlap: 0,
-  starMix: 1, whaleMix: 0, flybyMix: 0,
+  starMix: 1, whaleMix: 0, flybyMix: 0, auroraMix: 0,   // no aurora curtain in the hollow
   cloudAmount: 0, cloudLit: 0x0d0618, cloudShadow: 0x050208, atmosHeightK: 0, atmosInscatter: 0,   // no biome clouds/scatter in the hollow
 };
 
@@ -55,7 +55,7 @@ export const FLOOD_HEX = {
   waterDeep: 0x8a7cb8, waterShallow: 0xd8ccf0, waveAmp: 0.3,
   ambColor: 0xffffff, ambFall: 0, ambSway: 0.5, ambSize: 0.4, ambOpacity: 0.6,
   faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
-  starMix: 0, whaleMix: 0, flybyMix: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0, auroraMix: 0,
   cloudAmount: 0, cloudLit: 0xe8dcff, cloudShadow: 0xcfc2f2, atmosHeightK: 0, atmosInscatter: 0,
 };
 
@@ -90,7 +90,8 @@ export const HEAVEN_HEX = {
   waterDeep: 0x1a1638, waterShallow: 0x6a4850, waveAmp: 0.12,                           // HAZE-DECK that ANSWERS the blast (I2): deep stays dim violet (the broad fairness-safe rest), but the LIT wave faces warm to a rose-gold ember + a hair more churn → the detonation relights the sea's reflection column WITHOUT a full gold mirror
   ambColor: 0xffe9c0, ambFall: -0.10, ambSway: 0.45, ambSize: 0.5, ambOpacity: 0.85,    // STARDUST (the mote pool re-skinned — zero new draws): star-white-gold, weightless slow RISE
   faunaColor: 0xffe9c0, faunaScale: 0, faunaFlap: 0,
-  starMix: 1.0, whaleMix: 0, flybyMix: 0,                                               // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free)
+  starMix: 1.0, whaleMix: 0, flybyMix: 0, auroraMix: 0,                                 // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free); no aurora curtain — the detonation IS the sky-light
+
   cloudAmount: 0.5, cloudLit: 0xe89a6a, cloudShadow: 0x1c1434, atmosHeightK: 0, atmosInscatter: 0,   // ROILING DETONATION GAS: the FBM cloud band IGNITED (amount .35→.5, hotter gold-rose); unlit gas sinks into the vault
 };
 
@@ -104,7 +105,7 @@ export const GOLD_FLOOD_HEX = {
   waterDeep: 0xc0a878, waterShallow: 0xffe9bf, waveAmp: 0.4,
   ambColor: 0xffffff, ambFall: 0.2, ambSway: 0.3, ambSize: 0.45, ambOpacity: 0.7,
   faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
-  starMix: 0, whaleMix: 0, flybyMix: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0, auroraMix: 0,
   cloudAmount: 0, cloudLit: 0xfff0c8, cloudShadow: 0xc0a878, atmosHeightK: 0, atmosInscatter: 0,
 };
 
