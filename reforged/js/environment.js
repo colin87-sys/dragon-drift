@@ -620,7 +620,7 @@ const ARCHETYPES = {
     // World ratio 2·ρ·r / h ≈ 1.34·r/h → h 11–17 vs r 24–36 keeps it ≥1.8:1 wider-than-tall
     // (Fable r3 D3). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion);
     // the lean lives in the geometry.
-    place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (15 + 0.72 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },
+    place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (16 + 0.78 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },  // propclearance: ρ 0.654·sMax 1.12 → inner ≥16 (clears the ±16 gate veil; tall hero)
   },
   // EMBERFALL CALDERA — THE LOW REST + glow carrier 1 (CALDERA-BIBLE.md §4.2): a pahoehoe
   // lava-flow tongue — a low, WIDE, ropey crust of offset-stacked plates with rounded lobed
@@ -651,7 +651,7 @@ const ARCHETYPES = {
     // LOW horizontal REST: normalized yMax ~0.28 → world height h·0.28. r 10–20 WIDE, h 8–14
     // small → world ~18–34 wide × ~2.5–4.5 tall ≈ 5:1. ρ≈0.9 (wide plates); inner edge
     // |x|−ρ·r ≥ 14.5 → couple x = 14.5 + 0.92·r. Explicit tilt (hugs the route, slight roll).
-    place: (side, rnd) => { const r = 10 + rnd() * 10; return { x: side * (14.5 + 0.92 * r + rnd() * 5), h: 8 + rnd() * 6, r, tilt: side * (rnd() * 0.06 - 0.02) }; },
+    place: (side, rnd) => { const r = 10 + rnd() * 10; return { x: side * (15 + 1.05 * r + rnd() * 5), h: 8 + rnd() * 6, r, tilt: side * (rnd() * 0.06 - 0.02) }; },  // propclearance: ρ 0.944·sMax 1.06 → inner ≥14.5 (low rest)
   },
   // EMBERFALL CALDERA — THE BARE FOIL (CALDERA-BIBLE.md §4.4): an aa-clinker / breadcrust
   // rubble mound — chaotic angular jumble, NO glow, one material. The silence that makes
@@ -668,7 +668,7 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: -0.10, z: 0.30, y: 0.14, ry: 1.6 }) },                 // foot rubble, half-buried
     ], { foil: true }),
     // FOIL rubble mound: broad, ~1.6:1. ρ≈0.75. r 5–11, h 5–9 → wider than tall.
-    place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (14.5 + 0.78 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.14 - 0.05) }; },
+    place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (15.2 + 0.82 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.10 - 0.04) }; },  // propclearance: ρ 0.689·sMax 1.08 → inner ≥14.5 (foil; tilt trimmed for lean margin)
   },
   // EMBERFALL CALDERA — MID MASS + glow carrier 2 (CALDERA-BIBLE.md §4.3): a fused cinder /
   // spatter-cone cluster (2–3 squat cones, breached crater rims) with ONE sunken glowing
@@ -697,7 +697,7 @@ const ARCHETYPES = {
       { mat: 1, geo: xform(new THREE.CylinderGeometry(0.20, 0.15, 0.10, 7), { y: 0.57 }) },
     ], { foil: true }),   // foil-dark cones (Fable D1) so the throat is the ONLY bright event
     // MID mass, ~2:1. ρ≈0.62 (cluster spread). r 7–13, h 6–11. Explicit tilt.
-    place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (14.5 + 0.66 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },
+    place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (15.5 + 0.88 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },  // propclearance: ρ 0.754·sMax 1.10 → inner ≥15.5 (mid)
   },
   // EMBERFALL CALDERA — THE DISTANT MASSIF (CALDERA-BIBLE.md §4.5): the caldera RIM — a long,
   // dark, flat-topped escarpment banded with HORIZONTAL strata (distinguished from the hero's
@@ -749,7 +749,10 @@ const ARCHETYPES = {
     // RARE tall PUNCTUATION: the sanctioned tall exception, now ~2.5–3:1 (a plug, not a pin).
     // ρ≈0.75. Placed at the band EDGES (|x| ≥ 60 via the coupling) so it brackets ASHTALON's
     // stage. Explicit tilt (stands plumb; the lean is in the geometry).
-    place: (side, rnd) => { const r = 9 + rnd() * 6; return { x: side * (56 + 0.6 * r + rnd() * 10), h: 24 + rnd() * 12, r, tilt: 0 }; },
+    // Height trimmed (top ~30–43 not ~65) + pushed further out (|x| ≥ 62) so the tall spire
+    // BRACKETS the reserved lit horizon band from its EDGES instead of towering into the
+    // central third where ASHTALON's silhouette lands (Fable composition gate §3.7).
+    place: (side, rnd) => { const r = 9 + rnd() * 6; return { x: side * (62 + 0.6 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
