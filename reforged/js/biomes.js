@@ -255,9 +255,13 @@ export const BIOMES = [
     // self-luminous. The cycle's ONLY dim-DAYLIGHT biome (stars:0), the only VIOLENT sea
     // (waveAmp 0.95), the only far fog that goes PALE (rain-veil silver), the only light that CHANGES
     // over time (lightning, PR-4). Distinct from every cool/dark biome by construction: its green is a
-    // DESATURATED grey-olive TRANSMITTED through cloud (NOT Mire's emissive bottom-up teal), and
-    // saturated storm-teal 0x2fd8e8 is BANNED from the ambient palette (reserved for STORMREND's kit +
-    // momentary in-eye water glints — the biome makes the boss pop by starving its hue). Appended as
+    // DESATURATED grey-olive TRANSMITTED through cloud, and saturated storm-teal 0x2fd8e8 is BANNED
+    // from the ambient palette (reserved for STORMREND's kit + momentary in-eye water glints — the
+    // biome makes the boss pop by starving its hue). vs the amber Lumen Mire (BIOMES[4], merged
+    // #464): the shared hue is now warm GOLD, resolved oppositely — Mire is a WARM-dominant NIGHT
+    // swamp whose light is SELF-emitted by organisms + a still black-mirror; Tempest is a COOL-
+    // dominant DAY storm whose gold is a rationed ≤10% STOLEN-sunlight accent (never self-lit) over
+    // a VIOLENT sea. Field cool + warm rationed = the guard. Appended as
     // BIOMES[7], NOT yet in CYCLE — reachable only via ?biome=7&debug until the CYCLE flip (a later
     // no-op PR coordinated with the Lost Lagoon arc). PR-0 = the atmosphere substrate; the storm-carved
     // prop roster, obstacle skins, and the lightning hazard follow in their own PRs.
