@@ -786,7 +786,7 @@ export const DRAGONS = {
     // Glow-up: a COLD storm-steel cruise rim (not the default warm cream) run HOT + TIGHT so her charcoal
     // edge clears bright water (L≥130) instead of collapsing to a silhouette. rimPowerMul concentrates it
     // into a thin hot line; rimCruiseBase drives the edge brightness (P1b: 0.78 was averaged away by backlight).
-    rimCruise: 0x8bb4ff, rimCruiseBase: 1.25, rimPowerMul: 1.5,
+    rimCruise: 0x8bb4ff, rimCruiseBase: 1.25, rimPowerMul: 1.5, rimWingMul: 0.22,   // wings are flat faceted panels → the hot cruise rim washed them in a cheap chrome outline the body lacks; drop it hard
     trail: 0x7a84b8, boostTrail: 0xaab4e8,
   },
 

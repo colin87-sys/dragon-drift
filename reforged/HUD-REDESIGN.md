@@ -214,6 +214,13 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
   sealed/ashen greys, threat-yield halo, magenta telegraph chevrons off `bossCharge01()`,
   lock-pip row + `lanceRune` brand marks with `--life` drain. The Lure only re-strokes
   it to dual-stroke hairline weight (3.5px → 2px + keyline).
+- **OWNER RULING (2026-07-15, overrides any earlier reading):** the lance lock-pips
+  (banked locks, rune brand-marks, volley fuse, dwell/sealed/ashen states) are AIMING
+  information and **stay AT THE RETICLE / point of aim, within eyesight — exactly where
+  they are today**. Their POSITION and BEHAVIOR are UNCHANGED; H4 only re-strokes their
+  line weight to the EMBERSIGHT hairline grammar. **No lance/lock cells go on the Gauntlet**
+  (it stays hearts + stamina + surge only) and lock state is **never duplicated at the
+  bottom of the screen**. The DLZ column (§B.9) is the sole, flag-gated peripheral echo.
 - **THE CREANCE TETHER (H9, flag `?tether=1` — owner-taste call):** one 1px dash-gapped
   gold hairline from the gauntlet keystone to the Lure — the falconer's line, doubling
   as the flight-vector lead (this IS U10's stretch goal). Rest alpha 0.14; brightens to
@@ -223,8 +230,13 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
 ### B.9 BOSS HP + PHASES + SPELL CARDS — the MEWS PLATE (U9 executed here)
 - **DOM (the one authority):** new `js/bossBar.js` subscribed to the **existing**
   `emit('bossHit', {hp, hpMax, frac})` (boss.js:5520) + `bossStart`/`bossEnd` — no new
-  WebGL seam needed. Bottom-center, 46vw (max 420px), slotted into the collision-managed
-  boss-slot system **above** `.boss-note`'s band (style.css:248): 1px hairline housing,
+  WebGL seam needed. **TOP-CENTER under the Tape** (owner preview ruling 2026-07-15:
+  the bottom-centre band belongs to the gauntlet + boss-note telegraphs + spell card;
+  a bar there crowded them and crossed the dragon — top-anchored it sits near the boss
+  in the chase cam). Landscape `min(52vw, 460px)` at top 66px; portrait 84vw at
+  **top 112px — below the Tally's worst-case four-row depth** (score/embers/chain/skims
+  ≈ 105px), so the full-width bar is structurally immune to any score width or chip
+  count (the MARROWCOIL clipping bug). 1px hairline housing,
   5px magenta-warm fill (`transform: scaleX`), **phase notches from `def.phases[].atFrac`**
   (bossKit.js already computes them — inherit, don't invent), **drain-lag** gold chunk
   (500ms delay, 400ms drain). **Intro:** the bar **etches in stroke-by-stroke ~800ms
@@ -232,11 +244,21 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
   `formLifebars` refill = a deliberate left-to-right **re-forge shimmer** (reads "new
   bar," never "healing"); FELLED/revive beats need live-fight eyes (§E).
 - **Nameplate:** name `--fs-title` Russo One caps + epithet `--fs-micro` caps — the same
-  type ramp as the protected title card, so card→plate is one voice.
+  type ramp as the protected title card, so card→plate is one voice. **STACKED like the
+  card** (name over epithet, both centered, ellipsis safety net) — the inline nowrap
+  pair overflowed the plate on long epithets and rammed the Tally; the longest roster
+  epithet (THRUMSWARM, 34ch) fits untruncated at both plate widths.
+- **The telegraph lane (`.boss-note`)** is **top-anchored below the gauntlet's
+  multiplier slug** (landscape top 77%, portrait 70.5%) and sized in **vmin** — the old
+  bottom-28% anchor grew the text upward across the ×N.NN slug (portrait) and, at 5.6vw
+  ≈ 40px, across the whole gauntlet cluster (landscape). The **spell card** sits at
+  landscape bottom 24% / portrait bottom 15% so card and telegraph never share a band.
 - **WebGL over-model sliver:** retired to a locator pip (never double-reported).
-- **DLZ column (flagged, late):** a small vertical strip at the bar's right end
-  summarizing `lockHudState()` — banked pips/cap as cells, the volley fuse as a filling
-  caret, ashen greys it. The at-gaze pip row stays primary; cut this first if busy.
+- **DLZ column (flagged, late — OWNER RULING: OFF by default):** a small vertical strip
+  at the bar's right end summarizing `lockHudState()` — banked pips/cap as cells, ashen
+  greys it. It is **STRICTLY behind `?dlz=1`, OFF by default, built minimally** — a
+  "cut-first" luxury the owner is unlikely to use; it must never render without the flag.
+  The at-gaze pip row (§B.8) stays the primary, authoritative lock read.
 - **Spell card:** kept lower-right (protected behavior/animations) but re-chromed —
   slug + magenta left hairline + caret timer, folding the sixth panel language into the
   grammar. **Warn:** `⚠` emoji → stroked SVG triangle (U7).
@@ -312,14 +334,20 @@ nothing informational under the thumb arcs.
 
 - **Landscape (play-primary):** as specced. Gauntlet `min(38vw, 170px)` at the shipped
   arc anchor (~64% down, center); Tape 160px top-center; Tally right-aligned column;
-  Bell at 24%; Mews plate 46vw above `.boss-note`'s band; damage-arc ring at gauntlet
-  radius ×0.75.
+  Bell at 24% (short-landscape ≤430px: 15%, **and in `hud-boss` it drops below the Mews
+  bar to ~120px** — the plate owns 66→~115px there and toasts never cross chrome text);
+  Mews plate `min(52vw, 460px)` top-center under the Tape (stacked nameplate + bar,
+  66→~112px); boss-note telegraph lane top 77% (below the multiplier), spell card
+  bottom 24%; damage-arc ring at gauntlet radius ×0.75.
 - **Portrait:** the dragon sits lower and larger — chrome retreats further. Gauntlet
   horns fold **inward** (LIFE left / SURGE right at the same y, cluster ≤55vw), and the
   cluster rises clear of the bottom-20% thumb zone; Tape narrows to 120px and drops the
-  tick strip (numeral + PB caret only); Tally compresses to two rows (score+chain /
-  embers+skims); Bell rises to ~20%; Mews plate 82vw with the nameplate above the bar;
-  damage-arc radius ~110px; toasts one-line ellipsized; `--hud-scale` nudges to 0.92.
+  tick strip (numeral + PB caret only); Tally stays one right-aligned column (worst
+  case four rows ≈ 105px deep — the Mews plate slots BELOW it, top 112px, 84vw); Bell
+  rises to ~20% (clears the bar ending ~158px); boss-note lane top 70.5%, spell card
+  bottom 15%; damage-arc radius ~110px; toasts one-line ellipsized; `--hud-scale`
+  nudges to 0.92. Known accepted edge: `--hud-scale` ≥ ~1.25 can re-introduce a
+  Tally↔plate graze (player opt-in slider).
 
 ---
 
@@ -337,9 +365,9 @@ the overhaul plan's **Phase 3** content.
 | **H1** | M | **State machine + relevance + the Bell.** `hud-cruise/combat/boss` body classes; the ≤4Hz relevance ticker + `{show-when, ghost-to, return}` table; the single queued toast lane absorbing popup/popup2/feat-toast/milestone/hint | uishots: cruise-ghosted vs active states; toast queue coalescing headless test |
 | **H2** | M | **The Tape + the Tally.** Distance instrument + PB caret; score demoted to 20px slug w/ tier-hairline; chain chip + underline cells; embers/skims restyle (first-increment rule); race caret strip (navy race-bar dies); **SCOREKEEPER** toggle | uishots: PB-approach state; arm's-length legibility over Frozen Reach frame (human) |
 | **H3** | M | **The Gauntlet.** Arc re-stroke + LIFE + SURGE horns in one SVG; multiplier slug; damage-direction arcs (+ impact-side param at the collision site); denial shake; fever drain-timer; VIGIL critical perimeter + grading arbiter; **IMMERSIVE toggle** (rides the state classes) | uishots: full/damaged/critical/fever/sealed states; on-device 60fps `?debug=perf`; grading arbiter vs fever lift eyeballed live |
-| **H4** | M | **The Lure (U10).** lens2 brackets extended to ring/gate; `.rsq` pair + ring-focus + WebGL ring glow retired; shrink-snap grammar; U11 search-tick→lock-tone; dual-stroke re-stroke of boss skin | `tricount` + `tiershots` (WebGL ring retirement); `?lens` A/B kept for review |
-| **H5** | M | **The Mews plate (U9).** `bossBar.js` on `bossHit`; phase notches; drain-lag; etch-in intro synced to title card; re-forge shimmer for `formLifebars`; WebGL sliver → locator pip; spell-card re-chrome + SVG warn triangle; off-screen chevrons; DLZ column behind `?dlz=1` | live-fight eyes on formLifebars + FELLED/revive (audit risk #3); tricount/tiershots (sliver retirement); uishots boss state |
-| **H6** | S | **World echoes + settings matrix.** Ember swallow; PB light-seam; overtake trail flash; skyLuma bright-biome keyline class; wingbeat-sync garnish; per-element override UI (always/dynamic/off) in settings | tiershots (billboard + coreGlow writes); settings matrix persists across reload (headless) |
+| **H4 ✅ BUILT** | M | **The Lure (U10).** lens2 brackets extended to ring/gate; `.rsq` pair + ring-focus + WebGL ring glow retired; shrink-snap grammar; U11 search-tick→lock-tone; dual-stroke re-stroke of boss skin | `tricount` + `tiershots` (WebGL ring retirement); `?lens` A/B kept for review |
+| **H5 ✅ BUILT** | M | **The Mews plate (U9).** `bossBar.js` on `bossHit`; phase notches; drain-lag; etch-in intro synced to title card; re-forge shimmer for `formLifebars`; WebGL sliver → locator pip; spell-card re-chrome + SVG warn triangle; off-screen chevrons; DLZ column behind `?dlz=1` | live-fight eyes on formLifebars + FELLED/revive (audit risk #3); tricount/tiershots (sliver retirement); uishots boss state |
+| **H6 ✅ BUILT** | S | **World echoes + settings matrix.** Ember swallow; PB light-seam; overtake trail flash; skyLuma bright-biome keyline class; wingbeat-sync garnish; per-element override UI (always/dynamic/off) in settings | tiershots (billboard + coreGlow writes); settings matrix persists across reload (headless) |
 | **H7** | L | **The Living Gauge I** — flag `?vitals=1` → settings toggle. `bondChannel.setVitals()` seam; wing-charge stamina (bucket version; span-gradient `onBeforeCompile` stays a sub-flag); body-light health (clamp ≥0.75) + ember-bleed; 1-heart coreGlow heartbeat; chrome rest-ghosts deepen one step **only when flag ON** | tricount + tiershots across roster tiers (incl. Frozen Reach / bright + dark biomes); Fable critic per checkpoint (DRAGON-DESIGN process); on-device 60fps; flag-OFF pixel-identical |
 | **H8** | M | **The Living Gauge II** — same flag family. Spine-ignition surge nodes (per-recipe markers + tail-chain→coreGlow fallback contract); trail-as-combo tint (lerp cap 0.5); +120ms echo wiring | tiershots per hero dragon as nodes are authored; roster fallback proven on an unauthored dragon |
 | **H9** | S | **Signature garnish** — `?tether=1` Creance tether (boss-hidden, first-cut candidate); graze wingtip spark (side-data permitting, else tail shimmer); hit-side wing flare **only if** per-side materials are free | owner-taste review on PR preview; tricount if wing material split attempted |
@@ -357,7 +385,7 @@ it — they are flagged accretions on a complete DOM HUD.
 |---|---|---|
 | 1 | `emit('bossHit', {hp,hpMax,frac,kind})` **already fires** (boss.js:5520) | Fact (verified). `bossBar.js` subscribes today; the overhaul's "add a getter" step is optional |
 | 2 | `formLifebars` refill + FELLED/revive beats vs the DOM bar (boss.js:2160/3973/2522+) | Known audit risk. Re-forge shimmer specced (never reads as healing); **live-fight eyes required at H5 gate** |
-| 3 | Bottom-center contention: `.boss-note` at bottom 28%, flow crest, surge row | Gauntlet keeps the shipped arc anchor; Mews plate slots above `.boss-note` in the collision-managed slot system; surge lives *in* the gauntlet so nothing new competes |
+| 3 | Band contention, both ends: TOP (Tape + Tally + Mews plate) and BOTTOM (gauntlet + multiplier + `.boss-note` + spell card) | Resolved by the 2026-07-15 worst-case audit: plate below the Tally's worst-case depth in portrait (top 112px) with a STACKED nameplate; `.boss-note` top-anchored below the multiplier (77% / 70.5%) in vmin sizes; spell card landscape bottom 24%; short-landscape boss Bell drops below the bar. Verified with forced worst-case captures (`hud-worstcase` audit pattern) in both orientations |
 | 4 | Wing mirror-rigging shares one wing material → per-side flare / per-wing segments costly | Flare is stretch-only (cut freely); wing-charge uses the **bucket** glow writes (side-agnostic) first; span-gradient uniform variant behind a sub-flag |
 | 5 | Surge-node per-dragon authoring debt | Shape-agnostic fallback contract (dorsal markers → tail-chain → coreGlow steps) makes H8 roster-safe on day one; author heroes incrementally |
 | 6 | Body-light dim can crush value tiers on dark biomes | Emissive-floor multiplier clamped ≥0.75; tiershots on Frozen Reach + darkest biome at H7 gate |

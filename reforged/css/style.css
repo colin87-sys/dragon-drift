@@ -166,9 +166,8 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .hud-top-center,
 #hud.cine-hold .hud-top-right,
 #hud.cine-hold .stamina-arc,
-#hud.cine-hold .surge-min,
 #hud.cine-hold .flow-crest,
-#hud.cine-hold .milestone-banner,
+#hud.cine-hold .bell,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
 /* LETTERBOX (CP2-A, EMBERTIDE's sky-crush re-entrance beat): two bars that ease in
@@ -184,12 +183,17 @@ body.app-loaded > canvas { opacity: 1; }
 
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
 /* ============ HUD CORNER LAYOUT (WS6) ============ */
+/* H3: every anchor honors the U14 sliders — transform: scale(var(--hud-scale))
+   pinned to its own corner, opacity: var(--hud-alpha) (children's ghost floors
+   multiply through naturally). */
 .hud-top-left {
   position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 5;
+  transform: scale(var(--hud-scale)); transform-origin: top left; opacity: var(--hud-alpha);
 }
 .hud-top-center {
   position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%;
-  transform: translateX(-50%); text-align: center; z-index: 5; pointer-events: none;
+  transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: top center;
+  opacity: var(--hud-alpha); text-align: center; z-index: 5; pointer-events: none;
 }
 .hud-bottom-left {
   position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 14px; z-index: 5;
@@ -208,16 +212,25 @@ body.app-loaded > canvas { opacity: 1; }
 .bar-fill.health  { background: linear-gradient(90deg, #ff4d3d, #ffa53d, #ffd24d); box-shadow: 0 0 8px rgba(255,140,60,0.55); width: 100%; }
 .bar-fill.stamina { background: linear-gradient(90deg, #2f9aff, #3fd8e8, #7fffe0); box-shadow: 0 0 8px rgba(60,210,255,0.55); width: 100%; }
 .bar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
-/* ============ SCORE / COMBO (top-right) ============ */
-.hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right; }
-.score { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 40px;
-  font-weight: 400; letter-spacing: 1px; transform-origin: right center;
-  text-shadow: 0 0 18px rgba(255, 190, 90, 0.75), 0 2px 5px rgba(0,0,0,0.6); transition: transform 0.08s, color 0.3s; }
+/* ============ EMBERSIGHT H2 — THE TALLY (top-right column, §B.4) ============ */
+.hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right;
+  transform: scale(var(--hud-scale)); transform-origin: top right; opacity: var(--hud-alpha); }
+/* THE SLUG (§A Law 2): every numeral sits on a smoked lozenge — never glow-stacks. */
+.slug { display: inline-block; padding: 2px 9px 3px; border-radius: var(--r-s);
+  background: rgba(12,8,6,0.28); border: 1px solid var(--rf-stroke);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+/* Score demoted to --fs-title tabular in a slug; the 40px triple glow is dead.
+   The combo tier warm-up survives as the SLUG'S HAIRLINE colour (data-tier). */
+.score { font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-title); line-height: 1.25;
+  font-weight: 400; letter-spacing: 0.03em; transform-origin: right center;
+  color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  transition: transform 0.08s, color 0.3s, border-color 0.3s, opacity var(--t-micro) var(--ease-out); }
 .score.boost-pulse { animation: score-pulse 0.18s ease-out; }
-.score.fever { color: #ffb8ff; text-shadow: 0 0 22px rgba(255,120,255,0.9), 0 2px 4px rgba(0,0,0,0.5); }
-.score[data-tier="2"]:not(.fever) { color: #fff3d8; text-shadow: 0 0 18px rgba(255,210,110,0.7), 0 2px 4px rgba(0,0,0,0.5); }
-.score[data-tier="3"]:not(.fever) { color: #ffe9c2; text-shadow: 0 0 20px rgba(255,170,70,0.85), 0 2px 4px rgba(0,0,0,0.5); }
-.score[data-tier="4"]:not(.fever) { color: #ffdcae; text-shadow: 0 0 22px rgba(255,130,60,0.95), 0 2px 4px rgba(0,0,0,0.5); }
+.score[data-tier="2"]:not(.fever) { border-color: rgba(255,210,110,0.55); }
+.score[data-tier="3"]:not(.fever) { border-color: rgba(255,170,70,0.72); }
+.score[data-tier="4"]:not(.fever) { border-color: rgba(255,130,60,0.88); }
+.score.fever { color: #ffb8ff; border-color: rgba(255,136,255,0.8); }
 @keyframes score-pulse { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
 
 .combo { font-weight: 700; letter-spacing: 1px; margin-top: 2px;
@@ -235,18 +248,28 @@ body.app-loaded > canvas { opacity: 1; }
 .combo-x.combo-pop { animation: combo-pop 0.3s ease-out; }
 @keyframes combo-pop { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }
 
-/* Chain counter: consecutive rings/windows — visible from 2, pops per link */
-.chain { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #ffcaa0;
-  margin-top: 4px; opacity: 0; transform: translateY(-4px);
+/* Chain chip (H2 §B.4): gold, appears from 2, pops per link, and a hairline
+   underline fills in CELLS OF FIVE. A live chain is a decision window — it is
+   exempt from every ghost rule by construction (it only exists while live). */
+.chain { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #ffd86a;
+  margin-top: 5px; opacity: 0; transform: translateY(-4px);
   transition: opacity 0.25s, transform 0.25s;
-  text-shadow: 0 0 10px rgba(255, 150, 80, 0.6); }
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 .chain.on { opacity: 1; transform: translateY(0); }
-.chain .chain-n { font-size: 15px; }
-.chain .chain-word { font-size: 8px; letter-spacing: 2.5px; opacity: 0.75; margin-left: 5px; vertical-align: 1px; }
+.chain .chain-n { font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 15px; font-weight: 400; }
+.chain .chain-word { font-size: 8px; letter-spacing: 0.22em; opacity: 0.75; margin-left: 5px; vertical-align: 1px; }
+/* the cells-of-5 underline: five hairline segments, filled per link */
+.chain .chain-cells { display: flex; gap: 3px; justify-content: flex-end; margin-top: 2px; }
+.chain .chain-cells i { width: 9px; height: 2px; border-radius: 1px;
+  background: rgba(255,216,106,0.22); box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  transition: background 0.15s; }
+.chain .chain-cells i.f { background: #ffd86a; }
 .chain.chain-pop { animation: chain-pop 0.28s ease-out; }
 @keyframes chain-pop { 0%{transform:scale(1)} 45%{transform:scale(1.3)} 100%{transform:scale(1)} }
-/* Live GRAZE counter (boss only) — graze-green, reuses the .chain layout + pop. */
-.graze-hud { color: #9dffea; text-shadow: 0 0 10px rgba(120, 255, 220, 0.6); }
+/* Live GRAZE counter (boss only) — cyan role, reuses the .chain layout + pop. */
+.graze-hud { color: #9dffea; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.graze-hud .chain-cells { display: none; }
 
 /* Boss incoming warning + directional danger glow (telegraph before it arrives) */
 .boss-warn { position: fixed; top: 30%; left: 0; right: 0; text-align: center;
@@ -326,24 +349,32 @@ body[data-qtier="2"] .hud-sew { display: none; }
 /* Boss callout slot — ONE bottom-centre line, shows a single queued message at a
    time (never overlapping) and doubles as the persistent SURGE-READY prompt.
    Sits low where the eye rests during a fight, clear of the top HUD. */
-.boss-note { position: fixed; left: 0; right: 0; bottom: 28%; text-align: center;
+/* TOP-ANCHORED below the gauntlet's multiplier slug (worst-case audit 2026-07-15):
+   the old bottom:28% anchor grew the text UPWARD to the 72% line, which painted
+   "REFLECT ANYTHING" straight across the ×N.NN multiplier (portrait) and across the
+   whole gauntlet cluster (landscape). Landscape sits at 77% (clears the multiplier
+   at ~76% and the raised spell card); portrait override below. */
+.boss-note { position: fixed; left: 0; right: 0; top: 77%; text-align: center;
   pointer-events: none; opacity: 0; z-index: 45; transition: opacity 0.22s ease; }
 /* Keep the (often two-line, wide) tutorial subtitle from sprawling under the
    lower-right spell card — bounded + centred so the two never read as one clutter. */
 .boss-note .bn-main, .boss-note .bn-sub, .boss-note .bn-ready { max-width: 88vw; margin-left: auto; margin-right: auto; }
 .boss-note.show { opacity: 1; }
-.boss-note .bn-main { display: block;
-  font: 900 clamp(22px,6.5vw,44px)/1.05 'Russo One', system-ui, sans-serif;
-  letter-spacing: 0.06em; color: #ffd86a;
+/* vmin sizing (not vw): on a landscape phone 5.6vw was a 40px skyscraper that
+   swallowed the gauntlet band — vmin keeps the telegraph the same physical size
+   in both orientations. */
+.boss-note .bn-main { display: block; white-space: nowrap;
+  font: 900 clamp(18px,5.6vmin,40px)/1.05 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.05em; color: #ffd86a;
   text-shadow: 0 0 20px rgba(255,190,70,0.85), 0 2px 10px #000; }
 .boss-note .bn-sub { display: block; margin-top: 5px;
-  font: 700 clamp(12px,3.4vw,20px)/1.2 'Russo One', system-ui, sans-serif;
+  font: 700 clamp(11px,3.4vmin,20px)/1.2 'Russo One', system-ui, sans-serif;
   letter-spacing: 0.14em; color: #ffe9b8; text-shadow: 0 2px 8px #000; }
 .boss-note[data-tone="fever"] .bn-main { color: #ff8fe6; text-shadow: 0 0 22px rgba(255,90,220,0.9), 0 2px 10px #000; }
 .boss-note[data-tone="phase"] .bn-main { color: #d59bff; text-shadow: 0 0 22px rgba(190,110,255,0.9), 0 2px 10px #000; }
-.boss-note .bn-ready { display: block;
-  font: 800 clamp(16px,4.6vw,30px)/1 'Russo One', system-ui, sans-serif;
-  letter-spacing: 0.12em; color: #ff8fe6;
+.boss-note .bn-ready { display: block; white-space: nowrap;
+  font: 800 clamp(14px,4.3vmin,28px)/1 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.1em; color: #ff8fe6;
   text-shadow: 0 0 18px rgba(255,90,220,0.9), 0 2px 12px #000; }
 .boss-note.show:not(.ready) { animation: boss-note-anim 0.4s cubic-bezier(.2,.9,.3,1.2); }
 .boss-note.ready { animation: surge-ready-throb 0.7s ease-in-out infinite; }
@@ -392,12 +423,20 @@ body[data-qtier="2"] .hud-sew { display: none; }
    lower-RIGHT so it never collides with the lower-third reveal/felled cards or
    the bottom-centre boss-note. Non-blocking. Slides in, holds, flashes its
    capture/survive result. */
-.boss-card { position: fixed; right: 14px; bottom: 15%; z-index: 41; pointer-events: none;
-  min-width: 156px; max-width: 46vw; padding: 8px 12px; text-align: right;
-  border-right: 3px solid var(--bc-accent, #fff);
-  background: linear-gradient(90deg, rgba(8,6,14,0) 0%, rgba(8,6,14,0.62) 60%);
+/* EMBERSIGHT H5 re-chrome (§B.9): folded into the grammar — a smoked slug body, a
+   role-locked MAGENTA left hairline (boss set-pieces = danger), and a caret timer.
+   The protected animations (bc-in / bc-capture / bc-survive / the timer tick) and the
+   per-boss accent glow are untouched — only the skin changes. */
+/* Landscape sits at bottom 24% (still the lower-right quadrant): at 15% on a
+   390px-tall frame the card's box crossed the telegraph lane below the gauntlet
+   (worst-case audit) — 24% clears the top-anchored boss-note; portrait keeps 15%. */
+.boss-card { position: fixed; right: 14px; bottom: 24%; z-index: 41; pointer-events: none;
+  min-width: 156px; max-width: 46vw; padding: 8px 12px 8px 14px; text-align: right;
+  border-left: 2px solid rgba(255, 43, 106, 0.92);
+  border-radius: var(--r-s);
+  background: linear-gradient(90deg, rgba(10,7,12,0.5) 0%, rgba(8,6,14,0.62) 100%);
   opacity: 0; transform: translateX(18px);
-  box-shadow: inset -18px 0 22px -18px var(--bc-accent, #fff); }
+  box-shadow: -1px 0 0 rgba(0,0,0,0.6), inset 12px 0 20px -16px rgba(255,43,106,0.6); }
 .boss-card.show { opacity: 1; transform: translateX(0); transition: opacity .28s ease, transform .28s ease; }
 .bc-label { font: 800 10px/1 'Russo One', system-ui, sans-serif; letter-spacing: 0.26em;
   color: var(--bc-accent, #fff); opacity: 0.9; text-shadow: 0 0 8px var(--bc-accent, #fff); }
@@ -407,6 +446,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
   letter-spacing: 0.06em; color: #fff; text-shadow: 0 0 12px var(--bc-accent, #fff), 0 2px 8px #000; }
 .bc-timer { margin-top: 3px; font: 800 13px/1 'Russo One', system-ui, sans-serif; letter-spacing: 0.1em;
   color: #ffe9b8; opacity: 0.85; text-shadow: 0 2px 8px #000; }
+/* the caret timer: a small magenta count-down caret leads the readout */
+.bc-timer::before { content: ''; display: inline-block; width: 0; height: 0; margin-right: 5px;
+  vertical-align: 1px; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  border-right: 5px solid rgba(255,43,106,0.9); }
 .bc-timer[data-low="1"] { color: #ff6a6a; animation: bc-tick 0.5s ease-in-out infinite; }
 @keyframes bc-tick { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 .boss-card.bc-in { animation: bc-in 0.32s ease-out; }
@@ -416,10 +459,41 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .boss-card.bc-survive { animation: bc-survive 0.5s ease-out; }
 @keyframes bc-survive { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-.dist { font-size: 13px; letter-spacing: 2px; opacity: 0.75; margin-top: 3px; }
-.best { font-size: 11px; letter-spacing: 2px; opacity: 0.6; margin-top: 4px; }
-.embers-hud { font-size: 13px; letter-spacing: 1px; color: #ffc050; margin-top: 5px;
-  text-shadow: 0 0 10px rgba(255,170,50,0.6); }
+/* ===== EMBERSIGHT H2 — THE TAPE (top-center, §B.6) =====
+   The one permanent readout: a 160px hairline (portrait 120px, tick strip
+   dropped) with ticks scrolling under a fixed center caret, the numeral at
+   --fs-title in a slug, and the gold ★ PB caret sliding in within ±500m. */
+.tape { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tape-strip { position: relative; width: 160px; height: 12px; overflow: hidden;
+  /* dual-stroke hairline: warm line + 1px dark shadow (bright-biome survival) */
+  border-bottom: 1px solid var(--rf-stroke-hi);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.55); }
+.tape-ticks { position: absolute; left: -20px; bottom: 0; width: 220px; height: 8px;
+  stroke: rgba(255,219,150,0.34); stroke-width: 1;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5)); }
+.tape-caret { position: absolute; left: 50%; top: 0; width: 0; height: 0; margin-left: -4px;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--rf-ink); filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+/* THE PB CARET: gold, ★-topped, rides the tape at the record's position
+   (translateX from JS, ≤4Hz); passed = pinned center for the rest of the run. */
+.tape-pb { position: absolute; left: 50%; bottom: 0; width: 0; height: 0;
+  margin-left: -1px; opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
+  color: #ffd86a; }
+.tape-pb::before { content: ''; position: absolute; left: 0; bottom: 0; width: 2px; height: 7px;
+  background: #ffd86a; box-shadow: 0 1px 0 rgba(0,0,0,0.55); }
+.tape-pb svg { position: absolute; left: -3.5px; bottom: 7px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+.tape-pb.on { opacity: 0.95; }
+.tape-pb.passed { opacity: 1; }
+.tape-flash .tape-strip { animation: tape-flash 0.7s ease-out; }
+@keyframes tape-flash { 0% { filter: brightness(2.4) drop-shadow(0 0 8px rgba(255,216,106,0.9)); }
+  100% { filter: brightness(1); } }
+.dist { font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-title); line-height: 1.25; letter-spacing: 0.03em;
+  color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.embers-hud { font-size: var(--fs-label); letter-spacing: 0.06em; color: #ffc050; margin-top: 5px;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.embers-hud svg { vertical-align: -2px; margin-right: 1px; }
 
 /* ============ MINIMAL VITALS (beauty-first) ============
    Health = quiet hearts (top-left). Stamina = an arc cradling the dragon.
@@ -427,30 +501,46 @@ body[data-qtier="2"] .hud-sew { display: none; }
 
 /* These vitals live only during a run — hide them whenever a menu/screen is up */
 #hud:has(#screen.visible) .stamina-arc,
-#hud:has(#screen.visible) .surge-min,
-#hud:has(#screen.visible) .flow-crest,
-#hud:has(#screen.visible) .health-hearts { opacity: 0 !important; pointer-events: none; }
+#hud:has(#screen.visible) .flow-crest { opacity: 0 !important; pointer-events: none; }
 
-/* hud-top-left now stacks the pause button + the hearts */
 .hud-top-left { display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
-.health-hearts { display: flex; gap: 5px; padding-left: 5px; }
-.health-hearts span { font-size: 15px; line-height: 1; color: rgba(255,160,150,0.22);
-  transition: color 0.2s, filter 0.2s; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.75)); }
-.health-hearts span::before { content: "\2665"; }
-.health-hearts span.full { color: #ff7a6b;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(255,90,80,0.45)); }
+
+/* ===== EMBERSIGHT H1 — the relevance table (HUD-REDESIGN §A Law 4) =====
+   Every element declares its rest state here; hudState.js only writes classes.
+   Ghost floor is 0.30 (never the old 0.18 dust); "hidden" = opacity 0, the
+   element stays for layout. Down = --t-ui (graceful); return = the base rule's
+   --t-micro (≤150ms — transitions read the TARGET state's timing). */
+.health-hearts { transition: opacity var(--t-micro) var(--ease-out); }
+.health-hearts.rest { opacity: 0; transition: opacity var(--t-ui) var(--ease-out); }
+.score.rest { opacity: 0.30;
+  transition: transform 0.08s, color 0.3s, opacity var(--t-ui) var(--ease-out); }
+.g-arc.rest { opacity: 0.30; transition: opacity var(--t-ui) var(--ease-out); }
+.gauntlet-surge.rest { opacity: 0.30; transition: opacity var(--t-ui) var(--ease-out); }
+/* the ≤150ms return pulse on a value change (damage/heal/earn) */
+.hud-flash { animation: hud-flash 0.3s var(--ease-spring); }
+.health-hearts.hud-flash { transform-origin: left top; }
+@keyframes hud-flash { 0% { transform: scale(1.14); } 100% { transform: scale(1); } }
+/* SCOREKEEPER (§F): pins score + distance at full alpha, defeats the ghosts. */
+body.hud-scorekeeper .score.rest { opacity: 1; }
 
 /* Stamina arc — a compact bar just under the dragon, ~body-width (not wings),
    with a constant thickness (non-scaling stroke) so narrowing it never thins
    the line. Whispers the info; never fights the scene. */
-.stamina-arc { position: absolute; left: 50%; top: 64%; transform: translate(-50%,-50%);
-  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9;
-  transition: opacity 0.6s ease, transform 0.6s ease; }
+.stamina-arc { position: absolute; left: 50%; top: 64%;
+  transform: translate(-50%,-50%) scale(var(--hud-scale));
+  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none;
+  opacity: calc(0.9 * var(--hud-alpha)); }
+/* the arc wrapper: the instrument that rests/seals/shakes independently of
+   the LIFE + SURGE horns sharing the cluster (H3) */
+.g-arc { position: absolute; inset: 0;
+  /* H1: return from a rest-ghost in ≤150ms (the base rule is the return path) */
+  transition: opacity var(--t-micro) var(--ease-out); }
+.g-arc > svg { width: 100%; height: 100%; overflow: visible; }
 /* During a boss, boost is SEALED (speed locked / unlimited). Rather than vanish —
    which let the second verb die unnoticed — the bar CHAINS + dims so the seal is
-   legible, then restores on boss exit. (Kept the fade+shrink easing for grace.) */
-.stamina-arc.boss-hidden { opacity: 0; transform: translate(-50%,-50%) scale(0.82); }
-.stamina-arc.sealed { opacity: 0.32; transform: translate(-50%,-50%) scale(0.9); filter: saturate(0.5); }
+   legible, then restores on boss exit. Scoped to the ARC: the horns stay lit. */
+.stamina-arc.sealed .g-arc { opacity: 0.32; filter: saturate(0.5);
+  transition: opacity 0.6s ease; }
 /* The chain overlay: three interlinked rings, centred over the arc. Visible only
    while sealed; monochrome (no additive/emoji), whispers like the rest of the bar. */
 .stamina-seal { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%);
@@ -468,7 +558,6 @@ body[data-qtier="2"] .hud-sew { display: none; }
   18%, 62% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-1px); } }
 .stamina-arc svg.seal-chain { width: 30px; height: 12px; overflow: visible; }
-.stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
 /* Each of the 3 cells is its OWN arc with a real gap to its neighbour, so the bar
    always reads as 3 notches (no dash-skip math to merge or drop a segment). The dim
    always-on track shows the empty slots. */
@@ -498,7 +587,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
   bottom: calc(max(clamp(46px, 9vh, 108px), env(safe-area-inset-bottom, 0px) + 38px) + 44px);
   transform: translateX(-50%); width: 116px; height: 62px; z-index: 5; pointer-events: none;
   opacity: 0; display: none; transition: opacity var(--t-ui) var(--ease-out); }
-.flow-crest.on { display: block; opacity: 1; }
+.flow-crest.on { display: block; opacity: var(--hud-alpha); }
 .flow-crest svg { width: 100%; height: 100%; overflow: visible; }
 .fc-trk { fill: none; stroke: rgba(90,150,210,0.28); stroke-width: 5; stroke-linecap: butt;
   vector-effect: non-scaling-stroke; }
@@ -565,110 +654,303 @@ body[data-qtier="2"] .hud-sew { display: none; }
   .fc-ghost { opacity: 0 !important; }
 }
 
-/* Surge — a bare gem row + quiet multiplier, centred low */
-.surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);
-  transform: translateX(-50%); z-index: 5; pointer-events: none;
-  display: flex; flex-direction: column; align-items: center; gap: 6px; }
-/* empty gems stay visible (the "rings to go" gauge); multiplier fades in only
-   once you're actually building a combo, so ×1.00 never sits there as noise */
-.surge-x { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 14px;
-  color: #ffd9ac; opacity: 0; transition: opacity 0.25s; letter-spacing: 1px; line-height: 1;
-  text-shadow: 0 0 10px rgba(255,160,70,0.6), 0 1px 3px rgba(0,0,0,0.7); }
-.surge-min.active .surge-x { opacity: 0.92; }
-.surge-min[data-tier="3"] .surge-x { color: #ffc070; }
-.surge-min[data-tier="4"] .surge-x { color: #ff9a5a; }
-.surge-min[data-tier="5"] .surge-x { color: #fff; }
-.surge-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
-.surge-min.fever .surge-x { animation: gem-blaze 0.9s ease-in-out infinite; color: #fff; }
+/* ===== EMBERSIGHT H3 — THE GAUNTLET (§B.1–B.3, §B.10) =====
+   One instrument: the 3-cell arc (geometry untouched) + LIFE pips on the left
+   horn + SURGE cells on the right + the multiplier slug under the keystone +
+   four damage-direction arcs on a ring outside. Grammar: hairline weights,
+   dual-stroke keylines, unlit 0.35 floors — the 0.18 sensor dust is dead. */
 
-/* gem row: pips light as you chain (this IS the "rings to go" readout) */
-.surge-gems { display: flex; gap: 6px; }
-.surge-gems i { width: 11px; height: 11px; clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
-  background: rgba(255,210,150,0.18); box-shadow: inset 0 0 0 1px rgba(255,210,150,0.3);
-  transition: background 0.15s, box-shadow 0.15s; }
-.surge-gems i.lit { background: linear-gradient(160deg,#ffe6a6,#ff8a3c);
-  box-shadow: 0 0 7px rgba(255,150,80,0.95), 0 0 2px rgba(255,225,160,0.9); }
-.surge-min.fever .surge-gems i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
-.surge-min.fever .surge-gems i:nth-child(2n).lit { animation-delay: 0.25s; }
-@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.55)} }
-.surge-gems i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
+/* LEFT horn — LIFE pips (stroked heraldic lozenges; ♥ text glyphs died).
+   The pips CURVE up-and-outward from the arc's left tip — continuing the
+   smile's tangent, so the horn reads as one instrument, not an antenna.
+   Static per-index offsets (never animated — rule (d) safe); gem/pip pops
+   keep their transform animations untouched. */
+.gauntlet-life { position: absolute; left: 0; bottom: 76%; width: 0; height: 0;
+  transition: opacity var(--t-micro) var(--ease-out); }
+.gauntlet-life span { position: absolute; left: -8px; bottom: 0;
+  width: 12px; height: 14px; line-height: 0; }
+.gauntlet-life span:nth-child(2) { left: -13px; bottom: 13px; }
+.gauntlet-life span:nth-child(3) { left: -19px; bottom: 26px; }
+.gauntlet-life span:nth-child(4) { left: -26px; bottom: 39px; }
+.gauntlet-life span:nth-child(5) { left: -34px; bottom: 52px; }
+.gauntlet-life .pip-o { fill: none; stroke: rgba(255,224,186,0.35); stroke-width: 1.4;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+.gauntlet-life .pip-i { fill: rgba(253,243,228,0); transition: fill var(--t-micro) var(--ease-out); }
+.gauntlet-life span.full .pip-o { stroke: rgba(255,238,212,0.9); }
+.gauntlet-life span.full .pip-i { fill: #fdf3e4;
+  filter: drop-shadow(0 0 3px rgba(255,220,170,0.55)); }
+/* damage: the lost pip cracks + gutters (spring 1.3→1, §B.1) */
+.gauntlet-life span.pip-lost { animation: pip-lost 0.4s var(--ease-spring); }
+@keyframes pip-lost {
+  0%   { transform: scale(1.3) rotate(10deg); filter: brightness(2); }
+  55%  { transform: scale(0.92) rotate(-4deg); }
+  100% { transform: scale(1) rotate(0deg); filter: brightness(1); } }
+.gauntlet-life span.pip-gain { animation: pip-gain 0.4s var(--ease-spring); }
+@keyframes pip-gain { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+/* LAST HEART: the pip PINS (hudState never rests a non-full row) + magenta
+   pulse 1.2s; a 2px danger hairline creeps along the whole gauntlet arc. */
+body.hud-critical .gauntlet-life { opacity: 1 !important; }
+body.hud-critical .gauntlet-life span.full .pip-o { stroke: var(--tone-danger); }
+body.hud-critical .gauntlet-life span.full .pip-i { fill: var(--tone-danger); }
+body.hud-critical .gauntlet-life span.full { animation: pip-crit 1.2s ease-in-out infinite; }
+@keyframes pip-crit { 0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.6); transform: scale(1.12); } }
+.arc-danger { fill: none; stroke: var(--tone-danger); stroke-width: 2;
+  vector-effect: non-scaling-stroke; stroke-dasharray: 100; stroke-dashoffset: 100;
+  opacity: 0; }
+body.hud-critical .arc-danger { opacity: 0.85;
+  animation: danger-creep 2.2s ease-in-out infinite; }
+@keyframes danger-creep { 0% { stroke-dashoffset: 100; } 45%, 70% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; } }
+
+/* RIGHT horn — SURGE cells (11px stroked diamonds; unlit 0.35 + keyline).
+   Mirrors the LIFE curve: cells climb the arc's right tangent (feverThreshold
+   can be 5 or 8 — the curve keeps a tall meter reading as a horn). */
+.gauntlet-surge { position: absolute; right: 0; bottom: 76%; width: 0; height: 0;
+  transition: opacity var(--t-micro) var(--ease-out); }
+.gauntlet-surge i { position: absolute; right: -8px; bottom: 0;
+  width: 11px; height: 11px;
+  clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+  background: rgba(255,210,150,0.12); opacity: 0.35;
+  box-shadow: inset 0 0 0 1.2px rgba(255,210,150,0.75), inset 0 0 0 2.2px rgba(0,0,0,0.4); }
+/* NB: lit/unlit SNAPS (no per-cell fade) — the gem-pop carries the juice and
+   the fever drain-timer reads as discrete cells emptying, not a smear. */
+.gauntlet-surge i:nth-child(2) { right: -12px; bottom: 12px; }
+.gauntlet-surge i:nth-child(3) { right: -17px; bottom: 24px; }
+.gauntlet-surge i:nth-child(4) { right: -23px; bottom: 36px; }
+.gauntlet-surge i:nth-child(5) { right: -30px; bottom: 48px; }
+.gauntlet-surge i:nth-child(6) { right: -38px; bottom: 60px; }
+.gauntlet-surge i:nth-child(7) { right: -47px; bottom: 72px; }
+.gauntlet-surge i:nth-child(8) { right: -57px; bottom: 84px; }
+.gauntlet-surge i:nth-child(9) { right: -68px; bottom: 96px; }
+.gauntlet-surge i:nth-child(10) { right: -80px; bottom: 108px; }
+.gauntlet-surge i.lit { opacity: 1;
+  background: linear-gradient(160deg,#ffe6a6,#ff8a3c); }
+.gauntlet-surge i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
 @keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.6)} 100%{transform:scale(1)} }
-
-/* Surge killed by a hit: one-shot grey-out sweep on the whole widget (paired
-   with the surgeFizzle sfx) so the loss never reads as a silent state change */
-.surge-min.surge-fizzle { animation: surge-fizzle 0.7s ease-out; }
+/* 4/5 desire state: filled cells shimmer in sync */
+.gauntlet.surge-near .gauntlet-surge i.lit { animation: gem-blaze 1.1s ease-in-out infinite; }
+/* FEVER: the cells ARE the drain timer (ui.js empties them off the clock) */
+.gauntlet.fever .gauntlet-surge i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
+@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.55)} }
+/* surge killed by a hit: grey-out sweep on the horn (paired with surgeFizzle) */
+.gauntlet.surge-fizzle .gauntlet-surge { animation: surge-fizzle 0.7s ease-out; }
 @keyframes surge-fizzle {
   0%   { filter: grayscale(0) brightness(1.3); }
   30%  { filter: grayscale(1) brightness(0.55); }
-  100% { filter: grayscale(0) brightness(1); }
-}
+  100% { filter: grayscale(0) brightness(1); } }
 
-/* fever glow behind the gems (subtle, not a box) */
-.surge-min.fever::before { content:""; position:absolute; left:50%; bottom:-6px;
-  transform:translateX(-50%); width:170px; height:60px; z-index:-1; pointer-events:none;
-  background: radial-gradient(closest-side, rgba(255,140,60,0.4), transparent 74%);
-  animation: surge-aura 1.6s ease-in-out infinite; }
-@keyframes surge-aura { 0%,100%{opacity:.45;transform:translateX(-50%) scale(.95)}
-  50%{opacity:.9;transform:translateX(-50%) scale(1.08)} }
+/* the multiplier slug under the arc keystone — combo > 1 only (§B.3) */
+.gauntlet-x { position: absolute; left: 50%; top: 96%; transform: translateX(-50%);
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-label); line-height: 1.3; letter-spacing: 0.03em;
+  padding: 1px 7px 2px; border-radius: var(--r-s);
+  background: rgba(12,8,6,0.28); border: 1px solid var(--rf-stroke);
+  color: #ffd9ac; opacity: 0; transition: opacity 0.25s, color 0.3s;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+.gauntlet.combo .gauntlet-x { opacity: 1; }
+.gauntlet[data-tier="3"] .gauntlet-x { color: #ffc070; }
+.gauntlet[data-tier="4"] .gauntlet-x { color: #ff9a5a; }
+.gauntlet[data-tier="5"] .gauntlet-x { color: #fff; }
+.gauntlet.fever .gauntlet-x { color: #ffb8ff; }
+.gauntlet-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
 
-/* IGNITION + embers */
-.surge-fx { position: absolute; left:50%; bottom:-8px; transform:translateX(-50%);
-  width:170px; height:64px; pointer-events:none; }
-.surge-fx .flash { position:absolute; inset:0; opacity:0; border-radius:50%;
+/* READY / fever start: the WHOLE gauntlet ignites once (spring 600ms + ping) */
+.gauntlet.igniting .g-arc,
+.gauntlet.igniting .gauntlet-life,
+.gauntlet.igniting .gauntlet-surge { animation: g-ignite 0.6s var(--ease-spring); }
+@keyframes g-ignite { 0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.1); filter: brightness(1.9); }
+  100% { transform: scale(1); filter: brightness(1); } }
+.g-flash { position: absolute; inset: -20% -10%; opacity: 0; border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, rgba(255,247,214,0.92), rgba(255,180,90,0.22) 55%, transparent 75%); }
-.surge-fx .ember { position:absolute; bottom:12px; width:3px; height:3px; border-radius:50%;
-  background:#ffd9a0; box-shadow:0 0 6px rgba(255,180,100,0.9); opacity:0; }
-.surge-min.fever .ember { animation: surge-ember 1.9s ease-in infinite; }
-.surge-fx .ember.e1{left:14%;animation-delay:0s} .surge-fx .ember.e2{left:33%;animation-delay:.5s}
-.surge-fx .ember.e3{left:52%;animation-delay:.95s} .surge-fx .ember.e4{left:71%;animation-delay:1.35s}
-.surge-fx .ember.e5{left:88%;animation-delay:.25s}
-@keyframes surge-ember { 0%{opacity:0;transform:translateY(0) scale(1)} 18%{opacity:1}
-  100%{opacity:0;transform:translateY(-34px) scale(0.35)} }
-.surge-min.igniting { animation: surge-ignite 0.6s var(--ease-spring); }
-.surge-min.igniting .flash { animation: surge-flash 0.55s ease-out; }
-@keyframes surge-ignite { 0%{transform:translateX(-50%) scale(1)} 32%{transform:translateX(-50%) scale(1.14)}
-  100%{transform:translateX(-50%) scale(1)} }
+.gauntlet.igniting .g-flash { animation: surge-flash 0.55s ease-out; }
 @keyframes surge-flash { 0%{opacity:0} 25%{opacity:1} 100%{opacity:0} }
 
-/* ============ TARGET RETICLE (nested squares) ============ */
+/* boost DENIAL: a 1–2px transform shake on the arc (§B.2) */
+.g-arc.g-deny { animation: g-deny 0.3s ease-out; }
+@keyframes g-deny { 0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-1.5px); } 55% { transform: translateX(1.5px); }
+  80% { transform: translateX(-1px); } }
+
+/* DAMAGE DIRECTION (§B.10): four 30° magenta segments on a ring outside the
+   cluster; the struck side flashes 0.95 → fades 0.7s; stroke ×2 with severity. */
+.g-dmg { position: absolute; left: 50%; top: 50%; width: 148%; height: 250%;
+  transform: translate(-50%, -52%); pointer-events: none; overflow: visible; }
+.gd-seg { fill: none; stroke: var(--tone-danger); stroke-width: 3; stroke-linecap: round;
+  vector-effect: non-scaling-stroke; opacity: 0;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+.gd-seg.gd-hit { animation: gd-hit 0.7s ease-out; }
+.gd-seg.gd-hit.gd-big { stroke-width: 6; }
+@keyframes gd-hit { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+
+/* quadrant-weighted damage vignette (§B.10): the struck side reaches full alpha */
+.vignette-dir { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.vignette-dir[data-dir="left"]  { background: linear-gradient(90deg, rgba(255,40,40,0.5), transparent 30%); }
+.vignette-dir[data-dir="right"] { background: linear-gradient(270deg, rgba(255,40,40,0.5), transparent 30%); }
+.vignette-dir[data-dir="up"]    { background: linear-gradient(180deg, rgba(255,40,40,0.45), transparent 30%); }
+.vignette-dir[data-dir="down"]  { background: linear-gradient(0deg, rgba(255,40,40,0.45), transparent 30%); }
+
+/* ===== H3 — VIGIL (§B.1 critical): perimeter edgelight breathing inward.
+   Two layers: a 24px dark warm scrim core + the danger light on top — light
+   carried on shadow, readable on any sky. Opacity/transform only; the postfx
+   desat/vignette ride the ONE grading arbiter (postfx.setHudGrade). ===== */
+.vigil { position: fixed; inset: 0; pointer-events: none; z-index: 38;
+  opacity: 0; transition: opacity 0.5s ease; }
+body.hud-critical .vigil { opacity: 1; }
+.vigil i { position: absolute; inset: 0; display: block; }
+.vigil .vg-core {
+  background:
+    linear-gradient(90deg,  rgba(12,8,6,0.62), transparent 26px),
+    linear-gradient(270deg, rgba(12,8,6,0.62), transparent 26px),
+    linear-gradient(180deg, rgba(12,8,6,0.62), transparent 26px),
+    linear-gradient(0deg,   rgba(12,8,6,0.62), transparent 26px);
+  animation: vigil-breathe 2.2s ease-in-out infinite; }
+.vigil .vg-light {
+  background:
+    linear-gradient(90deg,  color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px),
+    linear-gradient(270deg, color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px),
+    linear-gradient(180deg, color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px),
+    linear-gradient(0deg,   color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px);
+  animation: vigil-breathe 2.2s ease-in-out infinite reverse; }
+@keyframes vigil-breathe { 0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.006); } }
+
+/* ===== H3 — IMMERSIVE HUD (§F): hides everything except the safety floor —
+   LIFE at critical, the seal beat, and boss chrome/WARNING never hide. ===== */
+body.hud-immersive #hud .hud-top-center,
+body.hud-immersive #hud .hud-top-right,
+body.hud-immersive #hud .bell,
+body.hud-immersive #hud .flow-crest,
+body.hud-immersive #hud .popup,
+body.hud-immersive #hud .stamina-arc {
+  opacity: 0 !important; transition: opacity var(--t-ui) var(--ease-out); }
+/* safety floor: the gauntlet returns at critical and while boost is sealed */
+body.hud-immersive.hud-critical #hud .stamina-arc,
+body.hud-immersive #hud .stamina-arc.sealed {
+  opacity: calc(0.9 * var(--hud-alpha)) !important; }
+
+/* ===== H6 — THE SETTINGS MATRIX (§F): per-element ALWAYS / DYNAMIC / OFF. =====
+   hudState.js is the single API — it toggles body.hud-<key>-off / -always from
+   saveData.settings.hudElements; CSS owns the appearance (§F: JS never sets styles).
+   ALWAYS pins the element past its relevance ghost (the scorekeeper trick, per
+   element); OFF hides it — but NEVER the safety floor (LIFE-at-critical, the seal
+   beat; boss WARNING lives on .boss-warn, not .bell, so a Bell OFF never mutes it). */
+/* ALWAYS — defeat the .rest ghost (mirror of body.hud-scorekeeper .score.rest) */
+body.hud-life-always #hud .health-hearts.rest { opacity: var(--hud-alpha); }
+body.hud-stamina-always #hud .g-arc.rest { opacity: var(--hud-alpha); }
+body.hud-surge-always #hud .gauntlet-surge.rest { opacity: var(--hud-alpha); }
+body.hud-score-always #hud .score.rest { opacity: var(--hud-alpha); }
+/* OFF — hide the element (paint stays for the safety floor below).
+   BOOST off targets ONLY the boost pieces (.g-arc + its seal), NOT the parent
+   .stamina-arc — that element is the whole Gauntlet container (life pips, surge
+   cells, multiplier), which BOOST-off must not touch. */
+body.hud-life-off #hud .health-hearts,
+body.hud-stamina-off #hud .g-arc,
+body.hud-stamina-off #hud .stamina-seal,
+body.hud-surge-off #hud .gauntlet-surge,
+body.hud-score-off #hud .score,
+body.hud-distance-off #hud .hud-top-center,
+body.hud-chain-off #hud .chain,
+body.hud-damageDir-off #hud .g-dmg,
+body.hud-bell-off #hud .bell {
+  opacity: 0 !important; transition: opacity var(--t-ui) var(--ease-out); }
+/* safety floor — OFF can never remove these */
+body.hud-life-off.hud-critical #hud .health-hearts {
+  opacity: var(--hud-alpha) !important; }
+/* the seal beat is a safety-floor element: it shows during a boss even when
+   BOOST is set OFF (the player still needs to read that boost is sealed). */
+body.hud-stamina-off #hud .stamina-arc.sealed .stamina-seal {
+  opacity: 1 !important; }
+
+/* ===== H6 — skyLuma bright-biome keyline swap (§0/§B). =====
+   Over a bright sky (body.biome-bright, set per-biome in main.js — deterministic,
+   no sampling) the Bell / Tape / Tally hairlines swap from the warm light keyline
+   to a darker, more saturated EMBER-CORE line: a dark stroke reads on a washed-out
+   bright veil where the light one vanishes. Only the --rf-stroke vars change, so
+   every slug/chip inside inherits the higher-contrast keyline for free. */
+body.biome-bright #hud .hud-top-center,
+body.biome-bright #hud .hud-top-right,
+body.biome-bright #hud .bell {
+  --rf-stroke: rgba(74, 32, 12, 0.72);
+  --rf-stroke-hi: rgba(112, 48, 18, 0.88); }
+
+/* ===== H6 — the PB light-seam (§B.6), DOM horizon-seam fallback. =====
+   A single gold seam sweeps past at the exact personal-best metre (fired once per
+   run from ui.js). Transform/opacity only — it flashes at the horizon then sweeps
+   toward the viewer and dissolves. Crossing your record is a place. */
+.pb-seam { position: fixed; left: 0; right: 0; top: 44%; height: 3px; z-index: 6;
+  pointer-events: none; opacity: 0; transform-origin: center;
+  background: linear-gradient(90deg, transparent, rgba(255,216,106,0.95) 30%, #fff2c8 50%, rgba(255,216,106,0.95) 70%, transparent);
+  box-shadow: 0 0 18px rgba(255,200,90,0.8); }
+.pb-seam.sweep { animation: pb-seam-sweep 1s ease-out; }
+@keyframes pb-seam-sweep {
+  0%   { opacity: 0; transform: translateY(0) scaleY(0.4); }
+  18%  { opacity: 1; transform: translateY(0) scaleY(1); }
+  100% { opacity: 0; transform: translateY(130px) scaleY(3); } }
+@media (prefers-reduced-motion: reduce) {
+  .pb-seam.sweep { animation: pb-seam-fade 0.6s ease-out; }
+  @keyframes pb-seam-fade { 0%{opacity:0} 25%{opacity:0.9} 100%{opacity:0} } }
+
+/* ============ THE LURE — the ONE reticle instrument (EMBERSIGHT H4 §B.8) ============
+   The lens2 hollow-bracket becomes THE reticle for EVERY state: four corner
+   brackets (the outer square masked to its corners), the nested-squares .inner
+   retired, the dual-stroke keyline carried on a drop-shadow (the mask clips
+   box-shadow, so the glow + dark keyline move to `filter`). Hue roles kept:
+   gold rings / cyan-white gates / steel→mint boss. --ret-glow tints the bloom
+   per state. Re-stroked to a 2px hairline weight. */
 #reticle { position: absolute; left: 0; top: 0; width: 90px; height: 90px;
-  margin: -45px 0 0 -45px; opacity: 0; will-change: transform; }
-#reticle .rsq { position: absolute; inset: 0; border: 3px solid rgba(255, 200, 60, 0.9);
-  border-radius: 4px; box-shadow: 0 0 10px rgba(255, 170, 40, 0.5); animation: ret-spin 6s linear infinite; }
-#reticle .rsq.inner { inset: 18%; border-width: 2px; animation: ret-spin-rev 4s linear infinite; opacity: 0.85; }
-#reticle.locked .rsq { border-color: rgba(80, 255, 170, 0.95); box-shadow: 0 0 14px rgba(60, 255, 160, 0.7); }
+  margin: -45px 0 0 -45px; opacity: 0; will-change: transform;
+  --ret-glow: rgba(255, 170, 40, 0.55); }
+#reticle .rsq { position: absolute; inset: 0; border: 2px solid rgba(255, 200, 60, 0.92);
+  border-radius: 4px; animation: ret-spin 6s linear infinite;
+  --bk: 34%;                                     /* corner-bracket arm box, fraction of the side */
+  -webkit-mask:
+    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
+  /* dual-stroke keyline (§A Law 2): warm line = the border, dark drop = the
+     survival keyline; the second drop is the state-tinted bloom. */
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.72)) drop-shadow(0 0 4px var(--ret-glow)); }
+/* The nested inner square is retired for every state (one bracket instrument). */
+#reticle .rsq.inner { display: none; }
+#reticle.locked { --ret-glow: rgba(60, 255, 160, 0.7); }
+#reticle.locked .rsq { border-color: rgba(80, 255, 170, 0.95); }
 /* Gate reticle: a calm cool cyan-white that reads on every biome veil (warm or
    cool) and stays distinct from the warm gold ring reticle; faster spin too. */
-#reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); box-shadow: 0 0 12px rgba(120, 210, 255, 0.55); animation: ret-spin 4s linear infinite; }
-#reticle.gate .rsq.inner { border-color: rgba(220, 245, 255, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
-#reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); box-shadow: 0 0 16px rgba(150, 225, 255, 0.8); }
+#reticle.gate { --ret-glow: rgba(120, 210, 255, 0.55); }
+#reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); animation: ret-spin 4s linear infinite; }
+#reticle.gate.locked { --ret-glow: rgba(150, 225, 255, 0.8); }
+#reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); }
 /* THE LANCE reticle — the in-boss SECOND job (aim-line on a boss organ). Made BOLD
    and legible (the first pass was too faint next to the dragon's cyan focus ring):
    a bright steel target that BREATHES, tints toward green as your dwell builds
    (--dwell 0..1, set per-frame), then SNAPS green with a ring-flash on lock — so
    "you're doing it right" reads instantly, visually and (via sfx) audibly. Still
    NOT the amber ring skin (parry-amber role collision §II.1.6); ashen when muted. */
+#reticle.boss { --ret-glow: rgba(150,210,240,0.5); }
 #reticle.boss .rsq {
-  border-width: 3.5px;
+  border-width: 2px;
   border-color: color-mix(in srgb, rgba(222,234,246,0.94), rgba(80,255,170,0.98) calc(var(--dwell,0) * 100%));
-  box-shadow: 0 0 12px rgba(150,210,240,0.45), 0 0 3px rgba(255,255,255,0.55);
   animation: ret-spin 6s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
 }
-#reticle.boss .rsq.inner {
-  border-color: color-mix(in srgb, rgba(232,242,251,0.88), rgba(120,255,190,0.98) calc(var(--dwell,0) * 100%));
-}
-/* Building toward a lock: the glow swells with dwell progress. */
-#reticle.boss.aiming .rsq { box-shadow: 0 0 16px rgba(90,255,180,calc(0.3 + var(--dwell,0)*0.5)), 0 0 4px rgba(255,255,255,0.6); }
-/* Locked: full green, energised (spins faster), strong bloom. */
+/* Building toward a lock: the bloom swells with dwell progress (via --ret-glow). */
+#reticle.boss.aiming { --ret-glow: rgba(90,255,180,calc(0.35 + var(--dwell,0)*0.5)); }
+/* Locked: full mint-green, energised (spins faster), strong bloom. */
+#reticle.boss.locked { --ret-glow: rgba(60,255,160,0.85); }
 #reticle.boss.locked .rsq {
-  border-color: rgba(90,255,175,1); border-width: 4px;
-  box-shadow: 0 0 20px rgba(60,255,160,0.9), 0 0 6px rgba(200,255,230,0.9);
+  border-color: rgba(90,255,175,1); border-width: 2.5px;
   animation: ret-spin 3s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
 }
-#reticle.boss.locked .rsq.inner { border-color: rgba(190,255,225,1); }
 /* Muted (slot 13): ashen, no green, no breathe. */
-#reticle.boss.sealed .rsq { border-color: rgba(150,160,175,0.42); box-shadow: none; animation: ret-spin 6s linear infinite; }
-#reticle.boss.sealed .rsq.inner { border-color: rgba(160,170,185,0.38); }
+#reticle.boss.sealed { --ret-glow: rgba(120,128,140,0.2); }
+#reticle.boss.sealed .rsq { border-color: rgba(150,160,175,0.42); animation: ret-spin 6s linear infinite; }
 /* The one-shot green ring flash fired on the lock snap. */
 .rsnap { position: absolute; inset: -6%; border: 3px solid rgba(120,255,190,0.95); border-radius: 8px;
   opacity: 0; pointer-events: none; }
@@ -682,25 +964,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
    All scoped to .lens2 + .boss, so the shipped ring/gate reticle and every non-lens
    run are byte-identical. Three DOM/CSS interventions (see js/lensFlag.js). */
 
-/* (2) HOLLOW the boss reticle: drop the nested inner square and MASK the outer one to
-   four corner boxes — each shows an L of border = a bracket, the centre + mid-edges cut
-   to transparent. A bullet spawning on the muzzle is now born in clear pixels instead of
-   behind glowing chrome. Dwell tint, spin, breathe and every lock state still carry. */
-#reticle.lens2.boss .rsq.inner { display: none; }
-#reticle.lens2.boss .rsq {
-  --bk: 34%;                                     /* corner-bracket arm box, fraction of the side */
-  box-shadow: none;                              /* the mask (border-box) clips box-shadow away — glow moves to the ::before halo */
-  -webkit-mask:
-    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
-  mask:
-    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
-}
+/* (2) HOLLOW brackets are now the DEFAULT reticle skin for every state (the base
+   #reticle .rsq block above masks the outer square to four corner brackets + retires
+   the .inner square). This lens block only adds the boss-specific CUES on top:
+   the threat-yield halo, the telegraph chevrons, and the saturation split. */
 /* (3a) YIELD lives here, NOT on the brackets. An UNMASKED halo behind the brackets carries
    the whole bloom (a masked element's box-shadow never paints — it's clipped to the border
    box). Its opacity recedes with --yield so the glow steps back under threat while the
@@ -765,6 +1032,100 @@ body[data-qtier="2"] .hud-sew { display: none; }
 #reticle.lens2.threat-hot .rchevs { animation: chev-blink 0.34s steps(1) infinite; }
 @keyframes chev-blink { 0%, 100% { filter: brightness(1.45); } 50% { filter: brightness(0.7); } }
 
+/* ============ EMBERSIGHT H5 — THE MEWS PLATE (boss HP bar, §B.9) ============
+   Bottom-centre, slotted ABOVE .boss-note's band. 1px hairline housing, a 5px
+   magenta-warm fill (transform:scaleX — rule d, never width) with a drain-lag gold
+   chunk behind it, phase notches from def.phases[].atFrac, and a nameplate whose
+   type ramp mirrors the protected title card (name --fs-title Russo caps + epithet
+   --fs-micro caps — card→plate is one voice). The housing ETCHES in stroke-by-stroke
+   (stroke-dashoffset, the hud-sew grammar) synced to the title card. All motion is
+   transform / opacity / dashoffset — no layout-prop animation. */
+/* The boss health bar lives at the TOP, under the Tape — the bottom-centre band
+   is owned by the gauntlet + the boss-note attack telegraphs (REFLECT ANYTHING,
+   SURGE READY) + the spell card, and a bar down there both crowded them and
+   crossed the dragon. Top-anchored, it sits near the boss (ahead + above in the
+   chase cam) and never touches the subject or the telegraphs. */
+.mews-plate { position: fixed; left: 50%; top: calc(66px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: top center;
+  width: min(52vw, 460px); z-index: 41; pointer-events: none;
+  opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
+  --mp-mag: 255, 43, 106; --mp-gold: 255, 216, 106; }
+.mews-plate.show { opacity: var(--hud-alpha); }
+/* Nameplate: STACKED like the protected title card (name over epithet) — the old
+   inline nowrap pair overflowed the plate on long epithets and ran into the Tally
+   (owner-hit bug: MARROWCOIL "WHAT THE SKY COULD NOT DIGEST" clipped the SKIMS
+   chip). Each line is centered + ellipsized as a safety net; with the current
+   roster (longest epithet 34ch ≈ 272px) nothing truncates at either plate width. */
+.mp-name { display: block; margin-bottom: 4px; text-align: center; }
+.mp-title { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-family: var(--font-display); font-weight: 400; font-size: var(--fs-title);
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--rf-ink);
+  text-shadow: 0 0 12px rgba(var(--mp-mag), 0.4), 0 2px 8px #000; line-height: 1; }
+.mp-epithet { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; margin-top: 3px;
+  font-family: 'Rajdhani', var(--font-display); font-weight: 700;
+  font-size: var(--fs-micro); letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(var(--mp-mag), 0.92); text-shadow: 0 1px 4px #000; }
+/* the bar: a smoked housing with the etched hairline outline on top */
+.mp-bar { position: relative; height: 7px; border-radius: 3px;
+  background: rgba(12, 8, 6, 0.42); overflow: hidden; }
+.mp-etch { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
+  fill: none; pointer-events: none; z-index: 3; }
+.mp-etch path { stroke: var(--rf-stroke-hi); stroke-width: 1;
+  filter: drop-shadow(0 0.5px 0 rgba(0,0,0,0.7));   /* dual-stroke keyline */
+  stroke-dasharray: 100; stroke-dashoffset: 100; }
+.mews-plate.etch .mp-etch path { animation: mp-etch 0.8s cubic-bezier(.55,0,.3,1) forwards; }
+@keyframes mp-etch { to { stroke-dashoffset: 0; } }
+/* fill + drain: both scaleX from the LEFT edge (transform-origin), never width */
+.mp-fill, .mp-drain { position: absolute; left: 0; top: 1px; bottom: 1px; width: 100%;
+  transform-origin: left center; border-radius: 2px; }
+.mp-drain { transform: scaleX(1); z-index: 1;
+  background: linear-gradient(90deg, rgba(var(--mp-gold), 0.95), rgba(255, 180, 70, 0.95)); }
+.mp-fill { transform: scaleX(1); z-index: 2;
+  background: linear-gradient(90deg, rgba(var(--mp-mag), 0.98), rgba(255, 110, 90, 0.96));
+  box-shadow: 0 0 8px rgba(var(--mp-mag), 0.5);
+  transition: transform var(--t-micro) linear; }
+/* the re-forge shimmer (formLifebars refill): a bright band sweeps L→R once — reads
+   "new bar", never healing. Transform-only (translateX of a masked gloss). */
+.mp-fill::after { content: ''; position: absolute; inset: 0; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,240,220,0.85), transparent);
+  transform: translateX(-120%); opacity: 0; }
+.mews-plate.reforge .mp-fill::after { animation: mp-reforge 0.62s ease-out; }
+@keyframes mp-reforge { 0% { transform: translateX(-120%); opacity: 1; } 100% { transform: translateX(120%); opacity: 0; } }
+/* phase notches (from def.phases[].atFrac): thin dark dividers, positioned by left% */
+.mp-notches { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.mp-notches i { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px;
+  background: rgba(6, 4, 8, 0.9); box-shadow: 0 0 0 0.5px rgba(255,255,255,0.12); }
+/* DLZ column (§B.9, ?dlz=1 ONLY — a cut-first luxury; never renders without the flag) */
+.mp-dlz { display: none; position: absolute; right: -14px; top: 0; bottom: 0; width: 10px;
+  flex-direction: column-reverse; gap: 2px; z-index: 3; }
+.mews-plate.dlz .mp-dlz { display: flex; }
+.mp-dlz i { flex: 1; border-radius: 1px; background: rgba(var(--mp-mag), 0.25);
+  border: 0.5px solid rgba(var(--mp-mag), 0.4); }
+.mp-dlz i.f { background: rgba(var(--mp-mag), 0.9); }
+.mp-dlz i.ashen { background: rgba(150,160,175,0.4); border-color: rgba(150,160,175,0.5); }
+/* off-screen threat chevrons (§B.9): a pool of 4, riding the screen edge at the boss's
+   projected bearing, alpha off bossCharge01(). translate3d + rotate, transform-only. */
+.mp-chev { position: fixed; left: 0; top: 0; width: 26px; height: 26px; z-index: 40;
+  margin: -13px 0 0 -13px; pointer-events: none; opacity: 0; will-change: transform;
+  color: rgba(var(--mp-mag), 0.95); filter: drop-shadow(0 0 4px rgba(var(--mp-mag), 0.7)); }
+.mp-chev svg { width: 100%; height: 100%; fill: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  .mews-plate.etch .mp-etch path { animation: none; stroke-dashoffset: 0; }
+  .mews-plate.reforge .mp-fill::after { animation: none; }
+  .mp-fill { transition: opacity var(--t-micro) linear; }
+}
+/* portrait: the plate widens AND DROPS BELOW THE TALLY'S WORST-CASE DEPTH (§C).
+   The top-right column can stack four rows in a dense boss moment (score /
+   embers / chain / skims ≈ 105px deep) — a full-width bar anywhere in that band
+   collides with SOME chip no matter how it's trimmed, so the plate's whole slot
+   sits beneath it (top 112px). The bar keeps its 84vw drama and is structurally
+   immune to any score width or chip count; the Bell (portrait 20% ≈ 169px)
+   stays clear beneath it. */
+@media (orientation: portrait) {
+  .mews-plate { width: 84vw; top: calc(112px + env(safe-area-inset-top, 0px)); }
+}
+
 /* ============ AUDIO / PAUSE BUTTON ============ */
 .audio-btns { display: none; }
 .mute-btn {
@@ -777,21 +1138,80 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .mute-btn:hover { background: rgba(70, 44, 24, 0.7); }
 .mute-btn.off { color: var(--rf-ink-3); opacity: 0.7; }
 
-/* ============ POPUPS / FLASHES ============ */
-.popup  { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: 800; letter-spacing: 2px; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
-.popup2 { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 700; letter-spacing: 2px; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
-.popup[data-color="cyan"]   { color: #7fe0ff; }
-.popup[data-color="green"]  { color: #58ffa0; }
-.popup[data-color="gold"]   { color: #ffd86a; }
-.popup[data-color="red"]    { color: #ff7a7a; }
-.popup[data-color="fever"]  { color: #ff88ff; font-size: 38px; text-shadow: 0 0 24px rgba(255,100,255,0.9); }
-.popup[data-color="phase"]  { color: #d59bff; font-size: 36px; text-shadow: 0 0 22px rgba(190,110,255,0.9); }
-.popup2[data-color="orange"]{ color: #ffbb55; }
-.popup2[data-color="gold"]  { color: #ffd86a; text-shadow: 0 0 14px rgba(255,200,90,0.8); }
-.popup.popup-anim  { animation: popup 0.9s ease-out forwards; }
-.popup2.popup2-anim{ animation: popup2 1.1s ease-out forwards; }
-@keyframes popup  { 0%{opacity:0;transform:translate(-50%,12px) scale(0.8)} 15%{opacity:1;transform:translate(-50%,0) scale(1.1)} 70%{opacity:1;transform:translate(-50%,-18px) scale(1)} 100%{opacity:0;transform:translate(-50%,-34px) scale(1)} }
-@keyframes popup2 { 0%{opacity:0;transform:translate(-50%,8px) scale(0.85)} 12%{opacity:1;transform:translate(-50%,0) scale(1.05)} 75%{opacity:0.9;transform:translate(-50%,-12px)} 100%{opacity:0;transform:translate(-50%,-26px)} }
+/* ============ EMBERSIGHT H1 — THE BELL + the center micro-pop ============ */
+/* The perfect-ring micro-pop (§B.11): tiny, 500ms, the ONE sanctioned center
+   event text. Gold only — every other ephemeral line rings the Bell. */
+.popup { position: absolute; top: 40%; left: 50%; transform: translateX(-50%);
+  font-family: 'Rajdhani', sans-serif; font-size: var(--fs-label); font-weight: 700;
+  letter-spacing: var(--track-caps); text-transform: uppercase; color: #ffd86a;
+  opacity: 0; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.popup.popup-anim { animation: popup 0.5s ease-out forwards; }
+@keyframes popup { 0%{opacity:0;transform:translate(-50%,6px) scale(0.9)} 20%{opacity:1;transform:translate(-50%,0) scale(1.05)} 70%{opacity:1;transform:translate(-50%,-8px) scale(1)} 100%{opacity:0;transform:translate(-50%,-14px) scale(1)} }
+
+/* THE BELL (§B.11): one anchored, queued toast lane at ~24% (portrait ~20%).
+   One type style — a slug (smoked lozenge) with an accent underline by role.
+   Enter = --t-ui rise+fade; exit = --t-exit; transform/opacity only. */
+.bell { position: absolute; top: 24%; left: 0; right: 0; z-index: 30;
+  display: flex; justify-content: center; pointer-events: none;
+  transform: scale(var(--hud-scale)); transform-origin: top center;
+  opacity: var(--hud-alpha); }
+.bell-slug { position: relative; max-width: min(420px, 84vw);
+  padding: 6px 14px 7px; border-radius: var(--r-s);
+  background: rgba(12,8,6,0.28);
+  font-family: 'Rajdhani', sans-serif; font-size: var(--fs-label); font-weight: 600;
+  letter-spacing: var(--track-caps); text-transform: uppercase; text-align: center;
+  color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity var(--t-exit) var(--ease-in), transform var(--t-exit) var(--ease-in); }
+.bell-slug.show { opacity: 1; transform: translateY(0);
+  transition: opacity var(--t-ui) var(--ease-out), transform var(--t-ui) var(--ease-out); }
+/* role accent underline (dual-stroke: accent line + dark drop-shadow) */
+.bell-slug::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0;
+  height: 2px; border-radius: 1px; background: var(--bell-accent, #ffd86a);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.55); opacity: 0.9; }
+.bell-slug[data-role="gold"]    { --bell-accent: #ffd86a; }
+.bell-slug[data-role="cyan"]    { --bell-accent: #7fe0ff; }
+.bell-slug[data-role="jade"]    { --bell-accent: var(--tone-jade); }
+.bell-slug[data-role="magenta"] { --bell-accent: var(--tone-danger); }
+.bell-slug[data-role="hint"]    { --bell-accent: #7fe0ff; text-transform: none;
+  letter-spacing: var(--track-body); font-weight: 700; }
+.bell-slug b { color: #ffd86a; font-weight: 700; }
+.bell-slug svg { vertical-align: -3px; width: 13px; height: 13px; }
+.bell-x { margin-left: 7px; color: #ffd86a; font-weight: 700; }
+.bell-x:empty { display: none; }
+/* coalesce bump: a small spring pop, never a re-entrance */
+.bell-slug.bell-pop { animation: bell-pop 0.24s var(--ease-spring); }
+@keyframes bell-pop { 0%{transform:scale(1.09)} 100%{transform:scale(1)} }
+
+/* THE TALLY RITUAL (H2 §B.4): a chain ≥5 ending carries its banked points
+   through the Bell at --fs-title gold — the slug WRITES open left→right
+   (transform-only wipe, 300ms), holds ~900ms, then dissolves UPWARD while
+   3–4 ember motes rise off it. The keyframe animation overrides the lane's
+   standard enter/exit transitions for this one message. */
+.bell-slug.bell-ritual { font-family: var(--font-display); font-size: var(--fs-title);
+  font-weight: 400; color: #ffd86a; letter-spacing: 0.04em; overflow: visible;
+  font-variant-numeric: tabular-nums;
+  animation: bell-ritual 1.6s var(--ease-out) forwards; transform-origin: left center; }
+.bell-slug.bell-ritual::after { --bell-accent: #ffd86a; }
+@keyframes bell-ritual {
+  0%   { opacity: 1; transform: scaleX(0); }
+  19%  { opacity: 1; transform: scaleX(1) translateY(0); }   /* the 300ms write */
+  75%  { opacity: 1; transform: scaleX(1) translateY(0); }   /* the hold */
+  100% { opacity: 0; transform: scaleX(1) translateY(-16px); } /* dissolve upward */
+}
+/* the rising ember motes (the shipped surge-ember grammar, retimed) */
+.bell-motes { display: none; }
+.bell-slug.bell-ritual .bell-motes { display: block; position: absolute; inset: 0; pointer-events: none; }
+.bell-motes i { position: absolute; bottom: 4px; width: 3px; height: 3px; border-radius: 50%;
+  background: #ffd9a0; box-shadow: 0 0 6px rgba(255,180,100,0.9); opacity: 0;
+  animation: bell-mote 0.7s ease-in forwards; }
+.bell-motes i:nth-child(1) { left: 16%; animation-delay: 1.0s; }
+.bell-motes i:nth-child(2) { left: 42%; animation-delay: 1.12s; }
+.bell-motes i:nth-child(3) { left: 66%; animation-delay: 1.05s; }
+.bell-motes i:nth-child(4) { left: 86%; animation-delay: 1.18s; }
+@keyframes bell-mote { 0% { opacity: 0; transform: translateY(0) scale(1); }
+  20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px) scale(0.4); } }
 
 .vignette  { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(255,40,40,0.55) 100%); }
 .vignette.lethal { background: radial-gradient(ellipse at center, rgba(255,30,30,0.25) 20%, rgba(255,20,20,0.8) 100%); }
@@ -1072,7 +1492,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
   text-align: center; margin-top: -4px; }
 .pm-tabs .seg-btn { padding: 9px 0; font-size: 10.5px; letter-spacing: 1.5px; }
 /* §14 — inline category icons sit on the text baseline next to their label. */
-.seg-btn svg, .btn-tertiary svg, .btn-secondary svg, .daily-title svg, .feat-toast svg, .weekly-head svg { vertical-align: -2px; margin-right: 4px; }
+.seg-btn svg, .btn-tertiary svg, .btn-secondary svg, .daily-title svg, .weekly-head svg { vertical-align: -2px; margin-right: 4px; }
 .pm-body { display: flex; flex-direction: column; gap: 11px; }
 .pm-hint { font-size: 10.5px; opacity: 0.55; text-align: center; letter-spacing: 0.5px; }
 .pm-footer { display: flex; align-items: center; gap: 10px; margin-top: 2px;
@@ -1156,8 +1576,8 @@ body[data-qtier="2"] .hud-sew { display: none; }
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 120, 60, 0.55);
   transition: opacity 1s ease; }
 .assist-chip.faded { opacity: 0; }
-.best, .ff-chip { opacity: 0; transition: opacity 0.45s ease; }
-.best.hud-reveal, .ff-chip.hud-reveal { opacity: 1; }
+.ff-chip { opacity: 0; transition: opacity 0.45s ease; }
+.ff-chip.hud-reveal { opacity: 1; }
 .hc-line { color: #ff9a5a; font-size: 14px; letter-spacing: 2px; font-weight: 700; margin: 4px 0;
   text-shadow: 0 0 12px rgba(255, 120, 60, 0.5); }
 
@@ -1368,6 +1788,9 @@ body[data-qtier="2"] .hud-sew { display: none; }
   margin: 24px 2px 2px; padding-bottom: 7px; border-bottom: var(--panel-line); }
 .settings-section:first-child { margin-top: 10px; }
 .set-row { display: flex; align-items: center; gap: 14px; padding: 11px 2px; }
+/* H6 §F HUD-matrix rows: a compact 3-way segment sized to sit beside the label */
+.seg-row.seg-compact { flex: 0 0 auto; width: min(52vw, 232px); gap: 5px; }
+.seg-compact .seg-btn { padding: 7px 0; font-size: 10px; letter-spacing: 0.04em; }
 .set-row + .set-row, .set-row + .settings-group, .settings-group + .set-row
   { border-top: 1px solid rgba(255, 201, 130, 0.10); }
 .set-info { flex: 1; min-width: 0; }
@@ -1535,15 +1958,35 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .hud-top-left  { top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; }
   .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
   .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
-  .score         { font-size: 36px; }
-  .stamina-arc   { top: 64%; width: min(38vw, 128px); }
-  .surge-x       { font-size: 13px; }
-  .dist          { font-size: 15px; }
-  .best          { font-size: 11px; }
-  .embers-hud    { font-size: 14px; }
+  /* H3 §C portrait: LIFE (left) and SURGE (right) fold into horizontal rows.
+     The cluster is WIDENED so each horn gets its own half with a clear centre
+     gap for the seal/multiplier — the two rows must never build into each other
+     (they used to overlap on a 128px arc + collide with the ○○○ seal). */
+  .stamina-arc   { top: 64%; width: min(56vw, 210px); }
+  .gauntlet-life span:nth-child(1) { left: 2px; bottom: 4px; }
+  .gauntlet-life span:nth-child(2) { left: 15px; bottom: 4px; }
+  .gauntlet-life span:nth-child(3) { left: 28px; bottom: 4px; }
+  .gauntlet-life span:nth-child(4) { left: 41px; bottom: 4px; }
+  .gauntlet-life span:nth-child(5) { left: 54px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(1) { right: 2px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(2) { right: 12px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(3) { right: 22px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(4) { right: 32px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(5) { right: 42px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(6) { right: 52px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(7) { right: 62px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(8) { right: 72px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(9) { right: 82px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(10) { right: 92px; bottom: 4px; }
+  .tape-strip    { width: 120px; }
+  .tape-ticks    { display: none; }   /* portrait drops the tick strip (§C) */
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
-  .popup         { font-size: 20px; top: 22%; }
-  .popup2        { font-size: 16px; top: 30%; }
+  .popup         { top: 36%; }
+  .bell          { top: 20%; }   /* portrait: the Bell rises (HUD-REDESIGN §C) */
+  /* Telegraph lane: just under the gauntlet's multiplier slug (~64% + arc + slug
+     ≈ 70%), ending clear of the spell card (bottom 15% → top ≈ 76%). */
+  .boss-note     { top: 70.5%; }
+  .boss-card     { bottom: 15%; }   /* portrait keeps the spec'd lower-right seat */
   .audio-btns    { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; gap: 6px; }
   .mute-btn      { width: 32px; height: 32px; }
   .screen h1     { font-size: 32px; letter-spacing: 4px; padding: 0 10px; }
@@ -1582,6 +2025,13 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 /* Short landscape (phones held sideways): tighten the centre column so the crest, the
    stamina arc, and the surge gems never stack into each other. */
 @media (max-height: 430px) {
+  /* Law 3: on a 390px-tall frame, 24% sits inside the Lure's ~140px halo —
+     the Bell rises clear of the reticle cluster. */
+  .bell { top: 15%; }
+  /* …but in a BOSS the Mews plate owns 66→~115px: 15% (≈58px) would ring the
+     toast straight through the nameplate. The Bell drops just below the bar —
+     toasts are ephemeral, the plate is furniture; text never crosses text. */
+  body.hud-boss .bell { top: calc(120px + env(safe-area-inset-top, 0px)); }
   .flow-crest { width: 84px; height: 46px;
     bottom: calc(max(clamp(46px, 9vh, 108px), env(safe-area-inset-bottom, 0px) + 30px) + 32px); }
   .flow-crest .fc-x { font-size: 15px; }
@@ -1589,45 +2039,33 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 
 /* ============ LEGEND UPDATE (retention systems) ============ */
 
-/* Challenge race bar: live HUD progress vs a friend's score */
-.race-bar { display: none; position: relative; width: 150px; height: 8px; margin: 6px 0 2px auto;
-  border-radius: 5px; background: rgba(26, 15, 10, 0.85); border: 1px solid var(--rf-stroke); }
-.race-bar.on { display: block; }
-.race-fill { display: block; height: 100%; border-radius: 5px; width: 0;
-  background: linear-gradient(90deg, #3fd8e8, #ff9a5a); transition: width 0.3s; }
-.race-bar.won .race-fill { background: linear-gradient(90deg, #ffd86a, #ff9540); }
-.race-target { position: absolute; right: 2px; top: -14px; font-size: 9.5px; letter-spacing: 1px;
-  color: #ff9a5a; font-weight: 800; }
-.race-bar.won .race-target { color: #ffd86a; }
+/* EMBERSIGHT H2 — race-vs-ghost (§B.12): the two-caret tick-strip. One 90px
+   hairline under the Tally; your caret gold, the rival's white; `vs 1 850`
+   in micro caps. Relevance-gated: ghosted at 0.30 until within 15% of the
+   target (or beaten). Overtake: rival caret falls off the end + gold flash. */
+.race-strip { display: none; margin: 6px 0 2px auto; text-align: right;
+  opacity: 0.3; transition: opacity var(--t-micro) var(--ease-out); }
+.race-strip.on { display: block; }
+.race-strip.close { opacity: 1; }
+.race-target { display: block; font-size: 9.5px; letter-spacing: var(--track-caps);
+  color: #ffd9ac; font-weight: 800; margin-bottom: 3px;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+.race-strip.won .race-target { color: #ffd86a; }
+.race-line { position: relative; display: block; width: 90px; height: 8px; margin-left: auto;
+  border-bottom: 1px solid var(--rf-stroke-hi); box-shadow: 0 1px 0 rgba(0,0,0,0.55); }
+.race-you, .race-rival { position: absolute; left: 0; bottom: 0; width: 2px; height: 7px;
+  transition: transform 0.3s var(--ease-out), opacity var(--t-exit) var(--ease-in); }
+.race-you { background: #ffd86a; box-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 0 4px rgba(255,216,106,0.6); }
+.race-rival { background: rgba(255,255,255,0.85); box-shadow: 0 1px 0 rgba(0,0,0,0.55); height: 5px; }
+/* overtake: the rival caret falls off the end; the strip flashes gold */
+.race-strip.won .race-rival { transform: translateX(98px) !important; opacity: 0; }
+.race-strip.won .race-line { animation: tape-flash 0.7s ease-out; }
 
 /* HUD chips: first-flight bonus */
 .ff-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ffe27a; margin-top: 5px;
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 220, 90, 0.55); }
 
-/* Feat toast: own element so gameplay popups are never eaten. Sits high in the
-   sky (not over the dragon / centre lane, where it blocked the action). */
-.feat-toast { position: absolute; top: 26%; left: 50%; transform: translateX(-50%);
-  font-size: 15px; font-weight: 800; letter-spacing: 1.2px; color: #c8a0ff; opacity: 0;
-  text-shadow: 0 0 14px rgba(170, 110, 255, 0.8); pointer-events: none;
-  max-width: min(360px, 78vw); text-align: center; line-height: 1.3; }
-.feat-toast b { color: #ffd86a; }
-.feat-toast.feat-toast-anim { animation: feat-toast 2.4s ease-out forwards; }
-@keyframes feat-toast {
-  0%   { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.9); }
-  12%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.06); }
-  20%  { transform: translateX(-50%) scale(1); }
-  80%  { opacity: 1; }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
-}
-
-/* Onboarding hint line */
-.hint { position: absolute; bottom: 17%; left: 50%; transform: translateX(-50%);
-  font-size: 16px; font-weight: 700; letter-spacing: 0.09em; color: #ffe9c8;
-  background: rgba(26, 16, 10, 0.7); border: var(--panel-line-hi);
-  border-radius: 999px; padding: 9px 22px; opacity: 0; transition: opacity 0.35s;
-  pointer-events: none; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
-.hint.on { opacity: 1; animation: hint-pulse 1.6s ease-in-out infinite; }
-@keyframes hint-pulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.035); } }
+/* (feat toast + onboarding hint line: absorbed into THE BELL — H1 §B.11) */
 
 /* Recap: NEW BEST record chips */
 .record-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 4px 0 8px; max-width: 90vw; }
@@ -1793,20 +2231,33 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .record-chip { animation: none; opacity: 1; transform: none; }
   .earn-line.reveal,
   .earn-list.revealing .earn-line { animation: none; opacity: 1; transform: none; }
-  .feat-toast.feat-toast-anim { animation: feat-toast 0.8s ease-out forwards; }
-  .hint.on { animation: none; }
+  .bell-slug, .bell-slug.show { transform: none; transition: opacity var(--t-ui); }
+  .bell-slug.bell-pop { animation: none; }
+  .bell-slug.bell-ritual { animation: none; }   /* the write/dissolve collapses to the lane's fade */
+  .bell-motes { display: none !important; }
+  .hud-flash { animation: none; }
+  .tape-flash .tape-strip, .race-strip.won .race-line { animation: none; }
+  .race-you, .race-rival { transition: opacity var(--t-exit); }
+  /* H3: gauntlet motion collapses to state (fades keep working) */
+  .gauntlet-life span.pip-lost, .gauntlet-life span.pip-gain,
+  body.hud-critical .gauntlet-life span.full,
+  .gauntlet.igniting .g-arc, .gauntlet.igniting .gauntlet-life,
+  .gauntlet.igniting .gauntlet-surge, .gauntlet.igniting .g-flash,
+  .g-arc.g-deny, .gauntlet.surge-near .gauntlet-surge i.lit,
+  .gauntlet.fever .gauntlet-surge i.lit,
+  .vigil .vg-core, .vigil .vg-light { animation: none; }
+  body.hud-critical .arc-danger { animation: none; stroke-dashoffset: 0; }
+  .gd-seg.gd-hit { animation: gd-hit 0.7s ease-out; }   /* opacity-only already */
 }
 
 /* Mobile sizing for the new surfaces */
 @media (max-width: 600px) {
-  .race-bar { width: 110px; }
   .record-chip { font-size: 10.5px; padding: 5px 10px; }
   .earn-line { font-size: 12px; }
   .nextup-label { font-size: 13px; }
   .weekly-label { font-size: 11px; }
   .feat-name { font-size: 12px; }
   .feat-desc { font-size: 10.5px; }
-  .hint { font-size: 13px; padding: 8px 16px; bottom: 20%; }
   .title-name { font-size: 12.5px; }
 }
 
@@ -1918,15 +2369,6 @@ body[data-qtier="2"] .speedlines { display: none; }
   background: linear-gradient(110deg, transparent 30%, rgba(255, 240, 200, 0.35) 50%, transparent 70%);
   transform: translateX(-110%); animation: title-shine 0.7s ease-out 0.05s forwards; }
 @keyframes title-shine { to { transform: translateX(110%); } }
-
-/* Feat toast sparkle garnish */
-.feat-toast.feat-toast-anim::after { content: '✦'; position: absolute; right: -20px; top: -6px;
-  color: #ffd86a; font-size: 13px; animation: sparkle-drift 1.6s ease-out forwards; }
-@keyframes sparkle-drift {
-  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
-  25%  { opacity: 1; }
-  100% { transform: translate(10px, -22px) scale(1.15); opacity: 0; }
-}
 
 /* --- Screen transitions: in-only fade+rise, freshness-guarded in ui.js --- */
 .screen.screen-anim { animation: screen-in var(--t-screen) var(--ease-out); }
@@ -2358,24 +2800,7 @@ body.screen-open .menu-motes { display: block; }
   to   { transform: translateY(-105vh); opacity: 0.2; }
 }
 
-/* Milestone banner: Russo One gold gradient text, spring scale-in, auto-hide. */
-.milestone-banner { position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
-  font-family: var(--font-display); font-size: 34px; letter-spacing: 4px;
-  white-space: nowrap; pointer-events: none; opacity: 0; }
-.milestone-banner.ms-anim {
-  background: linear-gradient(120deg, transparent 36%, rgba(255,255,255,0.8) 50%, transparent 64%),
-    linear-gradient(180deg, #fff6dd, #ffd86a 55%, #ff9a3c);
-  background-size: 250% 100%, 100% 100%;
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 18px rgba(255,190,80,0.6));
-  animation: ms-in 1.4s var(--ease-spring) forwards; }
-@keyframes ms-in {
-  0%   { opacity: 0; transform: translateX(-50%) scale(0.6); }
-  18%  { opacity: 1; transform: translateX(-50%) scale(1.08); }
-  30%  { transform: translateX(-50%) scale(1); }
-  75%  { opacity: 1; }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-}
+/* (milestone banner: absorbed into THE BELL — H1 §B.11) */
 
 /* --- Goal-gradient: the final stretch of a bar glows + shimmers --- */
 .mission-bar.near span { background: linear-gradient(90deg, #3fd8e8, #ffd86a 60%, #ffe9a0);
@@ -2398,7 +2823,6 @@ body.screen-open .menu-motes { display: block; }
   .badge { animation: none; }
   .btn-daily.glow, .btn-primary.breathe, .daily-streak { animation: none; }
   .menu-motes { display: none !important; }
-  .milestone-banner.ms-anim { animation: ms-fade 0.5s ease-out forwards; }
   @keyframes ms-fade { 0%{opacity:0} 10%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
   .boss-title-card.btc-anim { animation: ms-fade var(--btc-dur, 2.4s) ease-out forwards; }
   .boss-felled-card.bfc-anim { animation: ms-fade var(--bfc-dur, 2.6s) ease-out forwards; }
@@ -2415,7 +2839,6 @@ body.screen-open .menu-motes { display: block; }
   .celebrate-name { animation: none; }
   .streak-flames .flame { animation: none; }
   .earn-line.levelup-badge.reveal::after { display: none; }
-  .feat-toast.feat-toast-anim::after { display: none; }
   .load-bar span { animation-duration: 2.4s; }
   h1.wordmark, .screen h1.wordmark { animation: none; }
   /* Hero: keep it still — no entrance, no drifting embers, no rotating gear. */

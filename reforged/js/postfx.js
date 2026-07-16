@@ -179,6 +179,20 @@ let _deathMix = 0;
 // signal (0 idle, 0.6 warn/approach/fight, 1.0 shielded) — see updatePostFX.
 let _bossMix = 0;
 
+// ═══ THE HUD GRADING ARBITER (EMBERSIGHT H3, risk #9) ═══════════════════════
+// ONE function owns the HUD's claim on the grade stack. HUD code (hudState's
+// VIGIL) never touches uniforms — it declares a target here; updatePostFX
+// eases toward it and composes it ADDITIVELY with its own channels (fever
+// lift, boss mix, death grade), so the VIGIL desat can never fight the fever
+// lift: they are separate terms on separate knobs, applied in one place.
+const _hudGradeTarget = { desat: 0, vig: 0 };
+const _hudGrade = { desat: 0, vig: 0 };
+export function setHudGrade(desat = 0, vig = 0) {
+  _hudGradeTarget.desat = desat;
+  _hudGradeTarget.vig = vig;
+}
+// Test/debug introspection (read via kickState().hud).
+
 const KICK_PRESETS = {
   goldenEmber:      { bloom: 0.30, lift: 0.35 },
   perfectMilestone: { flashFrames: 1, bloom: 0.20, lift: 0.20 },
@@ -230,7 +244,8 @@ export function clearDeath(instant = false) {
 
 // Test/debug introspection (read-only snapshot).
 export function kickState() {
-  return { ..._kick, flashFrames: _flashFrames, deathMix: _deathMix, deathOn: _deathOn, bossMix: _bossMix };
+  return { ..._kick, flashFrames: _flashFrames, deathMix: _deathMix, deathOn: _deathOn, bossMix: _bossMix,
+    hud: { ..._hudGrade } };
 }
 
 export function initPostFX(renderer, scene, camera) {
@@ -381,6 +396,14 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // the feverMix damp idiom below, but computed here (not gated on
   // postfx.enabled) so a tier flap can't strand it either.
   _bossMix = damp(_bossMix, bossTarget, 4, rawDt);
+  // HUD grade (the H3 arbiter): eased UNCONDITIONALLY like _bossMix, so a
+  // tier flap or teardown mid-critical never strands the VIGIL desat. The
+  // claim is a playing-state grade by definition — outside 'playing' it
+  // releases (death/recap own their own grades); hudState's 4Hz tick
+  // re-asserts it on resume.
+  if (game.state !== 'playing') { _hudGradeTarget.desat = 0; _hudGradeTarget.vig = 0; }
+  _hudGrade.desat = damp(_hudGrade.desat, _hudGradeTarget.desat, 4, rawDt);
+  _hudGrade.vig = damp(_hudGrade.vig, _hudGradeTarget.vig, 4, rawDt);
 
   if (!postfx.enabled) return;
   const u = postfx.gradingPass.uniforms;
@@ -408,8 +431,8 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // Boss-time stage management: the world mid-tones itself (sat/vig/bloom ease
   // toward this at mix=1) so the bullets are the most vivid thing on screen —
   // scales linearly with _bossMix, zero term at mix=0 (no boss = byte-identical).
-  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat - _bossMix * 0.10; 
-  let vig = 0.30 + _kick.vig + _bossMix * 0.05;
+  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat - _bossMix * 0.10 - _hudGrade.desat;
+  let vig = 0.30 + _kick.vig + _bossMix * 0.05 + _hudGrade.vig;
   // Bloom eases DOWN during Surge (clamped) so the bright scene/sky can't blow
   // out and bury the silhouette — the dragon's own emissive is far brighter and
   // still blooms, keeping the glow ON the dragon, not the whole screen.

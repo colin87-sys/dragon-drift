@@ -105,33 +105,30 @@ export function createBossCommon(def, quality = 1, {
   const mats = [];          // every material, for the dissolve
   const track = (m) => { mats.push(m); return m; };
 
-  // --- Health bar: floats above the boss on its front face (so it faces the
-  // player), notched at the phase thresholds. Drawn depth-test-off + high render
-  // order so it's always legible over the body. ---
+  // --- Over-model LOCATOR PIP (EMBERSIGHT H5 §B.9): the wide over-model HP bar +
+  // phase notches are RETIRED — the DOM Mews plate (bossBar.js, on emit('bossHit'))
+  // is the ONE HP authority, so HP is never double-reported. What floats above the
+  // boss now is a small diamond in her own glow: a "there she is" locator only, no
+  // hp encoding. The barFill mesh is kept (invisible) purely so setHealth() stays a
+  // valid, side-effect-free API — several models wire kit.setHealth and drive their
+  // own damage visuals off the frac, and the reveal fill-up ramps still call it. ---
   const barW = 8;
   const hpBar = new THREE.Group();
   hpBar.position.set(0, hpBarY, hpBarZ);
   hpBar.scale.setScalar(hpBarScale);
-  const barBgMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.72, depthTest: false }));
-  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(barW + 0.3, 0.62), barBgMat);
-  barBg.renderOrder = 998;
-  hpBar.add(barBg);
-  const fillWrap = new THREE.Group();      // scale.x from the LEFT edge
+  const pipMat = track(new THREE.MeshBasicMaterial({ color: glow, transparent: true, opacity: 0.62, depthTest: false, blending: THREE.AdditiveBlending }));
+  const locatorPip = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), pipMat);
+  locatorPip.rotation.z = Math.PI / 4;     // a small diamond marker
+  locatorPip.renderOrder = 999;
+  hpBar.add(locatorPip);
+  const fillWrap = new THREE.Group();      // retained API anchor (invisible)
   fillWrap.position.x = -barW / 2;
   const barFillMat = track(new THREE.MeshBasicMaterial({ color: 0xff4468, transparent: true, depthTest: false }));
   const barFill = new THREE.Mesh(new THREE.PlaneGeometry(barW, 0.44), barFillMat);
-  barFill.position.x = barW / 2;           // left edge sits at the wrapper origin
-  barFill.renderOrder = 999;
+  barFill.position.x = barW / 2;
+  barFill.visible = false;                 // the DOM plate draws the bar now
   fillWrap.add(barFill);
   hpBar.add(fillWrap);
-  const notchMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.85, depthTest: false }));
-  for (const p of (def.phases || [])) {
-    if (p.atFrac >= 0.999) continue;       // full-hp threshold isn't a divider
-    const notch = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.6), notchMat);
-    notch.position.set(-barW / 2 + p.atFrac * barW, 0, 0.02);
-    notch.renderOrder = 1000;
-    hpBar.add(notch);
-  }
   hpBar.visible = false;   // hidden during the fly-in; revealed once it settles ahead
   group.add(hpBar);
   function setHealth(frac) { fillWrap.scale.x = Math.max(0.0001, Math.min(1, frac)); }

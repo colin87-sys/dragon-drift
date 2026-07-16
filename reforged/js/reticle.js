@@ -9,6 +9,7 @@ import { on } from './events.js';
 import { lensClarity } from './lensFlag.js';
 import { incomingThreat } from './bossBullets.js';
 import { bossCharge01 } from './boss.js';
+import { uiSound } from './uiSound.js';
 
 // Panzer-Dragoon-style nested-square target reticle: projects the next
 // ring/window onto the screen as two counter-rotating squares. Pure DOM
@@ -50,6 +51,13 @@ export function markRune() { return markRunePath; }   // test seam
 let el = null;
 let camera = null;
 let prevLocked = false;   // edge-detect the green-snap pop in a boss
+// EMBERSIGHT H4 — cruise LURE lock grammar (§B.8): the brackets shrink-snap
+// 1.0→0.85 over ~150ms on lock (eased in JS so it composes with the per-frame
+// projection transform instead of a CSS transition fighting it — L2's compositor
+// rule); a soft search tick plays while lining up, one solid lock tone on the snap.
+let cruiseLockScale = 1;
+let prevCruiseLocked = false;
+let searchTickAt = 0;
 let yieldAmt = 0;         // LENS: eased 0→1 "aim chrome recedes" amount (glow only, never the lock read)
 let pipWrap = null;       // the V2 painted-pip row (created in initReticle)
 let pipEls = [];
@@ -186,6 +194,7 @@ export function updateReticle(player, playing) {
   const maxAhead = Math.max(220, player.speed * 2.6);
   if (!target || target.dist > player.dist + maxAhead) {
     el.style.opacity = 0;
+    if (prevCruiseLocked) { el.classList.remove('snap', 'locked'); prevCruiseLocked = false; }
     return;
   }
 
@@ -210,9 +219,26 @@ export function updateReticle(player, playing) {
   const locked = Math.abs(player.position.x - tx) < catchR &&
                  Math.abs(player.position.y - ty) < catchR;
 
+  // Shrink-snap: ease the bracket scale toward 0.85 on lock / 1.0 while framing
+  // (~150ms at 60fps via a fixed frame factor — same idiom as yieldAmt below).
+  const lockTarget = locked ? 0.85 : 1;
+  cruiseLockScale += (lockTarget - cruiseLockScale) * 0.2;
   el.style.opacity = 0.85 * fade;
-  el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale * (locked ? 0.85 : 1)})`;
+  el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale * cruiseLockScale})`;
   el.classList.toggle('locked', locked);
+  // Lock edge → the .rsnap expanding ring + one solid lock tone (U11: lock = one
+  // voice); the search tick plays softly at ≤4Hz while the line is closing in.
+  if (locked && !prevCruiseLocked) {
+    el.classList.remove('snap'); void el.offsetWidth; el.classList.add('snap');
+    uiSound.lock();
+  } else if (!locked) {
+    el.classList.remove('snap');
+    const near = Math.abs(player.position.x - tx) < catchR * 1.8 &&
+                 Math.abs(player.position.y - ty) < catchR * 1.8;
+    const now = performance.now();
+    if (near && now - searchTickAt > 250) { searchTickAt = now; uiSound.search(); }
+  }
+  prevCruiseLocked = locked;
 }
 
 // LENS cues (interventions 3a + 3b), boss branch only, ?lens=2. 3a — THREAT YIELD:

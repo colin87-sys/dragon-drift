@@ -25,7 +25,7 @@ const HAZLAB = _canyonParams.has('hazlab');
 // skim over the mirror: the reward rings clamp low (below) so the whole run sits under the
 // sightline and the ice masses (obstacles.js) never track UP into a claustrophobic canyon.
 // Flag-gated (?strait=1 / CONFIG.canyonStrait), OFF by default → zero change to normal play.
-const STRAIT = !!(CONFIG.canyonStrait || _canyonParams.has('strait'));
+const STRAIT = !!(CONFIG.canyonStrait || CONFIG.canyonStrait2 || _canyonParams.has('strait') || _canyonParams.has('strait2'));
 // Three canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves), a
 // DRAGON SPINE CANYON (skull → throat → ribcage → vertebrae → sky exit), and a FLOW
 // run (the Rhythm Flow-Tube: walls-free light-gates + an orb ribbon, a speed showcase).
