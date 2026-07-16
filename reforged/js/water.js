@@ -355,7 +355,7 @@ const fragmentShader = /* glsl */`
     // HERO POOL (Fable 75): the player light answered on the mirror. 0 = shipped. The vec2(2.4, 0.9)
     // anisotropy stretches the pool DOWN-lane into a vertical reflection streak (~2.7:1 on screen) —
     // what a real light on real water does, never another disc. World XZ = the rain-ring hash space.
-    vec2 _hd = (vWorldPos.xz - uHeroPos.xz) * vec2(2.4, 0.9);
+    vec2 _hd = (vWorldPos.xz - uHeroPos.xz) * vec2(2.4, 0.5);   // Fable 77: z 0.9→0.5 (world ~4.8:1 down-lane) — perspective foreshortens the z-axis, so 0.9 compressed to a ~1:1 disc on screen; 0.5 lands a true ~2:1 vertical reflection streak
     float _hp = exp(-dot(_hd, _hd) / 70.0);   // ~8.4m 1/e half-width
     col += uHeroCol * (_hp * uHeroPool * 0.38);
 

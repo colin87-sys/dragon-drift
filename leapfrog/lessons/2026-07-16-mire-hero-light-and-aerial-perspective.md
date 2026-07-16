@@ -27,10 +27,16 @@ dramatically better than the 2/5) with every existing gate green.
   scene always holds exactly 1 light and lit shaders never recompile mid-flight.
 - **The custom water shader has `lights:false` — a scene light can NEVER pool on it.** Fable caught this
   in the spec ("the engineer must not discover it after wiring the light"). The mirror is fed the light
-  **positionally** (world XZ, the rain-ring hash space) as an anisotropic `vec2(2.4,0.9)` gaussian → a
+  **positionally** (world XZ, the rain-ring hash space) as an anisotropic gaussian → a
   vertical reflection **streak**, not another disc. Precedent: the EYE-BREACH `_goldPool`. **Reusable
   law: any hand-rolled `ShaderMaterial` with lights off needs an explicit positional term for every light
   you want it to answer — a `PointLight` is invisible to it.**
+  - **Foreshortening gotcha (Fable re-gate 77, halo 4.0→pass):** a WORLD-space anisotropy of
+    `vec2(2.4,0.9)` (2.7:1 down-lane) foreshortened to ~1:1 ON SCREEN — the pool came back as a chalky
+    oval, the exact disc the lever exists to kill. Perspective compresses the view-depth (z) axis hard, so
+    a screen-space streak needs a world aspect that **over**-stretches down-lane: `vec2(2.4,0.5)` (~4.8:1
+    world → ~2:1 on screen) is the streak. **When you want an N:1 read on-screen along the depth axis,
+    author well past N:1 in world space.**
 
 **Lever 2 — aerial perspective is RUNTIME depth, not a vertex bake (Fable corrected her own spec).**
 Her first instinct ("vertex-baked, zero runtime") conflated two effects. A prop can't know its camera
