@@ -61,6 +61,10 @@ const sharedUniforms = {
   // there), so paint a horizonward aurora-green glow into it. 0 in every other biome (byte-identical);
   // reflective tiers ignore it. MUST live here or it vanishes on the reflective↔cheap rebuild.
   uAuroraGlow: { value: 0 },
+  // STORMSEA gate (Tempest): 0 = shipped calm sea (byte-identical). 1 = violent storm sea
+  // (2nd swell + fragment trough-darkening + wind-combed foam streaks). MUST live here or
+  // it vanishes on the reflective↔cheap/swell tier rebuild.
+  uStormSea: { value: 0 },
   // Fix C — PREMIUM HEAVEN HORIZON: weight (0 off-heaven ⇒ byte-identical) driving a graded blast-haze
   // horizon + a broad reflection column + the shared heartbeat, so the sea ANSWERS the detonation instead
   // of being two flat cardboard bands (gold sky / flat violet fogged sea) with a hard seam. MUST live here
@@ -95,15 +99,26 @@ const sharedUniforms = {
 // a GLSL ES int/float type error. All current values have a decimal point.
 export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.28 };
 
+// STORMSEA (Tempest Reach): ONE wind vector drives the storm sea — a 2nd wind-aligned
+// swell (garnish; only displaces when uSwellAmp is on) PLUS the fragment terms (trough
+// darkening + wind-combed foam streaks) that carry the violence with the swell OFF / on
+// tier 2. Gated by uStormSea (0 everywhere else = byte-identical). λ≈55m (shorter/steeper
+// than the global 105m swell). All values FRACTIONAL (the GLSL int/float trap).
+export const TEMPEST_WIND = { x: 0.851, z: 0.525 };   // oblique to the lane → diagonal foam grain
+export const STORM_SWELL = { dirx: 0.851, dirz: 0.525, freq: 0.115, amp: 0.95, speed: 0.55 };
+
 const vertexShader = /* glsl */`
-  uniform float time, waveAmp, uSwellAmp;
+  uniform float time, waveAmp, uSwellAmp, uStormSea;
   varying vec3 vWorldPos;
   #ifdef USE_REFLECTION
     uniform mat4 textureMatrix;
     varying vec4 vUvProj;
   #endif
   float _swellH(vec2 p) {
-    return waveAmp * ${SWELL.amp} * sin(dot(p, vec2(${SWELL.dirx}, ${SWELL.dirz})) * ${SWELL.freq} + time * ${SWELL.speed});
+    float base = waveAmp * ${SWELL.amp} * sin(dot(p, vec2(${SWELL.dirx}, ${SWELL.dirz})) * ${SWELL.freq} + time * ${SWELL.speed});
+    // STORMSEA garnish: a shorter, steeper 2nd swell along the wind (uStormSea 0 = base only).
+    float storm = uStormSea * waveAmp * ${STORM_SWELL.amp} * sin(dot(p, vec2(${STORM_SWELL.dirx}, ${STORM_SWELL.dirz})) * ${STORM_SWELL.freq} + time * ${STORM_SWELL.speed});
+    return base + storm;
   }
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -131,6 +146,7 @@ const fragmentShader = /* glsl */`
   uniform float uAtmosInscatter;
   uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
   uniform float uAuroraGlow; // Aurora Shallows tier2 analytic-reflection sheen (0 = shipped)
+  uniform float uStormSea;   // STORMSEA violence (0 = shipped calm sea)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
@@ -216,6 +232,30 @@ const fragmentShader = /* glsl */`
     float foamN = hash(floor(p * 3.0) + floor(time * 1.6));
     float foam = crest * smoothstep(0.55, 1.0, foamN);
     col += vec3(0.82, 0.92, 1.0) * foam * 0.4;
+
+    // --- STORMSEA (uStormSea 0 = shipped calm sea; the read survives with the vertex swell OFF,
+    // because the trough + streak terms are computed here in the fragment from world xz) ---
+    if (uStormSea > 0.001) {
+      vec2 wind = vec2(${TEMPEST_WIND.x}, ${TEMPEST_WIND.z});
+      vec2 windP = vec2(-wind.y, wind.x);
+      // Low-freq storm swell, recomputed in-fragment so troughs read on tier2 / swell-off.
+      float sStorm = sin(dot(p, wind) * ${STORM_SWELL.freq} + time * ${STORM_SWELL.speed});
+      // (a) Near-black TROUGHS — the darkness is what sells the violence (storm-ocean research).
+      float trough = 1.0 - smoothstep(-0.7, 0.12, sStorm);   // ~1 deep in the trough
+      col *= mix(1.0, 0.58, trough * uStormSea);
+      // (b) Wind-combed foam STREAKS — hash cells stretched ALONG the wind (long + thin),
+      // drifting slowly downwind so they never strobe; crest-biased + torn by the ripple.
+      vec2 wf = vec2(dot(p, wind), dot(p, windP));
+      float sA = smoothstep(0.80, 0.995, hash(floor(vec2(wf.x * 0.03 + time * 0.5, wf.y * 0.42))));
+      float sB = smoothstep(0.88, 1.0,   hash(floor(vec2(wf.x * 0.06 + time * 0.7, wf.y * 0.85) + 17.3)));
+      float streak = clamp(sA * 0.7 + sB * 0.35, 0.0, 1.0);
+      // Soft ACROSS-streak profile so each lit cell reads as a feathered streak, not a hard tile.
+      float fyA = fract(wf.y * 0.42);
+      streak *= smoothstep(0.0, 0.32, fyA) * smoothstep(1.0, 0.68, fyA);
+      streak *= smoothstep(-0.05, 0.6, sStorm) * (0.5 + 0.5 * smoothstep(0.05, 0.4, h));
+      // #c4cdce overcast foam (never blue-white), capped low so the white fraction stays ≲20%.
+      col = mix(col, vec3(0.77, 0.80, 0.81), clamp(streak * uStormSea, 0.0, 0.28));
+    }
 
     // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
     // twinkle gated to glancing angles (both water variants; the reflective path
@@ -490,14 +530,20 @@ export function getWaterDepthOn() { return depthOn; } // perf-HUD gfx readout
 export function waterSurfaceHeight(x, z) {
   if (!swellOn || !water) return 0;
   const u = water.material.uniforms;
-  return u.waveAmp.value * SWELL.amp *
+  const base = u.waveAmp.value * SWELL.amp *
     Math.sin((x * SWELL.dirx + z * SWELL.dirz) * SWELL.freq + u.time.value * SWELL.speed);
+  // STORMSEA 2nd swell — mirror of the vertex _swellH so the contact shadow + foam collars
+  // ride the true storm surface (0 when uStormSea is off → shipped).
+  const storm = (u.uStormSea?.value || 0) * u.waveAmp.value * STORM_SWELL.amp *
+    Math.sin((x * STORM_SWELL.dirx + z * STORM_SWELL.dirz) * STORM_SWELL.freq + u.time.value * STORM_SWELL.speed);
+  return base + storm;
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea }) {
   if (!water) return;
   const u = water.material.uniforms;
+  u.uStormSea.value = stormSea || 0; // 0 in every biome that doesn't pass it → byte-identical calm sea
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);
