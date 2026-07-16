@@ -2115,31 +2115,35 @@ const ARCHETYPES = {
     step: 29, biomes: lagoonV3, matIndex: 0, sizeClass: true, comp: { floor: 0.15, sMin: 0.8, sMax: 1.05 }, // low commons: scatters around the island heroes, 3 size classes, near-empty in the open-water breaths
     build: () => {
       const parts = [];
-      // TRUNK — a short woody column SUSPENDED above the water (base at y0.40 → the airgap is below it),
-      // holding the canopy. bake:'wood' (dark bark).
-      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([0.0, 0.40, 0.0], [0.02, 0.74, 0.0], 0.14, 0.11, 6) });   // trunk (12)
-      // STILT ROOTS — true mangrove PROP-ROOT ARCS (Fable r1: straight tripod struts read as "kindling"; a
-      // mangrove root BOWS — convex-outward, the knee kicked OUTSIDE the foot, then a buttress foot-flare
-      // that GRIPS). 3 segments/leg: out-and-down at ~55° (thick base) → KNEE past the foot (the bow) →
-      // near-vertical to a FLARED buttress foot. bake:'wood' bark; UNEVEN azimuths (a crinoline, not a clock).
-      const leg = (az, R) => {
-        const c = Math.cos(az), s = Math.sin(az);
-        // A SHALLOW PLANTED BOW (Fable r2: m3's hard elbow read as an arthropod leg; roots are a smooth
-        // convex curve you cannot name a knee on, and every foot is PLANTED on one plane, not mid-stride).
-        const p0 = [0.10 * c, 0.50, 0.10 * s];          // trunk attach (high, central, thick)
-        const p1 = [R * 0.60 * c, 0.33, R * 0.60 * s];  // gently out+down (~45°, no near-horizontal reach)
-        const p2 = [R * 0.98 * c, 0.14, R * 0.98 * s];  // knee only SLIGHTLY outside the foot (a shallow bow, no nameable joint)
-        const p3 = [R * 0.92 * c, 0.0, R * 0.92 * s];   // foot — near-VERTICAL shin to a foot PLANTED at y0 (all six coplanar)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.062, 0.052, 3) }); // thick base (6)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.052, 0.046, 2) }); // gentle mid bend (4)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p2, p3, 0.046, 0.075, 3) }); // THICK shin (no float) → flared planted foot (6)
+      // CRINOLINE SKIRT — a flared concave collar where the prop-roots MERGE (Fable r3: six discrete limbs
+      // read as a hexapod no matter the arc — the viewer counts legs before reading curvature. Roots read
+      // via a MERGED skirt + DENSITY + CROSSING, which walking legs never do). A short lathe cone flaring
+      // concave from the canopy seat to an open rim; every root below springs from THIS, so nothing emerges
+      // from a "body". This also carries the mass/scale cue and survives chase distance (thin roots LOD out).
+      {
+        const prof = [new THREE.Vector2(0.13, 0.52), new THREE.Vector2(0.22, 0.40), new THREE.Vector2(0.36, 0.28)];
+        parts.push({ mat: 0, bake: 'wood', geo: new THREE.LatheGeometry(prof, 7) });   // 2 gaps × 7 × 2 = 28
+      }
+      // PROUD CROSSING ROOTS — 5 roots spring from the skirt RIM and splay to feet PLANTED at the waterline
+      // (y0), routed so adjacent pairs CROSS (the un-fakeable "grown, not walking" signal — legs never cross,
+      // roots do). Welded up into the rim (interpenetrate, no joint gap); above the radius floor (no wire-
+      // shins). The GAPS between them, below the skirt, are the see-through AIRGAP + the mirror double.
+      const root = (rimAz, footAz, R) => {
+        const rc = Math.cos(rimAz), rs = Math.sin(rimAz), fc = Math.cos(footAz), fs = Math.sin(footAz);
+        const p0 = [0.34 * rc, 0.30, 0.34 * rs];             // welded up into the skirt rim
+        const p1 = [R * 0.82 * fc, 0.13, R * 0.82 * fs];     // mid — already angling to the FOOT azimuth → the crossing
+        const p2 = [R * fc, 0.0, R * fs];                    // planted foot at the waterline
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.052, 0.045, 3) }); // (6)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.045, 0.072, 3) }); // → flared planted foot (6)
       };
-      leg(0.30, 0.48); leg(1.15, 0.42); leg(2.25, 0.50); leg(3.10, 0.40); leg(4.15, 0.47); leg(5.20, 0.44); // 6 × 16 = 96, all feet coplanar at y0
+      root(0.35, 1.05, 0.52); root(1.30, 0.50, 0.50);   // pair A×B cross
+      root(2.55, 2.60, 0.54);                            // one near-radial
+      root(3.70, 4.35, 0.48); root(4.95, 4.10, 0.52);   // pair D×E cross
       // CANOPY — a BROAD sheared green crown (bake:'lily'), the visual mass that outweighs the legs so it
       // reads TREE not spider. Two overlapping squashed lobes (the figgate/karstfang law: rounded blobs +
       // overlap, never a flat pad or one convex boulder), seated low so they weld to the trunk top.
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.52, 0), { x: -0.02, z: 0.0, y: 0.86, sx: 1.22, sy: 0.62, sz: 1.14 }) });  // main broad canopy (20)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.38, 0), { x: 0.14, z: 0.10, y: 0.92, sx: 1.06, sy: 0.66, sz: 0.98 }) });  // overlapping lobe — pulled IN + bigger so the two blobs merge (Fable r1: kill the pac-man notch) (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.52, 0), { x: -0.02, z: 0.0, y: 0.70, sx: 1.22, sy: 0.62, sz: 1.14 }) });  // main broad canopy — seated on the skirt top (welds at y0.52) (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.38, 0), { x: 0.14, z: 0.10, y: 0.77, sx: 1.06, sy: 0.66, sz: 0.98 }) });  // overlapping lobe (merged, no pac-man notch) (20)
       return mergeLagoonParts(parts);
     },
     // LOW islet, ~1:1 (broad canopy + splayed legs ≈ as wide as tall): r 4.5–7, h 4–7 (never crowds the
