@@ -248,6 +248,52 @@ export const BIOMES = [
     // Contrast gate: darker fog than Astral (L≈0.10) → the default deep bullet band vanishes.
     bullets: { dark: 0xaf4f73 },
   },
+  {
+    // TEMPEST REACH (TEMPEST-REACH-BIBLE.md): the AAA storm biome, STORMREND's home — "the storm
+    // that never lands." Theology — "the sun is ABOVE the storm; every light is the storm FAILING
+    // to contain it: the leak, the breach, and the blow." Mass is dark, wet, wind-torn; nothing is
+    // self-luminous. The cycle's ONLY dim-DAYLIGHT biome (stars:0), the only VIOLENT sea
+    // (waveAmp 0.95), the only far fog that goes PALE (rain-veil silver), the only light that CHANGES
+    // over time (lightning, PR-4). Distinct from every cool/dark biome by construction: its green is a
+    // DESATURATED grey-olive TRANSMITTED through cloud (NOT Mire's emissive bottom-up teal), and
+    // saturated storm-teal 0x2fd8e8 is BANNED from the ambient palette (reserved for STORMREND's kit +
+    // momentary in-eye water glints — the biome makes the boss pop by starving its hue). Appended as
+    // BIOMES[7], NOT yet in CYCLE — reachable only via ?biome=7&debug until the CYCLE flip (a later
+    // no-op PR coordinated with the Lost Lagoon arc). PR-0 = the atmosphere substrate; the storm-carved
+    // prop roster, obstacle skins, and the lightning hazard follow in their own PRs.
+    name: 'TEMPEST REACH',
+    keyShift: -3,
+    stars: 0,
+    sky: {
+      top: C(0x2b333d),      // the storm deck overhead — near-black blue-grey (rain-core register, cooled)
+      mid: C(0x4d5346),      // the green-grey core belt — DESATURATED teal-olive (real green-storm-sky), never emerald
+      horizon: C(0xb4bab6),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
+      sun: C(0xe0b070),      // the veiled-amber bruise where the hidden 0–5° sun sits — a glow, never a disc
+      // N9 clouds: the heaviest deck in the cycle — gold-leaning lit tops (low hidden sun) over
+      // committed near-black undersides (the black shadow is what makes the cloud read as SOLID mass).
+      cloud: { amount: 0.95, lit: C(0xe9cf9e), shadow: C(0x2e363f) },
+    },
+    fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
+    // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
+    // field is LIGHTER than its near (Frozen melts to gold, Caldera/Aurora sink to black). Receding
+    // forms dissolve into the veil: free depth + cycle-unique distinctness.
+    fogFarColor: C(0xa7b2b0),
+    // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
+    atmos: { heightK: 0.04 },
+    light: { sun: C(0xffd28a), sunI: 1.25, hemiSky: C(0x6b7a80), hemiGround: C(0x2c3a3c) },
+    // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
+    // sea in the game (the previous cycle max was Amber Wastes at 0.7).
+    water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
+    // Driving rain motes on ONE wind vector — few / long / thin (readable rain is SPARSE rain).
+    ambient: { color: C(0xb8c4c6), fall: 6.5, sway: 2.4, size: 0.22, opacity: 0.5 },
+    fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
+    props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
+    matIndex: 7, // storm slate
+    // No bullets override needed: with the fog held at L≈0.31 and the horizon under the 0.75 read
+    // ceiling, all six role colours (danger + band + reflects) clear both fog and horizon on the
+    // default band (bulletcontrast, zero new exceptions). The PR-4 lightning FLASH lifts the whole
+    // frame transiently — its grade is CAPPED there so the magenta danger still clears at peak.
+  },
 ];
 
 // The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
