@@ -641,8 +641,8 @@ const ARCHETYPES = {
       // DARK CRUST ISLANDS (mat 0 = foil, so the tongue is the biome's BLACK BASELINE — Fable
       // D2) seated ON the core, each proud (top ~0.185) so its edges WALL the magma veins; set
       // with gaps between them and short of the core rim → magma shows as seams + a molten edge.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.40, 0.17, 6), { x: -0.22, z: -0.20, y: 0.10, ry: 0.5, sx: 1.25, sz: 1.5 }) },   // rear-left crust
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.38, 0.17, 6), { x: 0.24, z: -0.05, y: 0.10, ry: 1.2, sx: 1.18, sz: 1.45 }) },   // right crust (thin central seam between L/R)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.40, 0.17, 6), { x: -0.26, z: -0.20, y: 0.10, ry: 0.5, sx: 1.25, sz: 1.5 }) },   // rear-left crust (nudged out → opens ONE interior seam across the plan, Fable r11 free delta)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.38, 0.17, 6), { x: 0.28, z: -0.05, y: 0.10, ry: 1.2, sx: 1.18, sz: 1.45 }) },   // right crust (central seam between L/R)
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.33, 0.15, 6), { x: -0.03, z: 0.35, y: 0.09, ry: 0.8, sx: 1.25, sz: 1.15 }) },   // mid-front crust (cross seams)
       // two staggered front lobe NOSES (foil) — the advancing tongue with molten between them
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.27, 0.12, 5), { x: -0.28, z: 0.60, y: 0.065, ry: 0.5, sx: 1.1 }) },
@@ -669,6 +669,79 @@ const ARCHETYPES = {
     ], { foil: true }),
     // FOIL rubble mound: broad, ~1.6:1. ρ≈0.75. r 5–11, h 5–9 → wider than tall.
     place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (14.5 + 0.78 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.14 - 0.05) }; },
+  },
+  // EMBERFALL CALDERA — MID MASS + glow carrier 2 (CALDERA-BIBLE.md §4.3): a fused cinder /
+  // spatter-cone cluster (2–3 squat cones, breached crater rims) with ONE sunken glowing
+  // THROAT recessed inside the largest crater — invisible from the side, a hot pool from
+  // above and on approach (the purest expression of the LOW-in-cracks/throats glow address).
+  // Kin to the geyser vent sites — the world explains its own hazard. ~2:1 wide.
+  fumarole: {
+    step: 47, biomes: calderaNew, matIndex: 3,
+    build: () => mergeCalderaParts([
+      // main cinder cone — an OPEN-TOPPED frustum (openEnded → you see DOWN into the crater to
+      // the glowing throat; a closed cap would hide it), never a traffic-cone point
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.54, 0.74, 7, 1, true), { y: 0.37, ry: 0.2 }) },
+      // second fused cone, offset + lower (breaks the main rim asymmetrically)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.40, 0.52, 6), { x: 0.36, z: 0.10, y: 0.26, ry: 0.7 }) },
+      // third spatter mound, other side
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.30, 0.36, 6), { x: -0.32, z: 0.14, y: 0.18, ry: 1.3 }) },
+      // rim-breach wedges — asymmetric broken lip on the main crater (kill the neat ring)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.22, 0.16), { x: -0.20, z: -0.18, y: 0.66, rz: 0.4, ry: 0.3 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.16, 0.13), { x: 0.16, z: 0.16, y: 0.70, rz: -0.5 }) },
+      // the SUNKEN THROAT — a magma pool (mat 1) filling the crater floor, recessed BELOW the
+      // rim (rim ~0.74, pool top ~0.66): occluded in side elevation by the open cone's near
+      // wall, a hot pool from above/oblique approach (the withheld-glow reveal on climb/bank).
+      { mat: 1, geo: xform(new THREE.CylinderGeometry(0.29, 0.22, 0.12, 7), { y: 0.61 }) },
+    ]),
+    // MID mass, ~2:1. ρ≈0.62 (cluster spread). r 7–13, h 6–11. Explicit tilt.
+    place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (14.5 + 0.66 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },
+  },
+  // EMBERFALL CALDERA — THE DISTANT MASSIF (CALDERA-BIBLE.md §4.5): the caldera RIM — a long,
+  // dark, flat-topped escarpment banded with HORIZONTAL strata (distinguished from the hero's
+  // VERTICAL ribs by axis), sinking into the scorched-dark far fog. No glow (the rim is the
+  // oldest, coldest crust). The amphitheatre wall that makes the caldera a PLACE. 5–7:1 wide.
+  riftwall: {
+    step: 89, biomes: calderaNew, matIndex: 3,
+    build: () => mergeCalderaParts([
+      // stacked HORIZONTAL strata slabs — varied lengths, offset laterally, each on a slightly
+      // different roll/yaw so the coursing breaks (no clean stacked-crate read); a wide 5-sided
+      // frustum stratum mixed in so not every edge is a right angle.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.54, 0.60, 0.32, 5), { y: 0.16, ry: 1.62, sx: 1.05, sz: 0.62, rz: 0.03 }) },  // base plinth stratum (5-sided → no crate corners)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.90, 0.26, 0.38), { x: -0.08, z: -0.03, y: 0.45, ry: -0.05, rz: -0.04 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.68, 0.22, 0.34), { x: 0.14, z: 0.03, y: 0.69, ry: 0.07, rz: 0.05 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.24, 0.32), { x: -0.26, z: 0.05, y: 0.86, ry: 0.12, rz: -0.10 }) },          // proud OVERHANGING shoulder (asymmetric crown)
+      // a stepped colonnade band partway up the face (a few short vertical notches)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.09, 0.30, 0.10), { x: 0.20, z: 0.22, y: 0.42 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.09, 0.30, 0.10), { x: 0.34, z: 0.22, y: 0.42 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.09, 0.26, 0.10), { x: 0.48, z: 0.22, y: 0.40 }) },
+    ]),
+    // BACKDROP massif: derive its own floor from measured ρ (widen propclearance to biome 3).
+    // ρ≈1.0 (boxy) — couple x = 26 + 1.02·r like the glacier wall; foam:false (fog-line).
+    // Wide 5–7:1: r 12–24 → world width ~24–48; h 18–28. Rides the height-fog.
+    place: (side, rnd) => { const r = 12 + rnd() * 12; return { x: side * (26 + 1.02 * r + rnd() * 8), h: 18 + rnd() * 10, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
+  },
+  // EMBERFALL CALDERA — THE RARE TALL PUNCTUATION (CALDERA-BIBLE.md §4.6): a volcanic NECK —
+  // the eroded throat of a dead vent, a single leaning tapered monolith on a BROAD skirt with
+  // a broken asymmetric multi-jag crown. The ONE tall form (landmark). No glow (tallest =
+  // darkest). Lean built by OFFSET-stacking, never internal tilt (the (r,h,r) shear rule).
+  riftfang: {
+    step: 149, biomes: calderaNew, matIndex: 3,
+    build: () => mergeCalderaParts([
+      // broad basal skirt (≥55% of height → grows from mass, not a picket)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.64, 0.38, 6), { y: 0.19, ry: 0.2 }) },
+      // neck segments — a CHUNKY plug (a solid volcanic neck, not a needle): each offset +x/+z
+      // so the stack LEANS without internal rotation, tapering only gently.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.44, 0.50, 6), { x: 0.05, z: 0.02, y: 0.56, ry: 0.5 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.27, 0.36, 0.46, 6), { x: 0.14, z: 0.06, y: 0.98, ry: 1.0 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.29, 0.40, 6), { x: 0.24, z: 0.10, y: 1.34, ry: 1.6 }) },
+      // two-jag broken crown at OPPOSING offsets (asymmetric, never a centred point), blunter
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.17, 0.30, 5), { x: 0.33, z: 0.05, y: 1.63, rz: -0.28 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.22, 5), { x: 0.17, z: 0.16, y: 1.57, rz: 0.42 }) },
+    ]),
+    // RARE tall PUNCTUATION: the sanctioned tall exception. ρ≈0.5. r 6–11, h 26–40 world.
+    // Placed at the band EDGES (|x| ≥ 60 via the coupling) so it brackets ASHTALON's stage,
+    // never a centre obstruction. Explicit tilt (stands plumb; the lean is in the geometry).
+    place: (side, rnd) => { const r = 6 + rnd() * 5; return { x: side * (56 + 0.6 * r + rnd() * 10), h: 26 + rnd() * 14, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
@@ -857,6 +930,9 @@ const FOAM_CFG = {
   colonnata: { r: 0.86 },   // Caldera hero — broad plinth waterline weld; reads as glowing lava shoreline
   flowlobe: { rx: 0.52, rz: 0.72 },   // low tongue — elliptical collar wraps the elongated footprint
   clinker: { r: 0.6 },                // foil rubble mound — round glowing-shoreline collar
+  fumarole: { r: 0.6 },               // cinder-cone cluster — round waterline collar
+  riftwall: false,                    // distant rim massif on the fog line — no collar (bright ring 30+ off-lane = artifact)
+  riftfang: { r: 0.5 },               // volcanic neck — thin collar at the base
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
