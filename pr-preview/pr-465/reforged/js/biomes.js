@@ -268,6 +268,7 @@ export const BIOMES = [
     name: 'TEMPEST REACH',
     keyShift: -3,
     stars: 0,
+    deckBias: 1.0,   // the storm ceiling owns the sky: pull the mid→top gradient stops DOWN so the dark deck dominates and the green belt compresses to a thin strip above the pale horizon slot
     sky: {
       top: C(0x1f242c),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
       mid: C(0x4a5348),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
@@ -381,7 +382,7 @@ const env = {
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
-  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0,
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -455,5 +456,8 @@ export function computeEnv(dist) {
   // renders clouds even when the global sky-cloud toggle is off (still tier-gated for perf, like all
   // clouds). Lerped 0→1 so every non-forcing biome stays byte-identical (opt-in as before).
   env.cloudForce = lerp(a.sky.cloud?.force ? 1 : 0, b.sky.cloud?.force ? 1 : 0, ts);
+  // Per-biome DECK BIAS (Tempest): pulls the sky gradient stops down so the storm ceiling owns
+  // the sky (0 elsewhere = byte-identical). Mirrored in skyProbe.js skyColorAt.
+  env.deckBias = lerp(a.deckBias || 0, b.deckBias || 0, ts);
   return env;
 }
