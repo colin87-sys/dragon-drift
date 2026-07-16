@@ -109,10 +109,13 @@ export const DRAGONS = {
         wingTipGoldAmount: 1,
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5, tailGirth: 1.2,
-        bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailTerminus: true, tailSeam: true, tailPlates: false,
-        ridgeCount: 7, spineGlow: 0.15, dorsal: true, scuteSeam: true, facetShoulders: true, slipstream: true,
+        bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailPlates: false,
+        // the withheld SLIPSTREAM (dragonAzure.js) is the ONLY cyan glow — NO always-on emissive rails:
+        // scuteSeam/tailSeam/tailTerminus/spineGlow all draw shared LED strips (§6.1) that inverted the
+        // withheld contract (a lit L≈203 rail in cruise). The matte dorsal scutes stay as the channel WALLS.
+        ridgeCount: 7, spineGlow: 0, dorsal: true, facetShoulders: true, slipstream: true,
         bodyShadow: 0x1b3049, bodyFacet: 0x3d5f83, bodyDorsal: 0x4f759c,
-        wingCovert: 0x2a4562,
+        wingCovert: 0x35547a,
         colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0x5a7ba0, wingOuter: 0xb0cbe6,
           wingEmissive: 0x2a4562, scales: 0x9db8d4, horn: 0xbcd9f0,
           apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
@@ -122,7 +125,7 @@ export const DRAGONS = {
     bodyRoughness: 0.62, bodyMetalness: 0.05, bodyEnvIntensity: 0.5,
     body: 0x27435f, belly: 0xcfe6ff, scales: 0x9db8d4, horn: 0xbcd9f0,
     bodyShadow: 0x1b3049, bodyFacet: 0x3d5f83, bodyDorsal: 0x4f759c,
-    wingInner: 0x5a7ba0, wingOuter: 0xb0cbe6, wingCovert: 0x2a4562, wingEmissive: 0x2a4562,
+    wingInner: 0x5a7ba0, wingOuter: 0xb0cbe6, wingCovert: 0x35547a, wingEmissive: 0x2a4562,
     apexEye: 0xcfe8ff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
     // COOL identity rim (the Tempest pattern, one notch below the Eternal): the sky-blue edge
     // clears bright backlit water without out-edging the Eternal (AAA §1.3 / tell 4).

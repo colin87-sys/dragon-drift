@@ -110,7 +110,11 @@ function buildSlipstream(def, model, attach) {
     color: 0x203a54, emissive: cyan, emissiveIntensity: 0.04, roughness: 0.4, metalness: 0.0,
     flatShading: true, side: THREE.DoubleSide,
   });
-  filMat.userData.baseEmissiveI = 0.04;   // the withheld base the Surge tick multiplies from
+  // The Surge tick (dragon.js) drives spineMats by `userData.baseEmissive` + `userData.baseIntensity`
+  // (NOT the constructor emissiveIntensity — it overwrites it every frame). A withheld filament MUST
+  // set both, or it idles at the default (intensity 1.0, white) → an always-on LED. Base 0.04 =
+  // imperceptible in cruise; the ×surgeGlowMultiplier tick ignites it as an EVENT (AAA tell 3 / DD §6.1).
+  filMat.userData.baseEmissive = cyan; filMat.userData.baseIntensity = 0.04;
   mats.push(filMat);
   // the recessed filament: a thin tapered ridge riding the keel top from nape to the tail root.
   const z0 = -2.4, z1 = attach.tailAnchor.z, N = seg(9);
@@ -128,7 +132,7 @@ function buildSlipstream(def, model, attach) {
   meshes.push(new THREE.Mesh(g, filMat));
   // the terminus stud — a small cyan node + a soft bloom sprite at the tail root fork
   const studMat = new THREE.MeshStandardMaterial({ color: 0x2a4a68, emissive: cyan, emissiveIntensity: 0.30, roughness: 0.3, flatShading: true });
-  studMat.userData.baseEmissiveI = 0.30;
+  studMat.userData.baseEmissive = cyan; studMat.userData.baseIntensity = 0.30;   // the ONE idle-lit point (the grind-tease)
   mats.push(studMat);
   const stud = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), studMat);
   stud.position.set(0, attach.keelTopAt(z1) + 0.02, z1 + 0.05);
@@ -318,32 +322,36 @@ function buildFalconCombWings(def, model, attach, giM) {
 
     // SECONDARIES — short feathers rooted along the arm trailing edge (the inner-wing feathering),
     // laddered by covertRanks so the whelp stays a bare downy paddle and the apex a full-feathered arm.
+    // covert value band: root lifted off flat-black (≤2 tiers below the vane, DD §4b) → mid tip, so each
+    // covert carries ≥3 luminance steps, not one near-black slab (critic must-fix 2).
+    const covRootHex = lerpHex(cCovert, cRoot, 0.5), covTipHex = lerpHex(cRoot, cVane, 0.35);
     const secN = covertRanks * 3;
     for (let k = 0; k < secN; k++) {
       const t = secN > 1 ? k / (secN - 1) : 0;
-      const cx = wristX * (0.3 + 0.6 * t);
-      const cy = cx * Math.tan(theta) - 0.01;
+      const cx = wristX * (0.3 + 0.6 * t) + jit(k * 17, 0.06);
+      const cy = cx * Math.tan(theta) - 0.02;              // seat CLOSE to the wing plane (no proud float)
       const cz = cx * Math.tan(sweep) + 0.06;
-      const sg = wedgeBlade(maxLen * (0.34 - 0.1 * t), chordK * reach * 0.9, cCovert, cRoot, ridgeH * 0.5, bellyDrop * 0.5, camber * 0.5, 0, 0, cGold, cBar, false, 0.5);
+      const sg = wedgeBlade(maxLen * (0.36 - 0.1 * t) * (1 + jit(k * 7, 0.08)), chordK * reach * 0.95, covRootHex, covTipHex, ridgeH * 0.4, bellyDrop * 0.4, camber * 0.5, 0, 0, cGold, cBar, false, 0.85);
       const s2 = new THREE.Mesh(sg, covertMat);
       s2.position.set(cx, cy, cz);
-      s2.rotation.y = 0.6 + 0.2 * t;                       // sweep aft (trailing the arm)
+      s2.rotation.y = 0.55 + 0.2 * t + jit(k * 23, 0.06);  // sweep aft (trailing the arm) + jitter (no parallel stack)
       s2.rotation.z = theta * 0.5;
       arm.add(s2);
     }
 
-    // COVERT RANKS shingled over the primary bases at the wrist (~55% overlap → only a shadow LINE
-    // between, DD §4b), ON the hand so they fold with the primaries. ×0.82 size decay per rank.
-    for (const [rank, count, chordMul, yLift] of [['g', 4, 1.4, 0.02], ['m', 5, 0.95, 0.06]].slice(0, covertRanks)) {
+    // COVERT RANKS shingled over the primary bases at the wrist. ~55%+ overlap so only a shadow LINE
+    // shows between (DD §4b); ON the hand so they fold with the primaries. detail 0.85 (nX≥5) → real
+    // tapered feathers, NOT the nX=3 stair-step slabs the critic flagged. Azimuth/length jittered.
+    for (const [rank, count, chordMul, yLift] of [['g', 4, 1.35, 0.005], ['m', 5, 0.95, 0.02]].slice(0, covertRanks)) {
       for (let k = 0; k < count; k++) {
-        const size = 0.42 * Math.pow(0.82, k);
-        const cx = wristX + handSpread * (0.02 + k * 0.12);
-        const cy = cx * Math.tan(theta) + yLift;
+        const size = 0.44 * Math.pow(0.84, k) * (1 + jit(k * 31 + (rank === 'g' ? 0 : 50), 0.08));
+        const cx = wristX + handSpread * (0.02 + k * 0.11);   // tight march → high overlap
+        const cy = cx * Math.tan(theta) + yLift;            // seat flat (was 0.02–0.06 proud → floating slab)
         const cz = cx * Math.tan(sweep) + 0.02;
-        const covGeo = wedgeBlade(maxLen * size, chordK * reach * chordMul, cCovert, cRoot, ridgeH * 0.5, bellyDrop * 0.5, camber * 0.5, 0, 0, cGold, cBar, false, 0.5);
+        const covGeo = wedgeBlade(maxLen * size, chordK * reach * chordMul, covRootHex, covTipHex, ridgeH * 0.45, bellyDrop * 0.45, camber * 0.5, 0, 0, cGold, cBar, false, 0.85);
         const cov = new THREE.Mesh(covGeo, covertMat);
         cov.position.set(cx, cy, cz);
-        cov.rotation.y = -(0.04 + k * 0.03) * dominance;
+        cov.rotation.y = -(0.04 + k * 0.03) * dominance + jit(k * 41 + 5, 0.05);
         cov.rotation.z = theta * 0.6;
         hand.add(cov);
       }
