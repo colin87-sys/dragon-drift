@@ -651,25 +651,28 @@ const ARCHETYPES = {
     step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.92, sMax: 1.10 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam
     build: () => {
       const parts = [];
-      // Everything WELDS (nothing floats — Fable D1): each part sinks ≥0.04 into its neighbour.
-      // BASE PLINTH — a battered skirt ring at the waterline; carries the continuous JADE tide band
-      // (the signature pixel, doubled in the mirror). The drum wall rises from y=0 THROUGH it so the
-      // tide stain crosses the whole structure at one height (D5), not a detached green ribbon.
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 9, 1, true), { y: 0.08 }) });
-      // PIERCED DRUM WALL (Fable D2) — a real drum, not crates: a battered cylinder wall built by
-      // hand with 3 ASYMMETRIC through-window gaps (one wider = the collapse, down-lane +z). TALL
-      // vertical openings (sacred, not industrial). Feet at y=0 so the jade band stains them. 8
-      // pier-sectors × 2 tris = 16. Single-wall (thin masonry); the sky/mirror shows through the gaps.
+      const nSeg = 11, dth = (Math.PI * 2) / nSeg;
+      const open = new Set([2, 6, 7]);        // 3 windows; {6,7} adjacent → the wide collapse gap; asymmetric
+      const domePhi = 6.20;                    // aligns the dome's missing quarter with drum sectors {6,7} → both wounds face (x−,z−)
+      // BASE PLINTH — a battered skirt at the waterline; carries the continuous JADE tide band.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 8, 1, true), { y: 0.08 }) });
+      // PIERCED DRUM WALL — hand-built with a HORIZONTAL EDGE LOOP at the tide-band height (y=0.22):
+      // every triangle sits inside ONE ladder stop, so the jade waterline is a DEAD-LEVEL line, not a
+      // per-quad sawtooth (Fable D1 — the position-keyed-ladder tall-face trap: colour is per-face, so
+      // any quad straddling the band splits into a jade tri + a bleach tri along its diagonal). Base
+      // widened to 0.63 to sink into the plinth top (0.60) → no plan-view seam (D4). 8 piers × 2 courses.
       {
-        const nSeg = 11, dth = (Math.PI * 2) / nSeg, rB = 0.58, rT = 0.5, yb = 0.0, yt = 0.6;
-        const open = new Set([2, 6, 7]);   // 3 windows; 6+7 adjacent → the wide collapse gap; asymmetric
+        const rings = [ { y: 0.0, r: 0.63 }, { y: 0.22, r: 0.575 }, { y: 0.60, r: 0.50 } ];
+        const P = (ring, a) => [Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r];
         const v = [];
         for (let s = 0; s < nSeg; s++) {
           if (open.has(s)) continue;
           const a0 = s * dth, a1 = (s + 1) * dth;
-          const p0b = [Math.cos(a0) * rB, yb, Math.sin(a0) * rB], p1b = [Math.cos(a1) * rB, yb, Math.sin(a1) * rB];
-          const p0t = [Math.cos(a0) * rT, yt, Math.sin(a0) * rT], p1t = [Math.cos(a1) * rT, yt, Math.sin(a1) * rT];
-          v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
+          for (let c = 0; c < 2; c++) {
+            const lo = rings[c], hi = rings[c + 1];
+            const p0b = P(lo, a0), p1b = P(lo, a1), p0t = P(hi, a0), p1t = P(hi, a1);
+            v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
+          }
         }
         const drum = new THREE.BufferGeometry();
         drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
@@ -677,20 +680,46 @@ const ARCHETYPES = {
         drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2)); // match the primitive parts' attribute set for the merge
         parts.push({ mat: 0, geo: drum });
       }
-      // CORNICE course — a slim proud band (not a hat-brim) swallowing the drum top by 0.04; the arch
-      // springline + the seat the dome rests ON. r0.55 > dome rim 0.46 → drum proud (no mushroom).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.52, 0.08, 10, 1, true), { y: 0.6 }) });
-      // DOME — a broad hemisphere with a TRUE quarter collapsed (phiLength 1.5π, reads at 200m), seated
-      // so its rim sinks 0.04 into the cornice. OCULUS at the apex (open top → the sun-in-oculus event).
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 8, 3, 1.95, 1.5 * Math.PI, 0.34, Math.PI / 2 - 0.34), { y: 0.6 }) });
-      // BROKEN-EDGE RUBBLE (Fable D3 — the shell has zero thickness; hide the paper edge): tumbled
-      // blocks ON the broken rim + ONE fallen wedge at the plinth below (the collapse now has debris).
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.11, 0.13), { x: 0.34, z: 0.30, y: 0.66, ry: 0.5, rz: 0.3 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.13, 0.10, 0.12), { x: 0.10, z: 0.44, y: 0.60, ry: 1.1, rz: -0.25 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.13, 0.14), { x: 0.30, z: 0.40, y: 0.12, ry: 0.7, rz: 0.15 }) });   // fallen wedge at the foot
+      // CORNICE — a chunky springline course BROKEN over the collapse (skips sectors {6,7}) so no thin
+      // arc floats across the void (Fable D2b). Shares the drum's sector indexing; barely proud
+      // (overhang 0.02 over the drum top r0.50) + 0.09 tall → a lip, not a frisbee (D2a).
+      {
+        const yb = 0.55, yt = 0.64, rC = 0.52;
+        const v = [];
+        for (let s = 0; s < nSeg; s++) {
+          if (s === 6 || s === 7) continue;    // break over the collapse
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          const p0b = [Math.cos(a0) * rC, yb, Math.sin(a0) * rC], p1b = [Math.cos(a1) * rC, yb, Math.sin(a1) * rC];
+          const p0t = [Math.cos(a0) * rC, yt, Math.sin(a0) * rC], p1t = [Math.cos(a1) * rC, yt, Math.sin(a1) * rC];
+          v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);
+        }
+        const corn = new THREE.BufferGeometry();
+        corn.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        corn.computeVertexNormals();
+        corn.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: corn });
+      }
+      // DOME — a broad hemisphere with a TRUE quarter collapsed; phiStart aligns the missing wedge with
+      // the drum collapse gap so both wounds face one way. Rim sinks into the cornice; OCULUS at the apex.
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: 0.60 }) });
+      // INNER LINING (Fable D3) — a concentric shell at 0.43 with REVERSED winding (faces inward) over
+      // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
+      // broken edge → no zero-thickness paper arc from any yaw. The gate condition.
+      {
+        const inner = new THREE.SphereGeometry(0.43, 5, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30);
+        const idx = inner.index.array;
+        for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+        inner.index.needsUpdate = true;
+        inner.computeVertexNormals();
+        parts.push({ mat: 0, geo: xform(inner, { y: 0.60 }) });
+      }
+      // BROKEN-EDGE RUBBLE — tumbled blocks at the collapse foot (incl. a fallen cornice chunk) that
+      // explain both wounds, on the collapse side (x−,z−), at the waterline so the jade band stains them.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.13, 0.14), { x: -0.34, z: -0.30, y: 0.12, ry: 0.7, rz: 0.15 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.13, 0.10, 0.12), { x: -0.11, z: -0.42, y: 0.10, ry: 1.1, rz: -0.25 }) });
       // OCULUS gilt reveal — an INWARD-facing ring recessed just BELOW the apex lip (Fable D4: gilt is
       // NEVER on an outer face). Exterior gold = zero; the gold is sunset caught inside the hole.
-      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 6, 1, true), { y: 0.6 + 0.46 * Math.cos(0.34) - 0.05 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 6, 1, true), { y: 0.60 + 0.46 * Math.cos(0.30) - 0.05 }) });
       return mergeLagoonParts(parts);
     },
     // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
