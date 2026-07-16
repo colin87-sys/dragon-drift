@@ -30,6 +30,7 @@ const RUNES = {
   astralStar:    'M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z',                    // 4-point star
   bullHorns:     'M5 6 Q4 14 12 15 Q20 14 19 6 M12 15 V20',             // horns
   bullHornsRing: 'M6 7 Q5 13 12 14 Q19 13 18 7 M12 14 V19 M9 19 H15',   // horns + base bar
+  venomStill:    'M12 2 L17 5 L17 11 L12 14 L7 11 L7 5 Z M12 14 V22 M10 19 L12 21 M14 19 L12 21', // Belladonna Stiletto — a hex venom sac + a barbed needle stinger
 };
 // The rune currently painted on every mark (shared until an Eternal dragon
 // pushes its own via setMarkRune). Exposed for the __dd test seam.

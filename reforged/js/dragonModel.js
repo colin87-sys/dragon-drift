@@ -24,6 +24,7 @@ import './dragonPhoenixMolten.js';  // Molten Phoenix (living magma): moltenPhoe
 import './dragonPhoenixReforged.js'; // Phoenix Ascendant REFORGED ("Sunhawk"): sunhawkKeelTorso + sunfeatherWings + sunpennantTail + sunhawkCrownHead (white-gold solar-ivory glow-up; coexists with `phoenix`)
 import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): knappedTorso + scallopCrescentWings + vesperCatHead + splitFanTail (FLAT-FACET night drake; NOT the retired organism/one-skin family)
 import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
+import './dragonStiletto.js';       // Belladonna Stiletto (violet-black wasp-DRAGON): chitinWaspTorso + gossamerDoubletWings + stilettoMaskHead + stingerLanceTail (four gossamer blade-wings, wasp-waist, venom-still gaster, needle stinger — I0 stub, VENOM-BELLADONNA §1-§10 + BELLADONNA-ARTDIRECTION-LOCK)
 import './dragonTempest.js';        // Thunderhead Tempest (billowed charcoal cloud + the STORMFORK bolt-frame wing): cumulonimbusTorso + stormforkWings + stormbrowHead + virgaTail (living-thundercloud storm drake; the near-white STORM CIRCUIT flickers on the pulseTimer clock — I0 stub, TEMPEST-THUNDERHEAD §B/§D)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
@@ -306,6 +307,8 @@ export function buildDragonModel(def, opts = {}) {
   // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
   const tailOrbiters = tailResult.orbiters ?? null;
   const pyreTrain = tailResult.pyreTrain ?? null;
+  // Stiletto venom drip bead (nullable): the rig runs a guarded swell-and-cull tick on it.
+  const dripBead = (tailResult.parts && tailResult.parts.dripBead) || null;
 
   // --- Wings -------------------------------------------------------------
   // The wing system (membrane / none) comes from the recipe's WINGS module
@@ -447,7 +450,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
+      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, auxWingPivots: wingsResult.parts.auxWingPivots || null, dripBead, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
       materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
       auraSprite,
     };
@@ -465,7 +468,10 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
-      wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
+      wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR,
+      auxWingPivots: wingsResult.parts.auxWingPivots || null,   // Stiletto hind-wing pair (nullable; null for every shipped dragon)
+      dripBead,   // Stiletto venom drip bead (nullable; null for every shipped dragon)
+      wingElements, spinePoints, motifAnchor, headLength,
       stormArcMats: stormArcMats.length ? stormArcMats : null,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },

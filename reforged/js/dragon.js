@@ -54,6 +54,12 @@ let wingDebugLogged = false;
 // wired yet — this is the tooling landing before the geometry it captures, per §B.7 I0).
 const STRIKE_PIN = (typeof location !== 'undefined' && location.search && new URLSearchParams(location.search).has('strikePin'))
   ? Number(new URLSearchParams(location.search).get('strikePin')) : null;
+// `?dripPin=<t01>` pins the Stiletto venom-drip swell cycle for pixel-comparable gate
+// captures (the swell-and-cull bead at the needle tip); null in play → the deterministic
+// integrated-phase cycle runs (dragon.js:62 dt law).
+const DRIP_PIN = (typeof location !== 'undefined' && location.search && new URLSearchParams(location.search).has('dripPin'))
+  ? Number(new URLSearchParams(location.search).get('dripPin')) : null;
+let dripPhase = 0;   // integrated drip cycle phase (s), 0..2.2
 let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
@@ -78,6 +84,8 @@ let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,s
 let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
 let wingBladePivotsR = null;
+let auxWingPivots = null;     // Stiletto four-wing HUM: nullable [{pivotL,pivotR,phase,ampScale}], null otherwise
+let dripBead = null;          // Stiletto venom drip bead (swell-and-cull tick), null otherwise
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
 let head = null;
 let tailSegs = [];
@@ -252,6 +260,8 @@ export function createDragon(scene, def, riderDef) {
   wingRigR = result.parts.wingRigR || null;
   wingBladePivotsL = result.parts.wingBladePivotsL || null;
   wingBladePivotsR = result.parts.wingBladePivotsR || null;
+  auxWingPivots = result.parts.auxWingPivots || null;   // Stiletto hind-wing pair (four-wing HUM); null → zero writes → roster byte-identical
+  dripBead = result.parts.dripBead || null;   // Stiletto venom drip bead (swell-and-cull tick); null for every shipped dragon
   wingLobePivotsL = result.parts.wingLobePivotsL || null;
   wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
@@ -311,6 +321,7 @@ export function createDragon(scene, def, riderDef) {
   surgeMix = 0;
   surgeAnimT = 0;
   prevFever = false;
+  dripPhase = 0;   // reset the venom-drip cycle so a rebuild is deterministic
 
   // Per-dragon Surge wash hue (def.feverWash): the Phoenix Rebirth washes warm
   // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
@@ -887,6 +898,25 @@ export function updateDragon(dt, player, time) {
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+    // ── STILETTO FOUR-WING HUM — the hind pair rides the SAME glide-hold waveform at a
+    // beat-phase offset (radians) / scaled amplitude, so fore + hind shimmer out of phase
+    // (the roster's only four-wing motion). Rigid single-segment blades → 2 rotation writes.
+    // Reuses the branch's own locals (shape / rootA / featR / climbBias / restLift / bank /
+    // rollFold). Nullable: null for every shipped dragon → zero writes → roster byte-identical.
+    if (auxWingPivots) {
+      const poseAux = (pv, aRootF, ins) => {
+        if (!pv) return;
+        const inside = Math.max(0, ins), outside = Math.max(0, -ins);
+        const amp = 1 - 0.34 * ins;
+        const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;
+        pv.rotation.set(0.14 + featR * 0.16 + climbBias, -0.18, -(aRootF * amp) + restLift + baseZ + rollFold);
+      };
+      for (const a of auxWingPivots) {
+        const aRootF = shape(phase - (a.phase ?? 0)) * rootA * (a.ampScale ?? 1);
+        poseAux(a.pivotR, aRootF, bank);
+        poseAux(a.pivotL, aRootF, -bank);
+      }
+    }
   } else if (wingLobePivotsL || wingLobePivotsR) {
     // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
     // The user's ask: the N lobes per side beat so L1↔R1, L2↔R2, L3↔R3 fire TOGETHER.
@@ -1355,6 +1385,19 @@ export function updateDragon(dt, player, time) {
   for (const m of graveMatPulse) {
     const amp = m.userData.gravePulseAmp || 0;
     m.userData.baseIntensity = amp * (0.7 + 0.3 * Math.sin(time * 2.2 - m.userData.gravePulseBucket * 1.7));
+  }
+  // STILETTO VENOM DRIP — a deterministic swell-and-cull bead at the needle tip (guarded;
+  // null for every other dragon). Integrated phase (dt, never wall-clock): the bead scales
+  // 0→1 over ~1.8 s (the swell) then CULLS (scale ~0, restart) on a 2.2 s cycle, its emissive
+  // brightening with the swell. No falling particle in cruise — the swell IS the read.
+  // ?dripPin=<t01> pins the cycle for pixel-comparable gate captures. Written BEFORE the
+  // flare loop so the bead's baseIntensity feeds the Surge math (like the jade/grave ticks).
+  if (dripBead) {
+    dripPhase = DRIP_PIN != null ? DRIP_PIN * 2.2 : (dripPhase + dt) % 2.2;
+    const c = dripPhase / 2.2;                                  // 0..1 cycle
+    const swell = c < 0.82 ? Math.pow(c / 0.82, 0.7) : 0;       // swell to 1 over ~1.8 s, then cull
+    dripBead.scale.setScalar(0.02 + swell);
+    dripBead.material.userData.baseIntensity = (dripBead.userData.dripBase ?? 0.6) * (0.3 + 0.9 * swell);
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
   // overshooting on the ignition.
