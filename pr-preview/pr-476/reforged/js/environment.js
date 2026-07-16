@@ -232,7 +232,9 @@ function makeMats() {
   // 0.34 = a wet storm-scoured sheen. storm-teal is BANNED — this stays value-structured slate.
   mats.tempestStone = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.34, metalness: 0.05,
-    emissive: 0x1a2228, emissiveIntensity: 0.30,
+    emissive: 0xa8b4b6, emissiveIntensity: 0.30,   // bible §5 self-lit floor — a mid-grey lift so scoured
+    // silhouettes survive the pale-slot backlight instead of collapsing to flat-black (the ladder vColor
+    // folds INTO this via ladderEmissive, so SOAKED belly stays dark and SCOUR tops read the lift).
   }), true);
   return mats;
 }
@@ -1805,24 +1807,29 @@ const ARCHETYPES = {
       // [centerX, y, width(x), height, depth(z)] — 6 MAIN strata, bottom→crest. Windward edge
       // (centerX − w/2) steps IN going up (dip-slope); leeward edge (centerX + w/2) steps OUT + up
       // (the down-wind overhang). Stratum 0 is the recessed narrow waterline belly (undercut).
+      // A LONG, LOW SHEARED WEDGE (Fable r1): the windward edge steps IN hard per level and the crest
+      // sits far downwind + small, so the top surface reads as one long dip-slope rising ~32° from the
+      // horizontal across ~75% of the length — a leaning prow, not a blocky barge. Crest footprint ≤35%
+      // of the belly; stratum 1 overhangs the recessed belly (the waterline undercut).
       const strata = [
-        [-0.12, 0.09, 0.44, 0.20, 0.48],   // 0 WATERLINE belly — narrower + recessed → the undercut
-        [-0.05, 0.24, 0.70, 0.22, 0.62],   // 1 overhangs the belly all round (the storm undercut)
-        [ 0.05, 0.40, 0.66, 0.22, 0.58],   // 2
-        [ 0.14, 0.56, 0.56, 0.22, 0.52],   // 3
-        [ 0.22, 0.72, 0.44, 0.22, 0.44],   // 4
-        [ 0.30, 0.88, 0.30, 0.22, 0.34],   // 5 CREST — the one sharp leeward peak
+        [-0.48, 0.07, 0.40, 0.15, 0.44],   // 0 WATERLINE belly — windward, low, narrow + recessed → undercut
+        [-0.32, 0.19, 0.60, 0.15, 0.56],   // 1 overhangs the belly downwind (the storm undercut)
+        [-0.14, 0.31, 0.54, 0.15, 0.50],   // 2
+        [ 0.06, 0.43, 0.46, 0.15, 0.44],   // 3
+        [ 0.28, 0.55, 0.34, 0.15, 0.36],   // 4
+        [ 0.50, 0.67, 0.14, 0.15, 0.26],   // 5 CREST — sharp, small (≤35% of the belly), far downwind
       ];
       for (const [x, y, w, h, d] of strata) {
         parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
       }
-      // Protruding ledge slabs at the stratum interfaces — thin, seated windward, wider in z so
-      // they read as horizontal scour ledges (the STRATIFICATION tell) + add carved shear detail.
+      // Protruding ledge slabs riding the windward DIP-SLOPE — thin, wider in z → horizontal scour
+      // ledges (the STRATIFICATION tell) stepping up the long diagonal, plus a crest splinter.
       const ledges = [
-        [-0.30, 0.19, 0.30, 0.05, 0.50],
-        [-0.18, 0.35, 0.30, 0.05, 0.48],
-        [-0.02, 0.51, 0.26, 0.05, 0.42],
-        [ 0.30, 0.83, 0.16, 0.10, 0.30],   // crest splinter — sharpens the peak
+        [-0.44, 0.15, 0.26, 0.045, 0.46],
+        [-0.26, 0.27, 0.26, 0.045, 0.44],
+        [-0.06, 0.39, 0.24, 0.045, 0.40],
+        [ 0.18, 0.51, 0.20, 0.045, 0.34],
+        [ 0.50, 0.75, 0.10, 0.09, 0.22],   // crest splinter — sharpens the peak
       ];
       for (const [x, y, w, h, d] of ledges) {
         parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
@@ -1834,7 +1841,7 @@ const ARCHETYPES = {
     // tilt leans AWAY from the lane (side*negative, sungate idiom); ALWAYS numeric (a missing tilt
     // → NaN quaternion → invisible). rotY pinned 0 so the wedge diagonal reads broadside down-lane
     // and the baked wind-scour stays aligned. CONSTANT 3 rnd() draws (r, x-jitter, h).
-    place: (side, rnd) => { const r = 8 + rnd() * 6; return { x: side * (26 + 0.52 * r + rnd() * 5), h: 9 + rnd() * 5, r, tilt: side * -0.05, rotY: 0 }; },  // propclearance: ρ 0.52·sMax 1.12 → inner ≥24 (mid-field hero)
+    place: (side, rnd) => { const r = 8 + rnd() * 6; return { x: side * (28 + 0.72 * r + rnd() * 5), h: 9 + rnd() * 5, r, tilt: side * -0.06, rotY: 0 }; },  // ρ grew with the longer wedge (~0.68); coupled x keeps inner ≥14.5 (verified propclearance --ci)
   },
 };
 
@@ -1874,7 +1881,7 @@ const FOAM_CFG = {
   glowarch: { rx: 0.66, rz: 0.16 }, glowtree: false, glowshroom: false, glowbloom: false,
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
-  stormprow: { rx: 0.55, rz: 0.40 },
+  stormprow: { rx: 0.72, rz: 0.34 },
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
