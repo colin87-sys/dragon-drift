@@ -1684,7 +1684,7 @@ const ARCHETYPES = {
       }
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.13, 5), { y: 1.06 }) }); // dark crown binding — the apex notch (silhouette signature at distance)
       const merged = mergeParts(parts, 4);
-      bakeMireLadder(merged.geometry, { apexY: 1.14, mid: [0.72, 0.53, 0.28] }); // core→bloom→dark; darker mid (Fable §1 rider) concentrates the white core in the top ~20%
+      bakeMireLadder(merged.geometry, { apexY: 1.14, mid: [0.62, 0.45, 0.24] }); // core→bloom→dark; deeper mid (Fable 68 §4) so the apex-white core survives at gameplay distance (legs don't wash to uniform gold)
       merged.materials[merged.materials.length - 1] = propMats.mireHeroLadder; // mat-1 group reads the ladder + hero glow
       return merged;
     },
@@ -1737,7 +1737,7 @@ const ARCHETYPES = {
   // the CAP itself glows on top (obvious to the down-cam) + a bright crown boss; dark rim + stalk.
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
-    step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.15, glow: true },
+    step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.25, glow: true }, // sMax 1.25 (Fable 68): peak survivors SWELL into a thicket-event instead of the grove reading flat
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
@@ -1764,7 +1764,7 @@ const ARCHETYPES = {
   // glowbloom — THE NEAR SCATTER (Fable §1, Stage 4): a cluster of GLOWING pods on dark stalks at
   // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
-    step: 36, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true },
+    step: 37, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true }, // step 37 prime (Fable 68): coprime with shroom 45 + all Mire steps, kills the gcd-9 lattice co-beat
     build: () => {
       const parts = [];
       const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
