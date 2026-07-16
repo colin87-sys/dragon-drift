@@ -280,6 +280,23 @@ for (const [key, spec] of Object.entries(SPECS)) {
       if (c > 0.45) { railCount++; worst = Math.max(worst, c); }
     });
     ok(railCount === 0, `azure: no rendered always-on emissive rail in cruise (Slipstream withheld; ${railCount} bright, worst ${worst.toFixed(2)})`);
+    // The withheld signature must PAY OFF (AAA §1 / tell #3 "brightening is an event"): the filament (the
+    // dimmest-idle cyan rendered spineMat) idles imperceptible but its Surge product (baseIntensity ×
+    // (1 + 0.9·surgeGlowMultiplier) × luminance) must READ — and stay capped (a bright thin LINE, not an
+    // Eternal blaze). The machine round the gate asked for, so a magnitude regression can't ship silently.
+    const sgm = per[2].def.model.surgeGlowMultiplier ?? 1;
+    let fil = null, filC = Infinity;
+    built.group.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.emissive || !spine.has(o.material)) return;
+      if (lumOf(o.material) < 0.3) return;                       // cyan filament/stud only
+      const bc = (o.material.userData.baseIntensity ?? 0) * lumOf(o.material);
+      if (bc < filC) { filC = bc; fil = o.material; }            // filament = the dimmest-idle cyan point
+    });
+    if (fil) {
+      const surge = (fil.userData.baseIntensity ?? 0) * (1 + 0.9 * sgm) * lumOf(fil);
+      ok(filC <= 0.06, `azure: Slipstream filament withheld in cruise (contribution ${filC.toFixed(3)} ≤ 0.06)`);
+      ok(surge >= 0.5 && surge <= 1.3, `azure: Slipstream IGNITES on Surge (product ${surge.toFixed(2)} in [0.5,1.3] — reads, capped sub-Eternal)`);
+    }
   }
   if (spec.carrier === 'emissive') {
     // ember [ICONIC FLAME]: the BODY is bold warm flame, but the wing MEMBRANE diffuse
