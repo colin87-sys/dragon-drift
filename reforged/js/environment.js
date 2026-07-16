@@ -1313,6 +1313,68 @@ const ARCHETYPES = {
     // instance tilt). Draw r first, couple x → inner edge ≥15.5.
     place: (side, rnd) => { const r = 8 + rnd() * 3; return { x: side * (15.5 + 0.66 * r + rnd() * 4), h: 6 + rnd() * 2.5, r, tilt: 0 }; },
   },
+  // THE LOST LAGOON — THE MASSIF / backdrop (LOST-LAGOON-BIBLE.md §4.2): a long, low, drowned COLONNADE
+  // wall punched by a rank of narrow lancets, each running water-to-peak so its reflection completes it
+  // into a coin of gold sky. The only repeated-negative-space family — the nested-threshold grammar made
+  // serial. THE NO-LONE-ARCH LAW (Fable, the Sinking-Gates firewall): intact arches come in a CONTIGUOUS
+  // run (≥2, shared piers); only the END spans collapse, to STUMPS below the spring line — structurally
+  // incapable of the hazard's single free-standing frame. Tide-laddered stone, plumb, mat-1 EMPTY.
+  arcade: {
+    step: 97, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.25, sMin: 0.95, sMax: 1.05 }, // massif backdrop: mostly-continuous enclosure, thins at breaths + seam (riftwall precedent)
+    build: () => {
+      const zf = 0.04, zb = -0.04, yBand = 0.22, spring = 0.42, peak = 0.68; // edge loop at the tide band; arch spring → peak (lintel bottom)
+      const nP = 8, wp = 0.045, wb = 0.125;                                  // 8 piers / 7 bays; slim piers, tall-narrow lancets
+      const W = nP * wp + (nP - 1) * wb;
+      const pierTops = [0.30, 0.24, 0.86, 0.80, 0.92, 0.78, 0.88, 0.83];     // piers 0–1 STUMPS (below spring); 2–7 full, varied (no level course)
+      const intact = new Set([2, 3, 4, 5, 6]);                               // a contiguous rank of 5 intact bays; bays 0,1 collapsed at one end
+      const pierL = [], pierR = [];
+      let x = -W / 2;
+      for (let i = 0; i < nP; i++) { pierL[i] = x; x += wp; pierR[i] = x; if (i < nP - 1) x += wb; }
+      const v = [];
+      const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
+      const t = (a, b, c) => v.push(...a, ...b, ...c);
+      // PIERS — front (+z) + back (−z), split at the tide band so the jade line is dead-level (PLUMB-TIDE
+      // + edge-loop law). Openings run water-to-peak, so ONLY the piers carry jade → a DASHED jade rhythm.
+      for (let i = 0; i < nP; i++) {
+        const xL = pierL[i], xR = pierR[i], top = pierTops[i], y1 = Math.min(yBand, top);
+        q([xL, 0, zf], [xR, 0, zf], [xR, y1, zf], [xL, y1, zf]);
+        if (top > yBand) q([xL, yBand, zf], [xR, yBand, zf], [xR, top, zf], [xL, top, zf]);
+        q([xR, 0, zb], [xL, 0, zb], [xL, y1, zb], [xR, y1, zb]);
+        if (top > yBand) q([xR, yBand, zb], [xL, yBand, zb], [xL, top, zb], [xR, top, zb]);
+      }
+      // INTACT BAYS — pointed-arch spandrels (void peaks UP into the mass, rotunda r7 lesson) + a lintel
+      // course above (peak→bayTop) + jamb returns (wall THICKNESS at every hole; a hole with no return is
+      // paper). Lancet w:h ≈ 1:2, 15% tighter than the rotunda hero (hierarchy: hero grand, massif serial).
+      for (let j = 0; j < nP - 1; j++) {
+        if (!intact.has(j)) continue;
+        const xL = pierR[j], xR = pierL[j + 1], xm = (xL + xR) / 2, bayTop = Math.min(pierTops[j], pierTops[j + 1]);
+        t([xL, spring, zf], [xL, peak, zf], [xm, peak, zf]); t([xR, spring, zf], [xm, peak, zf], [xR, peak, zf]); // front spandrels
+        q([xL, peak, zf], [xR, peak, zf], [xR, bayTop, zf], [xL, bayTop, zf]);                                   // front lintel
+        t([xL, peak, zb], [xL, spring, zb], [xm, peak, zb]); t([xm, peak, zb], [xR, spring, zb], [xR, peak, zb]); // back spandrels
+        q([xR, peak, zb], [xL, peak, zb], [xL, bayTop, zb], [xR, bayTop, zb]);                                   // back lintel
+        q([xL, 0, zf], [xL, spring, zf], [xL, spring, zb], [xL, 0, zb]);   // left jamb return
+        q([xR, 0, zb], [xR, spring, zb], [xR, spring, zf], [xR, 0, zf]);   // right jamb return
+      }
+      // STUMP caps + break (piers 0–1): up-facing top cap + a ragged slanted break face (collapse story).
+      for (const i of [0, 1]) {
+        const xL = pierL[i], xR = pierR[i], top = pierTops[i];
+        q([xL, top, zb], [xR, top, zb], [xR, top, zf], [xL, top, zf]);                     // top cap (faces up)
+        q([xL, top, zf], [xR, top, zf], [xR, top - 0.06, zf + 0.0], [xL, top - 0.05, zf]); // ragged break sliver
+      }
+      // WALL END CAPS — close the run's two ends (front-to-back at pier 0 left + pier 7 right).
+      q([pierL[0], 0, zb], [pierL[0], 0, zf], [pierL[0], pierTops[0], zf], [pierL[0], pierTops[0], zb]);
+      q([pierR[nP - 1], 0, zf], [pierR[nP - 1], 0, zb], [pierR[nP - 1], pierTops[nP - 1], zb], [pierR[nP - 1], pierTops[nP - 1], zf]);
+      const wall = new THREE.BufferGeometry();
+      wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+      wall.computeVertexNormals();
+      wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+      return mergeLagoonParts([{ mat: 0, geo: wall }]);
+    },
+    // BACKDROP massif, 5–8:1 WIDE: r 92–132 (w = 1.235·r ≈ 114–163), h 16–24. tilt 0 EXPLICIT (PLUMB-TIDE).
+    // FAR off-lane scenery: couple x = ρ·sMax·r (0.619·1.05≈0.65) + ~80 so the inner edge lands ~80–95
+    // world (Fable: the massif recedes on the horizon, never near the lane). No foam (a collar 75+ off-lane).
+    place: (side, rnd) => { const r = 92 + rnd() * 40; return { x: side * (80 + 0.65 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: 0 }; },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1337,6 +1399,7 @@ const FOAM_CFG = {
   lilyraft: false,       // Lost Lagoon commons — NO collar: the pads ARE the waterline event; a foam ring on a 2m pad reads as an artifact (Fable pre-authorized)
   wrackstone: { r: 0.6 },// Lost Lagoon foil rubble — a pale tide collar where the heap meets the mirror (clinker precedent)
   rootbastion: { r: 0.7 },// Lost Lagoon mid mass — waterline weld under the slumped stone (roots enter here)
+  arcade: false,          // Lost Lagoon backdrop massif — no collar (a bright ring 75+ off-lane is an artifact)
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
