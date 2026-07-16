@@ -440,7 +440,7 @@ const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
   tower: {
-    step: 42, biomes: [0], matIndex: 0,
+    step: 42, biomes: lagoonOld, matIndex: 0,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.56, 0.74, 8), { y: 0.37 }) },
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.52, 0.06, 8), { y: 0.76 }) },
@@ -451,7 +451,7 @@ const ARCHETYPES = {
   },
   // Broken classical column (Sanctuary + Wastes).
   column: {
-    step: 20, biomes: [0, 1], matIndex: 0,
+    step: 20, biomes: [...lagoonOld, 1], matIndex: 0,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.9, 0.14, 0.9), { y: 0.07 }) },
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.27, 0.34, 0.76, 7), { y: 0.52 }) },
@@ -461,7 +461,7 @@ const ARCHETYPES = {
   },
   // Free-standing ruined arch fragment rising from the water.
   archruin: {
-    step: 75, biomes: [0], matIndex: 0,
+    step: 75, biomes: lagoonOld, matIndex: 0,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.13, 0.58, 6), { x: -0.35, y: 0.29 }) },
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.13, 0.58, 6), { x: 0.35, y: 0.29 }) },
@@ -472,7 +472,7 @@ const ARCHETYPES = {
   },
   // Ruined wall slab with a broken crown.
   slab: {
-    step: 26, biomes: [0, 1], matIndex: 0,
+    step: 26, biomes: [...lagoonOld, 1], matIndex: 0,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.8, 0.95, 0.18), { y: 0.47 }) },
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.28, 0.2), { x: 0.22, y: 0.98, rz: 0.28 }) },
@@ -491,7 +491,7 @@ const ARCHETYPES = {
   },
   // Great sunken dome on the skyline (Sanctuary + Wastes).
   dome: {
-    step: 85, biomes: [0, 1], matIndex: 0,
+    step: 85, biomes: [...lagoonOld, 1], matIndex: 0,
     build: () => mergeParts([
       { mat: 1, geo: xform(new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), { sx: 0.5, sz: 0.5 }) },
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 6), { y: 1.04 }) },
@@ -1062,7 +1062,7 @@ const ARCHETYPES = {
   // recessed) — never on an outer face, never at the waterline. Guard (Fable pre-assess): ≥3 asymmetric
   // apertures + oculus in the DOME, so it reads as pierced masonry, NOT Frozen's sun-gate pylon pair.
   rotunda: {
-    step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.92, sMax: 1.10 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam
+    step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.08, sMin: 0.94, sMax: 1.16 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam (grows large at the peak for focal hierarchy)
     build: () => {
       const parts = [];
       const nSeg = 11, dth = (Math.PI * 2) / nSeg;
@@ -1183,7 +1183,7 @@ const ARCHETYPES = {
   // tilted ice floe) + hair-thin reed blades. FOLIAGE bake (olive-gold up / shadow-green else) — NEVER
   // the tide ladder (that would bleach the pads ivory = ice-floe leak). No glow (commons carry no gilt).
   lilyraft: {
-    step: 19, biomes: lagoonNew, matIndex: 0, comp: { floor: 0.55, sMin: 0.90, sMax: 1.06 }, // low rest: survives the arrival park (the commons is always underfoot)
+    step: 19, biomes: lagoonNew, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.06 }, // low rest commons: clusters of a few around the island heroes, near-empty in the open-water breaths (Fable r1)
     build: () => {
       const parts = [];
       // HERO PAD — a near-vertical upturned rim (partial cone) around a plate RECESSED to the rim base.
@@ -1248,7 +1248,7 @@ const ARCHETYPES = {
   // gilt elsewhere earned. Legible RUIN (not a rock pile) is what makes the darkness read reverent, not
   // unfinished. lagoonFoil mass (foil path skips the tide bake); mat-1 EMPTY (grep-enforced).
   wrackstone: {
-    step: 31, biomes: lagoonNew, matIndex: 0, comp: { floor: 0.55, sMin: 0.90, sMax: 1.08 }, // foil rest note (clinker's role numbers)
+    step: 31, biomes: lagoonNew, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.08 }, // foil rest note: clusters with the commons, near-empty in the breaths (Fable r1)
     build: () => {
       const parts = [];
       // SURVIVING STUB — ONE course (Fable w1: a 2-course shaft previews the PR-4 pillar HAZARD skin;
@@ -1283,7 +1283,7 @@ const ARCHETYPES = {
   // parasol. The theology's second claiming ENACTED mid-action (the garden winning, on camera). The one
   // COMPOSITE: tide-laddered stone (plumb) + tagged olive foliage (roots + canopy) in ONE material group.
   rootbastion: {
-    step: 43, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.15, sMin: 0.90, sMax: 1.10 }, // mid mass: clusters into archipelagos, off the seam (fumarole precedent)
+    step: 43, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.90, sMax: 1.12 }, // mid mass: clusters into archipelagos, off the seam + empty in the breaths (Fable r1)
     build: () => {
       const parts = [];
       // STONE (untagged → tide ladder). PLUMB (Fable PLUMB-TIDE law: the jade waterline is a level water
@@ -1320,7 +1320,7 @@ const ARCHETYPES = {
   // run (≥2, shared piers); only the END spans collapse, to STUMPS below the spring line — structurally
   // incapable of the hazard's single free-standing frame. Tide-laddered stone, plumb, mat-1 EMPTY.
   arcade: {
-    step: 97, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.25, sMin: 0.95, sMax: 1.05 }, // massif backdrop: mostly-continuous enclosure, thins at breaths + seam (riftwall precedent)
+    step: 97, biomes: lagoonNew, matIndex: 0, arrivalPark: true, oneSide: true, comp: { floor: 0.0, sMin: 0.95, sMax: 1.08 }, // backdrop massif: an EVENT — ONE side per congregation, fully parked in the breaths, never a both-horizon wall (Fable r1)
     build: () => {
       const zf = 0.04, zb = -0.04, yBand = 0.22, spring = 0.32, peak = 0.72; // edge loop at the tide band; arch spring → peak (lintel bottom)
       // WORLD-ASPECT DESIGN (Fable a1): the (r,h,r) scale multiplies unit-X by r and unit-Y by h
@@ -1820,6 +1820,22 @@ function calderaComp(dist) {
   const ph = (local % seg) / seg;
   return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.20));
 }
+// LOST LAGOON composition rhythm (BIOME-DESIGN §composition) — the same negative-space engine as
+// Caldera, but tuned for a WIDER breath: a "hidden watery paradise" wants MORE open golden mirror
+// between the drowned-ruin archipelagos than the burning caldera does. 3 periods/biome (500m) so
+// each congregation is a distinct island group, and the raised cosine is RAISED TO A POWER so the
+// congregation weight collapses fast off the peak → the breaths are genuinely empty water, not a
+// thinned picket. g=1 at ph≈0.18 (island group), g→0 across most of the period (open mirror).
+// PURE (no rnd), evaluated after the rotY init → gold-determinism call-order untouched.
+const LAGOON_COMP_PERIODS = 3;
+function lagoonComp(dist) {
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const seg = L / LAGOON_COMP_PERIODS;                        // 500m
+  const ph = (local % seg) / seg;
+  const raised = 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.18));
+  return raised * raised;                                     // sharpen: wide open-water breaths
+}
 // Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
 // slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
 function compHash(salt, side, slot) {
@@ -1919,6 +1935,30 @@ function writeMatrix(band, i, d) {
     // instances into archipelagos + open mirror and scales the survivors (bigger in congregations).
     if (active && band.def.comp) {
       const g = calderaComp(d.dist);
+      const c = band.def.comp;
+      const density = c.floor + (1 - c.floor) * g;
+      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
+      else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
+  } else if (active && bi === 0) {
+    // LOST LAGOON composition (BIOME-DESIGN §composition) — the negative-space engine, mirroring
+    // Caldera: an arrival open-mirror beat + a raised-cosine congregation rhythm (lagoonComp, sharpened
+    // for WIDE golden-water breaths) that parks off-beat instances into drowned-ruin archipelagos and
+    // clears open sun-lit mirror between them. PURE (no rnd) → gold-determinism call-order untouched.
+    if (band.def.arrivalPark) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+      if (seamDelta < 220) active = false;
+    }
+    // Backdrop massif (arcade) is an EVENT, not wallpaper (Fable r1): only ONE side per congregation
+    // (a per-peak hash picks the side) so a drowned colonnade never walls BOTH horizons at once.
+    if (active && band.def.oneSide) {
+      const peakIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
+      const pickRight = heroHash(peakIdx) < 0.5;
+      if ((pickRight && d.side < 0) || (!pickRight && d.side > 0)) active = false;
+    }
+    if (active && band.def.comp) {
+      const g = lagoonComp(d.dist);
       const c = band.def.comp;
       const density = c.floor + (1 - c.floor) * g;
       if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
