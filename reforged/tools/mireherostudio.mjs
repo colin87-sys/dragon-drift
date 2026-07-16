@@ -25,29 +25,27 @@ await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
 const err = await page.evaluate(() => document.getElementById('err').textContent);
 if (err) { console.error('STUDIO ERROR:', err); await browser.close(); srv.close?.(); process.exit(1); }
 
-const KEY = 'glowcolossus';
-// 2×3 sheet — the angles that answer "does the hero read as a glowing landmark?"
-const TILES = [
-  { angle: 'gameplay', label: 'GAMEPLAY (how you see it flying)' },
-  { angle: 'hero3q',   label: '3/4 hero' },
-  { angle: 'worm',     label: "worm's-eye (colossal)" },
-  { angle: 'top',      label: 'TOP-DOWN (flying-cam plan)' },
-  { angle: 'front',    label: 'front' },
-  { angle: 'side',     label: 'side' },
+// HERO CANDIDATE COMPARISON — each candidate at the GAMEPLAY angle + a worm's-eye, so the
+// owner can choose the hero shape. 4 candidates × 2 angles = a 4×2 sheet (one row per candidate).
+const CANDS = [
+  { key: 'candArch',  label: 'A) GLOWING ARCHWAY (fly through it)' },
+  { key: 'candTree',  label: 'B) GLOWING WORLD-TREE' },
+  { key: 'candCap',   label: 'C) GLOWING MUSHROOM (done right)' },
+  { key: 'candBloom', label: 'D) GLOWING SWAMP-FLOWERS' },
 ];
-const CELL = 560, COLS = 3, ROWS = 2;
+const CELL = 620, COLS = 2, ROWS = CANDS.length;
 await page.evaluate(({ COLS, ROWS, CELL }) => window.psSheetInit(COLS, ROWS, CELL), { COLS, ROWS, CELL });
-for (let i = 0; i < TILES.length; i++) {
-  const t = TILES[i];
-  await page.evaluate((o) => window.psRender(o), { key: KEY, angle: t.angle, bg: 'dark', rig: 'mire', opts: { single: true } });
-  await page.evaluate(({ i, label }) => window.psTile(i, label), { i, label: t.label });
-  // also grab the full-res individual for the two money angles
-  if (t.angle === 'gameplay' || t.angle === 'top') {
-    const buf = await page.screenshot({ clip: { x: 0, y: 0, width: CELL, height: CELL } });
-    writeFileSync(`/tmp/mire-hero-${t.angle}.png`, buf);
-  }
+for (let r = 0; r < CANDS.length; r++) {
+  const c = CANDS[r];
+  // col 0: gameplay (how you see it flying), col 1: worm's-eye (colossal read)
+  await page.evaluate((o) => window.psRender(o), { key: c.key, angle: 'gameplay', bg: 'dark', rig: 'mire', opts: { single: true }, fill: 0.72 });
+  await page.evaluate(({ i, label }) => window.psTile(i, label), { i: r * COLS + 0, label: c.label });
+  const buf = await page.screenshot({ clip: { x: 0, y: 0, width: CELL, height: CELL } });
+  writeFileSync(`/tmp/mire-cand-${c.key}.png`, buf);
+  await page.evaluate((o) => window.psReframe(o), { angle: 'worm', fill: 0.72 });
+  await page.evaluate(({ i }) => window.psTile(i, ''), { i: r * COLS + 1 });
 }
 const sheet = await page.screenshot({ clip: { x: 0, y: 0, width: COLS * CELL, height: ROWS * CELL } });
-writeFileSync('/tmp/mire-hero-sheet.png', sheet);
+writeFileSync('/tmp/mire-hero-candidates.png', sheet);
 await browser.close(); srv.close?.();
-console.log('wrote /tmp/mire-hero-sheet.png + /tmp/mire-hero-gameplay.png + /tmp/mire-hero-top.png');
+console.log('wrote /tmp/mire-hero-candidates.png + per-candidate /tmp/mire-cand-*.png');

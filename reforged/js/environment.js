@@ -1321,6 +1321,71 @@ const ARCHETYPES = {
     // Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion); lean is offset geometry.
     place: (side, rnd) => { const r = 26 + rnd() * 10; return { x: side * (14.5 + 0.72 * r + rnd() * 4), h: 18 + rnd() * 6, r, tilt: 0, rotY: Math.PI }; },
   },
+
+  // ===== HERO CANDIDATES (owner to choose) — OBVIOUS GLOW. Parked (biomes:[]) — studio-only
+  // until one is picked, then it becomes the hero. mat 1 = glowing structure (accent[4] living
+  // amber); mat 0 = dark bark/root accents for definition. =====
+
+  // A) glowarch — a colossal glowing ROOT ARCHWAY you fly THROUGH (the fly-through gate as hero).
+  candArch: {
+    step: 200, biomes: [], matIndex: 4,
+    build: () => {
+      const parts = [];
+      for (const s of [-1, 1]) {
+        parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.08, 0.13, 0.92, 5), { x: s * 0.42, y: 0.46, rz: -s * 0.20 }) }); // glowing leg leaning in
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.15, 0.22, 0.22, 5), { x: s * 0.5, y: 0.11 }) });                // dark flared root base
+        parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.09, 0.09, 0.52, 5), { x: -s * 0.16, y: 0.96, rz: s * 1.12 }) }); // glowing top segment to the peak
+      }
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.14, 5), { y: 1.05 }) }); // dark crown binding
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => ({ x: 0, h: 26 + rnd() * 6, r: 20 + rnd() * 6, tilt: 0, rotY: 0 }),
+  },
+
+  // B) glowtree — a colossal luminous WORLD-TREE: dark trunk, a big GLOWING canopy cluster on top,
+  // glowing roots at the water.
+  candTree: {
+    step: 200, biomes: [], matIndex: 4,
+    build: () => {
+      const parts = [];
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.20, 0.68, 6).toNonIndexed(), { y: 0.34 }) }); // dark trunk
+      const domes = [{ x: 0, z: 0, y: 0.82, s: 0.42 }, { x: 0.26, z: 0.10, y: 0.72, s: 0.28 }, { x: -0.24, z: -0.10, y: 0.74, s: 0.30 }, { x: 0.06, z: 0.28, y: 0.70, s: 0.26 }];
+      for (const d of domes) parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(d.s, 0), { x: d.x, z: d.z, y: d.y, sy: 0.82 }) }); // glowing canopy
+      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.03, 0.06, 0.3, 4).toNonIndexed(), { x: s * 0.22, y: 0.09, rz: s * 0.6 }) }); // glowing roots
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 22 + rnd() * 8, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
+  },
+
+  // C) candCap — the mushroom DONE RIGHT: a tall elegant stalk + a cap whose WHOLE underside glows
+  // brightly (obvious, not subtle) + a glowing rim.
+  candCap: {
+    step: 200, biomes: [], matIndex: 4,
+    build: () => {
+      const parts = [];
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.07, 0.14, 0.72, 6), { y: 0.36 }) }); // tall dark stalk
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.44, 9, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.72, sy: 0.5 }) }); // dark cap top
+      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.42, 0.16, 9, 1, true), { y: 0.66 }) }); // BIG glowing under-cap (obvious)
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => ({ x: side * (16 + 0.7 * (16 + rnd() * 6)), h: 20 + rnd() * 6, r: 16 + rnd() * 6, tilt: 0, rotY: 0 }),
+  },
+
+  // D) candBloom — a cluster of giant GLOWING SWAMP-FLOWERS: dark stalks each topped by a bright
+  // glowing bulb, at staggered heights.
+  candBloom: {
+    step: 200, biomes: [], matIndex: 4,
+    build: () => {
+      const parts = [];
+      const pods = [{ x: 0, z: 0, h: 0.92, s: 0.17 }, { x: 0.28, z: 0.10, h: 0.7, s: 0.12 }, { x: -0.24, z: 0.14, h: 0.78, s: 0.13 }, { x: 0.1, z: -0.26, h: 0.6, s: 0.11 }];
+      for (const p of pods) {
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.03, 0.05, p.h, 4).toNonIndexed(), { x: p.x, z: p.z, y: p.h / 2, rz: p.x * 0.3 }) }); // dark stalk
+        parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(p.s, 0), { x: p.x, z: p.z, y: p.h }) }); // glowing bulb
+      }
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 16 + rnd() * 6, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1350,6 +1415,7 @@ const FOAM_CFG = {
   // would be a bright off-lane artifact — the ridge lesson).
   reedveil: { r: 0.5 }, boleveil: false, canopywall: false, drape: false,
   glowcolossus: { r: 0.42 }, // hero — a faint warm waterline collar on the fat stalk, not surf
+  candArch: false, candTree: false, candCap: false, candBloom: false, // hero candidates (studio-only, parked)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
