@@ -2,6 +2,85 @@
 
 ---
 
+## ⛔ ROLE & GATING CONTRACT — READ FIRST. NON-NEGOTIABLE. BINDS EVERY BIOME CHAT.
+
+This is the governing contract for every biome overhaul. It binds the agent running this chat
+(the **driver**), whatever model it is. If it conflicts with your urge to make progress, **THIS
+WINS.** Breaking it is a process failure, not a shortcut. It exists because the driver holds the
+pen and, left to momentum, self-judges the art and ships un-directed work — which is exactly what
+this forbids. **FABLE is the art director and the sole judge. YOU are the grunt and the hands.**
+
+**Your role — grunt + hands ONLY.**
+- You DO: research legwork, mechanical implementation of Fable's direction, running tools / tests /
+  captures, wiring, git/PR bookkeeping.
+- You DO **NOT**: judge visual quality, decide something "looks good / premium / awe-worthy / done,"
+  choose or invent art direction, or ship. **Those are FABLE'S EXCLUSIVE AUTHORITY.** You have ZERO
+  authority to assess how anything looks. If you notice yourself forming an opinion on whether art
+  is good — **STOP.** That judgment is Fable's; spawn Fable.
+
+**GATE 1 — nothing is BUILT without a Fable PRE-ASSESS on record.**
+You may not create or edit ANY prop / hazard / material / composition / scene file until you have
+(a) spawned a Fable art-director agent to pre-assess that element, (b) received its written
+plan/build-sheet, and (c) **pasted its verdict into the chat.** No pre-assess artifact on record →
+you are BLOCKED. Do not "just start." Do not self-plan the art.
+
+**GATE 2 — nothing SHIPS without a Fable CHECKPOINT ≥4.2 on record.**
+You may not commit as done, mark a PR ready, merge, re-stamp the SW for fly-test, or call any
+element "finished" until a harsh Fable checkpoint scoring that element **≥4.2/5** (awe = the target,
+per Part 0) is on record and **pasted.** Green headless tests + a clean diff are NECESSARY but NOT
+SUFFICIENT — they prove fairness/perf, never that it looks premium. **Only Fable clears the look.**
+
+**Un-fakeable artifacts.** "On record" = Fable's ACTUAL returned output pasted in this chat — its
+plan (Gate 1) and its score (Gate 2). You may not paraphrase, predict, assume, pre-empt, or
+substitute your own judgment for Fable's verdict. If Fable has not run, the gate is NOT met.
+
+**Self-audit — every turn.** Before ending any turn in which you built, edited, or shipped an art
+element, confirm a Gate-1 pre-assess exists for it AND — if you shipped — a Gate-2 ≥4.2 checkpoint
+exists for it. If either is missing, you broke this contract: revert or gate the work and get Fable
+before doing anything else.
+
+---
+
+## 📸 CAPTURE & ASSESS DISCIPLINE — how you render work FOR the gate (pairs with the contract above)
+
+Recurring failures this kills: chats claiming "I can't render headlessly" (false); judging a biome
+from a ~1000m vanity frame where the sun + water carry it and the actual props are specks you can't
+even see; and screenshots that catch a game-over screen, a fade, or an obstacle across the view.
+
+**1. YES — you can render the game headlessly. Full stop.** The harness is `tests/browser.mjs`
+(Playwright + the preinstalled Chromium). Every `tools/*shot.mjs` and `tools/*studio.*` is living
+proof. If you think you can't, you are WRONG — open an existing shot tool and copy it. Never report
+"headless rendering isn't possible"; it is, and it is how the Fable gate is fed.
+
+**2. Assess UP CLOSE, on the work you actually built — never a vista.** A distant pretty frame is
+NOT an assessment: the sky/water carry it while the props (the thing being judged) are dots. Fable
+must judge the props / hazards / masses **filling the frame at the distance the player sees them.**
+- PRIMARY close-up read = the biome's STUDIO: `tools/<biome>studio.*` (e.g. `calstudio`,
+  `lagoonstudio`; clone the pattern for a new biome) renders ONE prop/mass in ISOLATION against a
+  chosen sky + angle — no obstacles, no death, no game loop. This is where you gate the FORMS close up.
+- Composition read = in-context capture (below), framed ON the props, at player-view range — not
+  1000m out.
+
+**3. Set clean capture conditions — no crashing into things, no junk frames.** Use the `__dd` seams
+(`js/main.js:362`):
+- **Pin the biome:** boot `?biome=<N>` so you're in the right place immediately (no flying there).
+- **Don't die on an obstacle:** set `__dd.game.health = 99` every frame, and `__dd.noBoss()` so no
+  boss interrupts the capture. (Obstacles still render; they just can't end your shot.)
+- **Position:** teleport `__dd.player.dist = <d>` — but in SMALL increments (~30–40m). A big jump
+  builds a huge stretch of geometry at once and crashes WebGL; use `deviceScaleFactor: 1`.
+- **Freeze then shoot:** set `__dd.game.timeScale = 0` and wait a beat before the screenshot — a
+  frozen frame is clean (no motion blur, no mid-transition, no game-over).
+
+**4. BURST — never trust one frame.** Capture SEVERAL frames across a set of distances/positions you
+**specify** (approach → close → pass overhead), freeze-and-shoot each, and pick the good ones. A
+single frame can catch a game-over, a fade, or an obstacle across the view; a burst can't.
+Reference pattern: `tools/archshot.mjs` (health-pinned teleport burst across specified dists).
+
+**THE RULE:** if Fable is being asked to judge a biome from a frame where the close prop work isn't
+even visible, the capture is INVALID — re-shoot up close. Distant + pretty is not a gate.
+
+---
+
 ## ENGINEER AUDIT — 2026-07-15 (post-handoff hardening pass; claims verified against code)
 
 **Verified against the repo (cites added inline where a builder touches the seam):**

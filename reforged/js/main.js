@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul, godrayTint } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -23,8 +23,9 @@ import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
+import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -46,6 +47,7 @@ import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
 import { setAmbientQuality } from './ambient.js';
+import { setRainTier } from './rain.js';
 import { initRecords, settleRecords } from './records.js';
 import { initFeats, settleFeats, claimFeat } from './feats.js';
 import { settleWeekly } from './weekly.js';
@@ -64,11 +66,14 @@ import { BUILD, BUILT } from './buildId.js';
 // worker cache). The id is the SW content hash, so it changes whenever any asset
 // changes; if the number on screen matches the latest deploy, you're current.
 // U1 (UI-PREMIUM-OVERHAUL): dev chrome never ships to players — the on-screen
-// stamp only renders under ?debug; the console line stays for everyone.
+// stamp only renders under ?debug OR when a ?biome= pin is present (both are
+// testing contexts, never a real player's URL), so the owner's `?biome=N`
+// preview links show which build actually loaded; the console line stays for everyone.
 (function showBuildStamp() {
   try {
     console.log(`[Dragon Drift] build ${BUILD} · built ${BUILT}`);
-    if (!new URLSearchParams(location.search).has('debug')) return;
+    const q = new URLSearchParams(location.search);
+    if (!q.has('debug') && !q.has('biome')) return;
     const el = document.createElement('div');
     el.id = 'build-stamp';
     el.textContent = 'build ' + BUILD;
@@ -78,6 +83,13 @@ import { BUILD, BUILT } from './buildId.js';
       'font:10px/1 ui-monospace,Menlo,Consolas,monospace;color:rgba(255,255,255,.5);' +
       'letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.6)';
     document.body.appendChild(el);
+    // Live perf read (pin/debug only): the graphics tier is dynamic — it degrades under load — and
+    // the water swell geometry is FLAT at tier 2, so a struggling device silently loses the wave roll.
+    // Surface both so a device-only "sea won't swell" is one screenshot, not a guessing game.
+    setInterval(() => {
+      const t = document.body.dataset.qtier;
+      el.textContent = `build ${BUILD} · tier ${t} · swell ${getWaterSwellOn() ? 'on' : 'off'}`;
+    }, 1000);
   } catch (e) { /* non-fatal cosmetic */ }
 })();
 
@@ -128,6 +140,11 @@ let previewLaunchPending = !!PREVIEW_CANYON;
 const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
+// U12b — the menu mood-dim multiplies the CURRENT tonemap mode's base exposure;
+// the base is re-captured on every tonemap change so the dim can never bake
+// itself into the base. menuDimW is the eased 0..1 dim weight.
+let exposureBase = renderer.toneMappingExposure;
+let menuDimW = 0;
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
 // Aurora Shallows PR-1 hero read: ?aurora=1 forces the authentic aurora curtain on in
 // ANY biome (the biome that declares it doesn't exist yet) so the owner can judge it on
@@ -212,6 +229,12 @@ if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(t
 // so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
 // then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
+// A storm biome FORCES the rolling swell geometry ON (like it force-enables the cloud deck) so the
+// violent sea rolls for every capable device, not only where the player toggled water-swell. Weak
+// tier-2 devices auto-stay flat (buildGeometry returns the flat plane at geomTier>=2), so the
+// 60fps-on-weak-mobile budget holds. Tempest is currently pin-only (not yet cycled) → read the pin;
+// when it joins CYCLE the runtime transition gets wired in the CYCLE-insertion PR.
+if (urlParams.has('biome') && BIOMES[parseInt(urlParams.get('biome'), 10)]?.water?.swellForce) setWaterSwell(true);
 // N10b water depth: apply the saved toggle; ?depth forces on (live uniform, no rebuild).
 if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
 // N10c foam collars: apply the saved toggle; ?foam forces on (visibility flip).
@@ -808,7 +831,7 @@ ui.init({
   // recompiles on toneMapping change); particle-batch needs a re-init so Settings
   // reloads for that one (like DEV mode).
   onGraphicsChange: (kind, value) => {
-    if (kind === 'toneMap') setToneMap(renderer, value);
+    if (kind === 'toneMap') { setToneMap(renderer, value); exposureBase = renderer.toneMappingExposure; }   // U12b: re-capture the dim's base
     else if (kind === 'dither') setDither(value);
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
@@ -1249,6 +1272,7 @@ function resumeFromPause() {
   discardNextDelta = true;
   game.pauseReason = '';
   game.state = 'playing';
+  uiSound.back();   // U11: the pause panel closes (Esc / outside tap / RESUME)
   ui.hideScreen();
   music.start();
 }
@@ -1296,6 +1320,7 @@ let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
 const _sunProj = new THREE.Vector3();   // sun world dir → screen NDC (god-rays)
 const _camFwd = new THREE.Vector3();      // camera forward, for the sun-facing gate
+const _dragonProj = new THREE.Vector3();  // dragon world pos → screen X (gauntlet follow)
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -1435,6 +1460,7 @@ function applyQuality(tier) {
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
   setAmbientQuality(QUALITY_SCALARS[tier]);
+  setRainTier(tier);   // storm rain: halve segments per tier
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
   setAuroraQuality(tier); // Aurora Shallows: tier0 2 layers+rays / tier1 1 layer / tier2 smooth quiet arc
@@ -1576,6 +1602,17 @@ function tick() {
   const hideShopFx = ui.atShop() && game.state !== 'playing';
   setRingsVisible(!hideShopFx && !cleanShot);   // cleanshot: no course rings in a capture frame
   if (hideShopFx || cleanShot) setDragonFxVisible(false);   // …and no trail scribbles over the dragon
+
+  // U12b — menu-as-camera-shot, the mood half: a small IN-ENGINE exposure dim
+  // while a dense reading panel (settings/pilot/quests/daily/rush/pause) covers
+  // the live world — "defocus via render, not DOM blur" — eased over
+  // ~--t-screen and RELEASED when the panel closes. COLOUR ONLY, per the menu
+  // law: no world prop, obstacle or player state is touched, and any 'playing'
+  // frame HARD-SNAPS the dim to zero (same gate class as hideShopFx above), so
+  // a live run can never inherit a menu grade. Shop + hub keep full exposure.
+  if (game.state === 'playing') menuDimW = 0;
+  else menuDimW += ((ui.atDimScreen() ? 1 : 0) - menuDimW) * (1 - Math.exp(-10 * rawDt));
+  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW);
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
@@ -1847,6 +1884,14 @@ function tick() {
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    // GAUNTLET FOLLOW (owner ruling 2026-07-16): project the dragon and let the
+    // vitals cluster ride under it — ui.js damps/clamps/writes (transform-only,
+    // strictly visual; the world is never touched). Holds pose outside play.
+    if (game.state === 'playing') {
+      _dragonProj.set(player.position.x, player.position.y, -player.dist).project(camera);
+      ui.gauntletFollow(_dragonProj.z > 1 ? null
+        : (_dragonProj.x * 0.5 + 0.5) * window.innerWidth, dt);
+    }
     updateBossBar();   // EMBERSIGHT H5 — drain-lag ease + off-screen threat chevrons
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's
@@ -1877,8 +1922,12 @@ function tick() {
       // N9: ease the shafts down as clouds drift across the sun (damped in env;
       // getCloudSunCover() is 0 when clouds are off → shipped intensity).
       const cloudGate = 1 - 0.75 * getCloudSunCover();
+      // godrayMul() meters the shared shaft fan per biome (seam-lerped; 1 = shipped);
+      // godrayTint() warms it per biome. Lumen Mire's "nothing shines from the sky" night
+      // keeps only a dim, amber residue that reads as glow-haze, not a sun.
       setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
-        Math.min(sunFacing, 1) * 0.6 * cloudGate);
+        Math.min(sunFacing, 1) * 0.6 * cloudGate * godrayMul());
+      setGodRayTint(godrayTint());
     } else {
       setGodRaySun(0.5, 0.8, 0);
     }

@@ -50,9 +50,10 @@ per-element player override.*
    the **dual-stroke keyline** (1px `--rf-stroke` warm line + 1px dark drop-shadow — the
    bright-biome survival trick), and every numeral sits on a **slug** (smoked lozenge,
    `rgba(12,8,6,0.28)`, `--r-s`) instead of glow-stacking. Fixed anchors, nothing floats:
-   **GAUNTLET** (bottom-center vitals cluster) · **TAPE** (top-center distance) ·
-   **TALLY** (top-right numbers) · **BELL** (single toast lane) · **LURE** (the reticle)
-   · **MEWS PLATE** (boss bar) · pause (top-left). Two numeral sizes only: `--fs-title`
+   **GAUNTLET** (bottom-center vitals cluster — its Y is fixed; per the 2026-07-16 owner
+   ruling its X *rides under the dragon*, damped + clamped, see §B.2) · **TAPE**
+   (top-center distance) · **TALLY** (top-right numbers) · **BELL** (single toast lane)
+   · **LURE** (the reticle) · **MEWS PLATE** (boss bar) · pause (top-left). Two numeral sizes only: `--fs-title`
    (20px) primary, `--fs-label` (13px) secondary; labels `--fs-micro` Rajdhani 700 caps;
    Russo One `tabular-nums` for every number.
 3. **CENTER IS SACRED.** Within ~140px of the Lure: brackets, dwell fill, lock pips,
@@ -132,6 +133,19 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
   hide until boost releases.
   **Boss:** the chain-link + "BOOST SEALED" beat verbatim (credited), re-stroked to
   hairline weight; arc dims 40% and freezes.
+- **THE FOLLOW (owner ruling 2026-07-16):** the whole gauntlet cluster (arc + LIFE +
+  SURGE + multiplier + seal) **tracks the dragon's projected screen X** so it always
+  sits under the dragon as it banks — main.js projects `(player.x, player.y, −dist)`
+  per frame and `ui.gauntletFollow(sx, dt)` eases a `translateX` offset toward it
+  (damping `1−e^(−7·dt)` ≈ the camera damp, ~0.35s settle; writes skipped < 0.15px).
+  **Clamped to a safe band:** never off-screen (cluster half-extent + horn overhang
+  + 10px margins) and never under the spell card when the card vertically shares the
+  gauntlet band (landscape — the clamp reads the live card rect at ≤4Hz, so the
+  cluster *glides out of the card's column* as the card slides in). Y NEVER moves;
+  the boss-note lane stays a separate full-width band below, so no vertical conflict.
+  **Strictly visual** — a transform on the DOM anchor (`will-change: transform`,
+  sanctioned: it's now a projected element); the dragon/world are never touched.
+  Resets to centre on `runStart`; holds pose when unprojectable.
 - **DRAGON (H7, flag):** WING-CHARGE — the three cells map to finger-bone glow ranks
   lighting root → carpal → tip (the existing spine-glow bucket writes, remapped via a
   `bondChannel.setVitals()` seam consumed in `dragon.js` updateFx); draining boost
@@ -239,7 +253,15 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
   count (the MARROWCOIL clipping bug). 1px hairline housing,
   5px magenta-warm fill (`transform: scaleX`), **phase notches from `def.phases[].atFrac`**
   (bossKit.js already computes them — inherit, don't invent), **drain-lag** gold chunk
-  (500ms delay, 400ms drain). **Intro:** the bar **etches in stroke-by-stroke ~800ms
+  (500ms delay, 400ms drain). **Fill-jank rulings (2026-07-16, owner screenshot):** the
+  drain lag arms **once per damage burst** (only when the chunk is settled) — re-arming
+  the 500ms delay on every hit froze the chunk at the burst's start fraction under
+  sustained lance DPS and painted a giant stale gold slab that read as a rendering
+  glitch; armed once, the chunk chases the live fill and reads "recently lost health".
+  The housing smoke is `rgba(12,8,6,0.68)` (0.42 went muddy tan over bright biomes and
+  the empty track read as an unfinished outline), and the phase notches are **inset
+  bright tick marks with dark keylines** (top/bottom 1px inset), never full-height dark
+  dividers — ticks on a continuous bar, not gaps that split it. **Intro:** the bar **etches in stroke-by-stroke ~800ms
   synced to the title card** — the hud-sew grammar as the plate's signature.
   `formLifebars` refill = a deliberate left-to-right **re-forge shimmer** (reads "new
   bar," never "healing"); FELLED/revive beats need live-fight eyes (§E).
@@ -251,8 +273,17 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
 - **The telegraph lane (`.boss-note`)** is **top-anchored below the gauntlet's
   multiplier slug** (landscape top 77%, portrait 70.5%) and sized in **vmin** — the old
   bottom-28% anchor grew the text upward across the ×N.NN slug (portrait) and, at 5.6vw
-  ≈ 40px, across the whole gauntlet cluster (landscape). The **spell card** sits at
-  landscape bottom 24% / portrait bottom 15% so card and telegraph never share a band.
+  ≈ 40px, across the whole gauntlet cluster (landscape). Worst-case lane depth = main
+  line + a two-line wrapped sub ≈ **15vmin**. Portrait anchors are **px-affine off the
+  gauntlet's multiplier line** (2026-07-16): the slug's bottom is a px line
+  (64% + ~54px) while a %-only lane compresses INTO it as the real viewport shrinks —
+  so the lane sits at `top: calc(64% + 54px)` and the **spell card** at
+  `top: calc(64% + 54px + 16vmin)`, below the lane's worst-case depth (at bottom 15%
+  the card's box sat inside the lane on short real viewports and "FLY THROUGH THE
+  RINGS → CHARGE SURGE" printed through it). Landscape keeps note top 77% / card
+  bottom 24% (the multiplier line is always ≥48px above 77% for landscape heights).
+  Both portrait anchors hang off the same line, so the pair is deterministic at every
+  viewport height.
 - **WebGL over-model sliver:** retired to a locator pip (never double-reported).
 - **DLZ column (flagged, late — OWNER RULING: OFF by default):** a small vertical strip
   at the bar's right end summarizing `lockHudState()` — banked pips/cap as cells, ashen
@@ -280,7 +311,12 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
 
 ### B.11 PICKUPS / FEATS / MILESTONES / HINTS — the BELL (one toast lane)
 - popup / popup2 / feat-toast / milestone-banner / hint collapse into **one anchored
-  queued slot** at top ~24% center (portrait ~20%): one line Rajdhani caps in a slug,
+  queued slot** at top ~24% center (portrait ~20%). **BOSS FLOOR (2026-07-16, owner
+  screenshot):** a percent anchor lands INSIDE the px-anchored Mews plate on short
+  real-world viewports (browser chrome eats height — a "2,000 M" milestone printed
+  across the boss bar). In `hud-boss` the Bell floors at
+  `max(24%, 122px + inset)` landscape / `max(20%, 164px + inset)` portrait — always
+  just below the plate; the short-landscape 120px rule stands. One line Rajdhani caps in a slug,
   accent underline by role (gold reward / cyan graze / jade unlock / magenta warning),
   enter `--t-ui` rise+fade, exit `--t-exit`, min display 900ms, queue depth 3 with
   coalescing (`+50 ×3`). Every Bell message pairs with its U11 tone.
@@ -333,21 +369,27 @@ Same DOM, reflowed by media query — no per-orientation nodes. All anchors keep
 nothing informational under the thumb arcs.
 
 - **Landscape (play-primary):** as specced. Gauntlet `min(38vw, 170px)` at the shipped
-  arc anchor (~64% down, center); Tape 160px top-center; Tally right-aligned column;
-  Bell at 24% (short-landscape ≤430px: 15%, **and in `hud-boss` it drops below the Mews
-  bar to ~120px** — the plate owns 66→~115px there and toasts never cross chrome text);
+  arc anchor (~64% down; X follows the dragon, §B.2); Tape 160px top-center; Tally
+  right-aligned column; Bell at 24% (short-landscape ≤430px: 15%; **in `hud-boss` it
+  floors at `max(24%, 122px + inset)`** — the plate owns 66→~112px and a percent anchor
+  lands inside it on short viewports; short-landscape boss keeps the fixed 120px);
   Mews plate `min(52vw, 460px)` top-center under the Tape (stacked nameplate + bar,
   66→~112px); boss-note telegraph lane top 77% (below the multiplier), spell card
-  bottom 24%; damage-arc ring at gauntlet radius ×0.75.
+  bottom 24% (the follow-clamp keeps the drifting gauntlet out of the card's column
+  when the card is up); damage-arc ring at gauntlet radius ×0.75.
 - **Portrait:** the dragon sits lower and larger — chrome retreats further. Gauntlet
   horns fold **inward** (LIFE left / SURGE right at the same y, cluster ≤55vw), and the
-  cluster rises clear of the bottom-20% thumb zone; Tape narrows to 120px and drops the
-  tick strip (numeral + PB caret only); Tally stays one right-aligned column (worst
-  case four rows ≈ 105px deep — the Mews plate slots BELOW it, top 112px, 84vw); Bell
-  rises to ~20% (clears the bar ending ~158px); boss-note lane top 70.5%, spell card
-  bottom 15%; damage-arc radius ~110px; toasts one-line ellipsized; `--hud-scale`
-  nudges to 0.92. Known accepted edge: `--hud-scale` ≥ ~1.25 can re-introduce a
-  Tally↔plate graze (player opt-in slider).
+  cluster rises clear of the bottom-20% thumb zone (X follows the dragon, §B.2); Tape
+  narrows to 120px and drops the tick strip (numeral + PB caret only); Tally stays one
+  right-aligned column (worst case four rows ≈ 105px deep — the Mews plate slots BELOW
+  it, top 112px, 84vw; **the race strip hides in `hud-boss`** — a 5th Tally row would
+  graze the plate); Bell rises to ~20% and **floors at `max(20%, 164px + inset)` in
+  `hud-boss`** (below the plate ending ~157px); boss-note lane `top: calc(64% + 54px)`
+  (px-affine under the multiplier line; worst depth ~15vmin), spell card
+  `top: calc(64% + 54px + 16vmin)` (below the lane — bottom 15% sat inside it on
+  short viewports); damage-arc radius ~110px; toasts one-line ellipsized;
+  `--hud-scale` nudges to 0.92. Known accepted edge: `--hud-scale` ≥ ~1.25 can
+  re-introduce a Tally↔plate graze (player opt-in slider).
 
 ---
 
@@ -425,3 +467,66 @@ it — they are flagged accretions on a complete DOM HUD.
   separability with a CVD simulator at H3.
 - **Reduced motion:** every new animation collapses to opacity fades by construction
   (credited coverage, extended); the etch-in becomes a fade-in; wingbeat sync disables.
+
+---
+
+## G. The in-flight ALERT MAP + collision matrix (2026-07-16 audit)
+
+Every alert/toast/card/telegraph the game can show in flight, enumerated from the code
+(ui.js / boss.js / bossBar.js / main.js / hints.js / feats.js), with its anchor and the
+deconfliction rule that keeps it from ever crossing a co-occurring neighbour. Verified
+with forced worst-case captures (`_alert-*` pattern: boss + milestone Bell + SHIELDED
+telegraph + spell card + full gauntlet + mid-drain bar + dragon banked hard L/R) in
+390×844, 390×660 (short — the real in-browser viewport) and 844×390.
+
+### G.1 The inventory
+
+| # | Element | Anchor (landscape / portrait) | z | Fires |
+|---|---|---|---|---|
+| 1 | TAPE (dist + PB caret) | top-center 14px | 5 | always |
+| 2 | TALLY (score·embers·chain·skims·race·chips) | top-right 14px, worst 4 rows ≈105px (race row **hides in hud-boss**) | 5 | always |
+| 3 | pause | top-left | 5 | always |
+| 4 | MEWS PLATE (boss HP) | top-center 66px / 112px (+inset), ends ~112 / ~157px | 41 | bossReveal→bossEnd |
+| 5 | threat chevrons | screen edges, 22px inset | 40 | boss off-frustum |
+| 6 | THE BELL (one queued lane: ring/phase/near-miss/roll/parry/thread earns, milestone `N,NNN m`, NEW RECORD, NEW BEST DISTANCE, RIVAL BEATEN, DRAGON SURGE, biome, FEAT, hints, TALLY ritual) | top 24% / 20%; **hud-boss floor: max(24%, 122px+inset) / max(20%, 164px+inset)**; ≤430px-tall: 15%, boss 120px | 30 | queued, depth 3 |
+| 7 | `+N PERFECT` micro-pop (`.popup`) | center-top 40% / 36%, 500ms | — | perfect ring (the ONE sanctioned center text) |
+| 8 | boss WARNING (`.boss-warn`) | top 30%, centered | 40 | warn/approach beat (WEFTWITCH: pinned variant, torn at fight start) |
+| 9 | DANGER (`.boss-danger`) + edge glow | 6 positional anchors (data-pos) | 40 | warn beat, 3s |
+| 10 | boss TITLE CARD / FELLED CARD | bottom 34% (grows UP to ~52%), centered | 42 | fight start / boss death, 2.4–2.6s |
+| 11 | boss-note TELEGRAPH lane (SHIELDED, REFLECT ANYTHING, SURGE READY, RALLY ×N, ADRENALINE, RIPOSTE, phase/stage callouts, SLAIN, TAP TO SKIP…) | full-width, **top-anchored** 77% / **calc(64% + 54px)**, vmin-sized, worst depth ~15vmin, single queued slot | 45 | boss fight |
+| 12 | SPELL/DREAD CARD (+ CAPTURE/SURVIVED) | right 14px; bottom 24% / **top calc(64% + 54px + 16vmin)** | 41 | setpieces |
+| 13 | GAUNTLET cluster (arc+LIFE+SURGE+×N.NN+seal+damage arcs) | Y = 64%; **X follows the dragon** (§B.2 clamp) | 4 | always in flight |
+| 14 | FLOW crest | bottom-center px band | 5 | Sky Canyon flow runs only (never with a boss) |
+| 15 | LURE (reticle + lock pips + brand marks) | projected, center halo (Law 3) | — | always |
+| 16 | hud-sew / cinebars / vignettes / VIGIL / flashes / fever / speedlines / pb-seam | full-screen or edges, non-text | 40–46 | beats |
+| 17 | revive-offer · celebrate · gesture-overlay | center modals/overlays | high | exclusive states (death / post-run / onboarding) |
+
+### G.2 The deconfliction rules (each fixes an observed or worst-case collision)
+
+1. **Percent lanes never cross px furniture:** anything anchored by % that can co-occur
+   with the px-anchored Mews plate gets a px floor in `hud-boss` (the Bell — the
+   "2,000 M over the boss bar" owner bug; a % anchor slides INTO a px band as browser
+   chrome shrinks the viewport).
+2. **Ephemeral text lanes are TOP-anchored below the furniture they must clear**
+   (boss-note, and now the portrait spell card off the same `64% + 54px` multiplier
+   line + the lane's 15vmin worst depth) — bottom-anchored variable text grows upward
+   into neighbours, and %-only anchors compress into px furniture on short viewports.
+3. **The follow clamp owns gauntlet×card:** the drifting gauntlet never enters the
+   spell-card column while the card vertically shares its band (landscape); portrait
+   is vertically disjoint by rule 2.
+4. **One lane per message class:** every ephemeral line rings the Bell (milestones
+   included — there is NO standalone milestone element); every boss callout rides the
+   boss-note queue; +PERFECT alone may appear near center.
+5. **The Tally's worst-case depth is a contract:** 4 rows ≈ 105px; anything that would
+   add a 5th row during a boss (race strip) hides instead — the plate's 112px slot
+   assumes it.
+
+### G.3 Accepted residual grazes (documented, deliberate)
+
+- **Title/FELLED card × gauntlet band:** the 2.4s reveal ceremony sweeps the lower
+  third; protected behavior, HUD ghosts behind it, and the follow usually has the
+  cluster off-center. Transient, non-blocking.
+- **`+PERFECT` (36–40%) × boss WARNING (top 30%, big type):** both ephemeral
+  (0.5s vs 3s); can co-occur for a frame-count graze on very short portraits (<620px).
+- **hud-boss Bell floor × WARNING on <620px portrait:** the warn beat is pre-fight and
+  toast traffic there is near-zero; the WEFT pinned banner lifts itself −46%.
