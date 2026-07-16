@@ -179,6 +179,24 @@ function makeMats() {
   mats.calderaFoil = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0x2b1d18, roughness: 0.72, metalness: 0.04, emissive: 0x160a06, emissiveIntensity: 0.14,
   }));
+  // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
+  // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
+  // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
+  // drowned slate below). Warm-neutral emissive base so the jade band survives backlight (ladderEmissive
+  // fold) WITHOUT the stone ever reading as a light source — "stone is a record, not a light."
+  mats.lagoonStone = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.62, metalness: 0.04,
+    emissive: 0xc7cbae, emissiveIntensity: 0.26,   // lower + cooler base so the diffuse jade tide-band survives (not washed to cream)
+  }), true);
+  // GILT accent — ancient temple gold, seen ONLY inside recessed aperture reveals (arch intrados,
+  // oculus rim, belfry). vertexColors OFF so it ignores the tide bake on shared geometry.
+  mats.gilt = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffd28a, roughness: 0.4, metalness: 0.08, emissive: 0xffb040, emissiveIntensity: 0.65,
+  }));
+  // FOIL — the bare no-glow masonry (wrackstone), NO ladder, NO gilt: the silence that earns the gilt.
+  mats.lagoonFoil = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0x6f7a68, roughness: 0.74, metalness: 0.03, emissive: 0x1a241f, emissiveIntensity: 0.12,
+  }));
   return mats;
 }
 let propMats = null;
@@ -268,6 +286,49 @@ function mergeCalderaParts(parts, opts = {}) {
   return { geometry, materials: mats };
 }
 
+// THE LOST LAGOON value ladder (LOST-LAGOON-BIBLE.md §3) — a THIRD ladder, distinct from both the
+// Frozen ice ladder (normal-keyed, sun) and the Caldera ember ladder (normal-keyed, world-DOWN fire).
+// The tide ladder is POSITION-keyed: per-face centroid HEIGHT paints material history the tide left,
+// a horizontal shoreline stain crossing every face (readable in side elevation, unlike Caldera's
+// underside-only belly). BLEACHED bone-amber crown above the old tide / JADE life-band AT the
+// waterline (the saturated hero stop) / DROWNED slate below. Zero triangle cost. Lagoon's OWN stops —
+// never the Caldera _CAL_ or Frozen _FROST hues (the Part B leak the symmetric mechanical grep guards).
+const _LAG_BLEACH = [0.902, 0.827, 0.659]; // 0xe6d3a8 sun-bleached bone-amber (above the old tide)
+const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop)
+const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline)
+function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i += 3) {
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;   // face-centroid height (unit space, pre-scale)
+    const s = yc > waterY + bandH ? _LAG_BLEACH : yc < waterY ? _LAG_DROWN : _LAG_JADE;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// Merge a Lost Lagoon new-kit archetype: NON-INDEXED parts → ≤2 material groups → bake the tide
+// ladder → bake AO. Primary group = lagoonStone (reads vColor); accent group = gilt (vertexColors
+// off, ignores the bake on the shared geometry). opts.foil → the no-ladder no-glow lagoonFoil mass
+// (wrackstone). Mirrors mergeCalderaParts; render-only, so determinism is untouched. (Lagoon code
+// greps clean of _CAL_/caldera/frost; the symmetric grep keeps both kits leak-free.)
+function mergeLagoonParts(parts, opts = {}) {
+  const groups = [[], []];
+  for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
+  const geos = [];
+  const mats = [];
+  for (let m = 0; m < 2; m++) {
+    if (!groups[m].length) continue;
+    geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
+    mats.push(m === 0 ? (opts.foil ? propMats.lagoonFoil : propMats.lagoonStone) : propMats.gilt);
+  }
+  const geometry = mergeGeometries(geos, true);
+  if (!opts.foil) bakeTideLadder(geometry);   // the foil carries NO ladder (bare masonry)
+  bakeAO(geometry);
+  return { geometry, materials: mats };
+}
+
 // A RECESSED crevasse core — the Frozen kit's ONE accent language (Fable studio
 // gate P3 #6). The old kit stuck a bright cyan RECTANGLE flat on a face, which
 // read as a sticker / LED strip (the poverty pattern DRAGON-DESIGN.md kills on
@@ -309,6 +370,12 @@ const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 // it grows the biome is intentionally sparser than the legacy roster (restraint > clutter).
 const calderaNew = PROPS_V1 ? [] : [3];  // colonnata (+ flowlobe/fumarole/clinker/riftwall/riftfang to come)
 const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the kit completes)
+// THE LOST LAGOON overhaul (LOST-LAGOON-BIBLE.md) — consolidates biomes 0+1. Default (v2) = the
+// new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
+// restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
+// (they coexist in-field; the full legacy retirement + Wastes retire-from-CYCLE is the final PR).
+const lagoonNew = PROPS_V1 ? [] : [0];   // rotunda (+ arcade/rootbastion/lilyraft/wrackstone/campanile/sentinel to come)
+const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once the kit completes)
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -572,6 +639,64 @@ const ARCHETYPES = {
   // read is built by radial x+z OFFSET-stacking, NEVER internal rotation — the (r,h,r)
   // instance scale shears internal tilts flat. rotY re-randomises on recycle, so features
   // spread in x AND z → broad from every yaw. flatShading hex facets give the vertical rib.
+  // THE LOST LAGOON — THE HERO (LOST-LAGOON-BIBLE.md §4.1): a drowned ROTUNDA — a broken
+  // hemispherical dome on a PIERCED drum, the roster's only curved crown. The theology's form-move
+  // is the THROUGH-HOLE: the drum is a ring of piers leaving ARCHED WINDOW gaps, the dome apex is an
+  // OCULUS — all REAL holes (the occlusion-masked god-rays carve shafts through them). One dome flank
+  // collapsed (break faces sky → asymmetric). The tide ladder paints a jade waterline ring on the
+  // piers, bleached crown on the dome. Gilt lives ONLY inside the oculus reveal (the aperture address,
+  // recessed) — never on an outer face, never at the waterline. Guard (Fable pre-assess): ≥3 asymmetric
+  // apertures + oculus in the DOME, so it reads as pierced masonry, NOT Frozen's sun-gate pylon pair.
+  rotunda: {
+    step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.92, sMax: 1.10 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam
+    build: () => {
+      const parts = [];
+      // Everything WELDS (nothing floats — Fable D1): each part sinks ≥0.04 into its neighbour.
+      // BASE PLINTH — a battered skirt ring at the waterline; carries the continuous JADE tide band
+      // (the signature pixel, doubled in the mirror). The drum wall rises from y=0 THROUGH it so the
+      // tide stain crosses the whole structure at one height (D5), not a detached green ribbon.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 9, 1, true), { y: 0.08 }) });
+      // PIERCED DRUM WALL (Fable D2) — a real drum, not crates: a battered cylinder wall built by
+      // hand with 3 ASYMMETRIC through-window gaps (one wider = the collapse, down-lane +z). TALL
+      // vertical openings (sacred, not industrial). Feet at y=0 so the jade band stains them. 8
+      // pier-sectors × 2 tris = 16. Single-wall (thin masonry); the sky/mirror shows through the gaps.
+      {
+        const nSeg = 11, dth = (Math.PI * 2) / nSeg, rB = 0.58, rT = 0.5, yb = 0.0, yt = 0.6;
+        const open = new Set([2, 6, 7]);   // 3 windows; 6+7 adjacent → the wide collapse gap; asymmetric
+        const v = [];
+        for (let s = 0; s < nSeg; s++) {
+          if (open.has(s)) continue;
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          const p0b = [Math.cos(a0) * rB, yb, Math.sin(a0) * rB], p1b = [Math.cos(a1) * rB, yb, Math.sin(a1) * rB];
+          const p0t = [Math.cos(a0) * rT, yt, Math.sin(a0) * rT], p1t = [Math.cos(a1) * rT, yt, Math.sin(a1) * rT];
+          v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
+        }
+        const drum = new THREE.BufferGeometry();
+        drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        drum.computeVertexNormals();
+        drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2)); // match the primitive parts' attribute set for the merge
+        parts.push({ mat: 0, geo: drum });
+      }
+      // CORNICE course — a slim proud band (not a hat-brim) swallowing the drum top by 0.04; the arch
+      // springline + the seat the dome rests ON. r0.55 > dome rim 0.46 → drum proud (no mushroom).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.52, 0.08, 10, 1, true), { y: 0.6 }) });
+      // DOME — a broad hemisphere with a TRUE quarter collapsed (phiLength 1.5π, reads at 200m), seated
+      // so its rim sinks 0.04 into the cornice. OCULUS at the apex (open top → the sun-in-oculus event).
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 8, 3, 1.95, 1.5 * Math.PI, 0.34, Math.PI / 2 - 0.34), { y: 0.6 }) });
+      // BROKEN-EDGE RUBBLE (Fable D3 — the shell has zero thickness; hide the paper edge): tumbled
+      // blocks ON the broken rim + ONE fallen wedge at the plinth below (the collapse now has debris).
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.11, 0.13), { x: 0.34, z: 0.30, y: 0.66, ry: 0.5, rz: 0.3 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.13, 0.10, 0.12), { x: 0.10, z: 0.44, y: 0.60, ry: 1.1, rz: -0.25 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.13, 0.14), { x: 0.30, z: 0.40, y: 0.12, ry: 0.7, rz: 0.15 }) });   // fallen wedge at the foot
+      // OCULUS gilt reveal — an INWARD-facing ring recessed just BELOW the apex lip (Fable D4: gilt is
+      // NEVER on an outer face). Exterior gold = zero; the gold is sunset caught inside the hole.
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 6, 1, true), { y: 0.6 + 0.46 * Math.cos(0.34) - 0.05 }) });
+      return mergeLagoonParts(parts);
+    },
+    // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
+    // tall (dome). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion).
+    place: (side, rnd) => { const r = 17 + rnd() * 9; return { x: side * (16 + 0.72 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 }; },
+  },
   colonnata: {
     step: 53, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 }, // hero: clusters hard → one colossus per archipelago, off open mirror at the seam
     // A PACKED PALISADE of SLENDER pentagonal basalt columns (Giant's Causeway) at a
@@ -946,6 +1071,7 @@ const FOAM_CFG = {
   fumarole: { r: 0.6 },               // cinder-cone cluster — round waterline collar
   riftwall: false,                    // distant rim massif on the fog line — no collar (bright ring 30+ off-lane = artifact)
   riftfang: { r: 0.5 },               // volcanic neck — thin collar at the base
+  rotunda: { r: 0.8 },   // Lost Lagoon hero — the drum waterline weld: the jade tide-band doubled in the mirror
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
@@ -1006,6 +1132,11 @@ export function frozenPropKeys() {
 // `?props=v1` swaps in the legacy basalt/vent). Same drift-proof filter as Frozen.
 export function calderaPropKeys() {
   return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(3)).map(([k]) => k);
+}
+// The Lost Lagoon studio keys (the live drowned-ruins kit — rotunda + roster as it lands;
+// `?props=v1` swaps in the legacy Sanctuary/Wastes props). Same drift-proof filter.
+export function lagoonPropKeys() {
+  return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(0) && d.biomes === lagoonNew).map(([k]) => k);
 }
 
 // --- Lane-clearance audit seam (tools/propclearance.mjs) — BEHAVIOR-INERT ------
