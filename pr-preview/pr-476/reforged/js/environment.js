@@ -91,6 +91,7 @@ const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
   uniform float uAO; varying float vAO;
+  uniform float uPropAerial; uniform vec3 uPropAerialCol;   // Fable 75: per-biome aerial-perspective lever (0 = shipped)
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -101,9 +102,20 @@ const PROP_NOISE_HEAD = /* glsl */`
   }
   void main() {`;
 
+// AERIAL PERSPECTIVE (Fable 75) — a per-biome depth-ember lever on the shared prop shader:
+// distant props LIGHTEN + hue-shift toward the horizon ember (the painterly cue the flat-black
+// Mire silhouettes lacked). moteDepthFade pattern: shared uniform objects, driven per-frame from
+// the lerped env (0 for every biome that doesn't set propAerial → byte-identical). The Mire's dark
+// fogFarColor can only pull props toward a DARKER amber; this is the only mechanism that makes
+// distance lighten them. `vFogDepth` (the fog chunk's view-space depth) is the free depth signal.
+const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
+const propAerialColor   = { value: new THREE.Color(0x000000) };
+
 function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
+    shader.uniforms.uPropAerial = propAerialUniform;    // Fable 75 aerial lever (0 = shipped)
+    shader.uniforms.uPropAerialCol = propAerialColor;
     assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
@@ -125,13 +137,26 @@ function addPropDetail(mat, ladderEmissive = false) {
         // dark/bright cell contrast collapses in that zone (spots dissolve) while sunlit
         // faces keep the full weathered look. Identity-off is exact: at uAO=0 the AO term
         // is 1.0 and 0.86+0.26*_pn ≥ 0.86 > 0.62, so the floor never engages.
-        diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)`)
+        diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)
+        #ifdef USE_FOG
+        // AERIAL PERSPECTIVE (Fable 75): depth-blend the albedo toward the ember haze. <55m stays
+        // the untouched pure-black near-trunk anchor; ≥230m full. Quadratic ease → no quantized bands
+        // (hard bands pop as props approach). uPropAerial 0 ⇒ mix factor 0 ⇒ byte-identical.
+        float _aer = smoothstep(55.0, 230.0, vFogDepth); _aer *= _aer * uPropAerial;
+        diffuseColor.rgb = mix(diffuseColor.rgb, uPropAerialCol, _aer * 0.50);
+        #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
         // CALDERA self-lit floor: fold the baked value-ladder (vColor) into emissive so
         // the hot ember belly stays lit when a dark basalt mass silhouettes against the
         // bright ember horizon (vColor alone only modulates DIFFUSE → dies backlit).
-        totalEmissiveRadiance *= vColor.rgb;` : ''}`);
+        totalEmissiveRadiance *= vColor.rgb;` : ''}
+        #ifdef USE_FOG
+        // AERIAL PERSPECTIVE (Fable 75) — the term that ACTUALLY shows: these props are near-black
+        // diffuse under a 0.2-intensity sun, so a diffuse mix alone dies backlit. ADD the ember haze
+        // to emissive (air is not modulated by surface weathering → after the ladder line, not before).
+        totalEmissiveRadiance += uPropAerialCol * (_aer * 0.40);
+        #endif`);
   };
   // Own cache bucket so these never share a program with plain standard mats (the
   // ladder variant gets its own bucket — it references vColor / compiles differently).
@@ -231,6 +256,18 @@ function makeMats() {
   mats.mireEmberLiving = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffd98a, roughness: 0.4, emissive: 0xffc86a, emissiveIntensity: 0.85,
   }));
+  // THE MIRE DEPTH-VEIL material (Fable 75 lever 2b) — the aerial lever (2a) makes distance
+  // LIGHTEN; this breaks the SECOND flatness: a near/mid mass reading as one flat black shape
+  // internally. A baked canopy-light→trunk-dark value ladder (vertexColors + ladderEmissive) so
+  // every veil mass carries a top-lit crown → drowned-black waterline gradient. NOT the shared
+  // primary[4] (flipping vertexColors there would break the hero-colossus dark groups, which
+  // carry no color attribute). Own dark warm-neutral base; a faint moss-amber emissive keeps the
+  // crown's warm read when the mass silhouettes against the ember horizon. canopywall/boleveil/
+  // drape only (reedveil skipped — thin near verticals would read as glow-sticks).
+  mats.mireVeil = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0x241b10, vertexColors: true, roughness: 0.7, metalness: 0.05,
+    emissive: 0x2a1c0e, emissiveIntensity: 0.5,
+  }), true);
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -378,7 +415,8 @@ const _TMP_AXIS = (() => {
 })();
 const _TMP_SCOUR = [0.557, 0.604, 0.627];   // #8e9aa0 wind-facing scour (high dot) — the pale wind-bitten faces
 const _TMP_DAMP = [0.294, 0.329, 0.361];    // #4b545c body — the standard wet slate
-const _TMP_SOAKED = [0.137, 0.169, 0.192];  // #232b31 waterline belly (low-y) — the SOAKED undercut storm-tell
+const _TMP_WETCORE = [0.072, 0.094, 0.112]; // #12181c drowned contact — the near-black WET METER where rock meets sea
+const _tmpWet = [0, 0, 0];
 function bakeTempestLadder(geo) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -389,9 +427,22 @@ function bakeTempestLadder(geo) {
     e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
     const dot = nr.dot(_TMP_AXIS);                          // scour axis: high dot = wind-facing (bitten) face
     const yc = (a.y + b.y + c.y) / 3;                        // face-centroid height (unit space, pre-scale)
-    // The SOAKED belly holds the low waterline undercut (yc ≤ 0.20); above it the wind decides:
-    // faces turned INTO the down-wind scour axis (dot > 0.32) go pale SCOUR, the lee/body stays DAMP.
-    const s = yc <= 0.20 ? _TMP_SOAKED : dot > 0.32 ? _TMP_SCOUR : _TMP_DAMP;
+    // WATERLINE ANCHORING (Fable gate R2 #4): the base was a flat SOAKED plateau (hard cutoff) that read
+    // as a prow sitting ON the water like a toy on glass. Replace it with a WET-CONTACT GRADIENT — darkest
+    // (near-black drowned rock) right at the waterline, easing UP into the damp body over the bottom ~0.24
+    // of the prow. The value drop is what makes the stone read as rising OUT of the sea, wet, not placed.
+    // Above the wet band the wind decides: faces into the down-wind scour axis (dot > 0.32) go pale SCOUR,
+    // the lee/body stays DAMP.
+    let s;
+    if (yc <= 0.24) {
+      const t = Math.min(1, yc / 0.24);                     // 0 at the sea contact → 1 at the top of the wet meter
+      _tmpWet[0] = _TMP_WETCORE[0] + (_TMP_DAMP[0] - _TMP_WETCORE[0]) * t;
+      _tmpWet[1] = _TMP_WETCORE[1] + (_TMP_DAMP[1] - _TMP_WETCORE[1]) * t;
+      _tmpWet[2] = _TMP_WETCORE[2] + (_TMP_DAMP[2] - _TMP_WETCORE[2]) * t;
+      s = _tmpWet;
+    } else {
+      s = dot > 0.32 ? _TMP_SCOUR : _TMP_DAMP;
+    }
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -529,6 +580,13 @@ function mergeLagoonParts(parts, opts = {}) {
 const _MIRE_APEX = [1.0, 1.0, 1.0];        // 0xffffff core — the brightest pixels, up where the down-cam looks
 const _MIRE_MID = [0.847, 0.659, 0.376];   // 0xd8a860 warm gold bloom (mid height)
 const _MIRE_BASE = [0.376, 0.298, 0.157];  // 0x604c28 dark warm root (waterline — the light is drunk back)
+// Fable 75 lever-2b DEPTH-VEIL stops (the DARK screen props, not a glowing hero) — a much
+// tighter range than the glow ladder: cool moss-black root → warm-lit crown. Modulates the
+// veil's own near-black diffuse (0x241b10) so the crown catches top-light and the waterline
+// drowns; folded to emissive keeps the crown's warm read backlit.
+const _MIRE_VEIL_BASE = [0.16, 0.18, 0.16]; // cool moss-black (waterline root — the mist severs the base)
+const _MIRE_VEIL_MID = [0.45, 0.36, 0.22];  // warm umber mid
+const _MIRE_VEIL_APEX = [1.0, 0.80, 0.52];  // warm top-lit crown (the canopy catching the ember horizon)
 function bakeMireLadder(geo, { apex = _MIRE_APEX, mid = _MIRE_MID, base = _MIRE_BASE, baseY = 0.0, apexY = 1.1 } = {}) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -1579,7 +1637,12 @@ const ARCHETYPES = {
       for (const l of lobes) parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(l.s, 0), { x: l.x, z: l.z, y: l.y, sy: l.sy, sz: l.sz, ry: l.ry }) });
       parts.push({ mat: 1, geo: xform(new THREE.CircleGeometry(0.009, 4).toNonIndexed(), { x: 0.30, z: 0.05, y: 0.52, rx: -Math.PI / 2 }) });
       parts.push({ mat: 1, geo: xform(new THREE.CircleGeometry(0.008, 4).toNonIndexed(), { x: -0.28, z: 0.10, y: 0.50, rx: -Math.PI / 2 }) });
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      // Fable 75 lever-2b: bake the veil ladder (lobes light, root-stem stays black — the mist severs it)
+      // + swap mat-0 to mireVeil (mat-1 glow pinpricks keep accent[4], vertexColors off → ignore the bake).
+      bakeMireLadder(merged.geometry, { baseY: 0.25, apexY: 0.95, base: _MIRE_VEIL_BASE, mid: _MIRE_VEIL_MID, apex: _MIRE_VEIL_APEX });
+      merged.materials[0] = propMats.mireVeil;
+      return merged;
     },
     place: (side, rnd) => { const r = 30 + rnd() * 18; return { x: side * (30 + 1.0 * r + rnd() * 24), h: 26 + rnd() * 12, r, tilt: 0 }; },
   },
@@ -1626,7 +1689,11 @@ const ARCHETYPES = {
       }
       parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.02, z: 0.06, y: 0.82, sy: 0.6, sx: 1.2 }) });
       parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.28, z: -0.04, y: 0.74, sy: 0.55 }) });
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      // Fable 75 lever-2b: crown mass at 0.74–0.82 catches the apex; the drowned boles stay dark.
+      bakeMireLadder(merged.geometry, { baseY: 0.00, apexY: 0.95, base: _MIRE_VEIL_BASE, mid: _MIRE_VEIL_MID, apex: _MIRE_VEIL_APEX });
+      merged.materials[0] = propMats.mireVeil;
+      return merged;
     },
     place: (side, rnd) => ({ x: side * (36 + rnd() * 22), h: 16 + rnd() * 10, r: 8 + rnd() * 6, tilt: side * (rnd() * 0.05 - 0.02) }),
   },
@@ -1661,7 +1728,11 @@ const ARCHETYPES = {
         { x: -0.48, z: -0.16, len: 0.11 }, { x: 0.02, z: 0.46, len: 0.10 },
       ];
       for (const f of fr) parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.03, f.len, 3).toNonIndexed(), { x: f.x, z: f.z, y: 0.79 - f.len / 2, rx: Math.PI }) });
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      // Fable 75 lever-2b: lobes + frond hem warm; the sub-0.66 trunk stays black (mostly out of frame anyway).
+      bakeMireLadder(merged.geometry, { baseY: 0.55, apexY: 1.00, base: _MIRE_VEIL_BASE, mid: _MIRE_VEIL_MID, apex: _MIRE_VEIL_APEX });
+      merged.materials[0] = propMats.mireVeil;
+      return merged;
     },
     // h kept LOW (43–51) so the crown hangs at world y ≈ 28–34 — the closest legal roof, which
     // enters the top of frame at a nearer z (a denser top-band window → the Canopy Law holds
@@ -1880,37 +1951,70 @@ const ARCHETYPES = {
       // sits far downwind + small, so the top surface reads as one long dip-slope rising ~32° from the
       // horizontal across ~75% of the length — a leaning prow, not a blocky barge. Crest footprint ≤35%
       // of the belly; stratum 1 overhangs the recessed belly (the waterline undercut).
+      // De-ziggurat (Fable gate R2 #2): the 6th column is a per-stratum YAW twist (ry). Under the
+      // (r,h,r) instance scale the xz axes scale UNIFORMLY, so a Y-rotation is NOT sheared flat (only
+      // rx/rz tilts would be) — the twists survive instancing. No two strata now sit parallel, so the
+      // stack stops reading as evenly-milled crates and reads as fractured, wind-torn rock. Heights are
+      // also varied (0.15–0.18) — this DEEPENS the interpenetration so the twists never open a gap.
       const strata = [
-        [-0.48, 0.07, 0.40, 0.15, 0.44],   // 0 WATERLINE belly — windward, low, narrow + recessed → undercut
-        [-0.32, 0.19, 0.60, 0.15, 0.56],   // 1 overhangs the belly downwind (the storm undercut)
-        [-0.14, 0.31, 0.54, 0.15, 0.50],   // 2
-        [ 0.06, 0.43, 0.46, 0.15, 0.44],   // 3
-        [ 0.28, 0.55, 0.34, 0.15, 0.36],   // 4
-        [ 0.50, 0.67, 0.14, 0.15, 0.26],   // 5 CREST — sharp, small (≤35% of the belly), far downwind
+        [-0.48, 0.07, 0.42, 0.17, 0.44,  0.06],   // 0 WATERLINE belly — windward, low, narrow + recessed → undercut
+        [-0.32, 0.19, 0.60, 0.16, 0.57, -0.09],   // 1 overhangs the belly downwind (the storm undercut)
+        [-0.14, 0.31, 0.52, 0.18, 0.49,  0.05],   // 2
+        [ 0.06, 0.43, 0.47, 0.15, 0.45, -0.07],   // 3
+        [ 0.28, 0.55, 0.33, 0.17, 0.35,  0.10],   // 4
+        [ 0.50, 0.67, 0.14, 0.15, 0.26, -0.05],   // 5 CREST — sharp, small (≤35% of the belly), far downwind
       ];
-      for (const [x, y, w, h, d] of strata) {
-        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
+      for (const [x, y, w, h, d, ry] of strata) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }) });
       }
       // Protruding ledge slabs riding the windward DIP-SLOPE — thin, wider in z → horizontal scour
-      // ledges (the STRATIFICATION tell) stepping up the long diagonal, plus a crest splinter.
+      // ledges (the STRATIFICATION tell) stepping up the long diagonal, plus a crest splinter. Each
+      // carries its OWN yaw twist (larger than the strata's) + varied depth/overhang, so the shelves
+      // catch the light at different angles instead of a stack of identical parallel steps (the tell
+      // Fable flagged on the tall hero prows read close-up).
       const ledges = [
-        [-0.44, 0.15, 0.26, 0.045, 0.46],
-        [-0.26, 0.27, 0.26, 0.045, 0.44],
-        [-0.06, 0.39, 0.24, 0.045, 0.40],
-        [ 0.18, 0.51, 0.20, 0.045, 0.34],
-        [ 0.50, 0.75, 0.10, 0.09, 0.22],   // crest splinter — sharpens the peak
+        [-0.44, 0.15, 0.27, 0.05, 0.47,  0.11],
+        [-0.26, 0.27, 0.24, 0.04, 0.42, -0.14],
+        [-0.06, 0.39, 0.26, 0.05, 0.38,  0.09],
+        [ 0.18, 0.51, 0.18, 0.045, 0.33, -0.12],
+        [ 0.50, 0.75, 0.10, 0.09, 0.22,  0.06],   // crest splinter — sharpens the peak
       ];
-      for (const [x, y, w, h, d] of ledges) {
-        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
+      for (const [x, y, w, h, d, ry] of ledges) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }) });
       }
       return mergeTempestParts(parts);
     },
-    // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.52, measured from the
-    // geometry) so the inner edge = |x| − ρ·r·sMax − lean stays well clear. Mid-field |x| ~30–40.
+    // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.68, measured from the
+    // geometry) so the inner edge = |x| − ρ·r·sMax − lean HUGS the fatal side wall. The base course
+    // kills laterally at |x| > laneHalfWidth (13), so the prows must SIT at that boundary to read as
+    // real sidewalls — floated out at |x|~26 (the old mid-field placement) they framed nothing and the
+    // player died in open water with no wall in sight. Base pulled 28→17 so the inner edge lands
+    // ~15–17, just outside the 14.5 fairness floor: a tight walled corridor that MARKS the death line.
     // tilt leans AWAY from the lane (side*negative, sungate idiom); ALWAYS numeric (a missing tilt
     // → NaN quaternion → invisible). rotY pinned 0 so the wedge diagonal reads broadside down-lane
-    // and the baked wind-scour stays aligned. CONSTANT 3 rnd() draws (r, x-jitter, h).
-    place: (side, rnd) => { const r = 8 + rnd() * 6; return { x: side * (28 + 0.72 * r + rnd() * 5), h: 9 + rnd() * 5, r, tilt: side * -0.06, rotY: 0 }; },  // ρ grew with the longer wedge (~0.68); coupled x keeps inner ≥14.5 (verified propclearance --ci)
+    // and the baked wind-scour stays aligned. ROOFLINE RHYTHM (Fable gate R1 fix #1): a ruler-flat
+    // wall of same-height wedges reads as a harbor breakwater — nothing in Tsushima/BotW gives an
+    // unbroken horizontal. `sel` picks ~1-in-4 as a HERO prow towering to h 20–32 (2–3× the low
+    // body h 7–13), so the crest-line breaks into a low-low-HIGH silhouette. Height is independent
+    // of x, so clearance is unaffected. CONSTANT 4 rnd() draws (r, x-jitter, sel, hv).
+    place: (side, rnd) => { const r = 8 + rnd() * 6; const x = side * (18 + 0.72 * r + rnd() * 3); const sel = rnd(); const hv = rnd(); const h = sel > 0.76 ? 20 + hv * 12 : 7 + hv * 6; return { x, h, r, tilt: side * -0.06, rotY: 0 }; },  // inner edge hugs the |x|=13 death wall (verified propclearance --ci)
+  },
+
+  // TEMPEST REACH — DEPTH BACK-RANK (Fable gate R1 fix #2). Pulling the near prow wall in to hug the
+  // |x|=13 death line (the fairness fix) emptied the mid-field to bare ocean — the scene collapsed
+  // from a layered vista to ONE depth plane, "a corridor in a void." This restores the second plane:
+  // sparse, TALLER wedges far off-lane (|x| ~32–48) that the storm fog fades to pale ghost sea-stacks
+  // on the horizon — the NatGeo / monumental read the mid-field placement used to carry. PURE SCENERY:
+  // far beyond the fatal wall it can never touch the player, so there is no clearance concern, and a
+  // foam collar 30+ off-lane would be a bright artifact (riftwall/ridge/arcade precedent → foam:false).
+  // Reuses the near wall's exact wind-carved geology (shared builder — same strata, same baked scour)
+  // so the two ranks read as one coherent coastline; only the scale (taller aspect) + fog separate
+  // them. step 29 is coprime with the near wall's 17 → no lattice co-beat between the ranks. rotY
+  // pinned 0 = every prow leans the SAME down-wind way as the near rank. CONSTANT 3 rnd() draws.
+  stormprowFar: {
+    step: 29, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.22, sMin: 0.95, sMax: 1.20 },
+    build: () => ARCHETYPES.stormprow.build(),
+    place: (side, rnd) => { const r = 12 + rnd() * 10; return { x: side * (34 + 0.90 * r + rnd() * 10), h: 24 + rnd() * 22, r, tilt: side * -0.05, rotY: 0 }; },  // x coupled to the big footprint so the far rank sits BEHIND the near wall (inner ≥ ~34), never clipping the lane
   },
 };
 
@@ -1951,7 +2055,8 @@ const FOAM_CFG = {
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
-  stormprow: { rx: 0.72, rz: 0.34 },
+  stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
+  stormprowFar: false,   // distant back-rank on the fog line — a collar 30+ off-lane is a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -2891,6 +2996,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
+  // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
+  // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
+  propAerialUniform.value = env.propAerial ?? 0;
+  propAerialColor.value.copy(env.propAerialColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
