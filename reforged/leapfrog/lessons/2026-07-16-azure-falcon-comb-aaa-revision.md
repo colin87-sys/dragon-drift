@@ -65,6 +65,39 @@ so other wingParts dragons and all gameplay poses are untouched. `wingsymprobe` 
   the span/tri bands to the built falcon-hand geometry (the jade/ember precedent). Documented,
   not weakened.
 
+## The gate's revise round (three more reusable laws)
+
+The harsh Fable critic gated REVISE (3.55 → 4.10 after the fixes) and caught what the build missed:
+
+- **The surge tick drives spineMats by `userData.baseEmissive` + `userData.baseIntensity`, NOT the
+  constructor `emissiveIntensity`.** It overwrites the material's intensity every frame:
+  `emissiveIntensity = (userData.baseIntensity ?? 1) × max(0.12, 1 + (surgeMix·0.9 + ignite·1.6)·sgm·wi)`.
+  A withheld glow mat that sets the wrong key (or none) idles at the default **1.0, white** — an
+  always-on LED. Set both keys. And a shared feature dial left on (azure's apex still had
+  `scuteSeam`/`tailSeam`/`tailTerminus` from the old def) draws the shared always-on cyan rail at
+  ~1.9 — the LED-strip veto, measured at L≈203 in cruise. The bespoke withheld signature must REPLACE
+  those dials, not coexist with them.
+- **THE WITHHELD SIGNATURE MUST PAY OFF, and the Radiant<Eternal cap is by AREA not multiplier.** The
+  first cut set `surgeGlowMultiplier 10` = "45% of the Eternal Vesper's 22" — reasoning about the cap
+  as a multiplier. But `0.04 × (1 + 0.9·10) ≈ 0.4` effective intensity, which **ACES eats** → the
+  ignition was invisible (11 cyan px, no core ≥L200). Withheld-with-no-payoff loses the whole point of
+  the signature (AAA §1 / tell #3 "brightening is an *event*"). The fix: `sgm 20`, base `0.055` →
+  product ≈1.0 (reads), cruise contribution ≈0.033 (still imperceptible). Restraint is honored by
+  **lit AREA** — a thin bright LINE + `feverWing 0x000000` firewalling the wings — so a Radiant can be
+  per-pixel bright while its lit area stays a fraction of an Eternal's blaze. Cap by what's on screen,
+  not by the constant.
+- **THE STUDIO `surge` STATE IS INERT FOR THE EMISSIVE TICK — measure Surge on the gameplay
+  `surgeshot`, not `dragonstudio`.** `dragonstudio`'s `surge` state sets the pose/dressing but does NOT
+  run the live `surgeGlowMultiplier` tick, so it renders materials at their BASE emissive — a studio
+  "surge" capture looks identical to cruise and misled the critic into measuring a dark frame.
+  `tools/surgeshot.mjs` (`?debug=fever`, the live rig) is the valid surface. Prove any surge-tick claim
+  there, and back it with a build-time machine assert on the surge PRODUCT (`baseIntensity ×
+  (1 + 0.9·sgm) × luminance` in a reads-but-capped band) so a magnitude regression can't ship silently.
+- **Both machine guards live in `tests/starters.mjs`** and measure *rendered* emissive (materials on an
+  actual mesh ∩ spineMats) — an orphan bright mat pushed to spineMats but attached to no mesh (the
+  draconic head's disabled rear-glow) must not false-positive. Cruise: no rail >0.45 contribution.
+  Surge: filament product in [0.5,1.3].
+
 ## What it unlocks
 
 The wedge-blade + falcon-hand kit (broad overlapping wedge primaries, dominant leading finger,
