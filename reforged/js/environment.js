@@ -623,10 +623,13 @@ const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevin
 // nameable roster (karstfang/prasat/figgate/mangrovehold/lotusraft/nagawall) is built beside them behind
 // a `?props=v3` seam. v2 stays DEFAULT (shipped roster never breaks) until the PR-5 migration flips it.
 // Coexist → prove a hero (karstfang) → migrate — the same A/B idiom as ?props=v1.
-const PROPS_V3 = _envParams.get('props') === 'v3';
-const lagoonNew = PROPS_V1 ? [] : (PROPS_V3 ? [] : [0]);  // v2 kit — DEFAULT; parks under ?props=v1 or ?props=v3
-const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once the kit completes)
-const lagoonV3 = PROPS_V3 ? [0] : [];    // v3 jungle-drowned-temple kit — behind ?props=v3 until the migration PR
+// v3 (jungle drowned temple) is now the DEFAULT for biome 0 — the owner judged the v2 drowned-Greco lumps
+// off-vision ("not what I had in mind at all"), so the new kit leads and the old two rosters are opt-in.
+// ?props=v2 restores the retired v2 kit, ?props=v1 the legacy Sanctuary/Wastes props (both for A/B only).
+const PROPS_V2 = _envParams.get('props') === 'v2';
+const lagoonV3 = (PROPS_V1 || PROPS_V2) ? [] : [0];  // v3 jungle-drowned-temple kit — DEFAULT (karstfang + roster as it lands)
+const lagoonNew = PROPS_V2 ? [0] : [];   // retired v2 drowned-Greco ruins — opt-in via ?props=v2
+const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins — opt-in via ?props=v1
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
