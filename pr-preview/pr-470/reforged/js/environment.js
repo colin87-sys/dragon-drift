@@ -194,6 +194,14 @@ function makeMats() {
   mats.mireHeroLiving = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 2.3,
   }));
+  // THE MIRE GLOW-LADDER hero material (Fable ensemble plan §3) — the living-amber emitter but
+  // vertexColors ON + ladderEmissive, so the baked bakeMireLadder gradient (apex-bright →
+  // root-dark) folds into BOTH diffuse and emissive: the glow itself is value-structured
+  // (core→bloom→dark), killing the flat blown-amber tape read. Same firefly family (off teal).
+  // Used by the ensemble heroes (glowarch, glowtree) whose mat-1 group is swapped to this.
+  mats.mireHeroLadder = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffc23a, vertexColors: true, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 2.3,
+  }), true);
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -342,6 +350,35 @@ function mergeLagoonParts(parts, opts = {}) {
   if (!opts.foil) bakeTideLadder(geometry);   // the foil carries NO ladder (bare masonry)
   bakeAO(geometry);
   return { geometry, materials: mats };
+}
+
+// THE LUMEN MIRE glow ladder (Fable ensemble plan §3/§7) — unlike the Caldera/Lagoon
+// ladders (which carve a DARK mass via diffuse), this bakes a vertical value gradient onto
+// the GLOW so a luminous hero reads core→bloom→dark instead of flat blown-amber tape
+// (AAA-PIPELINE cheap-tells #1/#3/#6): bright apex (the core) → warm gold mid (the bloom) →
+// dark warm base (the root drinks the light back at the waterline). PER-VERTEX (indexed-safe)
+// smooth gradient keyed to unit height; folded into EMISSIVE by addPropDetail(ladder) so the
+// gradient survives in the dark. Baked on the whole merged geometry; the mat-1 (accent) group
+// reads it via `mireHeroLadder` (vertexColors on), the dark mat-0 group uses a vertexColors-off
+// material and ignores the attribute (the glowcolossus/lagoon shared-geometry precedent) — so
+// the dark crown binding / roots / knuckle collars stay dark even where the ladder is bright.
+const _MIRE_APEX = [1.0, 1.0, 1.0];        // 0xffffff core — the brightest pixels, up where the down-cam looks
+const _MIRE_MID = [0.847, 0.659, 0.376];   // 0xd8a860 warm gold bloom (mid height)
+const _MIRE_BASE = [0.376, 0.298, 0.157];  // 0x604c28 dark warm root (waterline — the light is drunk back)
+function bakeMireLadder(geo, { apex = _MIRE_APEX, mid = _MIRE_MID, base = _MIRE_BASE, baseY = 0.0, apexY = 1.1 } = {}) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const span = Math.max(1e-4, apexY - baseY);
+  for (let i = 0; i < n; i++) {
+    const t = Math.min(1, Math.max(0, (pos.getY(i) - baseY) / span));
+    const lo = t < 0.5 ? base : mid, hi = t < 0.5 ? mid : apex, f = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+    const o = i * 3;
+    col[o] = lo[0] + (hi[0] - lo[0]) * f;
+    col[o + 1] = lo[1] + (hi[1] - lo[1]) * f;
+    col[o + 2] = lo[2] + (hi[2] - lo[2]) * f;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
 }
 
 // A RECESSED crevasse core — the Frozen kit's ONE accent language (Fable studio
@@ -1268,8 +1305,11 @@ const ARCHETYPES = {
   // up toward the stalk so it's dark from overhead, a warm underlit shelf from the ¾ vantage —
   // the "under the brim" address). Cap/stalk/court are dark foil (mat 0). Everything indexed
   // (sphere/cone/cyl) → no toNonIndexed. Registered LAST. ~131 tris.
+  // RETIRED (Fable ensemble plan §1): the under-brim/crown-colony theology lost to the owner's
+  // obvious-glow reset, and a fifth glow family is soup. Parked (biomes:[]) — code + hero
+  // machinery kept (glowarch inherits the pattern); its step 61 is freed for glowarch.
   glowcolossus: {
-    step: 61, biomes: mireNew, matIndex: 4, hero: true,
+    step: 61, biomes: [], matIndex: 4, hero: true,
     build: () => {
       const parts = [];
       // main dome — squashed asymmetric sagged umbrella, offset off the stalk axis
@@ -1322,29 +1362,42 @@ const ARCHETYPES = {
     place: (side, rnd) => { const r = 26 + rnd() * 10; return { x: side * (14.5 + 0.72 * r + rnd() * 4), h: 18 + rnd() * 6, r, tilt: 0, rotY: Math.PI }; },
   },
 
-  // ===== HERO CANDIDATES (owner to choose) — OBVIOUS GLOW. Parked (biomes:[]) — studio-only
-  // until one is picked, then it becomes the hero. mat 1 = glowing structure (accent[4] living
-  // amber); mat 0 = dark bark/root accents for definition. =====
+  // ===== THE FOUR-FORM ENSEMBLE (Fable ensemble plan, scratchpad 51) — OBVIOUS GLOW. Each owns a
+  // different distance band, altitude, scale octave + glow tier so four luminous forms compose into
+  // ONE scene instead of glow-soup. glowarch is live (Stage 1 hero); glowtree/glowshroom/glowbloom
+  // are renamed + parked (biomes:[]) until their stages activate them. mat 1 = glow, mat 0 = dark. =====
 
-  // A) glowarch — a colossal glowing ROOT ARCHWAY you fly THROUGH (the fly-through gate as hero).
-  candArch: {
-    step: 200, biomes: [], matIndex: 4,
+  // glowarch — THE HERO (Fable §1/§4): a colossal glowing ROOT-ARCH you fly THROUGH. Straddles the
+  // lane (place x:0); legs at unit ±0.58 with ρ ≤0.10 keep the inner edge ≥16m (clears the 14.5
+  // fairness floor + the ±16 gate veil), a ≈34m door under a ~48m crown. Value-structured by the
+  // Mire glow-ladder (apex white core → gold legs → dark roots), knuckle collars break the ribbon
+  // into segmented living root (not an LED strip), a DARK crown binding is the apex-notch signature.
+  glowarch: {
+    step: 61, biomes: mireNew, matIndex: 4, hero: true, heroSolo: true, gate: true,
+    overhead: { unitY: 0.72, minWorldY: 28 },
     build: () => {
       const parts = [];
       for (const s of [-1, 1]) {
-        parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.08, 0.13, 0.92, 5), { x: s * 0.42, y: 0.46, rz: -s * 0.20 }) }); // glowing leg leaning in
-        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.15, 0.22, 0.22, 5), { x: s * 0.5, y: 0.11 }) });                // dark flared root base
-        parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.09, 0.09, 0.52, 5), { x: -s * 0.16, y: 0.96, rz: s * 1.12 }) }); // glowing top segment to the peak
+        parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.08, 0.10, 0.92, 5, 1, true), { x: s * 0.58, y: 0.46, rz: -s * 0.05 }) }); // glowing leg (leans in slightly), open
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.12, 0.15, 0.20, 5), { x: s * 0.59, y: 0.10 }) });                        // dark flared root base
+        parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.075, 0.08, 0.55, 5, 1, true), { x: s * 0.28, y: 1.00, rz: s * 1.05 }) }); // glowing top segment sweeping to the peak
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.125, 0.125, 0.05, 4, 1, true), { x: s * 0.575, y: 0.30, rz: -s * 0.05 }) }); // dark knuckle collar (low)
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.115, 0.115, 0.05, 4, 1, true), { x: s * 0.565, y: 0.60, rz: -s * 0.05 }) }); // dark knuckle collar (high)
       }
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.14, 5), { y: 1.05 }) }); // dark crown binding
-      return mergeParts(parts, 4);
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.13, 5), { y: 1.06 }) }); // dark crown binding — the apex notch (silhouette signature at distance)
+      const merged = mergeParts(parts, 4);
+      bakeMireLadder(merged.geometry, { apexY: 1.14 });          // core→bloom→dark up the glow
+      merged.materials[merged.materials.length - 1] = propMats.mireHeroLadder; // mat-1 group reads the ladder + hero glow
+      return merged;
     },
-    place: (side, rnd) => ({ x: 0, h: 26 + rnd() * 6, r: 20 + rnd() * 6, tilt: 0, rotY: 0 }),
+    // Cathedral gate: r 38–44, h 40–46 → apex world y ~46–52, gap ~34m. Straddles x:0 (rotY:0 faces
+    // down-lane, the Λ square to the camera). heroSolo parks one side (else two arches z-fight at x0).
+    place: (side, rnd) => ({ x: 0, h: 40 + rnd() * 6, r: 38 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // B) glowtree — a colossal luminous WORLD-TREE: dark trunk, a big GLOWING canopy cluster on top,
-  // glowing roots at the water.
-  candTree: {
+  // glowtree — THE FAR BEACON (Fable §1, Stage 2): dark trunk, big GLOWING canopy, glowing roots.
+  // Parked until Stage 2 (its §7-B value-structure revision + heroShift/parity engine lines land then).
+  glowtree: {
     step: 200, biomes: [], matIndex: 4,
     build: () => {
       const parts = [];
@@ -1357,10 +1410,10 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 22 + rnd() * 8, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // C) candCap — the mushroom DONE RIGHT for OBVIOUS glow: the CAP itself glows (a bright amber
-  // dome you read as lit from any angle, incl. the top-down chase cam) with a dark rim band + dark
-  // stalk for definition. No hidden under-glow the camera occludes.
-  candCap: {
+  // glowshroom — THE MID CARRIER (Fable §1, Stage 3; named glowshroom to avoid the legacy `glowcap`):
+  // the CAP itself glows on top (obvious to the down-cam) + a bright crown boss; dark rim + stalk.
+  // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
+  glowshroom: {
     step: 200, biomes: [], matIndex: 4,
     build: () => {
       const parts = [];
@@ -1373,9 +1426,9 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (16 + rnd() * 6)), h: 20 + rnd() * 6, r: 16 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // D) candBloom — a cluster of giant GLOWING SWAMP-FLOWERS: dark stalks each topped by a bright
-  // glowing bulb, at staggered heights.
-  candBloom: {
+  // glowbloom — THE NEAR SCATTER (Fable §1, Stage 4): a cluster of GLOWING pods on dark stalks at
+  // staggered heights — the breadcrumb lanterns that write the safe lane. Parked until Stage 4.
+  glowbloom: {
     step: 200, biomes: [], matIndex: 4,
     build: () => {
       const parts = [];
@@ -1416,8 +1469,10 @@ const FOAM_CFG = {
   // and overhead families get no ring (a collar under a fog-line massif or a floating canopy
   // would be a bright off-lane artifact — the ridge lesson).
   reedveil: { r: 0.5 }, boleveil: false, canopywall: false, drape: false,
-  glowcolossus: { r: 0.42 }, // hero — a faint warm waterline collar on the fat stalk, not surf
-  candArch: false, candTree: false, candCap: false, candBloom: false, // hero candidates (studio-only, parked)
+  glowcolossus: { r: 0.42 }, // retired hero (parked) — foam row kept inert
+  // ensemble (Fable §2): glowarch = two legs → ELLIPTICAL waterline collar (archruin precedent);
+  // parked forms carry inert rows until their stage activates + tunes them.
+  glowarch: { rx: 0.66, rz: 0.16 }, glowtree: false, glowshroom: false, glowbloom: false,
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -1503,18 +1558,25 @@ export function propClearanceData() {
     // height the flight band never touches. Its LANE clearance is measured from the sub-unitY
     // band (the trunk) ONLY; the crown is audited by a separate min-world-height assert.
     const ov = def.overhead || null;
+    // GATE amendment (Fable ensemble §4): a CENTERED fly-through gate (glowarch, place x≈0) straddles
+    // the lane — its clearance is the APERTURE half-width (how close the sub-apex legs approach x0),
+    // NOT |placeX|−reach (which is 0−reach = false "invades lane"). Measure min|x| of the sub-unitY
+    // leg/root geometry; the over-lane crown is exempted by the overhead crown-height assert.
+    let apMin = Infinity;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rad = Math.hypot(x, z);
       rho = Math.max(rho, rad); yMax = Math.max(yMax, y); xMax = Math.max(xMax, x);
       if (ov && y < ov.unitY) rhoLane = Math.max(rhoLane, rad);
+      if (def.gate && (!ov || y < ov.unitY)) apMin = Math.min(apMin, Math.abs(x));
     }
     geometry.dispose();
+    const apertureHalf = isFinite(apMin) ? apMin : 0;
     const samples = [];
     for (const a of grid) for (const b of grid) for (const c of grid) for (const d of grid) {
       const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
       samples.push(def.place(1, rnd));
     }
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, samples };
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, gate: !!def.gate, samples };
   });
 }
 
@@ -1972,7 +2034,10 @@ function writeMatrix(band, i, d) {
     // hero + glow families (PR-6 builds the Held-Breath hush proper; PR-3 just never seats one there).
     const inEasement = local >= 1050 && local <= 1350;
     if (active && band.def.hero) {
-      // Hero (glowcolossus) — renders at full size (k=1) or not at all, exactly ONE per kept peak.
+      // heroSolo (Fable ensemble §2): an ON-LANE hero (glowarch, place x:0) exists on BOTH sides'
+      // slot streams — park the -side twin so a single gate straddles x0 (else two arches z-fight).
+      if (band.def.heroSolo && d.side < 0) active = false;
+      // Hero — renders at full size (k=1) or not at all, exactly ONE per kept peak.
       // Peaks land at local 45/345/645/945/1245. `nearest` keeps only the single step-instance
       // closest to a peak (else the dense step clusters 4–5 heroes). Park peak 0 (arrival window /
       // seam-ambush) + the easement peak (1245); FORCE-KEEP peak 1 (local 345) EVERY arrival = Money
