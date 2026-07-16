@@ -24,6 +24,28 @@ export function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
 
+// U13 — universal number tweening: the recap ledger's count-up made shared.
+// Rolls el.textContent from → to over ~0.4s with a cubic ease-out; collapses to
+// an instant set under prefers-reduced-motion (and for no-op changes). fmt owns
+// the presentation (defaults to the locale-grouped wallet style). Stops silently
+// if the element leaves the DOM mid-tween (screen re-render).
+export function tweenNum(el, from, to, { dur = 420, fmt = (n) => Math.round(n).toLocaleString('en-US') } = {}) {
+  if (!el) return;
+  from = Number(from) || 0;
+  to = Number(to) || 0;
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (from === to || reduced) { el.textContent = fmt(to); return; }
+  const t0 = performance.now();
+  const step = (now) => {
+    if (!el.isConnected) return;
+    const k = Math.min((now - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(from + (to - from) * e);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 // Combo intensity tier (drives HUD styling and tier-up jingles).
 export function comboTier(c) {
   return c >= 5 ? 4 : c >= 3.5 ? 3 : c >= 2.5 ? 2 : c >= 1.5 ? 1 : 0;
