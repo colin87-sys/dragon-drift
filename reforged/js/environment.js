@@ -332,9 +332,12 @@ function mergeCalderaParts(parts, opts = {}) {
 // underside-only belly). BLEACHED bone-amber crown above the old tide / JADE life-band AT the
 // waterline (the saturated hero stop) / DROWNED slate below. Zero triangle cost. Lagoon's OWN stops —
 // never the Caldera _CAL_ or Frozen _FROST hues (the Part B leak the symmetric mechanical grep guards).
-const _LAG_BLEACH = [0.902, 0.827, 0.659]; // 0xe6d3a8 sun-bleached bone-amber (above the old tide)
-const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop)
-const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline)
+// PR-0 palette substrate (jungle drowned temple, §7.2): the crown moves OFF the old cold
+// bone-bleach (that is Glacier/Hollowgate turf) toward warm HONEY — the cycle's only warm-and-
+// green biome now reads golden-hour tropical, never molten, never bleached. Jade + drowned kept.
+const _LAG_BLEACH = [0.910, 0.788, 0.561]; // 0xe8c98f warm HONEY limestone crown (SE-Asian karst, golden hour)
+const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop, kept)
+const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline, kept)
 function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -365,19 +368,78 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
 // height): up-facing leaf faces catch the low sun (sunlit olive-gold), everything else is shadow-green.
 // Used by lilyraft (pads + reeds) and rootbastion's canopy pads — a SYSTEM, not a one-off. Running this
 // INSTEAD of the tide ladder is what stops the default bake painting leaves bleached-ivory (ice-floe leak).
-const _LAG_OLIVE = [0.561, 0.659, 0.290];  // 0x8fa84a sunlit olive-gold (up-facing leaf)
-const _LAG_SHADOW = [0.184, 0.353, 0.220]; // 0x2f5a38 shadow-green (rims, undersides, blades)
-// `upThresh` sets how flat-up a face must be to catch sun: 0.35 = leaf/pad (broad olive tops), 0.75 =
-// ROOT/branch (only true top-curves catch; leaning flanks stay shadow-green → dark roots strangling pale
-// stone, the Ta Prohm contrast — Fable rootbastion). A threshold parameter, still ONE bake system.
+// PR-0 (§7.2): THREE living greens now, not two — a jungle reads as layered canopy, not one flat
+// mint. Sunlit olive-gold catch → mid FERN body → shadow jungle core, a value ladder on the foliage
+// itself (AAA core→bloom→dark applied to leaves). Deeper + more saturated than the old pale pair so the
+// Lagoon's green never rhymes with the Mire's biolume teal or a bleached ice tint.
+const _LAG_OLIVE = [0.624, 0.682, 0.290];  // 0x9fae4a sunlit olive-gold (up-facing leaf — the sun catch)
+const _LAG_FERN = [0.333, 0.502, 0.243];   // 0x55803e mid fern (the leaf body, the majority green)
+const _LAG_SHADOW = [0.153, 0.271, 0.173]; // 0x27452c shadow jungle (rims, undersides, blades, root flanks)
+// `upThresh` sets how flat-up a face must be to catch full sun: 0.35 = leaf/pad (broad olive tops), 0.75 =
+// ROOT/branch (only true top-curves catch; leaning flanks stay dark → dark roots strangling pale stone,
+// the Ta Prohm contrast). The mid FERN band opens `upThresh−0.45` below the sun cutoff, so a leaf gets
+// olive top / fern flank / shadow underside (three zones), while a root's flanks stay shadow (its mid
+// band sits high, ≥0.30 — the strangling-dark read is preserved). One threshold, one bake system.
 function bakeLilyFoliage(geo, upThresh = 0.35) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const midThresh = upThresh - 0.45;
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // geometric face normal
+    const s = nr.y > upThresh ? _LAG_OLIVE : nr.y > midThresh ? _LAG_FERN : _LAG_SHADOW;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// PR-0 (§7.2): the TEMPLE sandstone ladder — a SECOND stone geology sharing the same material/draw
+// group as the karst limestone (via the `bake:'temple'` per-part tag), so a drowned temple reads as
+// a different stone from the sea-karst without a second material. Same position-keyed 3-stop structure
+// as bakeTideLadder (amber crown / moss-verdigris tide / laterite drowned), warmer + more mineral than
+// the honey karst — the Angkor sandstone that has taken on moss where the water sits. Zero tri cost.
+const _TMP_AMBER = [0.851, 0.682, 0.486];  // 0xd9ae7c warm amber sandstone crown (above the old tide)
+const _TMP_MOSS = [0.306, 0.580, 0.408];   // 0x4e9468 moss verdigris at the waterline (temple's life-band)
+const _TMP_LATER = [0.227, 0.196, 0.149];  // 0x3a3226 drowned laterite (below the waterline)
+function bakeTempleLadder(geo, waterY = 0.0, bandH = 0.22) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const s = [0, 0, 0];
+  for (let i = 0; i < n; i += 3) {
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    if (yc > waterY + bandH) {
+      const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);   // brighten toward a sunlit crown (value structure)
+      s[0] = _TMP_AMBER[0] * (1 + 0.09 * t); s[1] = _TMP_AMBER[1] * (1 + 0.08 * t); s[2] = _TMP_AMBER[2] * (1 + 0.06 * t);
+    } else if (yc < waterY) {
+      const t = Math.min(1, (waterY - yc) / 0.4);
+      const f = 1 - 0.30 * t;
+      s[0] = _TMP_LATER[0] * f; s[1] = _TMP_LATER[1] * f; s[2] = _TMP_LATER[2] * f;
+    } else {
+      s[0] = _TMP_MOSS[0]; s[1] = _TMP_MOSS[1]; s[2] = _TMP_MOSS[2];
+    }
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// PR-0 (§7.2): the BLOOM bake — lotus buds/blooms via the `bake:'bloom'` tag. A warm BLUSH, deliberately
+// NOT magenta-adjacent (that lane is role-locked to danger bullets — bulletcontrast law), a second warm
+// hue the roster otherwise lacks. Normal-keyed like the foliage: a lit petal catch on up-faces → a
+// deeper blush body in shadow, so a bud reads as a rounded bloom (two value zones), never a flat pink
+// blob. Diffuse only (no emissive — a flower is not a lantern; gilt stays the only warm emitter).
+const _LAG_BLOOM = [0.949, 0.780, 0.651];  // 0xf2c7a6 sunlit blush petal (up-facing catch)
+const _LAG_BLOOM_D = [0.788, 0.541, 0.431]; // 0xc98a6e deeper blush body (shadow side of the bloom)
+function bakeBloom(geo, upThresh = 0.2) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
     ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
-    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // geometric face normal
-    const s = nr.y > upThresh ? _LAG_OLIVE : _LAG_SHADOW;
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > upThresh ? _LAG_BLOOM : _LAG_BLOOM_D;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -396,19 +458,23 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], foliage = [], root = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'root') root.push(g);                            // tagged → dark foliage (roots/branches)
+    else if (p.bake === 'temple') temple.push(g);                        // tagged → temple sandstone ladder (PR-0)
+    else if (p.bake === 'bloom') bloom.push(g);                          // tagged → lotus blush bloom (PR-0)
     else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
-    else ladder.push(g);                                                 // untagged → tide ladder
+    else ladder.push(g);                                                 // untagged → tide ladder (karst limestone)
   }
   const stone = [];
   if (ladder.length) { const g = ladder.length > 1 ? mergeGeometries(ladder) : ladder[0]; if (!opts.foil) bakeTideLadder(g); stone.push(g); }
+  if (temple.length) { const g = temple.length > 1 ? mergeGeometries(temple) : temple[0]; bakeTempleLadder(g); stone.push(g); }
   if (foliage.length) { const g = foliage.length > 1 ? mergeGeometries(foliage) : foliage[0]; bakeLilyFoliage(g); stone.push(g); }
   if (root.length) { const g = root.length > 1 ? mergeGeometries(root) : root[0]; bakeLilyFoliage(g, 0.75); stone.push(g); }
+  if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {

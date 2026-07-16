@@ -67,7 +67,7 @@ export const BIOMES = [
     // Low sun dead ahead, but the STORY is transmission. hemiGround = JADE LAGOON BOUNCE (undersides
     // pick up cool water-green — the inverse of Caldera's ember bounce, unlike Frozen's rose fog-sea).
     light: { sun: C(0xffb060), sunI: 1.55, hemiSky: C(0x86b4d0), hemiGround: C(0x1e4438) },
-    water: { deep: C(0x07262e), shallow: C(0x2b7a70), waveAmp: 0.42 }, // jade lagoon; calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
+    water: { deep: C(0x07262e), shallow: C(0x2f8578), waveAmp: 0.42 }, // PR-0 (§7.2): jade-turquoise El Nido shallow — greener-biased (deepen the jade, never the gold); calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
     // PETAL WIND (the Tsushima signature): warm blossom-gold petals with the strongest LATERAL drift
     // in the cycle — wind as a composition device. Nothing rises (Caldera), nothing hangs (Frozen).
     ambient: { color: C(0xffcf9a), fall: 0.5, sway: 3.0, size: 0.32, opacity: 0.7 },
