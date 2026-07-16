@@ -47,14 +47,17 @@ for (const a of data) {
   // Authored-orientation props (paired hero = sungate) always turn their small
   // gap-facing side (xMax) toward the lane, NOT the full random-rotY ρ. OVERHEAD roofs
   // (drape) measure lane reach from the sub-unitY trunk band (rhoLane) only.
-  const facing = a.paired ? a.xMax : (a.overhead ? a.rhoLane : a.rho);
+  const facing = a.gate ? a.apertureHalf : a.paired ? a.xMax : (a.overhead ? a.rhoLane : a.rho);
   for (const s of a.samples) {
     const top = s.h * a.yMax;
     // For an overhead roof, the geometry that can invade the flight band is the trunk,
     // whose lateral lean matters only up to where it exits the flyable ceiling (laneMaxY).
     const leanTop = a.overhead ? Math.min(a.overhead.unitY * s.h, LANE_MAX_Y) : top;
     const lean = leanTop * Math.abs(s.tilt || 0);
-    const inner = Math.abs(s.x) - facing * s.r * a.sMax - lean;
+    // A centered fly-through GATE straddles x0: its inner edge IS the aperture half-width
+    // (apertureHalf·r), not |placeX|−reach. Every other prop uses the offset model.
+    const inner = a.gate ? (a.apertureHalf * s.r * a.sMax - lean)
+                         : Math.abs(s.x) - facing * s.r * a.sMax - lean;
     if (inner < innerMin) innerMin = inner;
     worstTop = Math.max(worstTop, top);
     // Overhead crown must sit at world y ≥ minWorldY (above laneMaxY + camera) at every draw.

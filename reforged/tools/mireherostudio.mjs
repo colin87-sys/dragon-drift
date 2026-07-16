@@ -30,10 +30,10 @@ if (err) { console.error('STUDIO ERROR:', err); await browser.close(); srv.close
 // Each candidate is ALSO written to its own file (grabbed straight off the gl canvas, so the
 // sheet overlay can't clobber it — the old bug that made every file the archway).
 const CANDS = [
-  { key: 'candArch',  label: 'A) FLY-THROUGH ARCHWAY' },
-  { key: 'candTree',  label: 'B) GLOWING WORLD-TREE' },
-  { key: 'candCap',   label: 'C) GLOWING MUSHROOM' },
-  { key: 'candBloom', label: 'D) GLOWING SWAMP-BLOOMS' },
+  { key: 'glowarch',   label: 'A) FLY-THROUGH ARCHWAY (hero)' },
+  { key: 'glowtree',   label: 'B) GLOWING WORLD-TREE' },
+  { key: 'glowshroom', label: 'C) GLOWING MUSHROOM' },
+  { key: 'glowbloom',  label: 'D) GLOWING SWAMP-BLOOMS' },
 ];
 const CELL = 640, COLS = 2, ROWS = 2;
 await page.evaluate(({ COLS, ROWS, CELL }) => window.psSheetInit(COLS, ROWS, CELL), { COLS, ROWS, CELL });
