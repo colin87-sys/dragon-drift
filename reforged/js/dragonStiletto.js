@@ -625,16 +625,19 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
     const marker = new THREE.Object3D();
     marker.position.set(tipP[0], tipP[1], tipP[2]);
     hand.add(marker);
-    // Hind tip marker rides the rigid hind pivot (the blade tip in the pivot's local frame).
-    const htipP = stilettoBlade(1, hindLen, chord);
-    const hMarker = new THREE.Object3D();
-    hMarker.position.set(htipP[0], htipP[1], htipP[2]);
-    hindPivot.add(hMarker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
-    pivots['hindPivot' + s] = hindPivot; pivots['hindTipMarker' + s] = hMarker;
+    pivots['hindPivot' + s] = hindPivot;
     wingElements.push({ root: [rootC.x, rootC.y, rootC.z], tip: [rootC.x + side * tipP[0], rootC.y + tipP[1], rootC.z + tipP[2]], length: foreLen, tipObj: marker });
-    wingElements.push({ root: [hr.x * side, hr.y, hr.z], tip: [hr.x * side + side * htipP[0], hr.y + htipP[1], hr.z + htipP[2]], length: hindLen, tipObj: hMarker });
+    // Hind tip marker + wingElement ONLY when the hind pair exists (withheld at f0).
+    if (hindScale > 0) {
+      const htipP = stilettoBlade(1, hindLen, chord);
+      const hMarker = new THREE.Object3D();
+      hMarker.position.set(htipP[0], htipP[1], htipP[2]);
+      hindPivot.add(hMarker);
+      pivots['hindTipMarker' + s] = hMarker;
+      wingElements.push({ root: [hr.x * side, hr.y, hr.z], tip: [hr.x * side + side * htipP[0], hr.y + htipP[1], hr.z + htipP[2]], length: hindLen, tipObj: hMarker });
+    }
   }
   // THE HUM — the hind pair rides the same glide-hold waveform at a 0.35 beat-cycle
   // offset (radians: 0.35·2π ≈ 2.20) / 0.9× amplitude. Nullable + additive: null for
