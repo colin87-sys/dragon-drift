@@ -129,6 +129,11 @@ let previewLaunchPending = !!PREVIEW_CANYON;
 const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
+// U12b — the menu mood-dim multiplies the CURRENT tonemap mode's base exposure;
+// the base is re-captured on every tonemap change so the dim can never bake
+// itself into the base. menuDimW is the eased 0..1 dim weight.
+let exposureBase = renderer.toneMappingExposure;
+let menuDimW = 0;
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
 // Aurora Shallows PR-1 hero read: ?aurora=1 forces the authentic aurora curtain on in
 // ANY biome (the biome that declares it doesn't exist yet) so the owner can judge it on
@@ -804,7 +809,7 @@ ui.init({
   // recompiles on toneMapping change); particle-batch needs a re-init so Settings
   // reloads for that one (like DEV mode).
   onGraphicsChange: (kind, value) => {
-    if (kind === 'toneMap') setToneMap(renderer, value);
+    if (kind === 'toneMap') { setToneMap(renderer, value); exposureBase = renderer.toneMappingExposure; }   // U12b: re-capture the dim's base
     else if (kind === 'dither') setDither(value);
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
@@ -1573,6 +1578,17 @@ function tick() {
   const hideShopFx = ui.atShop() && game.state !== 'playing';
   setRingsVisible(!hideShopFx && !cleanShot);   // cleanshot: no course rings in a capture frame
   if (hideShopFx || cleanShot) setDragonFxVisible(false);   // …and no trail scribbles over the dragon
+
+  // U12b — menu-as-camera-shot, the mood half: a small IN-ENGINE exposure dim
+  // while a dense reading panel (settings/pilot/quests/daily/rush/pause) covers
+  // the live world — "defocus via render, not DOM blur" — eased over
+  // ~--t-screen and RELEASED when the panel closes. COLOUR ONLY, per the menu
+  // law: no world prop, obstacle or player state is touched, and any 'playing'
+  // frame HARD-SNAPS the dim to zero (same gate class as hideShopFx above), so
+  // a live run can never inherit a menu grade. Shop + hub keep full exposure.
+  if (game.state === 'playing') menuDimW = 0;
+  else menuDimW += ((ui.atDimScreen() ? 1 : 0) - menuDimW) * (1 - Math.exp(-10 * rawDt));
+  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW);
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {

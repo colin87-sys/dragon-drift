@@ -2660,6 +2660,16 @@ export const ui = {
            lastScreen === 'quests' || lastScreen === 'daily';
   },
   atShop() { return lastScreen === 'shop' && els.screen.classList.contains('visible'); },
+
+  // U12b — screens that ask the ENGINE for a mood dim (a small exposure drop:
+  // COLOUR only, per the menu law — never world displacement): the dense
+  // reading panels over the live world. The shop (beauty shot), the hub and
+  // the recap keep the full exposure. main.js eases + hard-gates this.
+  atDimScreen() {
+    return els.screen.classList.contains('visible') &&
+      (lastScreen === 'settings' || lastScreen === 'pilot' || lastScreen === 'quests' ||
+       lastScreen === 'daily' || lastScreen === 'rush' || lastScreen === 'pause');
+  },
 };
 
 // --- Appointment UI: honest badges -----------------------------------
