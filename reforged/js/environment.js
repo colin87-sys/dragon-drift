@@ -1234,9 +1234,10 @@ const ARCHETYPES = {
       // COLUMN DRUMS — the architecture SENTENCE. 6-seg (rounder break face reads "column slice", not a
       // box — Fable w1) lying along z (rx π/2) so the front drum's circular BREAK FACE addresses the
       // front/¾ camera; a slipped half-drum behind almost re-assembles toward it (the column that stood).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.28, 6), { x: 0.30, z: 0.16, y: 0.13, rx: Math.PI / 2, ry: 0.15 }) }); // 24 (closed; +z break face to camera)
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 6, 1, true), { x: 0.34, z: -0.10, y: 0.11, rx: Math.PI / 2, ry: 0.35 }) }); // 12 (open; +z end sinks into the full drum → occluded)
-      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.13, 6), { x: 0.34, y: 0.11, z: -0.23, ry: Math.PI }) });   // 6 (cap the far −z break end → no paper void)
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.28, 6), { x: 0.30, z: 0.16, y: 0.13, rx: Math.PI / 2, ry: 0.15 }) }); // 24 (closed; +z break face to camera; underside at y0)
+      // Half-drum CLOSED (both hex ends capped): the +z end sinks into the full drum (occluded), the −z
+      // end is a clean break face. No separate CircleGeometry cap → no edge-on sliver fin (Fable w2).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 6), { x: 0.34, z: -0.10, y: 0.13, rx: Math.PI / 2, ry: 0.35 }) }); // 24
       return mergeLagoonParts(parts, { foil: true });
     },
     // MID foil scatter, ~2:1 WIDE (Fable w1): normalized crest ~0.60, so h 3.5–5 world → the capital-
