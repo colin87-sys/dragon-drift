@@ -1995,20 +1995,24 @@ const ARCHETYPES = {
       // concave from the canopy seat to an open rim; every root below springs from THIS, so nothing emerges
       // from a "body". This also carries the mass/scale cue and survives chase distance (thin roots LOD out).
       {
-        const prof = [new THREE.Vector2(0.13, 0.52), new THREE.Vector2(0.22, 0.40), new THREE.Vector2(0.36, 0.28)];
+        const prof = [new THREE.Vector2(0.14, 0.54), new THREE.Vector2(0.26, 0.40), new THREE.Vector2(0.44, 0.26)];  // WIDER flare (Fable r4: the rim must peek below the canopy's dark underside so the roots read as one organism)
         parts.push({ mat: 0, bake: 'wood', geo: new THREE.LatheGeometry(prof, 7) });   // 2 gaps × 7 × 2 = 28
       }
       // PROUD CROSSING ROOTS — 5 roots spring from the skirt RIM and splay to feet PLANTED at the waterline
       // (y0), routed so adjacent pairs CROSS (the un-fakeable "grown, not walking" signal — legs never cross,
       // roots do). Welded up into the rim (interpenetrate, no joint gap); above the radius floor (no wire-
       // shins). The GAPS between them, below the skirt, are the see-through AIRGAP + the mirror double.
+      // CONTINUITY WELD (Fable r4: m5's roots read as snapped sticks — the topology was right but the chains
+      // leaked at every joint). Each root is ONE unbroken chain: the top is BURIED 30%+ into the skirt
+      // collar; the two frusta OVERLAP at the knee with a fat shared radius (a root knuckle, never a butt-
+      // joint gap); the foot is driven THROUGH the waterline (y<0), planted not placed.
       const root = (rimAz, footAz, R) => {
         const rc = Math.cos(rimAz), rs = Math.sin(rimAz), fc = Math.cos(footAz), fs = Math.sin(footAz);
-        const p0 = [0.34 * rc, 0.30, 0.34 * rs];             // welded up into the skirt rim
-        const p1 = [R * 0.82 * fc, 0.13, R * 0.82 * fs];     // mid — already angling to the FOOT azimuth → the crossing
-        const p2 = [R * fc, 0.0, R * fs];                    // planted foot at the waterline
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.052, 0.045, 3) }); // (6)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.045, 0.072, 3) }); // → flared planted foot (6)
+        const p0 = [0.38 * rc, 0.37, 0.38 * rs];             // BURIED up inside the wider skirt collar
+        const p1 = [R * 0.80 * fc, 0.12, R * 0.80 * fs];     // knee — already angling to the FOOT azimuth (the crossing)
+        const p2 = [R * fc, -0.07, R * fs];                  // foot driven THROUGH the waterline (planted, not placed)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.058, 0.055, 3) }); // (6)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.062, 0.08, 3) });  // fat knee (0.062 > 0.055 → overlap weld) → flared foot (6)
       };
       root(0.35, 1.05, 0.52); root(1.30, 0.50, 0.50);   // pair A×B cross
       root(2.55, 2.60, 0.54);                            // one near-radial
