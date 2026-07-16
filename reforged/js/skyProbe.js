@@ -79,8 +79,9 @@ export function skyProbeEnabled() { return enabled; }
 // linear radiance the probe wants. Writes into `out` (Vector3 rgb).
 export function skyColorAt(d, env, sunDir, out) {
   const h = clamp01(d.y);
-  const t1 = smoothstep(0.0, 0.25, h);
-  const t2 = smoothstep(0.2, 0.7, h);
+  const b = env.deckBias || 0;   // per-biome deck bias (mirror of the skyMat gradient; 0 = shipped)
+  const t1 = smoothstep(0.0, 0.25 - 0.12 * b, h);
+  const t2 = smoothstep(0.2 - 0.13 * b, 0.7 - 0.34 * b, h);
   const ff = env.fogFarMix * (1.0 - smoothstep(0.0, 0.15, h));
   const s = Math.max(d.x * sunDir.x + d.y * sunDir.y + d.z * sunDir.z, 0);
   const glow = Math.pow(s, 10.0) * 0.16;

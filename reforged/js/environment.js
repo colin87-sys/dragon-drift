@@ -6,6 +6,7 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
+import { createRain, updateRain, setRainTier } from './rain.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
@@ -150,6 +151,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0x0d1410, emissive: 0x0a1508, emissiveIntensity: 0.1 }),   // 4 LUMEN MIRE dead/wet matter — near-black warm-neutral bark/root/mud; "matter drinks" (light-absorbing); the low emissive is only a crush floor, never a light source
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
       new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
+      new THREE.MeshStandardMaterial({ ...opts, color: 0x4b545c, roughness: 0.34, metalness: 0.06, emissive: 0x1a2228, emissiveIntensity: 0.18 }), // 7 tempest storm slate — wet dark rock (PR-1 replaces with the wind-scour vertex-colour ladder mats)
     ],
     accent: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0xc08a50, roughness: 0.5, metalness: 0.25, emissive: 0x2a1505, emissiveIntensity: 0.25 }),
@@ -159,6 +161,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6 }), // 4 LUMEN MIRE living amber glow — firefly-gold gills/motes/lanterns; "life glows" (the ONLY emitter); off-teal by construction (~562nm warm, never 490–510nm). Fable v33: emissive ×~1.8 so existing glow pulls weight until PR-3
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
       new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xcaa25a, roughness: 0.4, metalness: 0.05, emissive: 0xffd870, emissiveIntensity: 0.85 }), // 7 tempest STOLEN GOLD — the socket glow (the one warm hue; low hidden-sun rim gold, = STORMREND's glow hex)
     ],
   };
   for (const m of mats.primary) addPropDetail(m);
@@ -1686,6 +1689,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       feverWarm: { value: 0 },   // 0 = magenta Surge palette; 1 = FIERY (fire dragons) → the rebirth sky/aurora go warm ember instead of magenta
       dimMix: { value: 0 },
       starMix: { value: 0 },
+      // Per-biome DECK BIAS (Tempest): 0 = shipped gradient (byte-identical). >0 pulls the
+      // mid→top transition DOWN so the dark storm ceiling owns most of the sky and the belt
+      // compresses to a thin band above the horizon slot. Mirrored in skyProbe.js skyColorAt.
+      uDeckBias: { value: 0 },
       // Dual-fog (BIOME-DESIGN.md §5.2): the far-field fog COLOR + its 0→1
       // gate. fogFarMix is 0 wherever no biome declares fogFarColor, so the
       // blend below is a branchless no-op there (the starMix pattern).
@@ -1704,7 +1711,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
     fragmentShader: `
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
-      uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix;
+      uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
       void main() {
@@ -1718,8 +1725,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // stay the spectacle during a boost (0 in every other biome → byte-identical).
         vec3 hor = mix(horizonColor, horF, feverMix * 0.8 * (1.0 - uAuroraMix));
         vec3 mid = mix(midColor, midF, feverMix * 0.7 * (1.0 - uAuroraMix));
-        vec3 col = mix(hor, mid, smoothstep(0.0, 0.25, h));
-        col = mix(col, topColor, smoothstep(0.2, 0.7, h));
+        // uDeckBias pulls the belt + deck transitions DOWN (0 = shipped): the storm ceiling owns
+        // the sky, the belt compresses to a thin strip. Edges stay ordered for all bias in [0,1].
+        vec3 col = mix(hor, mid, smoothstep(0.0, 0.25 - 0.12 * uDeckBias, h));
+        col = mix(col, topColor, smoothstep(0.2 - 0.13 * uDeckBias, 0.7 - 0.34 * uDeckBias, h));
         // Dual-fog far color (§5.2): the sky's lowest band IS the far field —
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
@@ -1806,6 +1815,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 
   // --- Ambient particles + birds.
   createAmbient(scene);
+  createRain(scene);   // storm rain-streak layer (rainMix-gated; Tempest only)
 }
 
 function makeBand(scene, def) {
@@ -2256,6 +2266,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     horizon: env.skyHorizon,
     zenith: env.skyTop,
     waveAmp: env.waveAmp,
+    stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
+    rainRipple: env.rainMix, // rain Layer B: splash rings where the rain hits the sea (rides rainMix)
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
@@ -2277,6 +2289,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
   sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;
+  su.uDeckBias.value = env.deckBias || 0;
   su.time.value = time;
 
   // Boss-time mote budget: own eased copy of the same signal postfx grades
@@ -2285,4 +2298,5 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   bossMix = damp(bossMix, bossTarget, 4, dt);
 
   updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
+  updateRain(dt, camera, env);   // storm rain streaks — reads env.rainMix + the shared wind vector
 }
