@@ -2055,10 +2055,13 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         if (uStormFlash > 0.001) {
           vec2 _faz = normalize(d.xz + vec2(1e-4));
           float _fdw = 0.4 + 0.6 * max(0.0, dot(_faz, uStormFlashDir));           // 40/60 dark/bright hemisphere
-          float _fband = 0.30 + 0.70 * smoothstep(0.0, 0.5, h);                   // upper sky lifts most
+          float _fband = 0.32 + 0.36 * smoothstep(0.0, 0.32, h) - 0.42 * smoothstep(0.08, 0.40, h); // strongest near the horizon; the deck/upper sky lifts LEAST (stays a ceiling)
           float _fl = uStormFlash * _fdw * _fband * (1.0 - 0.9 * cCov);           // clouds stay dark (harder hold)
-          col = mix(col, vec3(0.78, 0.81, 0.88), clamp(_fl, 0.0, 0.55));          // desaturated #c7cfe0
-          col = min(col, vec3(mix(0.82, 0.45, cCov)));                            // white-out cap 0.82; DECK capped at L0.45 so it silhouettes against the flash
+          col = mix(col, vec3(0.76, 0.79, 0.86), clamp(_fl, 0.0, 0.38));          // desaturated #c7cfe0, gentler peak
+          // Cap by VIEW HEIGHT, not cloud coverage (Fable r2: partial cCov relaxed the cap to ~0.60). The
+          // storm ceiling owns the upper sky, so cap the whole upper band at L≈0.46 so it silhouettes
+          // against the flash; the pale horizon SLOT (low h) keeps the white-out cap 0.82 and stays bright.
+          col = min(col, vec3(mix(0.82, 0.46, smoothstep(0.02, 0.12, h))));
         }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
