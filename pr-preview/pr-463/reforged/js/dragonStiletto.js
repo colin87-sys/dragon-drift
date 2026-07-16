@@ -56,8 +56,12 @@ function stilettoMats(def, glow, stage) {
   const g = Math.max(0, Math.min(1, glow ?? 1));
   const body = def.body ?? CHITIN;
   const mk = (color, extra) => { const m = new THREE.MeshStandardMaterial({ color, emissive: 0x000000, flatShading: true, roughness: 0.7, metalness: 0, ...extra }); m.envMapIntensity = 0.25; return m; };
-  // Chitin lacquer tiers (value bands — dorsal a hair lighter, venter dark plum).
-  const chitinDorsal = mk(lerpHex(body, VENTER, 0.34));
+  // Chitin lacquer tiers (value bands, ≥0.05 L spread — CP4). The dorsal crown tier is
+  // aimed at a LIT violet-steel (not just toward the plum venter, which compressed the
+  // tiers to ~0.03 L and read flat-black) so the crown facets read RICH while the flank
+  // stays the darkest object (the inverted-value identity holds).
+  const LIT_CHITIN = 0x5a4c78;
+  const chitinDorsal = mk(lerpHex(body, LIT_CHITIN, 0.44));
   const chitinFlank = mk(body);
   const venter = mk(def.belly ?? VENTER);
   // Oil-slick sheen — diffuse grazing-row tints ONLY (≤10% coverage), roughness 0.35
@@ -78,10 +82,10 @@ function stilettoMats(def, glow, stage) {
   sacWall.envMapIntensity = 0.3;
   // The FILL — opaque emissive liquid (the diegetic power meter). fillLine is the
   // brightest pixels on the gaster; fillBody the deep brew at depth. In flareMats.
-  const fillLine = mk(FILL_LINE, { emissive: FILL_LINE, emissiveIntensity: 0.55 });
-  fillLine.userData.baseEmissive = FILL_LINE; fillLine.userData.baseIntensity = 0.55;
-  const fillBody = mk(FILL_BODY, { emissive: FILL_BODY, emissiveIntensity: 0.35 });
-  fillBody.userData.baseEmissive = FILL_BODY; fillBody.userData.baseIntensity = 0.35;
+  const fillLine = mk(FILL_LINE, { emissive: FILL_LINE, emissiveIntensity: 1.15 });
+  fillLine.userData.baseEmissive = FILL_LINE; fillLine.userData.baseIntensity = 1.15;
+  const fillBody = mk(FILL_BODY, { emissive: FILL_BODY, emissiveIntensity: 0.62 });
+  fillBody.userData.baseEmissive = FILL_BODY; fillBody.userData.baseIntensity = 0.62;
   // Drip bead (f2+), stinger channel + pterostigma (f3) — dark until their form, then
   // venom-lit. Seam mats DoubleSide (the culled-ignition gotcha).
   const bead = mk(BEAD, { emissive: BEAD, emissiveIntensity: 0.6 });
@@ -140,11 +144,115 @@ const CHITIN_PROFILE = [
 ];
 const bandMat = (M) => (k) => (k === 1 || k === 2 || k === 3) ? M.chitinDorsal : (k >= 5) ? M.venter : M.chitinFlank;
 
+// ── vec helpers (small, local) ────────────────────────────────────────────────
+const vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const vadd = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const vscl = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vdot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const vnorm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+// A raised SHINGLE plate — an overlapping beveled card (the Vesper cowl overlap-not-weld
+// trick): a quad lifted proud along a local normal with a beveled leading rim, so a row of
+// them reads as struck lacquer armor, never one smooth tube. Returns tris.
+function shinglePlate(c, u, v, n, halfU, halfV, lift, capFrac) {
+  const U = vscl(u, halfU), V = vscl(v, halfV), Lp = vscl(n, lift);
+  const p00 = vadd(vadd(c, vscl(U, -1)), vscl(V, -1));
+  const p10 = vadd(vadd(c, U), vscl(V, -1));
+  const p11 = vadd(vadd(vadd(c, U), V), Lp);           // trailing rim lifts proud (the bevel catch)
+  const p01 = vadd(vadd(vadd(c, vscl(U, -1)), V), Lp);
+  const tris = [[p00, p10, p11], [p00, p11, p01]];
+  return tris;
+}
+
+// THE HEX SAC WINDOW + THE FILL (the diegetic power meter). A pointy-top hexagon aperture
+// in a local frame (center C, across u / vertical v / outward n). Returns:
+//   wall  — the translucent hex panel (single layer), proud of the surface by `proud`.
+//   fill  — the OPAQUE emissive liquid, the lower `frac` of the hex (fillBody), inset behind.
+//   line  — the bright liquid SURFACE strip at the top of the fill (fillLine — the brightest
+//           pixels on the gaster). back — a dark backing hex so the empty top reads dark.
+function hexVerts(C, u, v, r) {
+  const out = [];
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI / 2 + k * Math.PI / 3;
+    out.push(vadd(C, vadd(vscl(u, Math.cos(a) * r), vscl(v, Math.sin(a) * r))));
+  }
+  return out;
+}
+function fanTris(poly) { const t = []; for (let i = 1; i < poly.length - 1; i++) t.push([poly[0], poly[i], poly[i + 1]]); return t; }
+function sacWindow(C, u, v, n, r, frac) {
+  const wallC = vadd(C, vscl(n, 0.012));
+  const wall = fanTris(hexVerts(wallC, u, v, r));
+  // Fill: clip the hex (local uv) to the lower `frac` of its height, in a plane inset behind.
+  const f = Math.max(0.03, Math.min(1, frac));
+  const hv = -r + f * 2 * r;   // liquid surface height in v (from bottom −r to top +r)
+  const P = [];
+  for (let k = 0; k < 6; k++) { const a = Math.PI / 2 + k * Math.PI / 3; P.push([Math.cos(a) * r, Math.sin(a) * r]); }
+  const kept = [], cross = [];
+  for (let i = 0; i < P.length; i++) {
+    const A = P[i], B = P[(i + 1) % P.length];
+    const Ain = A[1] <= hv, Bin = B[1] <= hv;
+    if (Ain) kept.push(A);
+    if (Ain !== Bin) { const t = (hv - A[1]) / (B[1] - A[1]); const X = [A[0] + (B[0] - A[0]) * t, hv]; kept.push(X); cross.push(X); }
+  }
+  const backC = vadd(C, vscl(n, -0.05));    // the sac floor (dark interior behind the liquid)
+  const fillC = vadd(C, vscl(n, -0.02));    // the liquid, just behind the wall
+  const toW = (p, base) => vadd(vadd(base, vscl(u, p[0])), vscl(v, p[1]));
+  const fill = fanTris(kept.map((p) => toW(p, fillC)));
+  const back = fanTris(hexVerts(backC, u, v, r * 0.98));
+  // The bright surface line — a thin quad along the clip edge (the two crossing points).
+  let line = [];
+  if (cross.length >= 2) {
+    const a0 = toW(cross[0], fillC), a1 = toW(cross[1], fillC), up = vscl(v, r * 0.06);
+    line = [[a0, a1, vadd(a1, up)], [a0, vadd(a1, up), vadd(a0, up)]];
+  }
+  return { wall, fill, back, line };
+}
+
+// THE RAPTORIAL FORELIMB (one pair, ~120 tris) — a lofted shoulder swell → forearm → 3-claw
+// hand, folded KNEE-UP and hugged to the thorax underside (the tuck reads folded, not
+// landing-gear-down — failure mode 7). STATIC in the body frame. Built canonical for +side.
+function buildForelimb(M, side, shoulder) {
+  const g = new THREE.Group();
+  const s = side;
+  // 3-station mini-loft bone: a swell-then-taper profile (the sanctioned knapLoft bone).
+  const bone = (a, b, ra, rb, mat) => {
+    const stations = [
+      { z: 0, rx: ra, ry: ra, cy: 0, cx: 0 },
+      { z: 1, rx: rb, ry: rb, cy: 0, cx: 0 },
+    ];
+    // orient a→b: build a short 5-sided loft along the segment.
+    const dir = vsub(b, a), len = Math.hypot(...dir) || 1;
+    const d = vnorm(dir);
+    const up = Math.abs(d[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];
+    const uu = vnorm(vcross(up, d)), vv = vnorm(vcross(d, uu));
+    const ring = (p, rad) => { const o = []; for (let k = 0; k < 5; k++) { const ang = k * 2 * Math.PI / 5; o.push(vadd(p, vadd(vscl(uu, Math.cos(ang) * rad), vscl(vv, Math.sin(ang) * rad)))); } return o; };
+    const r0 = ring(a, ra), r1 = ring(b, rb), tris = [];
+    for (let k = 0; k < 5; k++) { const k1 = (k + 1) % 5; tris.push([r0[k], r1[k1], r1[k]], [r0[k], r0[k1], r1[k1]]); }
+    g.add(flatTriMesh(tris, mat));
+    return { d, uu, vv };
+  };
+  const hip = [s * 0.30, -0.14, -0.10];               // at the thorax underside
+  const knee = [s * 0.34, -0.30, 0.14];               // raised + forward (knee UP)
+  const wrist = [s * 0.26, -0.20, 0.34];              // swept forward + up (the tuck)
+  bone(hip, knee, 0.10, 0.06, M.chitinFlank);         // upper (shoulder swell → knee)
+  bone(knee, wrist, 0.06, 0.04, M.chitinDorsal);      // forearm (tapers)
+  // 3 claw nubs — 2-face tents fanning from the wrist, curled under.
+  for (let c = 0; c < 3; c++) {
+    const sp = 0.06 * (c - 1);
+    const tip = [wrist[0] + s * 0.03, wrist[1] - 0.10, wrist[2] + 0.10 + sp];
+    const bA = [wrist[0] - s * 0.03 + sp, wrist[1], wrist[2]], bB = [wrist[0] + s * 0.03 + sp, wrist[1] - 0.02, wrist[2] + 0.03];
+    g.add(flatTriMesh([[bA, tip, bB], [bB, tip, [wrist[0] + sp, wrist[1] - 0.04, wrist[2] - 0.02]]], M.chitinFlank));
+  }
+  g.position.set(shoulder.x - s * 0.30, shoulder.y, shoulder.z);
+  return g;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// TORSO — 'chitinWaspTorso' (I0 PLACEHOLDER): the three-mass wasp aft (thorax →
-// petiole/waist → gaster) + the draconic prow (short collared neck) roughed in as a
-// value-banded loft. The forelimbs, the 5-plate thorax shingles, the hex sac windows,
-// and the fills land at I1. Publishes the full attach contract (fore + hind wing roots),
+// TORSO — 'chitinWaspTorso' (I1): the three-mass wasp aft (thorax → petiole/waist →
+// gaster) + the draconic PROW (2–3-plate collared neck + ONE raptorial forelimb pair) +
+// THE VENOM STILL (3 hex sac windows, single-layer walls + the opaque emissive FILL — the
+// diegetic power meter). Publishes the full attach contract (fore + hind wing roots),
 // spinePoints (the locked side line-of-action), motifAnchor (gaster seg-2), coreGlow:null
 // (the crash guard — the venom still must NEVER breathe with boost/Surge opacity, §4a).
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -154,6 +262,9 @@ function buildChitinWaspTorso(def, model, _bodyMat) {
   const bm = bandMat(M);
   const waistPinch = model.waistPinch ?? 0.34;
   const gasterSegs = Math.round(model.gasterSegments ?? 4);
+  const sacWindows = Math.min(3, Math.max(0, gasterSegs - 1));   // {1,2,3,3} for gasterSegs {2,3,4,4}
+  const sacFill = model.sacFill ?? 1.0;
+  const neckPlates = Math.round(model.neckPlates ?? 3);
   const thoraxR = 0.52;
 
   // Proportion spline (nose→gaster tip = 1.0): head .12 · neck .08 · thorax .30 ·
@@ -165,6 +276,19 @@ function buildChitinWaspTorso(def, model, _bodyMat) {
     { z: -L * 0.30, rx: 0.36, ry: 0.38, cy: 0.20 },
   ];
   group.add(knapLoft(neck, CHITIN_PROFILE, bm, false));
+  // NECK COLLAR PLATES (2–3, the lock's draconic prow) — overlapping chitin shingles
+  // arcing forward-down, each lapping the next (overlap > weld); rhyme with the thorax
+  // shingles (hero-echo). On the dorsal + upper flanks so they read from the chase cam.
+  {
+    const cT = [];
+    for (let p = 0; p < neckPlates; p++) {
+      const t = p / Math.max(1, neckPlates), z = -L * 0.37 + t * L * 0.09, r = 0.31 + t * 0.10, cy = 0.20;
+      const c = [0, cy + r * 0.72, z], n = vnorm([0, 0.9, -0.4]);
+      const u = [1, 0, 0], v = vnorm(vcross(n, u));
+      for (const tri of shinglePlate(c, u, v, n, r * 0.7, 0.10, 0.04)) cT.push(tri);
+    }
+    group.add(flatTriMesh(cT, M.chitinDorsal));
+  }
   // THORAX (0.30) — the armored keel + shoulder cowls; the highest dorsal point.
   const thorax = [
     { z: -L * 0.30, rx: 0.40, ry: 0.42, cy: 0.20 },
@@ -172,41 +296,97 @@ function buildChitinWaspTorso(def, model, _bodyMat) {
     { z: -L * 0.06, rx: 0.46, ry: 0.48, cy: 0.20 },
   ];
   group.add(knapLoft(thorax, CHITIN_PROFILE, bm, false));
-  // PETIOLE / WASP-WAIST (0.08) — the signature concave break; painted mid-tier, never
-  // shadow-black; the dorsal strake runs through it (I1). Floor 0.22× thorax radius.
+  // THORAX SHINGLE ROW (5 overlapping lacquer plates) — a dorsal shingle file down the
+  // crown (the Vesper cowl overlap-not-weld trick as a struck-armor field), so the thorax
+  // reads worked lacquer, not a smooth tube. Alternating value tiers.
+  {
+    const dP = [], fP = [];
+    for (let p = 0; p < 5; p++) {
+      const t = p / 5, z = -L * 0.29 + t * L * 0.24, r = 0.42 + 0.10 * Math.sin(t * Math.PI), cy = 0.20 + 0.02 * Math.sin(t * Math.PI);
+      const c = [0, cy + r * 0.82, z], n = vnorm([0, 0.95, -0.15]);
+      const u = [1, 0, 0], v = vnorm(vcross(n, u));
+      for (const tri of shinglePlate(c, u, v, n, r * 0.66, L * 0.032, 0.045)) (p % 2 ? fP : dP).push(tri);
+    }
+    group.add(flatTriMesh(dP, M.chitinDorsal));
+    group.add(flatTriMesh(fP, M.chitinFlank));
+  }
+  // PETIOLE / WASP-WAIST (0.08) — the signature concave break; painted MID-tier (never the
+  // darkest hex); floor 0.22× thorax radius. ONE dorsal strake runs thorax→gaster THROUGH
+  // the pinch (law 6 — never severed).
   const wR = Math.max(0.22, waistPinch) * thoraxR;
   const petiole = [
     { z: -L * 0.06, rx: 0.40, ry: 0.42, cy: 0.20 },
     { z: 0.0, rx: wR, ry: wR * 1.05, cy: 0.18 },   // apex pinch
     { z: L * 0.06, rx: 0.44, ry: 0.42, cy: 0.16 },
   ];
-  group.add(knapLoft(petiole, CHITIN_PROFILE, (k) => (k === 1 || k === 2 || k === 3) ? M.chitinFlank : M.chitinFlank, false));
+  group.add(knapLoft(petiole, CHITIN_PROFILE, () => M.chitinFlank, false));
   // GASTER (0.42) — telescoping armor rings (swell-then-taper), seg radii
-  // ×[0.9,1.0,0.82,0.58] of thorax radius. Carries the sac windows (I1). Hangs low.
+  // ×[0.9,1.0,0.82,0.58] of thorax radius. Segments 2–4 carry the sac windows. Hangs low.
   const segR = [0.9, 1.0, 0.82, 0.58].slice(0, gasterSegs);
   const gStations = [{ z: L * 0.06, rx: 0.44, ry: 0.42, cy: 0.16 }];
   const gZ0 = L * 0.06, gZ1 = L * 0.48;
   for (let i = 0; i < segR.length; i++) {
     const t = (i + 1) / segR.length;
-    gStations.push({ z: gZ0 + (gZ1 - gZ0) * t, rx: segR[i] * thoraxR, ry: segR[i] * thoraxR * 0.98, cy: 0.14 - 0.02 * t });
+    gStations.push({ z: gZ0 + (gZ1 - gZ0) * t, rx: segR[i] * thoraxR, ry: segR[i] * thoraxR * 0.98, cy: 0.14 - 0.05 * t });
   }
   group.add(knapLoft(gStations, CHITIN_PROFILE, bm, true));
 
-  // Oil-slick sheen band — a thin grazing-row strip on the dorsal crown plates.
+  // THE DORSAL STRAKE — a thin tent strip running the crown continuously thorax → THROUGH
+  // the pinch → gaster (law 6, the anti-severed guard) + carries the oil-slick sheen band.
   {
-    const sT = [];
-    for (let i = 0; i < thorax.length - 1; i++) {
-      const a = thorax[i], b = thorax[i + 1], hw = 0.06;
-      const AT = [0, a.cy + a.ry + 0.01, a.z], BT = [0, b.cy + b.ry + 0.01, b.z];
-      sT.push([[AT[0] - hw, AT[1], AT[2]], [BT[0] + hw, BT[1], BT[2]], [BT[0] - hw, BT[1], BT[2]]],
-              [[AT[0] - hw, AT[1], AT[2]], [AT[0] + hw, AT[1], AT[2]], [BT[0] + hw, BT[1], BT[2]]]);
+    const rail = [];
+    for (const s of [...thorax, ...petiole, ...gStations]) rail.push([0, s.cy + s.ry + 0.012, s.z]);
+    rail.sort((a, b) => a[2] - b[2]);
+    const strake = [], hw = 0.05;
+    for (let i = 0; i < rail.length - 1; i++) {
+      const A = rail[i], B = rail[i + 1];
+      strake.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
+                  [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
     }
-    group.add(flatTriMesh(sT, M.sheenViolet));
+    group.add(flatTriMesh(strake, M.sheenViolet));   // the wet-lacquer grazing catch (roughness 0.35)
   }
+
+  // ── THE RAPTORIAL FORELIMBS (one pair, zero hind legs) — folded knee-up, hugged to the
+  // thorax underside, static; they thicken the anti-SPINDLE core for free.
+  if ((model.forelimbs ?? 1) > 0) for (const side of [1, -1]) {
+    group.add(buildForelimb(M, side, { x: (thoraxR - 0.14) * side, y: 0.06, z: -L * 0.10 }));
+  }
+
+  // ── THE VENOM STILL — 3 hex sac WINDOWS on gaster segments 2..(1+sacWindows). Each: a
+  // single-layer translucent WALL (merged to ONE mesh across all windows) + an opaque
+  // emissive FILL (the liquid, lower `sacFill` fraction; fillLine the bright surface,
+  // fillBody the deep brew) + a dark BACKING (the empty top reads dark → core→bloom→dark).
+  const wallT = [], fillLineT = [], fillBodyT = [], backT = [];
+  let motifPos = [0, 0.14, gZ0 + (gZ1 - gZ0) * 0.4];
+  for (let w = 0; w < sacWindows; w++) {
+    const segIdx = 2 + w;                 // segments 2,3,4 (1-indexed into gStations)
+    const s = gStations[Math.min(segIdx, gStations.length - 1)];
+    const r = s.rx, hexR = r * 0.72;
+    // Window on the UPPER-REAR of the segment facing UP-AND-BACK: the above-behind chase
+    // cam looks forward-down onto the trailing gaster and sees these directly, and each
+    // window peeks over the SMALLER next segment (the gaster tapers). The near-vertical
+    // plane lets the world-up liquid WATERLINE read (the diegetic meter). (Engineering
+    // delta from the sheet's "venter": the venter faces AWAY from the above-behind cam —
+    // dorsal-rear is where the still actually reads in the judged frame; flagged on the PR.)
+    const C = [0, s.cy + r * 0.42, s.z + r * 0.30];
+    const n = vnorm([0, 0.5, 0.86]);
+    const v0 = [0, 1, 0], v = vnorm(vsub(v0, vscl(n, vdot(v0, n))));   // world-up projected into the window plane (liquid rises along +v)
+    const u = vnorm(vcross(v, n));
+    const win = sacWindow(C, u, v, n, hexR, sacFill);
+    for (const t of win.wall) wallT.push(t);
+    for (const t of win.fill) fillBodyT.push(t);
+    for (const t of win.line) fillLineT.push(t);
+    for (const t of win.back) backT.push(t);
+    if (w === 0) motifPos = [0, s.cy, s.z];   // the fixed motif anchor = gaster seg-2
+  }
+  if (backT.length) group.add(flatTriMesh(backT, M.venter));          // the dark sac floor
+  if (fillBodyT.length) group.add(flatTriMesh(fillBodyT, M.fillBody)); // the brew (opaque emissive)
+  if (fillLineT.length) group.add(flatTriMesh(fillLineT, M.fillLine)); // the liquid surface (brightest)
+  if (wallT.length) group.add(flatTriMesh(wallT, M.sacWall));          // the ONE merged translucent wall
 
   // Motif anchor — the venom still's fixed reference (gaster seg-2, never re-hues).
   const motifAnchor = new THREE.Object3D();
-  motifAnchor.position.set(0, 0.14, gZ0 + (gZ1 - gZ0) * 0.4);
+  motifAnchor.position.set(motifPos[0], motifPos[1], motifPos[2]);
   group.add(motifAnchor);
 
   // Line-of-action (the locked side spline): collar → thorax-crown rise → waist DIP →
@@ -230,9 +410,15 @@ function buildChitinWaspTorso(def, model, _bodyMat) {
     riderSocket: { x: 0, y: 0.66, z: -L * 0.08 },
     motifAnchor,
   };
-  // coreGlow MUST be null (the venom still never breathes with opacity — §4a; and the
-  // null guards the dragon.js:1159 opacity hook against a null-deref crash).
-  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.chitinFlank }, coreGlow: null };
+  // The fills join flareMats (the Surge flare loop scales them by surgeGlowMultiplier; in
+  // cruise they glow at their baked baseIntensity — the fill LEVEL is the read, not intensity).
+  // coreGlow MUST be null (the venom still never breathes with opacity — §4a; the null also
+  // guards the dragon.js opacity hook against a null-deref crash).
+  return {
+    group, attach, spinePoints, spineMats: [],
+    flareMats: [M.fillLine, M.fillBody],
+    mats: { bodyMat: M.chitinFlank }, coreGlow: null,
+  };
 }
 registerTorso('chitinWaspTorso', buildChitinWaspTorso);
 

@@ -69,6 +69,10 @@
       side:    { dir: [1, 0.14, 0.02],   up: [0, 1, 0] },
       low:     { dir: [0.10, -0.18, 1],  up: [0, 1, 0] },   // hero worm's-eye (feel small)
       top:     { dir: [0.0001, 1, 0.0001], up: [0, 0, -1] },
+      // Lost Lagoon rotunda verification angles: winclose looks square at the (+x,+z) window {0} face
+      // (rule the pointed-arch lancet); back looks at the intact −z hemisphere (exterior gilt must = 0).
+      winclose: { dir: [0.90, 0.20, 0.40], up: [0, 1, 0] },
+      back:     { dir: [0.30, 0.28, -1],   up: [0, 1, 0] },
     };
 
     let built = null;
@@ -150,7 +154,7 @@
       return true;
     };
 
-    window.__ps = { scene, camera, renderer, group: () => built };
+    window.__ps = { scene, camera, renderer, group: () => built, THREE };
     try { renderer.setSize(600, 600, false); window.__ready = true; }
     catch (e) { window.__pserr((e && e.stack) || String(e)); throw e; }
   </script>
