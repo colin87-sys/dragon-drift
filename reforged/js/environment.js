@@ -475,6 +475,26 @@ function bakeTempleLadder(geo, waterY = 0.0, bandH = 0.22) {
 // blob. Diffuse only (no emissive — a flower is not a lantern; gilt stays the only warm emitter).
 const _LAG_BLOOM = [0.949, 0.780, 0.651];  // 0xf2c7a6 sunlit blush petal (up-facing catch)
 const _LAG_BLOOM_D = [0.788, 0.541, 0.431]; // 0xc98a6e deeper blush body (shadow side of the bloom)
+// PR-2 (Fable figgate r1): the WOOD bake — fig trunk + strangler roots via `bake:'wood'`. Dark BARK-BROWN,
+// deliberately a DIFFERENT hue+value slot from the moss-verdigris waterline and the green canopy (Fable: the
+// old green roots merged into "generic moss" and the strangle read vanished). Normal-keyed like the foliage:
+// a little lit bark catches on top-curves, the vertical flanks stay dark brown → dark roots gripping pale
+// stone (the Ta Prohm contrast) with their OWN value zone. Gives the prop its 3rd organized zone.
+const _WOOD_LIT = [0.420, 0.306, 0.196];   // 0x6b4e32 sunlit bark (up-facing curves)
+const _WOOD_DARK = [0.157, 0.106, 0.063];  // 0x281b10 dark bark (flanks, undersides — the strangling dark)
+function bakeWood(geo, upThresh = 0.45) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > upThresh ? _WOOD_LIT : _WOOD_DARK;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 function bakeBloom(geo, upThresh = 0.2) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -501,12 +521,13 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
-    else if (p.bake === 'root') root.push(g);                            // tagged → dark foliage (roots/branches)
+    else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
+    else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
     else if (p.bake === 'temple') temple.push(g);                        // tagged → temple sandstone ladder (PR-0)
     else if (p.bake === 'bloom') bloom.push(g);                          // tagged → lotus blush bloom (PR-0)
     else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
@@ -517,6 +538,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (temple.length) { const g = temple.length > 1 ? mergeGeometries(temple) : temple[0]; bakeTempleLadder(g); stone.push(g); }
   if (foliage.length) { const g = foliage.length > 1 ? mergeGeometries(foliage) : foliage[0]; bakeLilyFoliage(g); stone.push(g); }
   if (root.length) { const g = root.length > 1 ? mergeGeometries(root) : root[0]; bakeLilyFoliage(g, 0.75); stone.push(g); }
+  if (wood.length) { const g = wood.length > 1 ? mergeGeometries(wood) : wood[0]; bakeWood(g); stone.push(g); }
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
@@ -1918,29 +1940,30 @@ const ARCHETYPES = {
       // broken wall stub) so it reads as RUIN, not a built arch.
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.64, 0.34), { x: -0.35, y: 0.32 }) });                 // left jamb (12)
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.72, 0.34), { x: 0.35, y: 0.36 }) });                  // right jamb — taller (asymmetric) (12)
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.06, 0.20, 0.36), { y: 0.74 }) });                           // lintel — overlaps both jamb tops (occlusion weld) (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.00, 0.20, 0.36), { y: 0.74 }) });                           // lintel — ends flush with the jamb outer edges (no beam protruding through the canopy) (12)
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.34, 0.30), { x: 0.64, y: 0.17, z: -0.02, ry: 0.22 }) }); // broken wall stub off the right jamb (ruin chunk) (12)
-      // GILT DOORWAY-SOFFIT REVEAL — a small gilt panel RECESSED inside the doorway at the top, under the
-      // lintel (z-depth 0.16 < the 0.34 jamb depth → set back). The withheld temple gold, seen only INSIDE
-      // the reveal when the sunset rakes through the door (never an outer face — the aperture address).
-      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.36, 0.09, 0.16), { x: 0, y: 0.62 }) });                                     // (12)
-      // STRANGLER FIG — a short thick woody TRUNK from the lintel (bake:'root' → dark), holding the canopy.
-      parts.push({ mat: 0, bake: 'root', geo: frustumBetween([0.04, 0.82, 0.02], [-0.02, 1.02, 0.0], 0.15, 0.10, 5) });                   // trunk (10)
-      // CANOPY — a broad billowing leafy crown, built as ROUNDED squashed blobs (bake:'lily' → the 3-stop
-      // foliage), NOT flat parasol pads (the f1 canopy read as a dark UFO/mushroom hat — the frisbee cheap-
-      // tell karstfang already taught us). A wide main dome + an offset lobe = a sprawling fig canopy; both
-      // squashed (sy<1) so they billow wide, seated low so they overlap the trunk (occlusion weld). This is
-      // the heavy-greenery signal the owner asked for.
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.46, 0), { x: -0.02, z: 0.02, y: 1.08, sx: 1.28, sy: 0.60, sz: 1.14 }) });  // main broad crown (20)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: 0.22, z: 0.16, y: 1.16, sx: 1.10, sy: 0.66, sz: 0.98 }) });   // offset lobe (billow, breaks the single dome) (20)
-      // ROOTS — dark fig roots (bake:'root') cascade down BOTH jambs to the water, the GRIP law: start near
-      // the lintel, hug the jamb face (small standoff), taper, FLARE at the foot entering the water. The
-      // Ta Prohm strangle. 4 ribs (2 per jamb), 2-link chains; the thin outer pair use fewer facets.
-      const rib = (pts, radii, seg = 3) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'root', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], seg) }); };
-      rib([[-0.28, 0.72, 0.17], [-0.33, 0.40, 0.21], [-0.36, 0.03, 0.23]], [0.05, 0.04, 0.075]);        // L front (12)
-      rib([[-0.42, 0.66, 0.09], [-0.46, 0.34, 0.11], [-0.48, 0.02, 0.10]], [0.045, 0.035, 0.06], 2);    // L outer, thin (8)
-      rib([[0.30, 0.78, 0.17], [0.35, 0.44, 0.21], [0.38, 0.03, 0.23]], [0.05, 0.04, 0.075]);            // R front (12)
-      rib([[0.44, 0.70, 0.09], [0.48, 0.36, 0.11], [0.50, 0.02, 0.10]], [0.045, 0.035, 0.06], 2);        // R outer, thin (8)
+      // GILT DOORWAY-SOFFIT REVEAL — a SMALL gilt glint RECESSED inside the doorway at the top under the
+      // lintel (z set back behind the front plane, narrower than the opening). The withheld temple gold, a
+      // glint deep in the reveal when the sunset rakes through — NOT a lamp bar (Fable r1: shrunk + recessed).
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.24, 0.06, 0.10), { x: 0, y: 0.60, z: -0.03 }) });                           // (12)
+      // STRANGLER FIG — the Ta Prohm strangle (Fable r1: the fig must ACTUALLY strangle the gate, from
+      // ABOVE the lintel, in dark BARK-BROWN, not green strips leaned on the jambs). A squat wood COLLAR
+      // straddles the lintel top (the canopy welds into it — cures the lollipop/pinch), and every root
+      // springs from the collar, CRESTS OVER the lintel's front edge, and descends with a KNEE to a splayed
+      // foot at the water. bake:'wood' → dark bark (its own value zone, distinct from moss + canopy green).
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.02, 0.80, 0.0], [0.0, 1.04, 0.0], 0.22, 0.12, 5) });                     // collar straddling the lintel (10)
+      // CANOPY — a broad billowing leafy crown, ROUNDED squashed blobs (bake:'lily'), NOT flat pads. Two
+      // overlapping lobes (Fable r1: one convex blob read as "boulder on a table" — a crown needs overlap)
+      // welded low into the collar so it sprawls over the gate, the heavy-greenery signal.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.46, 0), { x: -0.06, z: 0.0, y: 1.08, sx: 1.24, sy: 0.62, sz: 1.12 }) });  // main broad crown (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.20, z: 0.12, y: 1.16, sx: 1.08, sy: 0.68, sz: 0.96 }) });  // overlapping lobe (billow) (20)
+      // ROOTS — bake:'wood' (dark bark). Each springs from the COLLAR (above the lintel), crests over the
+      // lintel FRONT edge, KNEES out over the jamb face at ~60% height, and splays at the foot in the water.
+      const rib = (pts, radii, seg = 3) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], seg) }); };
+      rib([[-0.14, 0.90, 0.12], [-0.30, 0.46, 0.25], [-0.35, 0.02, 0.21]], [0.06, 0.045, 0.09]);         // L front: over the lintel, knee proud, splayed foot (12)
+      rib([[-0.20, 0.86, 0.05], [-0.45, 0.42, 0.15], [-0.49, 0.02, 0.11]], [0.05, 0.038, 0.07], 2);      // L outer, thin (8)
+      rib([[0.15, 0.92, 0.12], [0.31, 0.48, 0.25], [0.37, 0.02, 0.21]], [0.06, 0.045, 0.09]);            // R front (12)
+      rib([[0.22, 0.88, 0.05], [0.47, 0.44, 0.15], [0.51, 0.02, 0.11]], [0.05, 0.038, 0.07], 2);         // R outer, thin (8)
       return mergeLagoonParts(parts);
     },
     // MID feature, ~1.3:1 (gateway a touch taller than wide): r 9–13, h 12–17. tilt 0 EXPLICIT (PLUMB-TIDE
