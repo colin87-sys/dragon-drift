@@ -202,6 +202,13 @@ function makeMats() {
   mats.mireHeroLadder = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffc23a, vertexColors: true, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 2.3,
   }), true);
+  // THE MIRE FAR-BEACON material (Fable ensemble §3 tier 2) — the world-tree's DEEPER GOLD glow at a
+  // LOWER intensity (1.15 vs the hero arch's 2.3): distance desaturates toward gold, so the far beacon
+  // is pre-hazed by design and never competes with the near arch as a second bright white. Also
+  // ladder-reading (vertexColors + ladderEmissive) so the tree's crown reads core→bloom→dark.
+  mats.mireFarLiving = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xf7b048, vertexColors: true, roughness: 0.4, emissive: 0xf08c28, emissiveIntensity: 1.15,
+  }), true);
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -1395,19 +1402,30 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: 0, h: 40 + rnd() * 6, r: 38 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // glowtree — THE FAR BEACON (Fable §1, Stage 2): dark trunk, big GLOWING canopy, glowing roots.
-  // Parked until Stage 2 (its §7-B value-structure revision + heroShift/parity engine lines land then).
+  // glowtree — THE FAR BEACON (Fable §1/§7-B, Stage 2): a colossal luminous world-tree — the horizon
+  // pull the arch frames, hanging in the aperture 150m past each gate. Dark trunk + a big GLOWING
+  // canopy that sits in a DARK CUP (under-skirt) with one DEAD DARK quarter (asymmetry, broken glow),
+  // crown-bright→rim-dim ladder, glowing roots welding it to its reflection. Deep-gold mireFarLiving
+  // @1.15 (pre-hazed far beacon). Footprint kept within unit ρ≤0.52 so the flank coupling clears the lane.
   glowtree: {
-    step: 200, biomes: [], matIndex: 4,
+    step: 67, biomes: mireNew, matIndex: 4, hero: true, heroShift: 150, heroParity: true, heroRare: 0.4,
     build: () => {
       const parts = [];
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.20, 0.68, 6).toNonIndexed(), { y: 0.34 }) }); // dark trunk
-      const domes = [{ x: 0, z: 0, y: 0.82, s: 0.42 }, { x: 0.26, z: 0.10, y: 0.72, s: 0.28 }, { x: -0.24, z: -0.10, y: 0.74, s: 0.30 }, { x: 0.06, z: 0.28, y: 0.70, s: 0.26 }];
-      for (const d of domes) parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(d.s, 0), { x: d.x, z: d.z, y: d.y, sy: 0.82 }) }); // glowing canopy
-      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.03, 0.06, 0.3, 4).toNonIndexed(), { x: s * 0.22, y: 0.09, rz: s * 0.6 }) }); // glowing roots
-      return mergeParts(parts, 4);
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.12, 0.20, 0.62, 6).toNonIndexed(), { y: 0.31 }) }); // dark trunk (ρ 0.20)
+      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.42, 0), { x: 0.02, z: 0.0, y: 0.52, sy: 0.42 }) });   // dark UNDER-SKIRT cup (glow sits IN a dark bowl, not on a stick)
+      // canopy: 3 GLOWING lobes (mat 1) + 1 DEAD DARK quarter (mat 0) on the FRONT-LEFT approach shoulder
+      // (chase-cam only sees the −z face — a back-side dead quarter is invisible; Fable 57-gate §2).
+      parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(0.40, 0), { x: 0.0, z: 0.0, y: 0.80, sy: 0.9 }) });     // main crown
+      parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(0.28, 0), { x: 0.22, z: 0.08, y: 0.70, sy: 0.88 }) });  // glow lobe (right)
+      parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: -0.10, z: 0.24, y: 0.70, sy: 0.88 }) }); // glow lobe (back)
+      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.28, 0), { x: -0.22, z: -0.12, y: 0.70, sy: 0.9 }) }); // DEAD DARK quarter — front-left shoulder, notches the approach silhouette
+      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.08, 0.32, 4).toNonIndexed(), { x: s * 0.15, z: 0.06, y: 0.09, rz: s * 0.35 }) }); // glowing root flares merged into the trunk foot (the weld)
+      const merged = mergeParts(parts, 4);
+      bakeMireLadder(merged.geometry, { baseY: 0.40, apexY: 1.16, mid: [0.784, 0.565, 0.314], base: [0.45, 0.34, 0.18] }); // span the canopy: dim rim → hot-gold core; roots clamp to warm base glow
+      merged.materials[merged.materials.length - 1] = propMats.mireFarLiving; // deep-gold far beacon @1.15
+      return merged;
     },
-    place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 22 + rnd() * 8, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
+    place: (side, rnd) => { const r = 40 + rnd() * 12; return { x: side * (16 + 0.58 * r + rnd() * 8), h: 42 + rnd() * 10, r, tilt: 0, rotY: 0 }; },
   },
 
   // glowshroom — THE MID CARRIER (Fable §1, Stage 3; named glowshroom to avoid the legacy `glowcap`):
@@ -1472,7 +1490,7 @@ const FOAM_CFG = {
   glowcolossus: { r: 0.42 }, // retired hero (parked) — foam row kept inert
   // ensemble (Fable §2): glowarch = two legs → ELLIPTICAL waterline collar (archruin precedent);
   // parked forms carry inert rows until their stage activates + tunes them.
-  glowarch: { rx: 0.66, rz: 0.16 }, glowtree: false, glowshroom: false, glowbloom: false,
+  glowarch: { rx: 0.66, rz: 0.16 }, glowtree: { r: 0.24 }, glowshroom: false, glowbloom: false, // glowtree live (trunk-only collar — the reflection weld is half foam)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -2062,18 +2080,27 @@ function writeMatrix(band, i, d) {
       // heroSolo (Fable ensemble §2): an ON-LANE hero (glowarch, place x:0) exists on BOTH sides'
       // slot streams — park the -side twin so a single gate straddles x0 (else two arches z-fight).
       if (band.def.heroSolo && d.side < 0) active = false;
-      // Hero — renders at full size (k=1) or not at all, exactly ONE per kept peak.
-      // Peaks land at local 45/345/645/945/1245. `nearest` keeps only the single step-instance
-      // closest to a peak (else the dense step clusters 4–5 heroes). Park peak 0 (arrival window /
-      // seam-ambush) + the easement peak (1245); FORCE-KEEP peak 1 (local 345) EVERY arrival = Money
-      // Shot 1 (the First Lantern resolves from the murk, deterministic); interior peaks keep on ~50%
-      // (heroHash) so the hero reads as THE landmark, not a picket.
+      // Hero — renders at full size (k=1) or not at all, exactly ONE per kept peak. `nearest` keeps only
+      // the single step-instance closest to the lock target (else the dense step clusters 4–5 heroes).
+      // Generalized (Fable ensemble §2): `heroShift` offsets the lock target — glowARCH shift 0 → the
+      // congregation PEAKS (local 45/345/645/945/1245); glowTREE shift +150 → the ph≈0.65 TROUGHS (local
+      // 195/495/…), the lone lantern in the breath, 150m past each gate (the MS-1 framed pair). Both:
+      // park localPeak 0 (arrival) + the easement peak; FORCE-KEEP localPeak 1 EVERY arrival = the money
+      // shot; interior peaks keep on `heroRare` (~50% arch / ~40% tree). `heroParity` keeps ONE per peak
+      // on ALTERNATING flanks (the tree — "one hero-class mass per flank, alternating"); the arch uses
+      // heroSolo instead. PURE (same hashes as mireGateClearPeak, so gate + clearing + beacon agree).
       const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;   // 300
-      const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / period);
+      const shift = band.def.heroShift || 0;
+      const rare = band.def.heroRare || 0.5;
+      const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET - shift) / period);
+      const peakDist = peakIdx * period + HERO_PEAK_OFFSET + shift;
       const localPeak = ((peakIdx % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
-      const nearest = Math.abs(d.dist - (peakIdx * period + HERO_PEAK_OFFSET)) < band.def.step / 2;
-      const keepPeak = !inEasement && localPeak !== 0 && (localPeak === 1 || heroHash(peakIdx) < 0.5);
-      if (!(nearest && keepPeak)) active = false;
+      const nearest = Math.abs(d.dist - peakDist) < band.def.step / 2;
+      const pLocal = ((peakDist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const peakEase = pLocal >= 1050 && pLocal <= 1350;      // easement at the PEAK's own local (shifted-safe)
+      const keepPeak = !peakEase && localPeak !== 0 && (localPeak === 1 || heroHash(peakIdx) < rare);
+      const parityOk = !band.def.heroParity || d.side === (((peakIdx % 2) + 2) % 2 === 1 ? 1 : -1);
+      if (!(nearest && keepPeak && parityOk)) active = false;
     } else if (active && band.def.comp) {
       if (inEasement && band.def.comp.glow) active = false;   // glow carriers clear the easement
       else {
