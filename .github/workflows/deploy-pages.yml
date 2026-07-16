@@ -22,6 +22,11 @@ on:
     workflows: ["PR Preview"]
     types: [completed]
   workflow_dispatch:
+  # Safety net: a periodic catch-up publish so the live site can never stay frozen for long
+  # if a deploy is ever dropped (transient Pages API error, a trigger that never fired, etc.).
+  # Idempotent — republishes the current master + preview store; a no-op when already up to date.
+  schedule:
+    - cron: '37 */6 * * *'   # every 6 hours
 
 permissions:
   contents: read       # read master + the gh-pages preview store
@@ -29,16 +34,17 @@ permissions:
   id-token: write      # OIDC for actions/deploy-pages
 
 # Serialise deployments so concurrent triggers (a merge + a preview) can't race.
-# cancel-in-progress: true — when many PR-preview pushes + master merges queue up
-# (lots of active branches), a newer deploy supersedes the older queued ones
-# instead of waiting behind them. The published site is reassembled FRESH from
-# master + the gh-pages preview store on every run, so it is idempotent: the
-# latest run always publishes the complete, current site. Dropping stale queued
-# deploys just gets the newest content live sooner and shrinks the window where a
-# freshly-commented preview URL 404s because its deploy is still stuck in line.
+# cancel-in-progress: FALSE (was true). The published site is reassembled fresh from
+# master + the gh-pages preview store every run, so it's idempotent — but cancelling a
+# run *mid-deploy* (the "Deploy to GitHub Pages" step) leaves the Pages deployment API in
+# a conflicted state, and on busy merge days that made even the LAST run in a burst FAIL,
+# silently freezing the live site at a stale build. With cancel-in-progress:false, GitHub
+# still keeps only ONE run queued behind the in-flight one (a newer pending run replaces
+# the older pending run), so there's no backlog — but the running deploy finishes cleanly
+# instead of being killed, so the API never conflicts and the latest content lands.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
