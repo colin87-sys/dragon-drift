@@ -39,6 +39,13 @@ const C = (hex) => new THREE.Color(hex);
 // in water.js + environment.js.)
 export const SUN_DIR = new THREE.Vector3(-0.22, 0.1, -1).normalize();
 
+// The SINGLE source of truth for a biome's WIND direction (xz, normalized-ish). Foam (water.js),
+// the rain-streak layer (rain.js), and the cloud wind-crawl (skyClouds) all READ this — nobody
+// re-declares it, so the storm can't show two winds (composition law #6). Oblique to the lane so
+// the grain reads diagonal. The vector NEVER lerps across a seam (a rotating wind = a spinning
+// compass); only intensity (rainMix / foam strength) crossfades.
+export const TEMPEST_WIND = { x: 0.851, z: 0.525 };
+
 export const BIOMES = [
   {
     // THE LOST LAGOON (LOST-LAGOON-BIBLE.md): a lost, hidden watery paradise of drowned
@@ -68,8 +75,12 @@ export const BIOMES = [
     // "children" over dark water — the boss's value inversion rehearsed by the wildlife).
     fauna: { color: C(0xf6ead8), scale: 1.25, flap: 0.55 },
     faunaFlyby: true, // foreground egret flyby pass visible over the lane
-    props: ['tower', 'column', 'archruin', 'slab', 'dome'],
-    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-2+)
+    // New drowned-ruins kit (biomes:lagoonNew, default-on): rotunda hero + lilyraft/wrackstone rest-notes
+    // (+ rootbastion/arcade/campanile/sentinel to come). The legacy verdigris props (tower/column/…) still
+    // spawn as placeholder until the PR-3 composition pass migrates them behind ?props=v1. (This array is
+    // documentation only — spawning is gated by each archetype's `biomes` whitelist in environment.js.)
+    props: ['rotunda', 'lilyraft', 'wrackstone', 'rootbastion', 'arcade', 'tower', 'column', 'archruin', 'slab', 'dome'],
+    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-3+)
     // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
     // deep-rose (re-run bulletcontrast after the jade-water retune).
     bullets: { dark: 0xaf4f73 },
@@ -257,6 +268,73 @@ export const BIOMES = [
     // Contrast gate: darker fog than Astral (L≈0.10) → the default deep bullet band vanishes.
     bullets: { dark: 0xaf4f73 },
   },
+  {
+    // TEMPEST REACH (TEMPEST-REACH-BIBLE.md): the AAA storm biome, STORMREND's home — "the storm
+    // that never lands." Theology — "the sun is ABOVE the storm; every light is the storm FAILING
+    // to contain it: the leak, the breach, and the blow." Mass is dark, wet, wind-torn; nothing is
+    // self-luminous. The cycle's ONLY dim-DAYLIGHT biome (stars:0), the only VIOLENT sea
+    // (waveAmp 0.95), the only far fog that goes PALE (rain-veil silver), the only light that CHANGES
+    // over time (lightning, PR-4). Distinct from every cool/dark biome by construction: its green is a
+    // DESATURATED grey-olive TRANSMITTED through cloud, and saturated storm-teal 0x2fd8e8 is BANNED
+    // from the ambient palette (reserved for STORMREND's kit + momentary in-eye water glints — the
+    // biome makes the boss pop by starving its hue). vs the amber Lumen Mire (BIOMES[4], merged
+    // #464): the shared hue is now warm GOLD, resolved oppositely — Mire is a WARM-dominant NIGHT
+    // swamp whose light is SELF-emitted by organisms + a still black-mirror; Tempest is a COOL-
+    // dominant DAY storm whose gold is a rationed ≤10% STOLEN-sunlight accent (never self-lit) over
+    // a VIOLENT sea. Field cool + warm rationed = the guard. Appended as
+    // BIOMES[7], NOT yet in CYCLE — reachable only via ?biome=7&debug until the CYCLE flip (a later
+    // no-op PR coordinated with the Lost Lagoon arc). PR-0 = the atmosphere substrate; the storm-carved
+    // prop roster, obstacle skins, and the lightning hazard follow in their own PRs.
+    name: 'TEMPEST REACH',
+    keyShift: -3,
+    stars: 0,
+    deckBias: 1.15,   // the storm ceiling owns the sky: pull the mid→top gradient stops DOWN so the dark deck dominates and the green belt compresses to a thin strip above the pale horizon slot
+    sky: {
+      top: C(0x1f242c),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
+      mid: C(0x4a5348),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
+      horizon: C(0xaab1ad),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
+      sun: C(0x83877f),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
+      // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed near-black (the dark
+      // underside is what makes the cloud read as SOLID storm mass), lit tops held BELOW the horizon
+      // slot's value so the slot stays the frame's brightest hole.
+      cloud: { amount: 0.80, lit: C(0xaeb6b0), shadow: C(0x161c24), force: true }, // force: the storm deck is the biome's identity, on even without the global sky-cloud toggle (tier-gated for perf)
+    },
+    fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
+    // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
+    // field is LIGHTER than its near (Frozen melts to gold, Caldera/Aurora sink to black). Receding
+    // forms dissolve into the veil: free depth + cycle-unique distinctness.
+    fogFarColor: C(0xa7b2b0),
+    // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
+    atmos: { heightK: 0.03 },
+    // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
+    // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
+    // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
+    // rationed cloud-rim/socket gold, never as the field light.
+    light: { sun: C(0xaebac2), sunI: 0.82, hemiSky: C(0x5a6a72), hemiGround: C(0x2c3a3c) },
+    // Meter the shared god-ray fan WAY down (the Mire precedent): a storm has NO sun shafts — the
+    // default godrayMul:1 + warm tint was the giant gold glitter-column washing every frame warm.
+    godrayMul: 0.05,
+    godrayTint: C(0x9fb0bc),   // cool steel — any residual haze glow stays cold, never gold
+    // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
+    // sea in the game (the previous cycle max was Amber Wastes at 0.7).
+    water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
+
+    wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
+    rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
+    stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.
+    // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
+    // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
+    // These Points are now near-water SPUME (torn spray), NOT the rain — the rain is the rain.js
+    // LineSegments streak layer (rainMix-gated). Small, dim, low-falling froth over the sea.
+    ambient: { color: C(0x9fb0b4), fall: 1.5, sway: 2.0, size: 0.18, opacity: 0.35 },
+    fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
+    props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
+    matIndex: 7, // storm slate
+    // No bullets override needed: with the fog held at L≈0.31 and the horizon under the 0.75 read
+    // ceiling, all six role colours (danger + band + reflects) clear both fog and horizon on the
+    // default band (bulletcontrast, zero new exceptions). The PR-4 lightning FLASH lifts the whole
+    // frame transiently — its grade is CAPPED there so the magenta danger still clears at peak.
+  },
 ];
 
 // The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
@@ -329,7 +407,7 @@ const env = {
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
-  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(),
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -399,5 +477,18 @@ export function computeEnv(dist) {
   env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, ts);
   env.cloudLit.lerpColors(a.sky.cloud?.lit ?? a.sky.top, b.sky.cloud?.lit ?? b.sky.top, ts);
   env.cloudShadow.lerpColors(a.sky.cloud?.shadow ?? a.sky.mid, b.sky.cloud?.shadow ?? b.sky.mid, ts);
+  // Cloud FORCE (Tempest): a storm's deck is its identity, not an opt-in — a biome with cloud.force
+  // renders clouds even when the global sky-cloud toggle is off (still tier-gated for perf, like all
+  // clouds). Lerped 0→1 so every non-forcing biome stays byte-identical (opt-in as before).
+  env.cloudForce = lerp(a.sky.cloud?.force ? 1 : 0, b.sky.cloud?.force ? 1 : 0, ts);
+  // Per-biome DECK BIAS (Tempest): pulls the sky gradient stops down so the storm ceiling owns
+  // the sky (0 elsewhere = byte-identical). Mirrored in skyProbe.js skyColorAt.
+  env.deckBias = lerp(a.deckBias || 0, b.deckBias || 0, ts);
+  // STORMSEA (Tempest): the violent-sea gate; 0 elsewhere = byte-identical calm water.
+  env.stormSea = lerp(a.stormSea || 0, b.stormSea || 0, ts);
+  // Wind DIRECTION never lerps (a spinning vector reads as a compass); pick whichever adjacent biome
+  // declares one. rainMix (intensity) DOES crossfade the seam for free (the xMix pattern).
+  const _w = a.wind || b.wind; env.windX = _w ? _w.x : 0; env.windZ = _w ? _w.z : 0;
+  env.rainMix = lerp(a.rain || 0, b.rain || 0, ts);
   return env;
 }

@@ -13,7 +13,7 @@ const { page, done, errors } = await boot({ query: '?biome=0&debug', viewport: V
 page.on('pageerror', (e)=>console.log('[pageerror]',e.message));
 await page.click('#btn-start').catch(()=>{});
 await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.state === 'playing', { timeout: 8000 }).catch(()=>{});
-await page.evaluate(() => { window.__dd.noBoss && window.__dd.noBoss(true); });
+await page.evaluate(() => { const dd = window.__dd; dd.noBoss && dd.noBoss(true); window.__pin = setInterval(() => { dd.game.health = 100; dd.clearVents && dd.clearVents(); }, 24); });
 for (let i=0;i<count;i++) {
   const d = start + i*stepM;
   await page.evaluate((dd)=>{ window.__dd.player.dist = dd; }, d);
