@@ -643,129 +643,6 @@ const ARCHETYPES = {
   // read is built by radial x+z OFFSET-stacking, NEVER internal rotation — the (r,h,r)
   // instance scale shears internal tilts flat. rotY re-randomises on recycle, so features
   // spread in x AND z → broad from every yaw. flatShading hex facets give the vertical rib.
-  // THE LOST LAGOON — THE HERO (LOST-LAGOON-BIBLE.md §4.1): a drowned ROTUNDA — a broken
-  // hemispherical dome on a PIERCED drum, the roster's only curved crown. The theology's form-move
-  // is the THROUGH-HOLE: the drum is a ring of piers leaving ARCHED WINDOW gaps, the dome apex is an
-  // OCULUS — all REAL holes (the occlusion-masked god-rays carve shafts through them). One dome flank
-  // collapsed (break faces sky → asymmetric). The tide ladder paints a jade waterline ring on the
-  // piers, bleached crown on the dome. Gilt lives ONLY inside the oculus reveal (the aperture address,
-  // recessed) — never on an outer face, never at the waterline. Guard (Fable pre-assess): ≥3 asymmetric
-  // apertures + oculus in the DOME, so it reads as pierced masonry, NOT Frozen's sun-gate pylon pair.
-  rotunda: {
-    step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.92, sMax: 1.10 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam
-    build: () => {
-      const parts = [];
-      const nSeg = 11, dth = (Math.PI * 2) / nSeg;
-      const open = new Set([0, 2, 3]);        // window {0} (+x) + the wide collapse {2,3} (adjacent, ~+z); asymmetric keyhole
-      const arched = new Set([0]);            // the intact window gets a pointed-arch lintel (the biome's arch vocabulary)
-      const domePhi = 2.22;                    // dome's missing quarter centred on the drum collapse ({2,3}, ~+z) → one coherent wound facing the studio cameras
-      // BASE PLINTH — a battered skirt at the waterline with a CLOSED TOP (Fable D1): the flying game's
-      // top-down is a shipping camera, so a hollow ribbon shows sky through it. Truncated-cone side wall
-      // + an up-facing top disc → a solid jade annulus in plan; the never-seen underside is skipped.
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 8, 1, true), { y: 0.08 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.60, 8), { y: 0.16, rx: -Math.PI / 2 }) });
-      // PIERCED DRUM WALL — HORIZONTAL EDGE LOOP at the tide-band height (y=0.22): every triangle sits
-      // inside ONE ladder stop, so the jade waterline is a DEAD-LEVEL line, not a per-quad sawtooth
-      // (the position-keyed-ladder tall-face trap: colour is per-face, so any quad straddling the band
-      // splits into a jade tri + a bleach tri along its diagonal). Base r0.63 sinks into the plinth top.
-      // 8 piers × 2 courses; the intact window {0} gets a 2-tri inverted-V lintel → a pointed-arch read.
-      {
-        const rings = [ { y: 0.0, r: 0.63 }, { y: 0.22, r: 0.575 }, { y: 0.60, r: 0.50 } ];
-        const P = (ring, a) => [Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r];
-        const v = [];
-        for (let s = 0; s < nSeg; s++) {
-          if (open.has(s)) {
-            if (arched.has(s)) {   // POINTED-ARCH window: two spandrel fills in the top corners leave a
-              // central void that PEAKS UP to the wall top (a lancet), not a downward apex (Fable r7 —
-              // the peak must point into the mass, never stick up as a fin above the parapet). rArc≈wall.
-              const a0 = s * dth, a1 = (s + 1) * dth, am = (a0 + a1) / 2, rArc = 0.52, yS = 0.40, yTop = 0.60;
-              const SL = [Math.cos(a0) * rArc, yS, Math.sin(a0) * rArc], SR = [Math.cos(a1) * rArc, yS, Math.sin(a1) * rArc];
-              const TLc = [Math.cos(a0) * rArc, yTop, Math.sin(a0) * rArc], TRc = [Math.cos(a1) * rArc, yTop, Math.sin(a1) * rArc];
-              const Ap = [Math.cos(am) * rArc, yTop, Math.sin(am) * rArc];   // apex at the wall top centre
-              v.push(...SL, ...TLc, ...Ap, ...SR, ...Ap, ...TRc);   // outward spandrels; void below peaks up to Ap
-            }
-            continue;
-          }
-          const a0 = s * dth, a1 = (s + 1) * dth;
-          for (let c = 0; c < 2; c++) {
-            const lo = rings[c], hi = rings[c + 1];
-            const p0b = P(lo, a0), p1b = P(lo, a1), p0t = P(hi, a0), p1t = P(hi, a1);
-            v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
-          }
-        }
-        // JAMB CAPS (Fable r6) — the two collapse cut-ends {2,3} get a return face inset toward centre
-        // so the drum wall shows DEPTH at the wound, not a paper card. Left jamb opens +angle, right −angle.
-        for (const { a, sign } of [{ a: 2 * dth, sign: 1 }, { a: 4 * dth, sign: -1 }]) {
-          const OB = [Math.cos(a) * 0.63, 0.0, Math.sin(a) * 0.63], OT = [Math.cos(a) * 0.50, 0.60, Math.sin(a) * 0.50];
-          const IB = [Math.cos(a) * 0.53, 0.0, Math.sin(a) * 0.53], IT = [Math.cos(a) * 0.40, 0.60, Math.sin(a) * 0.40];
-          if (sign > 0) v.push(...OB, ...OT, ...IT, ...OB, ...IT, ...IB);
-          else v.push(...OB, ...IT, ...OT, ...OB, ...IB, ...IT);
-        }
-        const drum = new THREE.BufferGeometry();
-        drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-        drum.computeVertexNormals();
-        drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2)); // match the primitive parts' attribute set for the merge
-        parts.push({ mat: 0, geo: drum });
-      }
-      // CORNICE — short ASYMMETRIC stubs flanking the collapse (a 2-sector run {4,5} + a 1-sector {1}),
-      // the rest fallen (Fable r5: broken entablature reads as accident when asymmetric, not design).
-      {
-        const present = [1, 4, 5];
-        const yb = 0.55, yt = 0.64, rC = 0.52;
-        const v = [];
-        for (const s of present) {
-          const a0 = s * dth, a1 = (s + 1) * dth;
-          const p0b = [Math.cos(a0) * rC, yb, Math.sin(a0) * rC], p1b = [Math.cos(a1) * rC, yb, Math.sin(a1) * rC];
-          const p0t = [Math.cos(a0) * rC, yt, Math.sin(a0) * rC], p1t = [Math.cos(a1) * rC, yt, Math.sin(a1) * rC];
-          v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);
-        }
-        const corn = new THREE.BufferGeometry();
-        corn.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-        corn.computeVertexNormals();
-        corn.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
-        parts.push({ mat: 0, geo: corn });
-      }
-      // DOME — a broad hemisphere with a TRUE quarter collapsed toward the drum gap (both wounds ~+z →
-      // the collapse reads coherently at elevation). Seated at domeY=0.56 so the rim (y0.56, r0.46) sinks
-      // 0.04 BELOW the drum top (y0.60, r0.50) at EVERY sector — the drum edge occludes the junction, so
-      // there's no full-width air-gap slit where the cornice is absent (Fable r7 root cause). OCULUS at apex.
-      const domeY = 0.56;
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: domeY }) });
-      // INNER LINING (Fable D3) — a concentric shell at 0.43 with REVERSED winding (faces inward) over
-      // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
-      // broken edge → no zero-thickness paper arc from any yaw. The gate condition.
-      {
-        const inner = new THREE.SphereGeometry(0.43, 4, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30);
-        const idx = inner.index.array;
-        for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
-        inner.index.needsUpdate = true;
-        inner.computeVertexNormals();
-        parts.push({ mat: 0, geo: xform(inner, { y: domeY }) });
-      }
-      // BROKEN PIER STUMP (Fable r6) — the surviving dome quarter overhangs the gap; at side elevation
-      // that read as a HOVERING dome over a void. A broken pier stump stands UNDER the overhanging rim
-      // at the +angle jamb, reaching toward the dome rim (y≈0.6) — ruins persist where something held,
-      // and the eye accepts the overhang the instant one support touches it.
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.12, 0.54, 0.12), { x: Math.cos(2 * Math.PI / 11) * 0.48, z: Math.sin(2 * Math.PI / 11) * 0.48, y: 0.27, ry: 0.5, rz: 0.06 }) });
-      // + one fallen block on the flooded floor at the collapse foot (the tide stains its feet jade).
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.12, 0.13), { x: -0.05, z: 0.42, y: 0.20, ry: 1.1, rz: -0.22 }) });
-      // OCULUS gilt reveal — an INWARD-facing frustum recessed at the apex, extended DOWN into the interior
-      // (Fable D2) so the withheld gold catches from the worm's-eye low-oblique through the collapse. Never
-      // an exterior face — the gold is only sunset trapped inside the hole (r0.12 < oculus rim 0.136).
-      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 6, 1, true), { y: domeY + 0.35 }) });   // rides down with the dome (apex now ≈domeY+0.44) so the gilt stays recessed below the lip
-      return mergeLagoonParts(parts);
-    },
-    // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
-    // tall (dome). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion).
-    place: (side, rnd) => {
-      const r = 17 + rnd() * 9;
-      // ρ 0.70·sMax 1.10 → 0.77; couple x at 0.80·r so the inner edge = 16 + 0.03·r ≥ 16 clears the ±16
-      // gate veil at every size (colonnata precedent), not just the 14.5 fairness floor.
-      const p = { x: side * (16 + 0.80 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 };
-      if (HERO_POSE === 'rotunda') p.rotY = 0;   // debug: wound (local +z) faces down-lane toward the camera
-      return p;
-    },
-  },
   colonnata: {
     step: 53, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 }, // hero: clusters hard → one colossus per archipelago, off open mirror at the seam
     // A PACKED PALISADE of SLENDER pentagonal basalt columns (Giant's Causeway) at a
@@ -1119,6 +996,129 @@ const ARCHETYPES = {
     // (towers over the congregation), x 27-30 (inner edge ≥ 18.9). tilt is tiny — the
     // convergence is carried by the offset-stack, not a shear-prone rotation.
     place: (side, rnd) => ({ x: side * (27 + rnd() * 3), h: 38 + rnd() * 8, r: 13 + rnd() * 3, tilt: side * (-0.015 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
+  },
+  // THE LOST LAGOON — THE HERO (LOST-LAGOON-BIBLE.md §4.1): a drowned ROTUNDA — a broken
+  // hemispherical dome on a PIERCED drum, the roster's only curved crown. The theology's form-move
+  // is the THROUGH-HOLE: the drum is a ring of piers leaving ARCHED WINDOW gaps, the dome apex is an
+  // OCULUS — all REAL holes (the occlusion-masked god-rays carve shafts through them). One dome flank
+  // collapsed (break faces sky → asymmetric). The tide ladder paints a jade waterline ring on the
+  // piers, bleached crown on the dome. Gilt lives ONLY inside the oculus reveal (the aperture address,
+  // recessed) — never on an outer face, never at the waterline. Guard (Fable pre-assess): ≥3 asymmetric
+  // apertures + oculus in the DOME, so it reads as pierced masonry, NOT Frozen's sun-gate pylon pair.
+  rotunda: {
+    step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.92, sMax: 1.10 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam
+    build: () => {
+      const parts = [];
+      const nSeg = 11, dth = (Math.PI * 2) / nSeg;
+      const open = new Set([0, 2, 3]);        // window {0} (+x) + the wide collapse {2,3} (adjacent, ~+z); asymmetric keyhole
+      const arched = new Set([0]);            // the intact window gets a pointed-arch lintel (the biome's arch vocabulary)
+      const domePhi = 2.22;                    // dome's missing quarter centred on the drum collapse ({2,3}, ~+z) → one coherent wound facing the studio cameras
+      // BASE PLINTH — a battered skirt at the waterline with a CLOSED TOP (Fable D1): the flying game's
+      // top-down is a shipping camera, so a hollow ribbon shows sky through it. Truncated-cone side wall
+      // + an up-facing top disc → a solid jade annulus in plan; the never-seen underside is skipped.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 8, 1, true), { y: 0.08 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.60, 8), { y: 0.16, rx: -Math.PI / 2 }) });
+      // PIERCED DRUM WALL — HORIZONTAL EDGE LOOP at the tide-band height (y=0.22): every triangle sits
+      // inside ONE ladder stop, so the jade waterline is a DEAD-LEVEL line, not a per-quad sawtooth
+      // (the position-keyed-ladder tall-face trap: colour is per-face, so any quad straddling the band
+      // splits into a jade tri + a bleach tri along its diagonal). Base r0.63 sinks into the plinth top.
+      // 8 piers × 2 courses; the intact window {0} gets a 2-tri inverted-V lintel → a pointed-arch read.
+      {
+        const rings = [ { y: 0.0, r: 0.63 }, { y: 0.22, r: 0.575 }, { y: 0.60, r: 0.50 } ];
+        const P = (ring, a) => [Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r];
+        const v = [];
+        for (let s = 0; s < nSeg; s++) {
+          if (open.has(s)) {
+            if (arched.has(s)) {   // POINTED-ARCH window: two spandrel fills in the top corners leave a
+              // central void that PEAKS UP to the wall top (a lancet), not a downward apex (Fable r7 —
+              // the peak must point into the mass, never stick up as a fin above the parapet). rArc≈wall.
+              const a0 = s * dth, a1 = (s + 1) * dth, am = (a0 + a1) / 2, rArc = 0.52, yS = 0.40, yTop = 0.60;
+              const SL = [Math.cos(a0) * rArc, yS, Math.sin(a0) * rArc], SR = [Math.cos(a1) * rArc, yS, Math.sin(a1) * rArc];
+              const TLc = [Math.cos(a0) * rArc, yTop, Math.sin(a0) * rArc], TRc = [Math.cos(a1) * rArc, yTop, Math.sin(a1) * rArc];
+              const Ap = [Math.cos(am) * rArc, yTop, Math.sin(am) * rArc];   // apex at the wall top centre
+              v.push(...SL, ...TLc, ...Ap, ...SR, ...Ap, ...TRc);   // outward spandrels; void below peaks up to Ap
+            }
+            continue;
+          }
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          for (let c = 0; c < 2; c++) {
+            const lo = rings[c], hi = rings[c + 1];
+            const p0b = P(lo, a0), p1b = P(lo, a1), p0t = P(hi, a0), p1t = P(hi, a1);
+            v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
+          }
+        }
+        // JAMB CAPS (Fable r6) — the two collapse cut-ends {2,3} get a return face inset toward centre
+        // so the drum wall shows DEPTH at the wound, not a paper card. Left jamb opens +angle, right −angle.
+        for (const { a, sign } of [{ a: 2 * dth, sign: 1 }, { a: 4 * dth, sign: -1 }]) {
+          const OB = [Math.cos(a) * 0.63, 0.0, Math.sin(a) * 0.63], OT = [Math.cos(a) * 0.50, 0.60, Math.sin(a) * 0.50];
+          const IB = [Math.cos(a) * 0.53, 0.0, Math.sin(a) * 0.53], IT = [Math.cos(a) * 0.40, 0.60, Math.sin(a) * 0.40];
+          if (sign > 0) v.push(...OB, ...OT, ...IT, ...OB, ...IT, ...IB);
+          else v.push(...OB, ...IT, ...OT, ...OB, ...IB, ...IT);
+        }
+        const drum = new THREE.BufferGeometry();
+        drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        drum.computeVertexNormals();
+        drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2)); // match the primitive parts' attribute set for the merge
+        parts.push({ mat: 0, geo: drum });
+      }
+      // CORNICE — short ASYMMETRIC stubs flanking the collapse (a 2-sector run {4,5} + a 1-sector {1}),
+      // the rest fallen (Fable r5: broken entablature reads as accident when asymmetric, not design).
+      {
+        const present = [1, 4, 5];
+        const yb = 0.55, yt = 0.64, rC = 0.52;
+        const v = [];
+        for (const s of present) {
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          const p0b = [Math.cos(a0) * rC, yb, Math.sin(a0) * rC], p1b = [Math.cos(a1) * rC, yb, Math.sin(a1) * rC];
+          const p0t = [Math.cos(a0) * rC, yt, Math.sin(a0) * rC], p1t = [Math.cos(a1) * rC, yt, Math.sin(a1) * rC];
+          v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);
+        }
+        const corn = new THREE.BufferGeometry();
+        corn.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        corn.computeVertexNormals();
+        corn.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: corn });
+      }
+      // DOME — a broad hemisphere with a TRUE quarter collapsed toward the drum gap (both wounds ~+z →
+      // the collapse reads coherently at elevation). Seated at domeY=0.56 so the rim (y0.56, r0.46) sinks
+      // 0.04 BELOW the drum top (y0.60, r0.50) at EVERY sector — the drum edge occludes the junction, so
+      // there's no full-width air-gap slit where the cornice is absent (Fable r7 root cause). OCULUS at apex.
+      const domeY = 0.56;
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: domeY }) });
+      // INNER LINING (Fable D3) — a concentric shell at 0.43 with REVERSED winding (faces inward) over
+      // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
+      // broken edge → no zero-thickness paper arc from any yaw. The gate condition.
+      {
+        const inner = new THREE.SphereGeometry(0.43, 4, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30);
+        const idx = inner.index.array;
+        for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+        inner.index.needsUpdate = true;
+        inner.computeVertexNormals();
+        parts.push({ mat: 0, geo: xform(inner, { y: domeY }) });
+      }
+      // BROKEN PIER STUMP (Fable r6) — the surviving dome quarter overhangs the gap; at side elevation
+      // that read as a HOVERING dome over a void. A broken pier stump stands UNDER the overhanging rim
+      // at the +angle jamb, reaching toward the dome rim (y≈0.6) — ruins persist where something held,
+      // and the eye accepts the overhang the instant one support touches it.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.12, 0.54, 0.12), { x: Math.cos(2 * Math.PI / 11) * 0.48, z: Math.sin(2 * Math.PI / 11) * 0.48, y: 0.27, ry: 0.5, rz: 0.06 }) });
+      // + one fallen block on the flooded floor at the collapse foot (the tide stains its feet jade).
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.12, 0.13), { x: -0.05, z: 0.42, y: 0.20, ry: 1.1, rz: -0.22 }) });
+      // OCULUS gilt reveal — an INWARD-facing frustum recessed at the apex, extended DOWN into the interior
+      // (Fable D2) so the withheld gold catches from the worm's-eye low-oblique through the collapse. Never
+      // an exterior face — the gold is only sunset trapped inside the hole (r0.12 < oculus rim 0.136).
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 6, 1, true), { y: domeY + 0.35 }) });   // rides down with the dome (apex now ≈domeY+0.44) so the gilt stays recessed below the lip
+      return mergeLagoonParts(parts);
+    },
+    // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
+    // tall (dome). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion).
+    place: (side, rnd) => {
+      const r = 17 + rnd() * 9;
+      // ρ 0.70·sMax 1.10 → 0.77; couple x at 0.80·r so the inner edge = 16 + 0.03·r ≥ 16 clears the ±16
+      // gate veil at every size (colonnata precedent), not just the 14.5 fairness floor.
+      const p = { x: side * (16 + 0.80 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 };
+      if (HERO_POSE === 'rotunda') p.rotY = 0;   // debug: wound (local +z) faces down-lane toward the camera
+      return p;
+    },
   },
 };
 
