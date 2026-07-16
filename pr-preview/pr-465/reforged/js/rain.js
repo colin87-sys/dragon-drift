@@ -1,16 +1,21 @@
-// rain.js — premium STORM RAIN as soft tapered streak QUADS (Tempest Reach).
+// rain.js — storm rain as LINE-SEGMENT streaks (Tempest Reach).
 //
-// A single NON-INSTANCED merged-quad BufferGeometry — the same rendering path as the LineSegments
-// this replaced (which rendered fine on real mobile), just quads for the soft procedural taper.
-// (An earlier InstancedBufferGeometry+ShaderMaterial version rendered in the headless software GL
-// but showed NOTHING on a real iPhone — instanced raw geometry is the mobile-fragile path, so we
-// avoid it.) Each quad is CPU-billboarded to the camera around the world FALL vector (down, leaned
-// ~14° along the shared TEMPEST_WIND — same vector the foam combs + the cloud crawls). Softness is
-// procedural in-shader (feathered core + long up-tail, no texture). ±40% length variance + a rare
-// long speed-line class. rainMix-gated (0 elsewhere = byte-identical), tier-thinned, render-only.
+// REWRITTEN to the simplest robust primitive after a custom billboarded-quad
+// ShaderMaterial blanked the WHOLE frame on real GPUs (both PC + iPhone) while the
+// headless software GL rendered it fine. Root cause of that black: raindrops sit all
+// around the camera — many BEHIND it — so quads straddled the camera plane (clip.w ≤ 0);
+// feeding clip.x/clip.w into a varying on a DoubleSide quad let those triangles rasterize
+// screen-wide on conformant GPUs (SwiftShader clipped them, hiding the bug in every test).
+//
+// This version uses plain THREE.LineSegments + LineBasicMaterial with a per-vertex RGBA
+// taper (bright head → faded up-wind tail). No custom shader, no billboard math, no manual
+// perspective divide, no double-sided geometry → nothing that can produce screen-covering
+// triangles. Lines clip cleanly at the near plane. rainMix-gated (0 elsewhere = byte-
+// identical), tier-thinned via draw-range, render-only. (Look is deliberately simple-but-
+// safe; premium density/depth is a follow-up once this is confirmed on real hardware.)
 import * as THREE from 'three';
 
-const NEAR = 140, MID = 340, COUNT = NEAR + MID;   // ~480 hero quads (density via COUNT, never alpha)
+const NEAR = 140, MID = 340, COUNT = NEAR + MID;   // ~480 streaks (density via COUNT, never alpha)
 const R_FAR = 38, Y_LO = -26, Y_HI = 26;
 const LEAN_K = 0.25;   // ~14° off vertical along the wind
 
@@ -24,22 +29,16 @@ function mulberry32(a) {
 }
 
 let rain = null, mat = null, posAttr = null, drawCount = COUNT;
-let off = null, len = null, wid = null, spd = null;
-const _dir = new THREE.Vector3(), _view = new THREE.Vector3(), _wax = new THREE.Vector3();
-// Fallback axes for the width-billboard cross product: when a drop sits on the camera's
-// vertical axis, _view ∥ _dir and cross(_dir,_view)=0 → normalize()=NaN → NaN verts →
-// a NaN-alpha quad that blanks the whole frame on real GPUs (SwiftShader silently clips
-// it, which is why it only bit real devices). Cross _dir with a non-parallel world axis.
-const _AXIS_X = new THREE.Vector3(1, 0, 0), _AXIS_Z = new THREE.Vector3(0, 0, 1);
+let off = null, len = null, spd = null;
+const _dir = new THREE.Vector3();
 
 export function createRain(scene) {
   const rnd = mulberry32(0x7a1f2e3d);
-  const pos = new Float32Array(COUNT * 4 * 3);
-  const uv = new Float32Array(COUNT * 4 * 2);
-  const alpha = new Float32Array(COUNT * 4);
-  const idx = new Uint16Array(COUNT * 6);
+  const pos = new Float32Array(COUNT * 2 * 3);   // 2 verts per streak (head, tail)
+  const col = new Float32Array(COUNT * 2 * 4);   // RGBA per vert → itemSize 4 = USE_COLOR_ALPHA taper
   off = new Float32Array(COUNT * 3);
-  len = new Float32Array(COUNT); wid = new Float32Array(COUNT); spd = new Float32Array(COUNT);
+  len = new Float32Array(COUNT); spd = new Float32Array(COUNT);
+  const base = new THREE.Color(0xc6d0d2);        // overcast pale slate — NEVER white
   for (let i = 0; i < COUNT; i++) {
     const near = i < NEAR;
     const rad = 5 + rnd() * (R_FAR - 5), ang = rnd() * Math.PI * 2;
@@ -47,83 +46,48 @@ export function createRain(scene) {
     off[i * 3 + 1] = Y_LO + rnd() * (Y_HI - Y_LO);
     off[i * 3 + 2] = Math.sin(ang) * rad;
     const lv = 0.6 + rnd() * 0.8;                                   // ±40% length variance (kills uniformity)
-    len[i] = (near && rnd() < 0.1) ? (11.0 + rnd()) : (near ? 7.0 : 3.75) * lv;   // near 5–9m (+rare 11–12m speed-line), mid 2.5–5m
-    wid[i] = near ? 0.07 + rnd() * 0.04 : 0.045 + rnd() * 0.025;
+    len[i] = (near && rnd() < 0.1) ? (11.0 + rnd()) : (near ? 7.0 : 3.75) * lv;   // near 5–9m (+rare speed-line), mid 2.5–5m
     spd[i] = (near ? 30 : 22) * (0.8 + rnd() * 0.4);               // fall speed ±20%
-    const a = near ? 0.30 : 0.18;
-    const v = i * 4, u = i * 8;
-    uv[u] = 0; uv[u + 1] = 0; uv[u + 2] = 1; uv[u + 3] = 0; uv[u + 4] = 0; uv[u + 5] = 1; uv[u + 6] = 1; uv[u + 7] = 1;
-    alpha[v] = alpha[v + 1] = alpha[v + 2] = alpha[v + 3] = a;
-    const t = i * 6;
-    idx[t] = v; idx[t + 1] = v + 1; idx[t + 2] = v + 2; idx[t + 3] = v + 2; idx[t + 4] = v + 1; idx[t + 5] = v + 3;
+    const aHead = near ? 0.36 : 0.20;                              // leading end brighter; tail fades to 0
+    const c = i * 8;
+    col[c] = base.r; col[c + 1] = base.g; col[c + 2] = base.b; col[c + 3] = aHead; // vert 0 = head
+    col[c + 4] = base.r; col[c + 5] = base.g; col[c + 6] = base.b; col[c + 7] = 0.0; // vert 1 = tail (transparent)
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  geo.setAttribute('aAlpha', new THREE.BufferAttribute(alpha, 1));
-  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); // itemSize 4 → per-vertex alpha taper
   posAttr = geo.attributes.position;
 
-  mat = new THREE.ShaderMaterial({
-    uniforms: {
-      uColor: { value: new THREE.Color(0xc6d0d2) },   // overcast pale slate — NEVER white
-      uRainMix: { value: 0 },
-      uCamY: { value: 0 },
-    },
-    vertexShader: /* glsl */`
-      attribute float aAlpha;
-      uniform float uCamY;
-      varying vec2 vUV; varying float vAlpha; varying float vScreenX; varying float vWorldY;
-      void main() {
-        vUV = uv; vAlpha = aAlpha; vWorldY = position.y - uCamY;
-        vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        vScreenX = clip.x / clip.w;
-        gl_Position = clip;
-      }`,
-    fragmentShader: /* glsl */`
-      uniform vec3 uColor; uniform float uRainMix;
-      varying vec2 vUV; varying float vAlpha; varying float vScreenX; varying float vWorldY;
-      void main() {
-        // Procedural SOFT STREAK: feathered across the width, a bright core ~35–55% up the length
-        // with a long up-tail feather + short tip — a rain streak, not a bar.
-        float he = pow(1.0 - abs(2.0 * vUV.x - 1.0), 1.7);
-        float ve = smoothstep(0.0, 0.35, vUV.y) * smoothstep(1.0, 0.55, vUV.y);
-        float hf = 1.0 - smoothstep(14.0, 22.0, vWorldY);            // clean the pale horizon SLOT
-        float cf = mix(0.5, 1.0, smoothstep(0.0, 0.5, abs(vScreenX))); // relieve the center (rings/telegraphs)
-        float a = vAlpha * he * ve * hf * cf * uRainMix;
-        if (!(a > 0.003)) discard;   // note: !(a>x) also discards NaN (NaN>x is false) — belt-and-braces vs a stray NaN alpha blanking the frame
-        gl_FragColor = vec4(uColor, a);
-      }`,
-    transparent: true, depthWrite: false, depthTest: true, blending: THREE.NormalBlending,
-    side: THREE.DoubleSide,
+  mat = new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, depthWrite: false, depthTest: true,
+    blending: THREE.NormalBlending, opacity: 0,   // opacity = rainMix gate (0 = fully off)
   });
-  rain = new THREE.Mesh(geo, mat);
+  rain = new THREE.LineSegments(geo, mat);
   rain.frustumCulled = false;
   rain.renderOrder = 3;
   rain.visible = false;
   scene.add(rain);
 }
 
-// Tier degrade: full / ~340 / ~180 quads (index draw range, no rebuild).
+// Tier degrade: full / ~340 / ~180 streaks (index-less draw range over 2 verts each).
 export function setRainTier(t) {
   drawCount = t >= 2 ? 180 : (t >= 1 ? 340 : COUNT);
-  if (rain) rain.geometry.setDrawRange(0, drawCount * 6);
+  if (rain) rain.geometry.setDrawRange(0, drawCount * 2);
 }
 
-// TEMP bisect kill-switch (black-screen hunt): ?norain hides the rain mesh entirely.
+// TEMP bisect kill-switch (black-screen hunt): ?norain hides the rain entirely.
 const RAIN_OFF = (typeof location !== 'undefined') && new URLSearchParams(location.search).has('norain');
 
 export function updateRain(dt, camera, env) {
   if (!rain) return;
   if (RAIN_OFF) { rain.visible = false; return; }
   const mix = env.rainMix || 0;
-  mat.uniforms.uRainMix.value = mix;
+  mat.opacity = mix;
   rain.visible = mix > 0.005;
   if (!rain.visible) return;
 
   _dir.set((env.windX || 0) * LEAN_K, -1, (env.windZ || 0) * LEAN_K).normalize();
   const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-  mat.uniforms.uCamY.value = cy;
   const span = Y_HI - Y_LO, box = 2 * R_FAR;
   const p = posAttr.array;
   for (let i = 0; i < drawCount; i++) {
@@ -134,26 +98,12 @@ export function updateRain(dt, camera, env) {
     if (oz < -R_FAR) oz += box; else if (oz > R_FAR) oz -= box;
     off[i * 3] = ox; off[i * 3 + 1] = oy; off[i * 3 + 2] = oz;
     const wx = cx + ox, wy = cy + oy, wz = cz + oz;
-    // Billboard the quad to the camera around the fall axis.
-    _view.set(-ox, -oy, -oz);                      // camera → this drop (camera-relative)
-    const vl = _view.length();
-    if (vl > 1e-4) _view.multiplyScalar(1 / vl); else _view.set(0, 0, 1);
-    // Width axis ⟂ fall ⟂ view. When the drop is on the vertical axis, _view ∥ _dir and this
-    // cross is ~0 → normalize would be NaN → NaN verts blank the frame on real GPUs. Guard it:
-    // fall back to _dir × worldX (and worldZ if _dir is itself ∥ X).
-    _wax.crossVectors(_dir, _view);
-    let wl = _wax.length();
-    if (wl < 1e-4) { _wax.crossVectors(_dir, _AXIS_X); wl = _wax.length(); }
-    if (wl < 1e-4) { _wax.crossVectors(_dir, _AXIS_Z); wl = _wax.length(); }
-    _wax.multiplyScalar(wl > 1e-4 ? 1 / wl : 0);
-    const hw = wid[i] * 0.5, L = len[i];
-    // up-wind trail = -fall * L
-    const tx = -_dir.x * L, ty = -_dir.y * L, tz = -_dir.z * L;
-    const j = i * 12;
-    p[j]     = wx - _wax.x * hw; p[j + 1]  = wy - _wax.y * hw; p[j + 2]  = wz - _wax.z * hw;          // (0,0)
-    p[j + 3] = wx + _wax.x * hw; p[j + 4]  = wy + _wax.y * hw; p[j + 5]  = wz + _wax.z * hw;          // (1,0)
-    p[j + 6] = wx - _wax.x * hw + tx; p[j + 7]  = wy - _wax.y * hw + ty; p[j + 8]  = wz - _wax.z * hw + tz; // (0,1)
-    p[j + 9] = wx + _wax.x * hw + tx; p[j + 10] = wy + _wax.y * hw + ty; p[j + 11] = wz + _wax.z * hw + tz; // (1,1)
+    const L = len[i];
+    const j = i * 6;
+    // Head (leading, along the fall vector) → tail (up-wind = −fall·L). No billboarding:
+    // a line has no width to orient, so there is no degenerate cross product to guard.
+    p[j]     = wx;                p[j + 1] = wy;                p[j + 2] = wz;
+    p[j + 3] = wx - _dir.x * L;   p[j + 4] = wy - _dir.y * L;   p[j + 5] = wz - _dir.z * L;
   }
   posAttr.needsUpdate = true;
 }
