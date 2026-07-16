@@ -361,6 +361,18 @@ next on a failed gate):**
   deterministic cloud) + the Held-Breath clearing + the reserved 30° THRUMSWARM easement + mote-seeding
   hooks; final montage + Gate-2 on the compound result.
 
+- **ROCK-RUN MIRE INTEGRATION (owner-gated add — Fable ruling, scratchpad file 36):** the rib-run /
+  canyon set-piece renders as murky olive against the luminous swamp (owner-flagged). It was EXCLUDED
+  from this overhaul ("do not touch the rock run"), so this needs the owner's explicit go-ahead to
+  bring in-scope. NOT a blocker (gameplay reads; aesthetic debt only) and NOT a biome-ambient tweak
+  (interior tube faces can't be reached from below without washing out the night). The fix is a bounded
+  entry in the rock-run's per-biome integration/tint system (precedent: `rockrun-glacier-unification`,
+  `rockrun-integration-fixes`): emissive amber SEAMS between rib segments (the tunnel glows from its own
+  joints, + a free speed read); a warm waterline-up interior gradient (lit from below by the mire water,
+  crown stays dark); a deep peat/umber albedo re-tint (confident dark foil, not murk); optional sparse
+  biolume lichen on lower ribs. Crown stays dark (contrast over brightness). Slots AFTER PR-3 as its own
+  small standalone PR (does not touch PR #467). Gate adds an explicit "dragon reads inside the tunnel" check.
+
 Every PR: full headless suite (gold-determinism byte-identical, bulletcontrast, tricount, biomecycle,
 envcount `--ci`, propclearance `--ci` widened to biome 4, runtime NaN `place()` scan), SW re-stamp
 (`node tools/stamp-sw.mjs`) before fly-test, biome-pinned preview `?biome=4&debug` with a
