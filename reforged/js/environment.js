@@ -1322,10 +1322,14 @@ const ARCHETYPES = {
   arcade: {
     step: 97, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.25, sMin: 0.95, sMax: 1.05 }, // massif backdrop: mostly-continuous enclosure, thins at breaths + seam (riftwall precedent)
     build: () => {
-      const zf = 0.04, zb = -0.04, yBand = 0.22, spring = 0.42, peak = 0.68; // edge loop at the tide band; arch spring → peak (lintel bottom)
-      const nP = 8, wp = 0.045, wb = 0.125;                                  // 8 piers / 7 bays; slim piers, tall-narrow lancets
+      const zf = 0.04, zb = -0.04, yBand = 0.22, spring = 0.32, peak = 0.72; // edge loop at the tide band; arch spring → peak (lintel bottom)
+      // WORLD-ASPECT DESIGN (Fable a1): the (r,h,r) scale multiplies unit-X by r and unit-Y by h
+      // INDEPENDENTLY, so unit proportions lie. Target world opening w:h ≈ 1:2 at r≈120,h≈20: height
+      // world = 0.72·20 ≈ 14.4 → width world ≈ 7.2 → unit bay width ≈ 0.06 (and a low spring → the tall
+      // pointed section is the majority of the opening → a sharp gothic lancet, un-flyable, ≠ hazard portal).
+      const nP = 8, wp = 0.065, wb = 0.06;                                   // 8 piers / 7 bays; tall-narrow lancets in world
       const W = nP * wp + (nP - 1) * wb;
-      const pierTops = [0.30, 0.24, 0.86, 0.80, 0.92, 0.78, 0.88, 0.83];     // piers 0–1 STUMPS (below spring); 2–7 full, varied (no level course)
+      const pierTops = [0.24, 0.31, 0.86, 0.80, 0.92, 0.78, 0.88, 0.83];     // piers 0–1 STUMPS (below the 0.32 spring, varied); 2–7 full, varied (no level course)
       const intact = new Set([2, 3, 4, 5, 6]);                               // a contiguous rank of 5 intact bays; bays 0,1 collapsed at one end
       const pierL = [], pierR = [];
       let x = -W / 2;
@@ -1335,16 +1339,19 @@ const ARCHETYPES = {
       const t = (a, b, c) => v.push(...a, ...b, ...c);
       // PIERS — front (+z) + back (−z), split at the tide band so the jade line is dead-level (PLUMB-TIDE
       // + edge-loop law). Openings run water-to-peak, so ONLY the piers carry jade → a DASHED jade rhythm.
+      // Each pier gets an up-facing TOP CAP (Fable a1: without it the hollow ribbon vanishes in plan).
       for (let i = 0; i < nP; i++) {
-        const xL = pierL[i], xR = pierR[i], top = pierTops[i], y1 = Math.min(yBand, top);
+        const xL = pierL[i], xR = pierR[i], top = pierTops[i];
+        const full = intact.has(i) || intact.has(i - 1);   // a pier that carries an arch → 2 courses (jade/bleach split); a stump → 1 course (all-jade post)
+        const y1 = full ? Math.min(yBand, top) : top;
         q([xL, 0, zf], [xR, 0, zf], [xR, y1, zf], [xL, y1, zf]);
-        if (top > yBand) q([xL, yBand, zf], [xR, yBand, zf], [xR, top, zf], [xL, top, zf]);
         q([xR, 0, zb], [xL, 0, zb], [xL, y1, zb], [xR, y1, zb]);
-        if (top > yBand) q([xR, yBand, zb], [xL, yBand, zb], [xL, top, zb], [xR, top, zb]);
+        if (full && top > yBand) { q([xL, yBand, zf], [xR, yBand, zf], [xR, top, zf], [xL, top, zf]); q([xR, yBand, zb], [xL, yBand, zb], [xL, top, zb], [xR, top, zb]); }
+        q([xL, top, zb], [xR, top, zb], [xR, top, zf], [xL, top, zf]);   // TOP CAP (faces up)
       }
       // INTACT BAYS — pointed-arch spandrels (void peaks UP into the mass, rotunda r7 lesson) + a lintel
-      // course above (peak→bayTop) + jamb returns (wall THICKNESS at every hole; a hole with no return is
-      // paper). Lancet w:h ≈ 1:2, 15% tighter than the rotunda hero (hierarchy: hero grand, massif serial).
+      // course above (peak→bayTop) with a TOP CAP + jamb returns (wall THICKNESS at every hole; a hole
+      // with no return is paper). Lancet world w:h ≈ 1:2, 15% tighter than the rotunda hero (serial rank).
       for (let j = 0; j < nP - 1; j++) {
         if (!intact.has(j)) continue;
         const xL = pierR[j], xR = pierL[j + 1], xm = (xL + xR) / 2, bayTop = Math.min(pierTops[j], pierTops[j + 1]);
@@ -1352,14 +1359,9 @@ const ARCHETYPES = {
         q([xL, peak, zf], [xR, peak, zf], [xR, bayTop, zf], [xL, bayTop, zf]);                                   // front lintel
         t([xL, peak, zb], [xL, spring, zb], [xm, peak, zb]); t([xm, peak, zb], [xR, spring, zb], [xR, peak, zb]); // back spandrels
         q([xR, peak, zb], [xL, peak, zb], [xL, bayTop, zb], [xR, bayTop, zb]);                                   // back lintel
+        q([xL, bayTop, zb], [xR, bayTop, zb], [xR, bayTop, zf], [xL, bayTop, zf]);                               // lintel TOP CAP (closes the plan ribbon)
         q([xL, 0, zf], [xL, spring, zf], [xL, spring, zb], [xL, 0, zb]);   // left jamb return
         q([xR, 0, zb], [xR, spring, zb], [xR, spring, zf], [xR, 0, zf]);   // right jamb return
-      }
-      // STUMP caps + break (piers 0–1): up-facing top cap + a ragged slanted break face (collapse story).
-      for (const i of [0, 1]) {
-        const xL = pierL[i], xR = pierR[i], top = pierTops[i];
-        q([xL, top, zb], [xR, top, zb], [xR, top, zf], [xL, top, zf]);                     // top cap (faces up)
-        q([xL, top, zf], [xR, top, zf], [xR, top - 0.06, zf + 0.0], [xL, top - 0.05, zf]); // ragged break sliver
       }
       // WALL END CAPS — close the run's two ends (front-to-back at pier 0 left + pier 7 right).
       q([pierL[0], 0, zb], [pierL[0], 0, zf], [pierL[0], pierTops[0], zf], [pierL[0], pierTops[0], zb]);
@@ -1370,10 +1372,10 @@ const ARCHETYPES = {
       wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
       return mergeLagoonParts([{ mat: 0, geo: wall }]);
     },
-    // BACKDROP massif, 5–8:1 WIDE: r 92–132 (w = 1.235·r ≈ 114–163), h 16–24. tilt 0 EXPLICIT (PLUMB-TIDE).
-    // FAR off-lane scenery: couple x = ρ·sMax·r (0.619·1.05≈0.65) + ~80 so the inner edge lands ~80–95
-    // world (Fable: the massif recedes on the horizon, never near the lane). No foam (a collar 75+ off-lane).
-    place: (side, rnd) => { const r = 92 + rnd() * 40; return { x: side * (80 + 0.65 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: 0 }; },
+    // BACKDROP massif, ~5–8:1 WIDE: r 92–132 (w = 0.94·r ≈ 86–124), h 16–24. tilt 0 EXPLICIT (PLUMB-TIDE).
+    // FAR off-lane scenery: couple x = ρ·sMax·r (0.47·1.05≈0.49) + ~80 so the inner edge lands ~80 world
+    // (Fable: the massif recedes on the horizon, never near the lane). No foam (a collar 75+ off-lane).
+    place: (side, rnd) => { const r = 92 + rnd() * 40; return { x: side * (80 + 0.50 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: 0 }; },
   },
 };
 
