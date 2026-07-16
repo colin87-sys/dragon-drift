@@ -526,9 +526,15 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
 /* Stamina arc — a compact bar just under the dragon, ~body-width (not wings),
    with a constant thickness (non-scaling stroke) so narrowing it never thins
    the line. Whispers the info; never fights the scene. */
+/* GAUNTLET FOLLOW (owner ruling 2026-07-16): main.js writes a damped
+   translateX offset into this transform every frame so the cluster rides
+   under the dragon's projected screen X (clamped; Y never moves). The base
+   transform below is the rest pose; will-change keeps the per-frame write
+   compositor-only. VISUAL-ONLY — the world/dragon are never touched. */
 .stamina-arc { position: absolute; left: 50%; top: 64%;
   transform: translate(-50%,-50%) scale(var(--hud-scale));
   width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none;
+  will-change: transform;
   opacity: calc(0.9 * var(--hud-alpha)); }
 /* the arc wrapper: the instrument that rests/seals/shakes independently of
    the LIFE + SURGE horns sharing the cluster (H3) */
@@ -1066,9 +1072,12 @@ body.biome-bright #hud .bell {
   font-family: 'Rajdhani', var(--font-display); font-weight: 700;
   font-size: var(--fs-micro); letter-spacing: 0.18em; text-transform: uppercase;
   color: rgba(var(--mp-mag), 0.92); text-shadow: 0 1px 4px #000; }
-/* the bar: a smoked housing with the etched hairline outline on top */
+/* the bar: a smoked housing with the etched hairline outline on top. The smoke
+   is DARK ENOUGH to read as the instrument's empty track over the brightest
+   biome sky (at 0.42 the unfilled span went muddy tan and the bar read as an
+   unfinished outline — owner screenshot, VOIDMAW over Embertide). */
 .mp-bar { position: relative; height: 7px; border-radius: 3px;
-  background: rgba(12, 8, 6, 0.42); overflow: hidden; }
+  background: rgba(12, 8, 6, 0.68); overflow: hidden; }
 .mp-etch { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
   fill: none; pointer-events: none; z-index: 3; }
 .mp-etch path { stroke: var(--rf-stroke-hi); stroke-width: 1;
@@ -1092,10 +1101,13 @@ body.biome-bright #hud .bell {
   transform: translateX(-120%); opacity: 0; }
 .mews-plate.reforge .mp-fill::after { animation: mp-reforge 0.62s ease-out; }
 @keyframes mp-reforge { 0% { transform: translateX(-120%); opacity: 1; } 100% { transform: translateX(120%); opacity: 0; } }
-/* phase notches (from def.phases[].atFrac): thin dark dividers, positioned by left% */
+/* phase notches (from def.phases[].atFrac): TICK MARKS on a continuous bar —
+   a bright inset hairline with a dark keyline each side. (The old full-height
+   dark dividers read as GAPS that split the fill into broken segments.) */
 .mp-notches { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.mp-notches i { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px;
-  background: rgba(6, 4, 8, 0.9); box-shadow: 0 0 0 0.5px rgba(255,255,255,0.12); }
+.mp-notches i { position: absolute; top: 1px; bottom: 1px; width: 1px; margin-left: -0.5px;
+  background: rgba(255, 236, 214, 0.6);
+  box-shadow: 1px 0 0 rgba(6,4,8,0.65), -1px 0 0 rgba(6,4,8,0.65); }
 /* DLZ column (§B.9, ?dlz=1 ONLY — a cut-first luxury; never renders without the flag) */
 .mp-dlz { display: none; position: absolute; right: -14px; top: 0; bottom: 0; width: 10px;
   flex-direction: column-reverse; gap: 2px; z-index: 3; }
@@ -1155,6 +1167,13 @@ body.biome-bright #hud .bell {
   display: flex; justify-content: center; pointer-events: none;
   transform: scale(var(--hud-scale)); transform-origin: top center;
   opacity: var(--hud-alpha); }
+/* BOSS: the Mews plate owns a PX band at the top (66px→~112px landscape) while
+   the Bell rides a PERCENT — on short real-world viewports (browser chrome eats
+   height) 20–24% lands INSIDE the plate and a "2,000 M" milestone toast prints
+   straight across the boss bar (owner screenshot). In hud-boss the Bell floors
+   at a px anchor just below the plate; max() keeps the taller designed anchor
+   on tall screens. (Portrait + short-landscape overrides in their blocks.) */
+body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px))); }
 .bell-slug { position: relative; max-width: min(420px, 84vw);
   padding: 6px 14px 7px; border-radius: var(--r-s);
   background: rgba(12,8,6,0.28);
@@ -1983,10 +2002,20 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   .popup         { top: 36%; }
   .bell          { top: 20%; }   /* portrait: the Bell rises (HUD-REDESIGN §C) */
-  /* Telegraph lane: just under the gauntlet's multiplier slug (~64% + arc + slug
-     ≈ 70%), ending clear of the spell card (bottom 15% → top ≈ 76%). */
-  .boss-note     { top: 70.5%; }
-  .boss-card     { bottom: 15%; }   /* portrait keeps the spec'd lower-right seat */
+  /* boss: floor below the portrait plate (top 112px + ~45px of nameplate+bar). */
+  body.hud-boss .bell { top: max(20%, calc(164px + env(safe-area-inset-top, 0px))); }
+  /* Telegraph lane: just under the gauntlet's ×N.NN multiplier slug. The slug's
+     bottom is a PX line (64% + 52px-box + slug ≈ 64% + 54px) while a %-only
+     anchor compresses INTO it as the real viewport shrinks (browser chrome) —
+     px-affine keeps the lane below the multiplier at every height. Worst lane
+     depth = main + two-line wrapped sub ≈ 15vmin. */
+  .boss-note     { top: calc(64% + 54px); }
+  /* Spell card: TOP-ANCHORED below the telegraph lane's worst-case depth, off
+     the SAME line — the pair is deterministic at every viewport height. At
+     bottom:15% the card's box sat INSIDE the lane on short real viewports and
+     "FLY THROUGH THE RINGS → CHARGE SURGE" printed through the card (owner
+     screenshot). The card stays lower-right. */
+  .boss-card     { bottom: auto; top: calc(64% + 54px + 16vmin); }
   .audio-btns    { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; gap: 6px; }
   .mute-btn      { width: 32px; height: 32px; }
   .screen h1     { font-size: 32px; letter-spacing: 4px; padding: 0 10px; }
@@ -2046,6 +2075,10 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .race-strip { display: none; margin: 6px 0 2px auto; text-align: right;
   opacity: 0.3; transition: opacity var(--t-micro) var(--ease-out); }
 .race-strip.on { display: block; }
+/* BOSS: the strip yields — a 5th Tally row (score/embers/chain/skims + race)
+   runs 125px+ deep and grazes the portrait Mews plate at top 112px; the race
+   read is irrelevant mid-fight and RIVAL BEATEN still rings the Bell. */
+body.hud-boss .race-strip { display: none; }
 .race-strip.close { opacity: 1; }
 .race-target { display: block; font-size: 9.5px; letter-spacing: var(--track-caps);
   color: #ffd9ac; font-weight: 800; margin-bottom: 3px;

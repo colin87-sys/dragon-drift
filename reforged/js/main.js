@@ -1298,6 +1298,7 @@ let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
 const _sunProj = new THREE.Vector3();   // sun world dir → screen NDC (god-rays)
 const _camFwd = new THREE.Vector3();      // camera forward, for the sun-facing gate
+const _dragonProj = new THREE.Vector3();  // dragon world pos → screen X (gauntlet follow)
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -1860,6 +1861,14 @@ function tick() {
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    // GAUNTLET FOLLOW (owner ruling 2026-07-16): project the dragon and let the
+    // vitals cluster ride under it — ui.js damps/clamps/writes (transform-only,
+    // strictly visual; the world is never touched). Holds pose outside play.
+    if (game.state === 'playing') {
+      _dragonProj.set(player.position.x, player.position.y, -player.dist).project(camera);
+      ui.gauntletFollow(_dragonProj.z > 1 ? null
+        : (_dragonProj.x * 0.5 + 0.5) * window.innerWidth, dt);
+    }
     updateBossBar();   // EMBERSIGHT H5 — drain-lag ease + off-screen threat chevrons
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's
