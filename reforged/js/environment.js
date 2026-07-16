@@ -2126,6 +2126,61 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // nagawall — BACKDROP / civilization (§7.3.6): a colossal half-drowned NAGA — the serpent body as a
+  // rhythmic run of masonry COIL-HUMPS arcing in and out of the water, ending in a fanned 7-head cobra
+  // HOOD reared against the sunset, the far end a broken stump. Round humps + the Khmer fan = "giant
+  // serpent" in ONE read; the kit's only long horizontal (it UNDERLINES the horizon, never walls). FIREWALL
+  // vs the drowned-footbridge hazard: no deck / piers / straight spans — round humps ONLY, far off-lane.
+  // Tide-laddered stone, plumb, NO gilt (hood eye-sockets a withheld Stage-2 option only).
+  nagawall: {
+    step: 101, biomes: lagoonV3, matIndex: 0, arrivalPark: true, oneSide: true, comp: { floor: 0 }, // rare backdrop EVENT: one side per congregation, fully parked in the breaths, never both horizons
+    build: () => {
+      const parts = [];
+      // COIL-HUMPS — a run of round masonry humps (identical-family radii, strict rhythm), the serpent
+      // surfacing in coils. Each = 2 frusta (up-over-down) meeting at the peak; contiguous, dipping to the
+      // waterline (y0) between coils. Grows toward the head (+x). Round tube ONLY (hazard firewall).
+      const hump = (xC, w, hp, r) => {
+        const xL = xC - w / 2, xR = xC + w / 2;
+        parts.push({ mat: 0, geo: frustumBetween([xL, 0.0, 0], [xC, hp, 0], r * 0.85, r, 4) });
+        parts.push({ mat: 0, geo: frustumBetween([xC, hp, 0], [xR, 0.0, 0], r, r * 0.85, 4) });
+      };
+      const n = 5, w = 0.19, x0 = -0.40;
+      for (let i = 0; i < n; i++) { const t = i / (n - 1); hump(x0 + i * w, w, 0.30 + 0.20 * t, 0.075); }   // 5 × 16 = 80
+      // BROKEN STUMP — the tail end (−x): a low broken half-coil lost to the water (ruin, not a clean end).
+      parts.push({ mat: 0, geo: frustumBetween([-0.55, 0.0, 0.0], [-0.47, 0.17, 0.0], 0.05, 0.072, 4) });     // 8
+      // COBRA HOOD — a fanned 7-head Khmer naga hood reared at the head (+x) end. A broad upright geometric
+      // FAN with a SCALLOPED rim (7 tips = 7 heads, 6 notches), read in silhouette against the gold sky.
+      // Front + back faces so it reads from both sides. NO eyes (withheld).
+      {
+        const hx = x0 + (n - 1) * w + w * 0.45, neckY = 0.50, B = [hx, neckY, 0];
+        const heads = 7, spread = 0.34, tipY = 1.08, notchDrop = 0.13, edgeFall = 0.40;
+        const rim = [];
+        for (let k = 0; k < 2 * heads - 1; k++) {
+          const u = k / (2 * heads - 2) - 0.5;                 // -0.5..0.5 across the hood
+          const isTip = (k % 2) === 0;
+          rim.push([hx + u * spread, tipY - Math.abs(u) * edgeFall - (isTip ? 0 : notchDrop), 0]);   // tips high, notches dropped; edges fall away (arced hood)
+        }
+        const v = [];
+        for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k], ...rim[k + 1]);     // front fan
+        for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k + 1], ...rim[k]);     // back fan (reversed winding)
+        const hood = new THREE.BufferGeometry();
+        hood.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        hood.computeVertexNormals();
+        hood.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: hood });   // (2·heads−2)·2 = 24
+      }
+      return mergeLagoonParts(parts);
+    },
+    // BACKDROP, LONG + LOW (~5:1 wide): r 60–100 (the length), h 10–16 (underlines, never walls). FAR
+    // off-lane: |x| ≥ 60 so the central third of the frame stays clear. tilt 0 EXPLICIT (PLUMB-TIDE).
+    place: (side, rnd) => {
+      const r = 60 + rnd() * 40;
+      const p = { x: side * (62 + 0.35 * r + rnd() * 14), h: 10 + rnd() * 6, r, tilt: 0 };
+      if (HERO_SET.has('nagawall')) p.rotY = 0;   // debug: pin yaw so the hood + humps face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2156,6 +2211,7 @@ const FOAM_CFG = {
   mangrovehold: { r: 0.55 },         // Lost Lagoon v3 mangrove islet — a round jade tide collar where the crinoline of stilt-root feet meets the mirror (the jade anklet)
   prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
   lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
+  nagawall: false,                   // Lost Lagoon v3 naga backdrop — NO collar (a bright foam ring 60+ off-lane is an artifact; the arcade/riftwall precedent)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
