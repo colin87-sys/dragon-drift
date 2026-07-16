@@ -206,7 +206,7 @@ export function initObstacles(s) {
     // withLadderEmissive folds it into emissive so the hot belly survives the ember backlight.
     calBasalt: withLadderEmissive(new THREE.MeshStandardMaterial({
       color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.44, metalness: 0.04,
-      emissive: 0xff5a20, emissiveIntensity: 0.42,
+      emissive: 0xff5a20, emissiveIntensity: 0.26,   // low: the body stays dark basalt; the magma joints/throat carry the deliberate fire
     })),
     // Dark recess backing behind a magma joint-crack — the near-black socket that turns
     // "strip on a face" into "fire escaping from inside the rock" (the LOW-in-cracks address).
@@ -887,8 +887,12 @@ const _CALH_BELLY = [0.98, 0.30, 0.06];    // down-faces → hot ember belly (fr
 const _CALH_BASALT = [0.085, 0.06, 0.055]; // verticals → near-black basalt (mid stop)
 const _CALH_CRUST = [0.36, 0.31, 0.33];    // up-faces → ash crust (belly stop)
 const _CAL_STOPS = { frost: _CALH_BELLY, mid: _CALH_BASALT, belly: _CALH_CRUST };
-function bakeCalLadder(geo, ax = 0, ay = -1, az = 0, frostT = 0.28, tealT = -0.30) {
-  return bakeIceLadder(geo, { ax, ay, az, frostT, tealT, stops: _CAL_STOPS });
+// DARK stop set (no ember belly) — for the horizontal BEAM, whose whole underside faces
+// down: a world-DOWN ember belly would flood it orange. Here the body stays dark basalt
+// (ash-lit tops) and the deliberate fire lives ONLY in the recessed magma joint-cracks.
+const _CAL_STOPS_DARK = { frost: _CALH_BASALT, mid: _CALH_BASALT, belly: _CALH_CRUST };
+function bakeCalLadder(geo, ax = 0, ay = -1, az = 0, frostT = 0.28, tealT = -0.30, stops = _CAL_STOPS) {
+  return bakeIceLadder(geo, { ax, ay, az, frostT, tealT, stops });
 }
 
 // BEAM — THE COLLAPSED COLONNADE SPAN. A fallen rank of hex basalt columns lying across
@@ -925,7 +929,8 @@ function buildCalderaBar() {
     body.push(xf(new THREE.BoxGeometry(len + 0.6, 0.16, 0.12), { x: cx, y: cy + hh / 2 + 0.20, z: 1.37 })); // brow lip
   }
   const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
-  const bodyGeo = bakeCalLadder(mergeGeometries(norm(body), false)); bodyGeo.userData.shared = true;
+  // DARK stops (no ember belly) — the fallen colonnade is dark basalt; fire only in the joints.
+  const bodyGeo = bakeCalLadder(mergeGeometries(norm(body), false), 0, -1, 0, 0.28, -0.30, _CAL_STOPS_DARK); bodyGeo.userData.shared = true;
   const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
   const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
   return { parts: [
@@ -1082,16 +1087,17 @@ function buildCalderaBomb() {
       _calBombSupport = mind;
     }
     g.translate(off[0], off[1], off[2]);
-    // ember-heavy thresholds (frostT low) so more of the fixed weathering axis reads as
-    // GLOWING SEAM against the dark crust — the breadcrust-over-fire story.
-    bakeCalLadder(g, axis[0], axis[1], axis[2], 0.20, -0.34);
+    // High frostT → only faces strongly aligned with the weathering axis read as the hot
+    // FRACTURE zone; most stay dark basalt crust (the breadcrust-over-fire story is mostly
+    // DARK crust with one exposed molten side — not an all-glowing ember rock).
+    bakeCalLadder(g, axis[0], axis[1], axis[2], 0.70, -0.28);   // high frostT → small hot fracture patch; mostly dark crust
     parts.push(g); ai++;
   }
   for (const [rad, off] of CAL_BOMB_MICRO) {
     let g = new THREE.TetrahedronGeometry(rad);
     jitter(g, 0.2);
     g.translate(off[0], off[1], off[2]);
-    bakeCalLadder(g, off[0], off[1], off[2], 0.2, -0.5);
+    bakeCalLadder(g, off[0], off[1], off[2], 0.5, -0.4);
     parts.push(g);
   }
   const geo = mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false);
