@@ -29,7 +29,7 @@ if (psErr) { console.error('STUDIO ERROR:', psErr); await browser.close(); srv.c
 const CELL = 520;
 const clip = (cols, rows, cell) => ({ x: 0, y: 0, width: cols * cell, height: rows * cell });
 async function propSheet(key) {
-  await page.evaluate((c) => window.psSheetInit(c[0], c[1], c[2]), [2, 3, CELL]);
+  await page.evaluate((c) => window.psSheetInit(c[0], c[1], c[2]), [2, 4, CELL]);
   const tiles = [
     { render: true, angle: 'front',   bg: 'dusk', rig: 'sunset',  fill: 0.80, label: `${key} · front · golden hour` },
     { angle: 'front3q', bg: 'dusk', rig: 'sunset',  fill: 0.80, label: 'front-¾ · apertures vs gold' },
@@ -37,6 +37,7 @@ async function propSheet(key) {
     { angle: 'low',     bg: 'dusk', rig: 'sunset',  fill: 0.84, label: 'worm’s-eye · colossal' },
     { angle: 'top',     bg: 'pale', rig: 'neutral', fill: 0.84, label: 'top plan · oculus + windows' },
     { angle: 'front3q', bg: 'pale', rig: 'neutral', fill: 0.80, label: 'front-¾ · form' },
+    { angle: 'side',    bg: 'pale', rig: 'neutral', fill: 0.94, label: 'window · arch close (form)' },
   ];
   for (let i = 0; i < tiles.length; i++) {
     const t = tiles[i];
@@ -45,7 +46,7 @@ async function propSheet(key) {
     await page.evaluate((a) => window.psTile(a[0], a[1]), [i, t.label]);
   }
   const path = `reforged-captures/lag-${key}-${round}.png`;
-  writeFileSync(path, await page.screenshot({ clip: clip(2, 3, CELL) }));
+  writeFileSync(path, await page.screenshot({ clip: clip(2, 4, CELL) }));
   console.log('wrote', path);
 }
 for (const key of KEYS) await propSheet(key);
