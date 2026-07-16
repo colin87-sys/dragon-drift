@@ -676,7 +676,7 @@ const ARCHETYPES = {
               const rT = 0.50, rA = 0.52, yT = 0.60, yA = 0.44;
               const TL = [Math.cos(a0) * rT, yT, Math.sin(a0) * rT], TR = [Math.cos(a1) * rT, yT, Math.sin(a1) * rT];
               const TM = [Math.cos(am) * rT, yT, Math.sin(am) * rT], A = [Math.cos(am) * rA, yA, Math.sin(am) * rA];
-              v.push(...TL, ...A, ...TM, ...TM, ...A, ...TR);   // outward winding, apex low → pointed soffit
+              v.push(...TL, ...TM, ...A, ...TM, ...TR, ...A);   // outward winding (flipped from r6), apex low → pointed soffit
             }
             continue;
           }
@@ -686,6 +686,14 @@ const ARCHETYPES = {
             const p0b = P(lo, a0), p1b = P(lo, a1), p0t = P(hi, a0), p1t = P(hi, a1);
             v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
           }
+        }
+        // JAMB CAPS (Fable r6) — the two collapse cut-ends {2,3} get a return face inset toward centre
+        // so the drum wall shows DEPTH at the wound, not a paper card. Left jamb opens +angle, right −angle.
+        for (const { a, sign } of [{ a: 2 * dth, sign: 1 }, { a: 4 * dth, sign: -1 }]) {
+          const OB = [Math.cos(a) * 0.63, 0.0, Math.sin(a) * 0.63], OT = [Math.cos(a) * 0.50, 0.60, Math.sin(a) * 0.50];
+          const IB = [Math.cos(a) * 0.53, 0.0, Math.sin(a) * 0.53], IT = [Math.cos(a) * 0.40, 0.60, Math.sin(a) * 0.40];
+          if (sign > 0) v.push(...OB, ...OT, ...IT, ...OB, ...IT, ...IB);
+          else v.push(...OB, ...IT, ...OT, ...OB, ...IB, ...IT);
         }
         const drum = new THREE.BufferGeometry();
         drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
@@ -718,17 +726,20 @@ const ARCHETYPES = {
       // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
       // broken edge → no zero-thickness paper arc from any yaw. The gate condition.
       {
-        const inner = new THREE.SphereGeometry(0.43, 5, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30);
+        const inner = new THREE.SphereGeometry(0.43, 4, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30);
         const idx = inner.index.array;
         for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
         inner.index.needsUpdate = true;
         inner.computeVertexNormals();
         parts.push({ mat: 0, geo: xform(inner, { y: 0.60 }) });
       }
-      // BROKEN-EDGE RUBBLE — tumbled blocks (a fallen cornice chunk among them) at the collapse foot (+z),
-      // resting on the plinth top so the jade band stains their feet.
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.13, 0.14), { x: -0.05, z: 0.36, y: 0.19, ry: 0.7, rz: 0.15 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.13, 0.10, 0.12), { x: 0.14, z: 0.44, y: 0.16, ry: 1.1, rz: -0.25 }) });
+      // BROKEN PIER STUMP (Fable r6) — the surviving dome quarter overhangs the gap; at side elevation
+      // that read as a HOVERING dome over a void. A broken pier stump stands UNDER the overhanging rim
+      // at the +angle jamb, reaching toward the dome rim (y≈0.6) — ruins persist where something held,
+      // and the eye accepts the overhang the instant one support touches it.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.12, 0.54, 0.12), { x: Math.cos(2 * Math.PI / 11) * 0.48, z: Math.sin(2 * Math.PI / 11) * 0.48, y: 0.27, ry: 0.5, rz: 0.06 }) });
+      // + one fallen block on the flooded floor at the collapse foot (the tide stains its feet jade).
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.12, 0.13), { x: -0.05, z: 0.42, y: 0.20, ry: 1.1, rz: -0.22 }) });
       // OCULUS gilt reveal — an INWARD-facing frustum recessed at the apex, extended DOWN into the interior
       // (Fable D2) so the withheld gold catches from the worm's-eye low-oblique through the collapse. Never
       // an exterior face — the gold is only sunset trapped inside the hole (r0.12 < oculus rim 0.136).
