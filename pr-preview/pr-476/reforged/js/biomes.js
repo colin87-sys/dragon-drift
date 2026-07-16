@@ -311,10 +311,17 @@ export const BIOMES = [
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
     // rationed cloud-rim/socket gold, never as the field light.
     light: { sun: C(0xaebac2), sunI: 0.82, hemiSky: C(0x5a6a72), hemiGround: C(0x2c3a3c) },
-    // Meter the shared god-ray fan WAY down (the Mire precedent): a storm has NO sun shafts — the
-    // default godrayMul:1 + warm tint was the giant gold glitter-column washing every frame warm.
-    godrayMul: 0.05,
-    godrayTint: C(0x9fb0bc),   // cool steel — any residual haze glow stays cold, never gold
+    // EYE-BREACH godray meter (TEMPEST-REACH-BIBLE.md — the eye of the gale): the biome's ONE sun-shaft
+    // event. The storm has no field-wide shafts, but where the deck BREAKS on the sun azimuth the light
+    // pours through — so ramp the shared fan UP (0.05 → 0.42) and the bright almond interior (below)
+    // auto-becomes the occlusion-mask source. v1 = a fixed prominent value (the progress-arc growth is a
+    // follow-on). Byte-identical elsewhere (godrayMul only lerps at biome 7's seams).
+    godrayMul: 0.42,
+    godrayTint: C(0xffd28a),   // warm sun-gold — the shafts falling from the breach are the leaked sun, not cold haze
+    // EYE-BREACH gate (the still axle): a fixed prominent 1.0 in Tempest, 0 elsewhere = byte-identical.
+    // Drives env.breachMix → the sky-shader almond window + the water calm/gold patch. World-locked to
+    // the sun azimuth (atan2(sunDir.z, sunDir.x)); the sun DISC is never shown (a centerless brightness).
+    breach: 1.0,
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
@@ -408,6 +415,10 @@ const env = {
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
   cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
+  // EYE-BREACH (Tempest): the eye-of-the-gale breach gate. 0 in every biome that doesn't declare
+  // `breach` (optional-channel pattern) → the sky-shader almond window + water calm/gold patch are a
+  // byte-identical no-op. Consumed by environment.js (su.uBreachMix) + skyProbe.js (ambient mirror).
+  breachMix: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -490,5 +501,8 @@ export function computeEnv(dist) {
   // declares one. rainMix (intensity) DOES crossfade the seam for free (the xMix pattern).
   const _w = a.wind || b.wind; env.windX = _w ? _w.x : 0; env.windZ = _w ? _w.z : 0;
   env.rainMix = lerp(a.rain || 0, b.rain || 0, ts);
+  // EYE-BREACH (Tempest): the eye-of-the-gale gate. 0 elsewhere = byte-identical; crossfades the
+  // seam for free (the xMix pattern). Consumed by environment.js + skyProbe.js.
+  env.breachMix = lerp(a.breach || 0, b.breach || 0, ts);
   return env;
 }
