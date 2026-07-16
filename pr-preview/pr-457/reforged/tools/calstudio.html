@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Prop Studio</title>
+  <title>Caldera Prop Studio</title>
   <style>
-    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    html,body{margin:0;height:100%;background:#140806;overflow:hidden;font-family:system-ui,sans-serif}
     #gl{position:fixed;left:0;top:0}
-    #sheet{position:fixed;left:0;top:0;display:none;background:#0a0e1a}
-    #err{position:fixed;left:12px;right:12px;top:12px;color:#ff9a9a;font-size:13px;white-space:pre-wrap;
+    #sheet{position:fixed;left:0;top:0;display:none;background:#140806}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ffb0a0;font-size:13px;white-space:pre-wrap;
       background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
   </style>
   <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
@@ -23,9 +23,9 @@
   <div id="err"></div>
   <script type="module">
     import * as THREE from 'three';
-    import { buildArchetypeMesh, frozenPropKeys } from '../js/environment.js';
+    import { buildArchetypeMesh, calderaPropKeys } from '../js/environment.js';
 
-    // ── lit stage ────────────────────────────────────────────────────────────
+    // ── lit stage (same ACES pipeline the game ships) ─────────────────────────
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
@@ -34,45 +34,45 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(46, 1, 0.01, 20000);
 
-    // Lighting rigs. 'sunset' is the DESIGN light — a low warm sun raking across the
-    // ice (gold-rim one face) with a cool sky dome filling the shadow side (which the
-    // ice's own cyan emissive then lifts into a blue glow). 'neutral' is a flat
-    // even light purely to read silhouette/proportion without the sunset drama.
+    // Lighting rigs. 'ember' is the DESIGN light — Caldera's shipping key (biomes.js
+    // entry 3): a low warm sun + a HOT lava-floor ground bounce (hemiGround), so the
+    // biome's light-from-BELOW signature reads and the inverted ladder's hot belly is
+    // lit from underneath exactly as it will be over the lava. 'neutral' is flat, to
+    // read silhouette/proportion without the ember drama.
     const rigs = {};
     function makeRig(name, fn) { const g = new THREE.Group(); fn(g); g.visible = false; scene.add(g); rigs[name] = g; }
-    makeRig('sunset', (g) => {
-      g.add(new THREE.HemisphereLight(0xbcd6ff, 0x36241f, 0.85));      // cool sky / warm ground bounce
-      const sun = new THREE.DirectionalLight(0xffb060, 2.4); sun.position.set(-4, 1.1, 2.5); g.add(sun); // LOW warm key raking one face
-      const rim = new THREE.DirectionalLight(0xffd9a0, 1.2); rim.position.set(3.5, 2.2, -2.5); g.add(rim); // warm back-rim (halo the far edge)
-      const fill = new THREE.DirectionalLight(0x9fc4ff, 0.55); fill.position.set(2, -1, 3); g.add(fill);   // cool shadow fill
+    makeRig('ember', (g) => {
+      // hemi: dark-warm sky over a HOT lava-floor bounce — the underside rescue that SELLS the inverted ladder
+      g.add(new THREE.HemisphereLight(0x8a5040, 0x3a0f06, 1.15));
+      const sun = new THREE.DirectionalLight(0xff9a50, 1.7); sun.position.set(-3.5, 1.0, 2.6); g.add(sun);  // low warm key
+      const floor = new THREE.DirectionalLight(0xff5a1e, 1.0); floor.position.set(0.5, -2.2, 1.5); g.add(floor); // UP-light from the lava (light from below)
+      const rim = new THREE.DirectionalLight(0xffc070, 0.7); rim.position.set(3.2, 1.8, -2.4); g.add(rim);   // warm back-rim
     });
     makeRig('neutral', (g) => {
       g.add(new THREE.HemisphereLight(0xcfd8e6, 0x3a3d47, 1.1));
       const k = new THREE.DirectionalLight(0xffffff, 1.4); k.position.set(2.5, 3, 4); g.add(k);
       const r = new THREE.DirectionalLight(0xdfeaff, 0.9); r.position.set(-3, 1.5, -3); g.add(r);
     });
-    let curRig = 'sunset';
+    let curRig = 'ember';
     function setRig(name) { for (const k in rigs) rigs[k].visible = (k === name); curRig = name; }
-    setRig('sunset');
+    setRig('ember');
 
-    // Backdrops: dusk = the biome's molten-gold far sky (context); pale = silhouette
-    // read; dark = value/glow read (the cyan seams pop). Solid colours (no gradient).
-    const BG = { dusk: 0xffa268, pale: 0xcdd6e2, dark: 0x11131c, slate: 0x2a3550 };
-    function setBg(bg) { scene.background = new THREE.Color(BG[bg] ?? BG.pale); }
+    // Backdrops: ember = the biome's lit horizon band (context — the value the props
+    // silhouette against); pale = silhouette read; dark = value/glow read (the hot
+    // belly + throats pop). Solid colours.
+    const BG = { ember: 0xff7a30, dusk: 0xc0421c, pale: 0xcdd6e2, dark: 0x120806, slate: 0x2a1a16 };
+    function setBg(bg) { scene.background = new THREE.Color(BG[bg] ?? BG.dark); }
 
-    // ── angles (unit dir from subject centre; up) ─────────────────────────────
-    // Frozen props are TABULAR (wide, flat-topped) and read primarily in front /
-    // front-¾ / side silhouette; top shows the footprint plan.
+    // ── angles ─────────────────────────────────────────────────────────────────
+    // Caldera props are BROAD but the hero read is the COLUMNAR rib + the descending
+    // crest, so front / front-¾ / side matter; top shows the footprint plan (the
+    // flying game's primary view); low is the worm's-eye "feel colossal" read.
     const ANGLES = {
       front:   { dir: [0.02, 0.16, 1],   up: [0, 1, 0] },
-      front3q: { dir: [0.72, 0.26, 0.82], up: [0, 1, 0] },
+      front3q: { dir: [0.72, 0.24, 0.82], up: [0, 1, 0] },
       side:    { dir: [1, 0.14, 0.02],   up: [0, 1, 0] },
-      low:     { dir: [0.10, -0.18, 1],  up: [0, 1, 0] },   // hero worm's-eye (feel small)
+      low:     { dir: [0.12, -0.16, 1],  up: [0, 1, 0] },
       top:     { dir: [0.0001, 1, 0.0001], up: [0, 0, -1] },
-      // Lost Lagoon rotunda verification angles: winclose looks square at the (+x,+z) window {0} face
-      // (rule the pointed-arch lancet); back looks at the intact −z hemisphere (exterior gilt must = 0).
-      winclose: { dir: [0.90, 0.20, 0.40], up: [0, 1, 0] },
-      back:     { dir: [0.30, 0.28, -1],   up: [0, 1, 0] },
     };
 
     let built = null;
@@ -83,8 +83,6 @@
       built.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       built = null;
     }
-    // Build one archetype (key) with studio opts {single, gapScale}. Cached-free:
-    // every call rebuilds (cheap — one archetype).
     function build(key, opts) {
       dispose();
       built = buildArchetypeMesh(key, opts || {});
@@ -92,7 +90,6 @@
       built.updateMatrixWorld(true);
       return built;
     }
-    // Fit camera so the subject box fills fillFrac of the frame from dir.
     function fit(dir, up, fillFrac) {
       _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
       const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
@@ -108,19 +105,17 @@
     function render() { renderer.render(scene, camera); }
     function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
 
-    // ── public API (propstudio.mjs drives these) ──────────────────────────────
-    window.psKeys = () => frozenPropKeys();
-    // Full render: (key, opts, angle, bg, rig, fill).
+    // ── public API (calstudio.mjs drives these) ────────────────────────────────
+    window.psKeys = () => calderaPropKeys();
     window.psRender = (o) => {
       build(o.key, o.opts || {});
-      setBg(o.bg || 'pale');
-      setRig(o.rig || 'sunset');
+      setBg(o.bg || 'dark');
+      setRig(o.rig || 'ember');
       const a = ANGLES[o.angle] || ANGLES.front;
       fit(a.dir, a.up, o.fill);
       render();
       return true;
     };
-    // Reframe SAME built subject to another angle/bg/rig (no rebuild).
     window.psReframe = (o) => {
       if (o.bg) setBg(o.bg);
       if (o.rig) setRig(o.rig);
@@ -130,13 +125,13 @@
       return true;
     };
 
-    // ── in-page contact-sheet compositing (dragonstudio pattern) ──────────────
+    // ── in-page contact-sheet compositing ──────────────────────────────────────
     const _sheet = document.getElementById('sheet');
     window.psSheetInit = (cols, rows, cell) => {
       _sheet.width = cols * cell; _sheet.height = rows * cell;
       _sheet.style.display = 'block';
       const ctx = _sheet.getContext('2d');
-      ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height);
+      ctx.fillStyle = '#140806'; ctx.fillRect(0, 0, _sheet.width, _sheet.height);
       _sheet.__cell = cell; _sheet.__cols = cols;
       sizeGL(cell);
       return true;
@@ -149,12 +144,12 @@
       if (label) {
         ctx.font = '600 20px system-ui, sans-serif'; ctx.textBaseline = 'top';
         ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 12, oy + 12);
-        ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 12, oy + 12);
+        ctx.fillStyle = '#ffd08a'; ctx.fillText(label, ox + 12, oy + 12);
       }
       return true;
     };
 
-    window.__ps = { scene, camera, renderer, group: () => built, THREE };
+    window.__ps = { scene, camera, renderer, group: () => built };
     try { renderer.setSize(600, 600, false); window.__ready = true; }
     catch (e) { window.__pserr((e && e.stack) || String(e)); throw e; }
   </script>

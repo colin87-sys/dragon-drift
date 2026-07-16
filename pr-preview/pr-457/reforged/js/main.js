@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul, godrayTint } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -15,7 +15,7 @@ import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt, flowColliderBoxes } from './obstacles.js';
-import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
+import { initHazards, addHazard, updateHazards, resetHazards, debugVentStates } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
 import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
@@ -25,7 +25,7 @@ import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -379,6 +379,11 @@ if (urlParams.has('debug')) {
     },
     // N6 hero-shadow seams: silhouette on/off + the RT coverage (proves the pass ran).
     shadow: { on: contactShadowSilhouette, coverage: () => heroShadowCoverage(renderer), maskURL: () => heroShadowMaskURL(renderer), spriteLeak: heroShadowSpriteLeak },
+    // Capture hook: drop a Caldera geyser vent a fixed distance ahead (with an optional forced
+    // cycle phase) so a tool can frame the vent-site presentation close up in the biome lighting.
+    spawnVent: (ahead = 40, x = 0) => addHazard({ dist: player.dist + ahead, x, warn: BIOMES[3].hazard.warn, radius: BIOMES[3].hazard.radius, type: 'geyser', phase: 0 }),
+    clearVents: () => resetHazards(),   // capture hook: drop all live vents so a shot frames exactly one
+    ventStates: () => debugVentStates(),   // capture hook: read vent phase (the cycle runs on the render clock)
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Push the boss schedule out of the way (or restore it) so a stretch of
@@ -1298,6 +1303,7 @@ let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
 const _sunProj = new THREE.Vector3();   // sun world dir → screen NDC (god-rays)
 const _camFwd = new THREE.Vector3();      // camera forward, for the sun-facing gate
+const _dragonProj = new THREE.Vector3();  // dragon world pos → screen X (gauntlet follow)
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -1860,6 +1866,14 @@ function tick() {
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    // GAUNTLET FOLLOW (owner ruling 2026-07-16): project the dragon and let the
+    // vitals cluster ride under it — ui.js damps/clamps/writes (transform-only,
+    // strictly visual; the world is never touched). Holds pose outside play.
+    if (game.state === 'playing') {
+      _dragonProj.set(player.position.x, player.position.y, -player.dist).project(camera);
+      ui.gauntletFollow(_dragonProj.z > 1 ? null
+        : (_dragonProj.x * 0.5 + 0.5) * window.innerWidth, dt);
+    }
     updateBossBar();   // EMBERSIGHT H5 — drain-lag ease + off-screen threat chevrons
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's
@@ -1890,8 +1904,12 @@ function tick() {
       // N9: ease the shafts down as clouds drift across the sun (damped in env;
       // getCloudSunCover() is 0 when clouds are off → shipped intensity).
       const cloudGate = 1 - 0.75 * getCloudSunCover();
+      // godrayMul() meters the shared shaft fan per biome (seam-lerped; 1 = shipped);
+      // godrayTint() warms it per biome. Lumen Mire's "nothing shines from the sky" night
+      // keeps only a dim, amber residue that reads as glow-haze, not a sun.
       setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
-        Math.min(sunFacing, 1) * 0.6 * cloudGate);
+        Math.min(sunFacing, 1) * 0.6 * cloudGate * godrayMul());
+      setGodRayTint(godrayTint());
     } else {
       setGodRaySun(0.5, 0.8, 0);
     }

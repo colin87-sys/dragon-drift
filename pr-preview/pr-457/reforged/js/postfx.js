@@ -136,6 +136,11 @@ export function setGodRaySamplesSaver(on) {
 export function setGodRaySun(uvX, uvY, intensity) {
   _grSunX = uvX; _grSunY = uvY; _grIntensity = intensity;
 }
+// Per-biome god-ray shaft tint (env-driven; shipped default = 1.0,0.9,0.72 warm-white).
+// A night biome warms the residual shafts to an amber glow-haze. THREE.Color (r/g/b in 0-1).
+export function setGodRayTint(c) {
+  if (postfx.godRayPass) postfx.godRayPass.uniforms.uTint.value.set(c.r, c.g, c.b);
+}
 // ARENA (PR-B): THE UNVEILED HEAVEN swells the god-rays (the #1 holy carrier — a gallery of light
 // shafts). Bounded by a HARD authored cap so the boosted shafts never lift the effective bullet-
 // background luminance past the fairness bar (the byte-space contrast gate can't see the shader's

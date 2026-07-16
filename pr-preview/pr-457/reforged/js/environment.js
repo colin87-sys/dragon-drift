@@ -21,6 +21,13 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 // Aurora Shallows: the sky-splice controls ride through environment too.
 export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite };
+// Per-biome god-ray fan scale (seam-lerped in computeEnv; 1 = shipped/byte-identical).
+// A night biome meters the shared sun-shaft fan down (Lumen Mire). Read by main.js.
+let _godrayMul = 1;
+export function godrayMul() { return _godrayMul; }
+// Per-biome god-ray shaft tint (seam-lerped; shipped warm-white = byte-identical). Read by main.js.
+const _godrayTint = new THREE.Color(1.0, 0.9, 0.72);
+export function godrayTint() { return _godrayTint; }
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -92,7 +99,7 @@ const PROP_NOISE_HEAD = /* glsl */`
   }
   void main() {`;
 
-function addPropDetail(mat) {
+function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
     assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
@@ -118,10 +125,15 @@ function addPropDetail(mat) {
         // is 1.0 and 0.86+0.26*_pn ≥ 0.86 > 0.62, so the floor never engages.
         diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
+        totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
+        // CALDERA self-lit floor: fold the baked value-ladder (vColor) into emissive so
+        // the hot ember belly stays lit when a dark basalt mass silhouettes against the
+        // bright ember horizon (vColor alone only modulates DIFFUSE → dies backlit).
+        totalEmissiveRadiance *= vColor.rgb;` : ''}`);
   };
-  // Own cache bucket so these never share a program with plain standard mats.
-  mat.customProgramCacheKey = () => 'propDetail';
+  // Own cache bucket so these never share a program with plain standard mats (the
+  // ladder variant gets its own bucket — it references vColor / compiles differently).
+  mat.customProgramCacheKey = () => (ladderEmissive ? 'propDetailLadder' : 'propDetail');
   return mat;
 }
 
@@ -135,7 +147,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xe2bd8a, emissive: 0x2a1a08, emissiveIntensity: 0.2 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x1d4438, emissive: 0x0a3328, emissiveIntensity: 0.4 }),   // night moss
+      new THREE.MeshStandardMaterial({ ...opts, color: 0x0d1410, emissive: 0x0a1508, emissiveIntensity: 0.1 }),   // 4 LUMEN MIRE dead/wet matter — near-black warm-neutral bark/root/mud; "matter drinks" (light-absorbing); the low emissive is only a crush floor, never a light source
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
       new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
     ],
@@ -144,13 +156,54 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xb56a40, emissive: 0x251005, emissiveIntensity: 0.2 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xd8f6ff, roughness: 0.22, emissive: 0x3fc8e8, emissiveIntensity: 0.85 }),   // Sunset Glacier: the CYAN CORE — the light inside the ice (Candle slivers + Sail panes only; warm is NEVER emissive)
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x4dffd0, roughness: 0.35, emissive: 0x18d0a0, emissiveIntensity: 1.0 }), // biolume caps
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 0.9 }), // 4 LUMEN MIRE living amber glow — firefly-gold gills/motes/lanterns; "life glows" (the ONLY emitter); off-teal by construction (~562nm warm, never 490–510nm)
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
       new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
     ],
   };
   for (const m of mats.primary) addPropDetail(m);
   for (const m of mats.accent) addPropDetail(m);
+  // EMBERFALL CALDERA new-kit materials (CALDERA-BIBLE.md §5) — kept SEPARATE from the
+  // legacy primary/accent[3] (which stay flat for ?props=v1). The primary is a DARK
+  // basalt whose carved read comes entirely from the inverted value ladder: color white
+  // so the baked vColor stops (hot ember belly / ash-grey crust / near-black vertical)
+  // show through, run through addPropDetail(ladderEmissive) so the belly stays lit
+  // backlit. A warm emissive BASE biases the folded emissive toward ember (belly glows,
+  // crown reads dark) — the theology's "mass is dark; light is a wound" made material.
+  mats.calderaPrimary = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.42, metalness: 0.06,
+    emissive: 0xff5a20, emissiveIntensity: 0.5,
+  }), true);
+  // The magma accent — hot orange-red, graded white-hot only inside recessed throats
+  // (per-archetype). vertexColors OFF so it ignores the ladder bake on shared geometry.
+  mats.calderaAccent = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xff6a24, roughness: 0.4, metalness: 0.05, emissive: 0xff3808, emissiveIntensity: 1.0,
+  }));
+  // The FOIL material (CALDERA-BIBLE.md §4.4) — desaturated warm-dark basalt, NO ladder and
+  // NO glow: the bare dark mass whose whole job is to make the lit archetypes feel earned.
+  // flatShading facets + weathering noise carry the form; a low emissive floor keeps it from
+  // crushing to pure void without ever reading as a light source. (Used by clinker.)
+  mats.calderaFoil = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0x2b1d18, roughness: 0.72, metalness: 0.04, emissive: 0x160a06, emissiveIntensity: 0.14,
+  }));
+  // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
+  // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
+  // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
+  // drowned slate below). Warm-neutral emissive base so the jade band survives backlight (ladderEmissive
+  // fold) WITHOUT the stone ever reading as a light source — "stone is a record, not a light."
+  mats.lagoonStone = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.62, metalness: 0.04,
+    emissive: 0xc7cbae, emissiveIntensity: 0.26,   // lower + cooler base so the diffuse jade tide-band survives (not washed to cream)
+  }), true);
+  // GILT accent — ancient temple gold, seen ONLY inside recessed aperture reveals (arch intrados,
+  // oculus rim, belfry). vertexColors OFF so it ignores the tide bake on shared geometry.
+  mats.gilt = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffd28a, roughness: 0.4, metalness: 0.08, emissive: 0xffb040, emissiveIntensity: 0.65,
+  }));
+  // FOIL — the bare no-glow masonry (wrackstone), NO ladder, NO gilt: the silence that earns the gilt.
+  mats.lagoonFoil = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0x6f7a68, roughness: 0.74, metalness: 0.03, emissive: 0x1a241f, emissiveIntensity: 0.12,
+  }));
   return mats;
 }
 let propMats = null;
@@ -179,6 +232,107 @@ function mergeParts(parts, biomeIdx) {
   }
   const geometry = mergeGeometries(geos, true);
   bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  return { geometry, materials: mats };
+}
+
+// EMBERFALL CALDERA value ladder (CALDERA-BIBLE.md §5) — the INVERTED, light-from-below
+// sibling of the Frozen ice ladder. Bakes a per-face 3-stop vertex-colour ladder onto a
+// merged, NON-INDEXED, flat-shaded prop geometry from each triangle's geometric normal,
+// keyed to world-DOWN (the lava floor is the light source): DOWN-faces = hot ember belly,
+// UP-faces = ash-grey cooled crust (hue nudged cool-off the ember sky so crowns separate
+// in silhouette), the verticals = near-black smouldering basalt. Zero triangle cost;
+// turns flat dark basalt into carved, bottom-lit mass. Caldera's OWN stops — never the
+// Frozen ice hues (the Part B leak the mechanical grep guards).
+const _CAL_BELLY = [0.98, 0.30, 0.06];   // HOT saturated ember catch-light (down-faces) — THE BELLY GLOWS
+const _CAL_CRUST = [0.36, 0.31, 0.33];   // ash grey-mauve cooled crust (up-faces), off-orange — the crown,
+                                         // distinct from the near-black verticals so tops read as cooled crust.
+const _CAL_BASALT = [0.085, 0.06, 0.055]; // NEAR-BLACK warm basalt (verticals) — the dark mass; the wide
+                                          // value range from black flank to hot belly is what carries a
+                                          // dark-mass hero against the ember sky (Fable r1: verticals too light).
+function bakeCalderaLadder(geo) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+    const d = -nr.y;                                             // world-DOWN axis: down-faces (nr.y<0) → d>0 → hot
+    const yc = (a.y + b.y + c.y) / 3;                            // face-centroid height (unit space, pre-scale)
+    // The ember belly fires ONLY where the fire lives: LOW (yc ≤ 0.30 of unit height) AND
+    // down-facing (d > 0.28, to catch the undercut plinth skirt). A HIGH down-face — a
+    // capstone/overhang underside near the crown — is NOT belly: the crown stays dark
+    // (theology). Up-faces are ash crust; everything else near-black basalt. (Fable r3 D1:
+    // the wide threshold was glowing the leaning capstone's tipped faces — a crown-glow defect.)
+    const s = (yc <= 0.30 && d > 0.28) ? _CAL_BELLY : d < -0.30 ? _CAL_CRUST : _CAL_BASALT;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// Merge a Caldera new-kit archetype: force NON-INDEXED parts → ≤2 material groups → bake
+// the inverted value ladder → bake AO. Primary group = the ladder material (reads vColor);
+// accent group = magma (vertexColors off, ignores the bake on the shared geometry).
+// Coexistence: ONLY the new Caldera archetypes call this; every other biome's mergeParts
+// path is byte-identical (props are render-only, so determinism is untouched regardless).
+function mergeCalderaParts(parts, opts = {}) {
+  const groups = [[], []];
+  for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
+  const geos = [];
+  const mats = [];
+  for (let m = 0; m < 2; m++) {
+    if (!groups[m].length) continue;
+    geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
+    // opts.foil → the dark no-glow foil material for the mass (clinker); else the ladder primary.
+    mats.push(m === 0 ? (opts.foil ? propMats.calderaFoil : propMats.calderaPrimary) : propMats.calderaAccent);
+  }
+  const geometry = mergeGeometries(geos, true);
+  if (!opts.foil) bakeCalderaLadder(geometry);   // the foil carries NO ladder (stays uniformly dark)
+  bakeAO(geometry);
+  return { geometry, materials: mats };
+}
+
+// THE LOST LAGOON value ladder (LOST-LAGOON-BIBLE.md §3) — a THIRD ladder, distinct from both the
+// Frozen ice ladder (normal-keyed, sun) and the Caldera ember ladder (normal-keyed, world-DOWN fire).
+// The tide ladder is POSITION-keyed: per-face centroid HEIGHT paints material history the tide left,
+// a horizontal shoreline stain crossing every face (readable in side elevation, unlike Caldera's
+// underside-only belly). BLEACHED bone-amber crown above the old tide / JADE life-band AT the
+// waterline (the saturated hero stop) / DROWNED slate below. Zero triangle cost. Lagoon's OWN stops —
+// never the Caldera _CAL_ or Frozen _FROST hues (the Part B leak the symmetric mechanical grep guards).
+const _LAG_BLEACH = [0.902, 0.827, 0.659]; // 0xe6d3a8 sun-bleached bone-amber (above the old tide)
+const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop)
+const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline)
+function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i += 3) {
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;   // face-centroid height (unit space, pre-scale)
+    const s = yc > waterY + bandH ? _LAG_BLEACH : yc < waterY ? _LAG_DROWN : _LAG_JADE;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// Merge a Lost Lagoon new-kit archetype: NON-INDEXED parts → ≤2 material groups → bake the tide
+// ladder → bake AO. Primary group = lagoonStone (reads vColor); accent group = gilt (vertexColors
+// off, ignores the bake on the shared geometry). opts.foil → the no-ladder no-glow lagoonFoil mass
+// (wrackstone). Mirrors mergeCalderaParts; render-only, so determinism is untouched. (Lagoon code
+// greps clean of _CAL_/caldera/frost; the symmetric grep keeps both kits leak-free.)
+function mergeLagoonParts(parts, opts = {}) {
+  const groups = [[], []];
+  for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
+  const geos = [];
+  const mats = [];
+  for (let m = 0; m < 2; m++) {
+    if (!groups[m].length) continue;
+    geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
+    mats.push(m === 0 ? (opts.foil ? propMats.lagoonFoil : propMats.lagoonStone) : propMats.gilt);
+  }
+  const geometry = mergeGeometries(geos, true);
+  if (!opts.foil) bakeTideLadder(geometry);   // the foil carries NO ladder (bare masonry)
+  bakeAO(geometry);
   return { geometry, materials: mats };
 }
 
@@ -213,10 +367,26 @@ function crevasseCore({ x = 0, y = 0.45, z = 0.0, h = 0.5, w = 0.07, seg = 3, ga
 const _envParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const PROPS_V1 = _envParams.get('props') === 'v1';
+// DEBUG-ONLY (default off): `?hero=<archetype>` pins that archetype's yaw so its designed
+// front faces down-lane for the in-context bar-setting render. Skips the rnd() rotY init, so it is
+// determinism-UNSAFE and must never be set in shipping — the gate is that the param is absent by default.
+const HERO_POSE = _envParams.get('hero');
 // Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
 const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier (no-spike glacier ice): bergwall/serac/terrace/icetower/glacierwall/sungate(hero)
 const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
+// EMBERFALL CALDERA overhaul (CALDERA-BIBLE.md) — same flip idiom. Default (v2) = the
+// new volcanic kit (colonnata hero + roster as it lands, light-from-below ladder);
+// `?props=v1` restores the legacy basalt/vent cones. Kit is built up over PRs; while
+// it grows the biome is intentionally sparser than the legacy roster (restraint > clutter).
+const calderaNew = PROPS_V1 ? [] : [3];  // colonnata (+ flowlobe/fumarole/clinker/riftwall/riftfang to come)
+const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the kit completes)
+// THE LOST LAGOON overhaul (LOST-LAGOON-BIBLE.md) — consolidates biomes 0+1. Default (v2) = the
+// new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
+// restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
+// (they coexist in-field; the full legacy retirement + Wastes retire-from-CYCLE is the final PR).
+const lagoonNew = PROPS_V1 ? [] : [0];   // rotunda (+ arcade/rootbastion/lilyraft/wrackstone/campanile/sentinel to come)
+const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once the kit completes)
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -454,7 +624,7 @@ const ARCHETYPES = {
   },
   // Emberfall Caldera: jagged basalt spire split by a glowing magma seam.
   basalt: {
-    step: 18, biomes: [3], matIndex: 3,
+    step: 18, biomes: calderaOld, matIndex: 3,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.3, 0.52, 0.95, 5), { y: 0.48 }) },
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.17, 0.3, 0.55, 5), { x: 0.24, y: 0.6, rz: 0.2 }) },
@@ -464,12 +634,204 @@ const ARCHETYPES = {
   },
   // Squat fumarole cone with a glowing throat.
   vent: {
-    step: 42, biomes: [3], matIndex: 3,
+    step: 42, biomes: calderaOld, matIndex: 3,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.ConeGeometry(0.6, 0.85, 6), { y: 0.42 }) },
       { mat: 1, geo: xform(new THREE.CylinderGeometry(0.16, 0.24, 0.12, 6), { y: 0.86 }) },
     ], 3),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 6), h: 3 + rnd() * 3.5, r: 3 + rnd() * 2, tilt: 0 }),
+  },
+  // EMBERFALL CALDERA — THE HERO (CALDERA-BIBLE.md §4.1/§9): a columnar-basalt palisade
+  // (Giant's Causeway / Svartifoss) — a broad terrace from which fused hex column RANKS
+  // rise at DESCENDING heights (organ-pipe crest broken mid-song), one column snapped, one
+  // toppled where it fell, an overhanging capstone against the descent. 7 offset-stacked
+  // interpenetrating parts, ~140 tris, ONE material (bare dark mass — the biome's thesis;
+  // its "fire" is only the inverted ladder's hot belly + its reflection). The lean/broken
+  // read is built by radial x+z OFFSET-stacking, NEVER internal rotation — the (r,h,r)
+  // instance scale shears internal tilts flat. rotY re-randomises on recycle, so features
+  // spread in x AND z → broad from every yaw. flatShading hex facets give the vertical rib.
+  colonnata: {
+    step: 53, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 }, // hero: clusters hard → one colossus per archipelago, off open mirror at the seam
+    // A PACKED PALISADE of SLENDER pentagonal basalt columns (Giant's Causeway) at a
+    // BROKEN, non-monotonic crest — organ pipes snapped mid-song, one toppled where it
+    // fell, an overhanging capstone. Columns are open-bottomed (buried in the plinth) +
+    // a matching pentagon top-cap (15 tris each) so 7 fit in budget → the vertical rib
+    // + the polygonal top-mosaic (the flying game's plan view) both read. The broken read
+    // is pure radial x/z OFFSET-stacking — never internal tilt (the (r,h,r) scale shears
+    // it flat). flatShading on the penta facets gives the fluting; the inverted-taper
+    // plinth undercut + the overhangs carry the hot ember belly at the waterline. (Fable
+    // r1 3.2→ deltas D1–D5: more/slimmer columns, break the staircase, fix the belly + plan.)
+    build: () => {
+      // [x, z, height, radius, yaw] — 7 slender columns, ~3.5:1, packed ≥35%, staggered
+      // front/back, crest NON-monotonic (1.05, 0.80, 0.92, 0.62, 0.28-stump, 0.50, 0.72).
+      const cols = [
+        [-0.44,  0.05, 1.05, 0.125, 0.20],
+        [-0.27, -0.15, 0.80, 0.130, 0.95],
+        [-0.11,  0.12, 0.92, 0.120, 1.65],
+        [ 0.08, -0.10, 0.62, 0.130, 0.50],
+        [-0.02,  0.30, 0.28, 0.110, 2.20],   // the SNAPPED STUMP — the broken beat
+        [ 0.26,  0.10, 0.50, 0.125, 1.15],
+        [ 0.45, -0.06, 0.72, 0.115, 0.35],
+      ];
+      const parts = [];
+      for (const [x, z, h, r, ry] of cols) {
+        // open-ended penta shaft (10 tris) — sides are vertical → near-black basalt flank
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(r, r, h, 5, 1, true), { x, z, y: h / 2, ry }) });
+        // matching penta top cap (5 tris), faces UP → ash crust; forms the plan-view mosaic
+        parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(r, 5), { x, z, y: h, rx: -Math.PI / 2, ry }) });
+      }
+      // Plinth — LOW subordinate cooled terrace, open-ended (10 tris; top hidden by the
+      // column pack, bottom at the waterline) with an INVERTED taper (rt>rb) so its
+      // overhanging undercut skirt faces DOWN → the hot ember waterline seam (Fable D4).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.40, 0.14, 5, 1, true), { y: 0.07, ry: 0.30, sx: 1.28, sz: 1.02 }) });
+      // Toppled column — a fallen shaft abutting the stump, lying full 90° (survives the
+      // (r,h,r) shear), capped both ends so the pentagon cross-section is the payoff. Slimmed
+      // ~10% (Fable r3 D5 — front-on it verged on shipping-container).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.10, 0.44, 5), { x: -0.06, z: 0.34, y: 0.10, rz: Math.PI / 2, ry: 0.40 }) });
+      // Capstone — a broken slab sliding OFF the tall column to one side (asymmetric, well
+      // tilted — not a centred "T"/hammer); overhangs the right flank, its underside a small
+      // physically-motivated ember patch (belly, not accent — keep the crown dark).
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.11, 0.25), { x: -0.27, z: 0.01, y: 1.05, ry: 0.35, rz: -0.34 }) });
+      return mergeCalderaParts(parts);
+    },
+    // Fairness AND composition (§9): draw r FIRST, couple x to it (ρ≈0.67, plinth-driven;
+    // widen propclearance SCOPE_BIOME to 3 and re-tune). Inner edge = |x|−ρ·r ≥ 14.5.
+    // World ratio 2·ρ·r / h ≈ 1.34·r/h → h 11–17 vs r 24–36 keeps it ≥1.8:1 wider-than-tall
+    // (Fable r3 D3). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion);
+    // the lean lives in the geometry.
+    place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (16 + 0.78 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },  // propclearance: ρ 0.654·sMax 1.12 → inner ≥16 (clears the ±16 gate veil; tall hero)
+  },
+  // EMBERFALL CALDERA — THE LOW REST + glow carrier 1 (CALDERA-BIBLE.md §4.2): a pahoehoe
+  // lava-flow tongue — a low, WIDE, ropey crust of offset-stacked plates with rounded lobed
+  // fronts, an ember-crack network glowing recessed in the plate seams. The horizontal that
+  // makes the verticals read colossal (terrace's role, worn as a lobed tongue not a stepped
+  // shelf). Primary read is TOP-DOWN: a dark tongue veined with fire. Lowest form → carries
+  // the most fire (the glow-altitude rule). ~5:1 wide. Glow = magma accent recessed BELOW
+  // the plate tops (the LOW-in-cracks address), not a strip on a face.
+  flowlobe: {
+    step: 23, biomes: calderaNew, matIndex: 3, comp: { floor: 0.50, sMin: 0.92, sMax: 1.06 }, // low rest: breathes mildly (stays the floor baseline, incl. at the seam)
+    build: () => mergeCalderaParts([
+      // THE MAGMA CORE (mat 1) — a wide low glowing interior plate, stretched along the flow
+      // axis (z). The dark crust islands above cover most of it; it shows ONLY through the
+      // joints and around the plate edges → an organic joint-following lava-vein network,
+      // recessed and walled by construction (Fable r9 D1: fire lives BETWEEN the crusts, not
+      // drawn ON them — that killed the rune/LED read).
+      { mat: 1, geo: xform(new THREE.CylinderGeometry(0.54, 0.58, 0.15, 6), { y: 0.075, ry: 0.20, sx: 1.12, sz: 1.5 }) },
+      // DARK CRUST ISLANDS (mat 0 = foil, so the tongue is the biome's BLACK BASELINE — Fable
+      // D2) seated ON the core, each proud (top ~0.185) so its edges WALL the magma veins; set
+      // with gaps between them and short of the core rim → magma shows as seams + a molten edge.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.40, 0.17, 6), { x: -0.26, z: -0.20, y: 0.10, ry: 0.5, sx: 1.25, sz: 1.5 }) },   // rear-left crust (nudged out → opens ONE interior seam across the plan, Fable r11 free delta)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.38, 0.17, 6), { x: 0.28, z: -0.05, y: 0.10, ry: 1.2, sx: 1.18, sz: 1.45 }) },   // right crust (central seam between L/R)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.33, 0.15, 6), { x: -0.03, z: 0.35, y: 0.09, ry: 0.8, sx: 1.25, sz: 1.15 }) },   // mid-front crust (cross seams)
+      // two staggered front lobe NOSES (foil) — the advancing tongue with molten between them
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.27, 0.12, 5), { x: -0.28, z: 0.60, y: 0.065, ry: 0.5, sx: 1.1 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.23, 0.11, 5), { x: 0.29, z: 0.57, y: 0.06, ry: 1.2 }) },
+    ], { foil: true }),
+    // LOW horizontal REST: normalized yMax ~0.28 → world height h·0.28. r 10–20 WIDE, h 8–14
+    // small → world ~18–34 wide × ~2.5–4.5 tall ≈ 5:1. ρ≈0.9 (wide plates); inner edge
+    // |x|−ρ·r ≥ 14.5 → couple x = 14.5 + 0.92·r. Explicit tilt (hugs the route, slight roll).
+    place: (side, rnd) => { const r = 10 + rnd() * 10; return { x: side * (15 + 1.05 * r + rnd() * 5), h: 8 + rnd() * 6, r, tilt: side * (rnd() * 0.06 - 0.02) }; },  // propclearance: ρ 0.944·sMax 1.06 → inner ≥14.5 (low rest)
+  },
+  // EMBERFALL CALDERA — THE BARE FOIL (CALDERA-BIBLE.md §4.4): an aa-clinker / breadcrust
+  // rubble mound — chaotic angular jumble, NO glow, one material. The silence that makes
+  // flowlobe's veins and fumarole's throat feel earned; dark punctuation across the lava.
+  // Icosahedra read as angular crust chunks (not the smooth boulders the Frozen serac gate
+  // rejected — here the chaotic pile IS the identity). ~1.6:1.
+  clinker: {
+    step: 29, biomes: calderaNew, matIndex: 3, comp: { floor: 0.55, sMin: 0.90, sMax: 1.08 }, // foil: mild breathing dark punctuation (stays at the seam)
+    build: () => mergeCalderaParts([
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.42, 0), { y: 0.30, sx: 1.5, sy: 0.85, sz: 1.2, ry: 0.4 }) },       // main mound
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.36, z: 0.10, y: 0.22, sx: 1.2, sy: 0.8, ry: 1.1 }) }, // flank chunk
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: -0.32, z: -0.12, y: 0.20, sy: 0.9, ry: 2.0 }) },       // other flank
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: 0.08, z: 0.28, y: 0.42, sx: 1.3, sy: 0.7, ry: 0.7 }) }, // upper overhang chunk (off-centre high point)
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: -0.10, z: 0.30, y: 0.14, ry: 1.6 }) },                 // foot rubble, half-buried
+    ], { foil: true }),
+    // FOIL rubble mound: broad, ~1.6:1. ρ≈0.75. r 5–11, h 5–9 → wider than tall.
+    place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (15.2 + 0.82 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.10 - 0.04) }; },  // propclearance: ρ 0.689·sMax 1.08 → inner ≥14.5 (foil; tilt trimmed for lean margin)
+  },
+  // EMBERFALL CALDERA — MID MASS + glow carrier 2 (CALDERA-BIBLE.md §4.3): a fused cinder /
+  // spatter-cone cluster (2–3 squat cones, breached crater rims) with ONE sunken glowing
+  // THROAT recessed inside the largest crater — invisible from the side, a hot pool from
+  // above and on approach (the purest expression of the LOW-in-cracks/throats glow address).
+  // Kin to the geyser vent sites — the world explains its own hazard. ~2:1 wide.
+  fumarole: {
+    step: 47, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.15, sMin: 0.90, sMax: 1.10 }, // mid: clusters into the archipelagos, off the seam
+    build: () => mergeCalderaParts([
+      // main cinder cone — an OPEN-TOPPED frustum (openEnded → you see DOWN into the crater to
+      // the glowing throat; a closed cap would hide it), never a traffic-cone point
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.54, 0.74, 7, 1, true), { y: 0.37, ry: 0.2 }) },
+      // second fused cone, offset + lower (breaks the main rim asymmetrically)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.40, 0.52, 6), { x: 0.36, z: 0.10, y: 0.26, ry: 0.7 }) },
+      // third spatter mound, other side
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.30, 0.36, 6), { x: -0.32, z: 0.14, y: 0.18, ry: 1.3 }) },
+      // rim-breach wedges — asymmetric broken lip on the main crater AND the second cone
+      // (no neat machined rings anywhere; Fable r13 D3).
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.22, 0.16), { x: -0.20, z: -0.18, y: 0.66, rz: 0.4, ry: 0.3 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.16, 0.13), { x: 0.16, z: 0.16, y: 0.70, rz: -0.5 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.16, 0.12), { x: 0.44, z: 0.02, y: 0.50, rz: 0.6, ry: 0.4 }) },   // breach the SECOND cone's rim
+      // the SUNKEN THROAT — a magma pool (mat 1) recessed DEEP in the crater (rim ~0.74, pool
+      // top ~0.62), only ~⅓ of the footprint (Fable r13 D2 — the MID form must UNDER-fire the
+      // floor flowlobe). Occluded in side elevation by the open cone's near wall; a hot pool
+      // only from above / on oblique approach (the withheld-glow reveal on climb/bank).
+      { mat: 1, geo: xform(new THREE.CylinderGeometry(0.20, 0.15, 0.10, 7), { y: 0.57 }) },
+    ], { foil: true }),   // foil-dark cones (Fable D1) so the throat is the ONLY bright event
+    // MID mass, ~2:1. ρ≈0.62 (cluster spread). r 7–13, h 6–11. Explicit tilt.
+    place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (15.5 + 0.88 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },  // propclearance: ρ 0.754·sMax 1.10 → inner ≥15.5 (mid)
+  },
+  // EMBERFALL CALDERA — THE DISTANT MASSIF (CALDERA-BIBLE.md §4.5): the caldera RIM — a long,
+  // dark, flat-topped escarpment banded with HORIZONTAL strata (distinguished from the hero's
+  // VERTICAL ribs by axis), sinking into the scorched-dark far fog. No glow (the rim is the
+  // oldest, coldest crust). The amphitheatre wall that makes the caldera a PLACE. 5–7:1 wide.
+  riftwall: {
+    step: 89, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.25, sMin: 0.95, sMax: 1.05 }, // massif: mostly-continuous enclosure, thins at the breaths + seam
+    build: () => mergeCalderaParts([
+      // stacked HORIZONTAL strata — each course sinks ≥20% into the one below (NO daylight
+      // through the massif, Fable r13 D1), varied lengths + broken end-steps so the wall
+      // terminates jagged not sawn; a wide 5-sided base stratum so not every edge is 90°.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.56, 0.62, 0.42, 5), { y: 0.18, ry: 1.62, sx: 1.05, sz: 0.62, rz: 0.03 }) },  // base plinth stratum (5-sided)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.90, 0.34, 0.40), { x: -0.08, z: -0.03, y: 0.42, ry: -0.05, rz: -0.04 }) },        // course 2 (bottom 0.25 sinks into base top 0.39)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.30, 0.36), { x: 0.16, z: 0.03, y: 0.64, ry: 0.07, rz: 0.05 }) },            // course 3 (sinks into course 2)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.30, 0.34), { x: -0.28, z: 0.05, y: 0.82, ry: 0.12, rz: -0.10 }) },          // proud OVERHANGING shoulder (asymmetric crown)
+      // broken END-steps — offset chunks that jog the wall's ends (no sawn 90° termination)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.24, 0.26, 0.30), { x: 0.52, z: -0.02, y: 0.36, ry: 0.20, rz: 0.09 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.22, 0.28), { x: -0.54, z: 0.02, y: 0.30, ry: -0.16 }) },
+      // a stepped colonnade band partway up the face (short vertical notches — the columnar echo)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.08, 0.28, 0.10), { x: 0.18, z: 0.20, y: 0.40 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.08, 0.28, 0.10), { x: 0.31, z: 0.20, y: 0.40 }) },
+    ]),
+    // BACKDROP massif (the glacierwall pattern): LARGE r + SMALL h so the stacked courses
+    // stretch WIDE and squash LOW → a long horizontal-banded rim wall, not a totem. ρ≈0.7,
+    // couple x = 26 + 1.0·r (inner edge ≥ 26, far off-lane); foam:false (fog-line). r 30–50 →
+    // world width ~42–70; h 13–20 → world height ~13–20 ≈ 3.5–5:1. Rides the height-fog.
+    place: (side, rnd) => { const r = 30 + rnd() * 20; return { x: side * (26 + 1.0 * r + rnd() * 10), h: 13 + rnd() * 7, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
+  },
+  // EMBERFALL CALDERA — THE RARE TALL PUNCTUATION (CALDERA-BIBLE.md §4.6): a volcanic NECK —
+  // the eroded throat of a dead vent, a single leaning tapered monolith on a BROAD skirt with
+  // a broken asymmetric multi-jag crown. The ONE tall form (landmark). No glow (tallest =
+  // darkest). Lean built by OFFSET-stacking, never internal tilt (the (r,h,r) shear rule).
+  riftfang: {
+    step: 149, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.06, sMin: 0.95, sMax: 1.05 }, // rare tall punctuation: at most one per frame, off the seam
+    build: () => mergeCalderaParts([
+      // A CHUNKY volcanic PLUG (~2.5–3:1, not a needle — Fable r13 rebuild): a broad FLARED
+      // skirt (the mountain eroded away from around the neck) + a half-sunk collar chunk, then
+      // gently-tapering segments that LEAN hard via progressive x/z OFFSETS (never internal
+      // tilt — the (r,h,r) shear rule), capped by a real asymmetric two-jag broken crown.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.86, 0.40, 6), { y: 0.20, ry: 0.2 }) },                 // broad flared skirt
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: -0.44, z: 0.10, y: 0.14, sy: 0.7, ry: 0.6 }) }, // half-sunk collar chunk (eroded debris)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.48, 0.60, 0.48, 6), { x: 0.06, z: 0.02, y: 0.56, ry: 0.5 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.38, 0.50, 0.44, 6), { x: 0.20, z: 0.07, y: 0.96, ry: 1.0 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.29, 0.41, 0.38, 6), { x: 0.40, z: 0.13, y: 1.30, ry: 1.6 }) },  // hard lean out
+      // asymmetric TWO-JAG crown at opposing offsets, ≥0.15 height differential, both off-axis
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.24, 0.42, 5), { x: 0.56, z: 0.10, y: 1.60, rz: -0.34 }) },        // tall jag (far)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.17, 0.26, 5), { x: 0.34, z: 0.22, y: 1.48, rz: 0.40 }) },         // short jag (near, off-axis)
+    ]),
+    // RARE tall PUNCTUATION: the sanctioned tall exception, now ~2.5–3:1 (a plug, not a pin).
+    // ρ≈0.75. Placed at the band EDGES (|x| ≥ 60 via the coupling) so it brackets ASHTALON's
+    // stage. Explicit tilt (stands plumb; the lean is in the geometry).
+    // Height trimmed (top ~30–43 not ~65) + pushed further out (|x| ≥ 62) so the tall spire
+    // BRACKETS the reserved lit horizon band from its EDGES instead of towering into the
+    // central third where ASHTALON's silhouette lands (Fable composition gate §3.7).
+    place: (side, rnd) => { const r = 9 + rnd() * 6; return { x: side * (62 + 0.6 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
@@ -642,6 +1004,129 @@ const ARCHETYPES = {
     // convergence is carried by the offset-stack, not a shear-prone rotation.
     place: (side, rnd) => ({ x: side * (27 + rnd() * 3), h: 38 + rnd() * 8, r: 13 + rnd() * 3, tilt: side * (-0.015 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
   },
+  // THE LOST LAGOON — THE HERO (LOST-LAGOON-BIBLE.md §4.1): a drowned ROTUNDA — a broken
+  // hemispherical dome on a PIERCED drum, the roster's only curved crown. The theology's form-move
+  // is the THROUGH-HOLE: the drum is a ring of piers leaving ARCHED WINDOW gaps, the dome apex is an
+  // OCULUS — all REAL holes (the occlusion-masked god-rays carve shafts through them). One dome flank
+  // collapsed (break faces sky → asymmetric). The tide ladder paints a jade waterline ring on the
+  // piers, bleached crown on the dome. Gilt lives ONLY inside the oculus reveal (the aperture address,
+  // recessed) — never on an outer face, never at the waterline. Guard (Fable pre-assess): ≥3 asymmetric
+  // apertures + oculus in the DOME, so it reads as pierced masonry, NOT Frozen's sun-gate pylon pair.
+  rotunda: {
+    step: 59, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.92, sMax: 1.10 }, // hero: clusters → one colossus per archipelago, off the open-mirror seam
+    build: () => {
+      const parts = [];
+      const nSeg = 11, dth = (Math.PI * 2) / nSeg;
+      const open = new Set([0, 2, 3]);        // window {0} (+x) + the wide collapse {2,3} (adjacent, ~+z); asymmetric keyhole
+      const arched = new Set([0]);            // the intact window gets a pointed-arch lintel (the biome's arch vocabulary)
+      const domePhi = 2.22;                    // dome's missing quarter centred on the drum collapse ({2,3}, ~+z) → one coherent wound facing the studio cameras
+      // BASE PLINTH — a battered skirt at the waterline with a CLOSED TOP (Fable D1): the flying game's
+      // top-down is a shipping camera, so a hollow ribbon shows sky through it. Truncated-cone side wall
+      // + an up-facing top disc → a solid jade annulus in plan; the never-seen underside is skipped.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 8, 1, true), { y: 0.08 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.60, 8), { y: 0.16, rx: -Math.PI / 2 }) });
+      // PIERCED DRUM WALL — HORIZONTAL EDGE LOOP at the tide-band height (y=0.22): every triangle sits
+      // inside ONE ladder stop, so the jade waterline is a DEAD-LEVEL line, not a per-quad sawtooth
+      // (the position-keyed-ladder tall-face trap: colour is per-face, so any quad straddling the band
+      // splits into a jade tri + a bleach tri along its diagonal). Base r0.63 sinks into the plinth top.
+      // 8 piers × 2 courses; the intact window {0} gets a 2-tri inverted-V lintel → a pointed-arch read.
+      {
+        const rings = [ { y: 0.0, r: 0.63 }, { y: 0.22, r: 0.575 }, { y: 0.60, r: 0.50 } ];
+        const P = (ring, a) => [Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r];
+        const v = [];
+        for (let s = 0; s < nSeg; s++) {
+          if (open.has(s)) {
+            if (arched.has(s)) {   // POINTED-ARCH window: two spandrel fills in the top corners leave a
+              // central void that PEAKS UP to the wall top (a lancet), not a downward apex (Fable r7 —
+              // the peak must point into the mass, never stick up as a fin above the parapet). rArc≈wall.
+              const a0 = s * dth, a1 = (s + 1) * dth, am = (a0 + a1) / 2, rArc = 0.52, yS = 0.40, yTop = 0.60;
+              const SL = [Math.cos(a0) * rArc, yS, Math.sin(a0) * rArc], SR = [Math.cos(a1) * rArc, yS, Math.sin(a1) * rArc];
+              const TLc = [Math.cos(a0) * rArc, yTop, Math.sin(a0) * rArc], TRc = [Math.cos(a1) * rArc, yTop, Math.sin(a1) * rArc];
+              const Ap = [Math.cos(am) * rArc, yTop, Math.sin(am) * rArc];   // apex at the wall top centre
+              v.push(...SL, ...TLc, ...Ap, ...SR, ...Ap, ...TRc);   // outward spandrels; void below peaks up to Ap
+            }
+            continue;
+          }
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          for (let c = 0; c < 2; c++) {
+            const lo = rings[c], hi = rings[c + 1];
+            const p0b = P(lo, a0), p1b = P(lo, a1), p0t = P(hi, a0), p1t = P(hi, a1);
+            v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);   // outward-facing winding
+          }
+        }
+        // JAMB CAPS (Fable r6) — the two collapse cut-ends {2,3} get a return face inset toward centre
+        // so the drum wall shows DEPTH at the wound, not a paper card. Left jamb opens +angle, right −angle.
+        for (const { a, sign } of [{ a: 2 * dth, sign: 1 }, { a: 4 * dth, sign: -1 }]) {
+          const OB = [Math.cos(a) * 0.63, 0.0, Math.sin(a) * 0.63], OT = [Math.cos(a) * 0.50, 0.60, Math.sin(a) * 0.50];
+          const IB = [Math.cos(a) * 0.53, 0.0, Math.sin(a) * 0.53], IT = [Math.cos(a) * 0.40, 0.60, Math.sin(a) * 0.40];
+          if (sign > 0) v.push(...OB, ...OT, ...IT, ...OB, ...IT, ...IB);
+          else v.push(...OB, ...IT, ...OT, ...OB, ...IB, ...IT);
+        }
+        const drum = new THREE.BufferGeometry();
+        drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        drum.computeVertexNormals();
+        drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2)); // match the primitive parts' attribute set for the merge
+        parts.push({ mat: 0, geo: drum });
+      }
+      // CORNICE — short ASYMMETRIC stubs flanking the collapse (a 2-sector run {4,5} + a 1-sector {1}),
+      // the rest fallen (Fable r5: broken entablature reads as accident when asymmetric, not design).
+      {
+        const present = [1, 4, 5];
+        const yb = 0.55, yt = 0.64, rC = 0.52;
+        const v = [];
+        for (const s of present) {
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          const p0b = [Math.cos(a0) * rC, yb, Math.sin(a0) * rC], p1b = [Math.cos(a1) * rC, yb, Math.sin(a1) * rC];
+          const p0t = [Math.cos(a0) * rC, yt, Math.sin(a0) * rC], p1t = [Math.cos(a1) * rC, yt, Math.sin(a1) * rC];
+          v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t);
+        }
+        const corn = new THREE.BufferGeometry();
+        corn.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        corn.computeVertexNormals();
+        corn.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: corn });
+      }
+      // DOME — a broad hemisphere with a TRUE quarter collapsed toward the drum gap (both wounds ~+z →
+      // the collapse reads coherently at elevation). Seated at domeY=0.56 so the rim (y0.56, r0.46) sinks
+      // 0.04 BELOW the drum top (y0.60, r0.50) at EVERY sector — the drum edge occludes the junction, so
+      // there's no full-width air-gap slit where the cornice is absent (Fable r7 root cause). OCULUS at apex.
+      const domeY = 0.56;
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: domeY }) });
+      // INNER LINING (Fable D3) — a concentric shell at 0.43 with REVERSED winding (faces inward) over
+      // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
+      // broken edge → no zero-thickness paper arc from any yaw. The gate condition.
+      {
+        const inner = new THREE.SphereGeometry(0.43, 4, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30);
+        const idx = inner.index.array;
+        for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+        inner.index.needsUpdate = true;
+        inner.computeVertexNormals();
+        parts.push({ mat: 0, geo: xform(inner, { y: domeY }) });
+      }
+      // BROKEN PIER STUMP (Fable r6) — the surviving dome quarter overhangs the gap; at side elevation
+      // that read as a HOVERING dome over a void. A broken pier stump stands UNDER the overhanging rim
+      // at the +angle jamb, reaching toward the dome rim (y≈0.6) — ruins persist where something held,
+      // and the eye accepts the overhang the instant one support touches it.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.12, 0.54, 0.12), { x: Math.cos(2 * Math.PI / 11) * 0.48, z: Math.sin(2 * Math.PI / 11) * 0.48, y: 0.27, ry: 0.5, rz: 0.06 }) });
+      // + one fallen block on the flooded floor at the collapse foot (the tide stains its feet jade).
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.12, 0.13), { x: -0.05, z: 0.42, y: 0.20, ry: 1.1, rz: -0.22 }) });
+      // OCULUS gilt reveal — an INWARD-facing frustum recessed at the apex, extended DOWN into the interior
+      // (Fable D2) so the withheld gold catches from the worm's-eye low-oblique through the collapse. Never
+      // an exterior face — the gold is only sunset trapped inside the hole (r0.12 < oculus rim 0.136).
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 6, 1, true), { y: domeY + 0.35 }) });   // rides down with the dome (apex now ≈domeY+0.44) so the gilt stays recessed below the lip
+      return mergeLagoonParts(parts);
+    },
+    // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
+    // tall (dome). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion).
+    place: (side, rnd) => {
+      const r = 17 + rnd() * 9;
+      // ρ 0.70·sMax 1.10 → 0.77; couple x at 0.80·r so the inner edge = 16 + 0.03·r ≥ 16 clears the ±16
+      // gate veil at every size (colonnata precedent), not just the 14.5 fairness floor.
+      const p = { x: side * (16 + 0.80 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 };
+      if (HERO_POSE === 'rotunda') p.rotY = 0;   // debug: wound (local +z) faces down-lane toward the camera
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -656,11 +1141,21 @@ const FOAM_CFG = {
   // glacierwall floats on the fog line so it takes no collar.
   bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false, sungate: { r: 0.8 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
+  colonnata: { r: 0.86 },   // Caldera hero — broad plinth waterline weld; reads as glowing lava shoreline
+  flowlobe: { rx: 0.52, rz: 0.72 },   // low tongue — elliptical collar wraps the elongated footprint
+  clinker: { r: 0.6 },                // foil rubble mound — round glowing-shoreline collar
+  fumarole: { r: 0.6 },               // cinder-cone cluster — round waterline collar
+  riftwall: false,                    // distant rim massif on the fog line — no collar (bright ring 30+ off-lane = artifact)
+  riftfang: { r: 0.5 },               // volcanic neck — thin collar at the base
+  rotunda: { r: 0.8 },   // Lost Lagoon hero — the drum waterline weld: the jade tide-band doubled in the mirror
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
+// DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
+// posed hero stands alone in the real biome for the bar-setting render (legacy placeholder clutter off).
+if (HERO_POSE) for (const [name, d] of Object.entries(ARCHETYPES)) { if (name !== HERO_POSE && Array.isArray(d.biomes)) d.biomes = d.biomes.filter((b) => b !== 0); }
 
 // --- Diagnostic export (tools/envcount.mjs) — BEHAVIOR-INERT -----------------
 // Builds every archetype headlessly and reports its geometry/material/instance
@@ -711,6 +1206,16 @@ export function buildArchetypeMesh(key, opts = {}) {
 // hardcode a list that could drift from the roster.
 export function frozenPropKeys() {
   return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(2)).map(([k]) => k);
+}
+// Emberfall Caldera studio keys (the live volcanic kit — colonnata + roster as it lands;
+// `?props=v1` swaps in the legacy basalt/vent). Same drift-proof filter as Frozen.
+export function calderaPropKeys() {
+  return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(3)).map(([k]) => k);
+}
+// The Lost Lagoon studio keys (the live drowned-ruins kit — rotunda + roster as it lands;
+// `?props=v1` swaps in the legacy Sanctuary/Wastes props). Same drift-proof filter.
+export function lagoonPropKeys() {
+  return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(0) && d.biomes === lagoonNew).map(([k]) => k);
 }
 
 // --- Lane-clearance audit seam (tools/propclearance.mjs) — BEHAVIOR-INERT ------
@@ -1048,6 +1553,19 @@ function frozenComp(dist) {
   // raised cosine so slots fade in/out along the ramp — a spatial fade, no pops.
   return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.15));
 }
+// EMBERFALL CALDERA composition rhythm (CALDERA-BIBLE.md §3.5) — the negative-space engine.
+// A raised-cosine congregation weight over 4 periods/biome (~375m): props gather into loose
+// archipelagos near ph≈0.2 and clear to open mirror near ph≈0.7, so a few colossal forms read
+// against unbroken burning water (the awe grammar) instead of an even picket field. PURE (no
+// rnd), so gold-determinism is untouched.
+const CALDERA_COMP_PERIODS = 4;
+function calderaComp(dist) {
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const seg = L / CALDERA_COMP_PERIODS;                       // 375m
+  const ph = (local % seg) / seg;
+  return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.20));
+}
 // Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
 // slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
 function compHash(salt, side, slot) {
@@ -1129,6 +1647,29 @@ function writeMatrix(band, i, d) {
     // hero. Renders at full size (k=1) or not at all — never the comp scale lottery.
     const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / (CONFIG.biomeLength / FROZEN_COMP_PERIODS));
     if (heroHash(peakIdx) >= 0.4) active = false;
+  } else if (active && bi === 3) {
+    // EMBERFALL CALDERA composition (CALDERA-BIBLE.md §3). PURE (no rnd) — evaluated after the
+    // rotY init so no rnd() call order changes; props are render-only so the fixture is untouched.
+    // (a) The ARRIVAL open-mirror beat (§3.2): tall/mid families stay OFF the first ~220m of the
+    // biome so the Frozen→Caldera seam reads as burning water + a single first-chord colossus.
+    // SEAM-RELATIVE (Codex review): biomeIndexAt flips to Caldera at the crossfade midpoint,
+    // ~biomeTransition/2 BEFORE the block boundary, so the naive `local < 220` misses the incoming
+    // tail — fold that tail in as a negative seamDelta. Low forms (flowlobe/clinker) stay: the seam
+    // keeps a black floor baseline on the mirror.
+    if (band.def.arrivalPark) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+      if (seamDelta < 220) active = false;
+    }
+    // (b) The negative-space rhythm (§3.5): a raised-cosine congregation weight parks off-beat
+    // instances into archipelagos + open mirror and scales the survivors (bigger in congregations).
+    if (active && band.def.comp) {
+      const g = calderaComp(d.dist);
+      const c = band.def.comp;
+      const density = c.floor + (1 - c.floor) * g;
+      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
+      else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
   }
   // Deck-skim rule (see the window block above), inside a strait2 run window:
   // WIDE archetypes clamp world HEIGHT to the sightline (top = d.h·k·yMax − 0.5 ≤
@@ -1255,6 +1796,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
 
   // --- Biome atmosphere lerp: sky, fog, lights, water all follow the seam.
   const env = computeEnv(playerDist);
+  _godrayMul = env.godrayMul ?? 1;   // exposed for main.js's god-ray gate (seam-lerped)
+  if (env.godrayTint) _godrayTint.copy(env.godrayTint);   // per-biome shaft tint (seam-lerped)
   // ARENA (PR-A) — THE injection: blend the live env scratch toward the void palette (arenaSkin.js) BEFORE
   // the fan-out below, so sky uniforms, scene.fog, sun/hemi, setWaterTint AND updateAmbient all read the
   // overridden scratch. mix 0 ⇒ zero writes ⇒ byte-identical for every other boss + all flight.

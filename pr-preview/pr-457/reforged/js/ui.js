@@ -103,6 +103,13 @@ let lastHeartsLit = -1;        // -1 = no baseline yet (no anim on the first fra
 let lastDenied = false;        // boost-denial edge
 let lastDenyAt = 0;
 let wasSurgeReady = false;     // READY-ignition edge (boss manual surge)
+// GAUNTLET FOLLOW (owner ruling 2026-07-16): the cluster tracks the dragon's
+// projected screen X. Damped + clamped, transform-only, VISUAL-ONLY.
+let gfDx = 0;                  // current eased offset from screen centre (px)
+let gfWritten = Infinity;      // last offset actually written to the DOM
+let gfMeasureAt = 0;           // ≤4Hz cache clock for sizes + the spell-card clamp
+let gfHalf = 90;               // cluster half-extent incl. horn overhang (px)
+let gfCardClampX = Infinity;   // spell-card left edge when it shares the band
 // `1 403 m` — tabular numerals, thin-space grouping (§B.6)
 const fmtNum = (n) => Math.floor(n).toLocaleString('en-US').replace(/,/g, '\u2009');
 let lastFFActive = false;
@@ -798,6 +805,9 @@ export const ui = {
     // nor a stale TAPE/TALLY pose (H2 — PB caret, race carets, ritual state).
     on('runStart', () => {
       this.bellClear();
+      // Gauntlet follow: a fresh takeoff starts centred (no stale drift pose).
+      gfDx = 0; gfWritten = Infinity; gfMeasureAt = 0; gfCardClampX = Infinity;
+      if (els.staminaArc) els.staminaArc.style.transform = '';
       pbPassed = false; pbLastX = null; lastDistShown = -1;
       els.tapePb.classList.remove('on', 'passed');
       els.tapePb.style.transform = '';
@@ -1589,6 +1599,43 @@ export const ui = {
     this._readyText = null;
     clearTimeout(this._noteTO);
     if (els.bossNote) els.bossNote.classList.remove('show', 'ready');
+  },
+
+  // ══ GAUNTLET FOLLOW (owner ruling 2026-07-16) ══════════════════════════════
+  // The vitals cluster rides UNDER THE DRAGON: main.js projects the dragon's
+  // world position each frame and passes its screen X here; the cluster's fixed
+  // anchor gets a damped translateX toward it. STRICTLY VISUAL (a transform on
+  // the DOM anchor — the dragon/world are never touched). Y never moves.
+  //   · damping: 1−e^(−7·dt) ≈ the camera's damp() feel, ~0.35s settle, no jitter
+  //   · clamped to a safe band: never off-screen (half-extent + 10px margins),
+  //     and never under the spell card when the card shares the vertical band
+  //     (landscape — the card slides in, the cluster glides out of its column)
+  //   · writes skipped under 0.15px of change; measurements cached at ≤4Hz
+  gauntletFollow(sx, dt) {
+    const el = els.staminaArc;
+    if (!el || sx == null || !Number.isFinite(sx)) return;   // hold pose when unprojectable
+    const now = performance.now();
+    if (now - gfMeasureAt > 250) {   // ≤4Hz: cluster extent + spell-card clamp
+      gfMeasureAt = now;
+      const w = el.offsetWidth || 128;
+      // Landscape horns overhang the arc box (pips left:-34, gems mirrored);
+      // portrait folds them inside the widened cluster.
+      gfHalf = w / 2 + (window.innerWidth > 700 ? 46 : 12);
+      gfCardClampX = Infinity;
+      if (els.bossCard && els.bossCard.classList.contains('show')) {
+        const c = els.bossCard.getBoundingClientRect();
+        const a = el.getBoundingClientRect();
+        if (c.top < a.bottom + 6 && c.bottom > a.top - 6) gfCardClampX = c.left - 10;
+      }
+    }
+    const W = window.innerWidth, cx = W / 2;
+    const minC = gfHalf + 10;
+    const maxC = Math.max(minC, Math.min(W - gfHalf - 10, gfCardClampX - gfHalf));
+    const target = Math.max(minC, Math.min(maxC, sx)) - cx;
+    gfDx += (target - gfDx) * (1 - Math.exp(-7 * (dt || 0.016)));
+    if (Math.abs(gfDx - gfWritten) < 0.15) return;
+    gfWritten = gfDx;
+    el.style.transform = `translate(calc(-50% + ${gfDx.toFixed(1)}px), -50%) scale(var(--hud-scale))`;
   },
 
   // Boost is SEALED for a boss (speed locked / unlimited → the bar is meaningless).
