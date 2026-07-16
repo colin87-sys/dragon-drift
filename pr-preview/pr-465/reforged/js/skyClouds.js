@@ -100,7 +100,9 @@ export function setSkyCloudQuality(t) {
 // Per-frame write from the lerped biome env. Off / tier2 → amount 0 (the uniform
 // branch skips the whole block; the sky is the shipped gradient).
 export function applySkyClouds(env, playerDist, time) {
-  if (!enabled || tier >= 2) { cloudUniforms.uCloudAmount.value = 0; return; }
+  // A biome may FORCE clouds on even when the global toggle is off (a storm's deck is its identity);
+  // still tier-gated (clouds are expensive fill — off on tier 2 like all clouds).
+  if ((!enabled && !env.cloudForce) || tier >= 2) { cloudUniforms.uCloudAmount.value = 0; return; }
   cloudUniforms.uCloudAmount.value = env.cloudAmount || 0;
   cloudUniforms.uCloudLit.value.copy(env.cloudLit);
   cloudUniforms.uCloudShadow.value.copy(env.cloudShadow);
