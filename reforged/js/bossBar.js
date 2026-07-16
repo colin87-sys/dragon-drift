@@ -34,7 +34,8 @@ let chevs = [];
 
 let curFrac = 1;         // target hp fraction (from bossHit)
 let drainVal = 1;        // eased drain-lag chunk (gold), lags curFrac
-let drainHitAt = -Infinity;  // timestamp of the last damage tick (drain waits 500ms)
+let drainHitAt = -Infinity;  // when the drain lag was ARMED (first hit of a burst)
+let lastEaseAt = 0;      // updateBossBar clock — time-based ease, never per-frame
 let active = false;      // a fight body is on screen (plate shown)
 const _wp = new THREE.Vector3();
 
@@ -149,7 +150,12 @@ function onFormRefill() {
 
 function setFrac(frac, snapDrain) {
   frac = Math.max(0, Math.min(1, frac));
-  if (frac < curFrac - 0.0001) drainHitAt = performance.now();   // damage arms the drain lag
+  // Damage arms the drain lag — but only when the drain chunk is SETTLED. Re-arming
+  // on every tick meant sustained lance DPS (hits < 500ms apart) froze the chunk at
+  // the burst's START fraction forever: a giant stale gold slab that read as a
+  // rendering glitch (owner screenshot, VOIDMAW). Armed once per burst, the chunk
+  // waits 500ms then chases the live fill continuously — "recently lost health".
+  if (frac < curFrac - 0.0001 && drainVal <= curFrac + 0.002) drainHitAt = performance.now();
   curFrac = frac;
   fillEl.style.transform = 'scaleX(' + frac.toFixed(4) + ')';
   if (snapDrain || frac > drainVal) { drainVal = frac; drainEl.style.transform = 'scaleX(' + frac.toFixed(4) + ')'; }
@@ -165,12 +171,16 @@ function retire() {
 // Called per-frame from the main loop (after updateReticle). Eases the drain-lag
 // chunk and drives the off-screen threat chevrons. No-ops when no fight is live.
 export function updateBossBar() {
-  if (!plate || !active) return;
+  if (!plate || !active) { lastEaseAt = 0; return; }
   const now = performance.now();
-  // Drain-lag gold chunk: waits ~500ms after the hit, then eases toward curFrac.
+  const dt = lastEaseAt ? Math.min(0.1, (now - lastEaseAt) / 1000) : 0.016;
+  lastEaseAt = now;
+  // Drain-lag gold chunk: waits ~500ms after the (first) hit, then eases toward
+  // curFrac. Time-based ease (~8/s ≈ the old 0.14/frame at 60fps) so the chunk
+  // never lags extra on a slow frame rate.
   if (drainVal > curFrac + 0.001) {
     if (now - drainHitAt > 500) {
-      drainVal += (curFrac - drainVal) * 0.14;   // ~400ms settle at 60fps
+      drainVal += (curFrac - drainVal) * (1 - Math.exp(-8 * dt));
       if (drainVal - curFrac < 0.002) drainVal = curFrac;
       drainEl.style.transform = 'scaleX(' + drainVal.toFixed(4) + ')';
     }
