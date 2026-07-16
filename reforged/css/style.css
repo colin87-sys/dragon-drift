@@ -1640,7 +1640,9 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 .screen-topbar .topbar-close { pointer-events: auto; cursor: pointer; width: 34px; height: 34px;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-size: 18px; color: var(--rf-ink); background: rgba(60,42,28,0.6);
-  border: 1px solid var(--rf-stroke-hi); flex: 0 0 auto; }
+  border: 1px solid var(--rf-stroke-hi); flex: 0 0 auto; position: relative; }
+/* ≥44pt touch target: the ✕ stays 34px visually but hits at 46px (inset -6px). */
+.screen-topbar .topbar-close::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
 .screen-topbar .topbar-close:hover { background: rgba(80,54,32,0.7); }
 /* U3: topbar screens keep a SMALL fixed spacer under the sticky bar (the old
    `content:none` removal let the first content line render tucked under the
