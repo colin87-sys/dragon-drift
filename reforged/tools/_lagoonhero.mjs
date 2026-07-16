@@ -9,7 +9,8 @@ const tag = process.argv[2] || 's1';
 const start = +(process.argv[3] || 200);
 const count = +(process.argv[4] || 14);
 const stepM = +(process.argv[5] || 95);
-const { page, done, errors } = await boot({ query: '?biome=0&debug&hero=rotunda', viewport: VIEW, deviceScaleFactor: 1, initScript: save });
+const HERO = process.env.HERO || 'rotunda';   // which archetype to pose+isolate (?hero=<key>); reusable across the roster
+const { page, done, errors } = await boot({ query: `?biome=0&debug&hero=${HERO}`, viewport: VIEW, deviceScaleFactor: 1, initScript: save });
 page.on('pageerror', (e)=>console.log('[pageerror]',e.message));
 await page.click('#btn-start').catch(()=>{});
 await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.state === 'playing', { timeout: 8000 }).catch(()=>{});

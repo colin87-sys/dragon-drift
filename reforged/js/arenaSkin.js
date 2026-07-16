@@ -26,6 +26,7 @@ const SCALAR_KEYS = [
   'starMix', 'whaleMix', 'flybyMix', 'auroraMix',   // auroraMix (aurora sky-splice) — the arena OWNS it so the biome curtain can't rise inside the void/heaven (the Godhead Detonation is no aurora night)
   'atmosHeightK', 'atmosInscatter', 'cloudAmount',   // N8 atmosphere + N9 cloud coverage — arena zeroes them (a clean authored sky, no biome clouds/scatter leaking in)
   'godrayMul',   // biome shared god-ray shaft fan — arena zeroes it: the detonation is a MID-ANNULUS event (owner law), its divine light authored by the Godhead Star / heavenRays, NOT the biome's sun-shafts crossing the parry corridor
+  'cloudForce', 'deckBias', 'stormSea', 'windX', 'windZ', 'rainMix',   // Tempest storm-weather channels (cloud/deck/sea/wind/rain) — arena zeroes them all: the Godhead Detonation is no storm, the sea drops to the haze-deck, the sky is authored (no biome rain/wind/swell leaking through the void/heaven)
 ];
 export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 
@@ -44,6 +45,7 @@ export const VOID_HEX = {
   starMix: 1, whaleMix: 0, flybyMix: 0, auroraMix: 0,   // no aurora curtain in the hollow
   cloudAmount: 0, cloudLit: 0x0d0618, cloudShadow: 0x050208, atmosHeightK: 0, atmosInscatter: 0,   // no biome clouds/scatter in the hollow
   godrayMul: 0, godrayTint: 0xffe6b8,   // sun GONE → no shafts in the hollow (tint inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm in the hollow — the sea drops to the haze-deck, no rain/wind/swell
 };
 
 // THE FLOOD — the S1→S2 crack mid-palette: the hollow LEAKING through the reopened tear. Overexpose
@@ -61,6 +63,7 @@ export const FLOOD_HEX = {
   starMix: 0, whaleMix: 0, flybyMix: 0, auroraMix: 0,
   cloudAmount: 0, cloudLit: 0xe8dcff, cloudShadow: 0xcfc2f2, atmosHeightK: 0, atmosInscatter: 0,
   godrayMul: 0, godrayTint: 0xffe6b8,   // no biome shafts through the flood flash (tint inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm weather through the flood flash
 };
 
 // THE FIRSTBORN SKY (PR-K, the cosmos pivot) — "Behind the Mask There Was Never a Building." The owner
@@ -98,6 +101,7 @@ export const HEAVEN_HEX = {
 
   cloudAmount: 0.5, cloudLit: 0xe89a6a, cloudShadow: 0x1c1434, atmosHeightK: 0, atmosInscatter: 0,   // ROILING DETONATION GAS: the FBM cloud band IGNITED (amount .35→.5, hotter gold-rose); unlit gas sinks into the vault
   godrayMul: 0, godrayTint: 0xffe6b8,   // NO biome sun-shaft fan: the detonation is a MID-ANNULUS event (owner law) — divine light is the Godhead Star + heavenRays, not shafts flooding the dark parry corridor
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm in the firstborn sky — the detonation's sea is the authored haze-deck, not a wind-combed storm sea
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
@@ -113,6 +117,7 @@ export const GOLD_FLOOD_HEX = {
   starMix: 0, whaleMix: 0, flybyMix: 0, auroraMix: 0,
   cloudAmount: 0, cloudLit: 0xfff0c8, cloudShadow: 0xc0a878, atmosHeightK: 0, atmosInscatter: 0,
   godrayMul: 0, godrayTint: 0xffe6b8,   // the unveil bloom is authored, not a biome shaft fan (tint inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm weather in the gold-flood unveil
 };
 
 // The void's bullet-band override: the default dark band 0x8f0a3c (L .164) FAILS all four void
