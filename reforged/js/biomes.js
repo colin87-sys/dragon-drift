@@ -268,12 +268,12 @@ export const BIOMES = [
     name: 'TEMPEST REACH',
     keyShift: -3,
     stars: 0,
-    deckBias: 1.0,   // the storm ceiling owns the sky: pull the mid→top gradient stops DOWN so the dark deck dominates and the green belt compresses to a thin strip above the pale horizon slot
+    deckBias: 1.15,   // the storm ceiling owns the sky: pull the mid→top gradient stops DOWN so the dark deck dominates and the green belt compresses to a thin strip above the pale horizon slot
     sky: {
       top: C(0x1f242c),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
       mid: C(0x4a5348),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
       horizon: C(0xaab1ad),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
-      sun: C(0x8f948c),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
+      sun: C(0x83877f),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
       // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed near-black (the dark
       // underside is what makes the cloud read as SOLID storm mass), lit tops held BELOW the horizon
       // slot's value so the slot stays the frame's brightest hole.
@@ -301,7 +301,7 @@ export const BIOMES = [
     // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
     // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
     // sprites are the proper fix (a later ambient-profile pass) — until then, few/dim beats star-like.
-    ambient: { color: C(0x93a2a6), fall: 6.5, sway: 2.4, size: 0.22, opacity: 0.35 },
+    ambient: { color: C(0x879497), fall: 6.5, sway: 2.4, size: 0.2, opacity: 0.24 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
     props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
     matIndex: 7, // storm slate
