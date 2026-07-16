@@ -77,15 +77,16 @@ function stilettoMats(def, glow, stage) {
   // Vein skeleton — opaque raised bones + a lighter rim-catch cap (the CP1 recipe).
   const veinMat = mk(lerpHex(body, VENTER, 0.5));
   const veinCap = mk(lerpHex(body, 0x6a5a88, 0.5));
-  // Sac WALL — the ONLY body transparency: single-layer translucent hex panel.
-  const sacWall = new THREE.MeshStandardMaterial({ color: lerpHex(body, ORCHID, 0.12), emissive: 0x000000, flatShading: true, roughness: 0.4, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
-  sacWall.envMapIntensity = 0.3;
-  // The FILL — opaque emissive liquid (the diegetic power meter). fillLine is the
-  // brightest pixels on the gaster; fillBody the deep brew at depth. In flareMats.
-  const fillLine = mk(FILL_LINE, { emissive: FILL_LINE, emissiveIntensity: 1.15 });
-  fillLine.userData.baseEmissive = FILL_LINE; fillLine.userData.baseIntensity = 1.15;
-  const fillBody = mk(FILL_BODY, { emissive: FILL_BODY, emissiveIntensity: 0.62 });
-  fillBody.userData.baseEmissive = FILL_BODY; fillBody.userData.baseIntensity = 0.62;
+  // Sac WALL — the ONLY body transparency: a single-layer LOW-opacity glass sheen over the
+  // brew (NOT a dark cover — the brew must read bright through it). Bright orchid-tinted glass.
+  const sacWall = new THREE.MeshStandardMaterial({ color: lerpHex(ORCHID, 0xffffff, 0.2), emissive: 0x000000, flatShading: true, roughness: 0.28, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.26 });
+  sacWall.envMapIntensity = 0.35;
+  // The FILL — opaque emissive liquid (the diegetic power meter). fillLine is the near-white-hot
+  // surface (the brightest gaster pixel); fillBody the orchid brew. In flareMats.
+  const fillLine = mk(FILL_LINE, { emissive: FILL_LINE, emissiveIntensity: 1.7 });
+  fillLine.userData.baseEmissive = FILL_LINE; fillLine.userData.baseIntensity = 1.7;
+  const fillBody = mk(0xb43ae8, { emissive: 0xb43ae8, emissiveIntensity: 1.0 });   // a brighter orchid brew (the deep 0x8a1eb0 read near-black under the wall)
+  fillBody.userData.baseEmissive = 0xb43ae8; fillBody.userData.baseIntensity = 1.0;
   // Drip bead (f2+), stinger channel + pterostigma (f3) — dark until their form, then
   // venom-lit. Seam mats DoubleSide (the culled-ignition gotcha).
   const bead = mk(BEAD, { emissive: BEAD, emissiveIntensity: 0.6 });
@@ -180,12 +181,15 @@ function hexVerts(C, u, v, r) {
   return out;
 }
 function fanTris(poly) { const t = []; for (let i = 1; i < poly.length - 1; i++) t.push([poly[0], poly[i], poly[i + 1]]); return t; }
+// Core→BLOOM→dark, in depth order (surface outward): a dark sac FLOOR (the empty region
+// above the brew reads dark) → the OPAQUE EMISSIVE brew BODY (proud of the chitin, so it is
+// the bright interior, never occluded by the wall) → a near-white-hot MENISCUS at the brew
+// top (the brightest gaster pixel — the diegetic power line) → a subtle low-opacity glass
+// WALL sheen over it (the "vessel" read, NOT a dark cover). The chitin frame around the hex
+// is the dark field.
 function sacWindow(C, u, v, n, r, frac) {
-  const wallC = vadd(C, vscl(n, 0.012));
-  const wall = fanTris(hexVerts(wallC, u, v, r));
-  // Fill: clip the hex (local uv) to the lower `frac` of its height, in a plane inset behind.
-  const f = Math.max(0.03, Math.min(1, frac));
-  const hv = -r + f * 2 * r;   // liquid surface height in v (from bottom −r to top +r)
+  const f = Math.max(0.05, Math.min(1, frac));
+  const hv = -r + f * 2 * r;   // brew surface height in v (bottom −r → top +r)
   const P = [];
   for (let k = 0; k < 6; k++) { const a = Math.PI / 2 + k * Math.PI / 3; P.push([Math.cos(a) * r, Math.sin(a) * r]); }
   const kept = [], cross = [];
@@ -195,17 +199,19 @@ function sacWindow(C, u, v, n, r, frac) {
     if (Ain) kept.push(A);
     if (Ain !== Bin) { const t = (hv - A[1]) / (B[1] - A[1]); const X = [A[0] + (B[0] - A[0]) * t, hv]; kept.push(X); cross.push(X); }
   }
-  const backC = vadd(C, vscl(n, -0.05));    // the sac floor (dark interior behind the liquid)
-  const fillC = vadd(C, vscl(n, -0.02));    // the liquid, just behind the wall
+  const floorC = vadd(C, vscl(n, 0.006));   // dark sac floor (the empty region reads dark)
+  const brewC = vadd(C, vscl(n, 0.022));    // the brew sits PROUD → the bright interior
+  const wallC = vadd(C, vscl(n, 0.036));    // the glass sheen, furthest proud (subtle, low-opacity)
   const toW = (p, base) => vadd(vadd(base, vscl(u, p[0])), vscl(v, p[1]));
-  const fill = fanTris(kept.map((p) => toW(p, fillC)));
-  const back = fanTris(hexVerts(backC, u, v, r * 0.98));
-  // The bright surface line — a thin quad along the clip edge (the two crossing points).
-  let line = [];
-  if (cross.length >= 2) {
-    const a0 = toW(cross[0], fillC), a1 = toW(cross[1], fillC), up = vscl(v, r * 0.06);
-    line = [[a0, a1, vadd(a1, up)], [a0, vadd(a1, up), vadd(a0, up)]];
-  }
+  const fill = fanTris(kept.map((p) => toW(p, brewC)));       // the opaque emissive brew body
+  const back = fanTris(hexVerts(floorC, u, v, r * 0.99));     // the dark floor
+  const wall = fanTris(hexVerts(wallC, u, v, r));             // the glass wall (low-opacity sheen)
+  // The MENISCUS — a bright strip at the brew top, ALWAYS drawn (at full fill it rides the
+  // top vertices so the brimming still still shows its power line).
+  const up = vscl(v, r * 0.11);
+  let line;
+  if (cross.length >= 2) { const a0 = toW(cross[0], brewC), a1 = toW(cross[1], brewC); line = [[a0, a1, vadd(a1, up)], [a0, vadd(a1, up), vadd(a0, up)]]; }
+  else { const tL = toW([-r * 0.5, r * 0.84], brewC), tR = toW([r * 0.5, r * 0.84], brewC); line = [[tL, tR, vadd(tR, up)], [tL, vadd(tR, up), vadd(tL, up)]]; }
   return { wall, fill, back, line };
 }
 
@@ -331,19 +337,23 @@ function buildChitinWaspTorso(def, model, _bodyMat) {
   }
   group.add(knapLoft(gStations, CHITIN_PROFILE, bm, true));
 
-  // THE DORSAL STRAKE — a thin tent strip running the crown continuously thorax → THROUGH
-  // the pinch → gaster (law 6, the anti-severed guard) + carries the oil-slick sheen band.
+  // THE THROUGH-STRAKES — thin tent strips running continuously thorax → THROUGH the pinch →
+  // gaster on BOTH the dorsal crown AND the venter (law 6, the anti-severed guard: from the side
+  // the pinch must read as a tight coupling, never daylight). The dorsal one carries the
+  // oil-slick sheen band.
   {
-    const rail = [];
-    for (const s of [...thorax, ...petiole, ...gStations]) rail.push([0, s.cy + s.ry + 0.012, s.z]);
-    rail.sort((a, b) => a[2] - b[2]);
-    const strake = [], hw = 0.05;
-    for (let i = 0; i < rail.length - 1; i++) {
-      const A = rail[i], B = rail[i + 1];
-      strake.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
-                  [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
-    }
-    group.add(flatTriMesh(strake, M.sheenViolet));   // the wet-lacquer grazing catch (roughness 0.35)
+    const chain = [...thorax, ...petiole, ...gStations].slice().sort((a, b) => a.z - b.z);
+    const makeStrake = (yOf, hw, mat) => {
+      const rail = chain.map((s) => [0, yOf(s), s.z]), t = [];
+      for (let i = 0; i < rail.length - 1; i++) {
+        const A = rail[i], B = rail[i + 1];
+        t.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
+               [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
+      }
+      group.add(flatTriMesh(t, mat));
+    };
+    makeStrake((s) => s.cy + s.ry + 0.012, 0.05, M.sheenViolet);   // dorsal (wet-lacquer grazing catch)
+    makeStrake((s) => s.cy - s.ry - 0.012, 0.06, M.chitinFlank);   // ventral coupling (mid-tier, never severed)
   }
 
   // ── THE RAPTORIAL FORELIMBS (one pair, zero hind legs) — folded knee-up, hugged to the
@@ -361,7 +371,7 @@ function buildChitinWaspTorso(def, model, _bodyMat) {
   for (let w = 0; w < sacWindows; w++) {
     const segIdx = 2 + w;                 // segments 2,3,4 (1-indexed into gStations)
     const s = gStations[Math.min(segIdx, gStations.length - 1)];
-    const r = s.rx, hexR = r * 0.72;
+    const r = s.rx, hexR = r * 0.82;
     // Window on the UPPER-REAR of the segment facing UP-AND-BACK: the above-behind chase
     // cam looks forward-down onto the trailing gaster and sees these directly, and each
     // window peeks over the SMALLER next segment (the gaster tapers). The near-vertical
@@ -574,14 +584,15 @@ function buildStilettoMaskHead(def, model, mats) {
     group.add(flatTriMesh([[bL, tip, bR], [bR, tip, [bx, by + 0.02, bz - baseW]]], M.chitinDorsal));
   }
 
-  // Venom-lit almond eyes — the brightest facial points. Octahedron cores; intensity
-  // grows as the eye narrows up the ladder (light growing is the grind reward).
+  // Venom-lit almond eyes — bright facial points, but NOT the hero: the VENOM STILL owns the
+  // glow hierarchy (the eyes are demoted from the I0 placeholder so they don't out-glow the
+  // filling sacs — the real almond ladder + compound-cut bevels land at I4).
   const es = model.eyeScale ?? 1;
-  eyeMat.emissiveIntensity = 0.7 + 1.7 * (model.glowLevel ?? 1);
+  eyeMat.emissiveIntensity = 0.45 + 0.55 * (model.glowLevel ?? 1);
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.15 * hs * es, 0), eyeMat);
-    eye.position.set(side * 0.18 * hs, 0.09 * hs, -0.14 * hs);
-    eye.scale.set(1.4, 0.9, 1);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.11 * hs * es, 0), eyeMat);
+    eye.position.set(side * 0.17 * hs, 0.09 * hs, -0.14 * hs);
+    eye.scale.set(1.5, 0.72, 1);
     eye.rotation.y = side * 0.26;
     group.add(eye);
   }
