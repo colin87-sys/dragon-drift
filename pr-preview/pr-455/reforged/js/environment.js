@@ -685,14 +685,17 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.40, 0.52, 6), { x: 0.36, z: 0.10, y: 0.26, ry: 0.7 }) },
       // third spatter mound, other side
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.30, 0.36, 6), { x: -0.32, z: 0.14, y: 0.18, ry: 1.3 }) },
-      // rim-breach wedges — asymmetric broken lip on the main crater (kill the neat ring)
+      // rim-breach wedges — asymmetric broken lip on the main crater AND the second cone
+      // (no neat machined rings anywhere; Fable r13 D3).
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.22, 0.16), { x: -0.20, z: -0.18, y: 0.66, rz: 0.4, ry: 0.3 }) },
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.16, 0.13), { x: 0.16, z: 0.16, y: 0.70, rz: -0.5 }) },
-      // the SUNKEN THROAT — a magma pool (mat 1) filling the crater floor, recessed BELOW the
-      // rim (rim ~0.74, pool top ~0.66): occluded in side elevation by the open cone's near
-      // wall, a hot pool from above/oblique approach (the withheld-glow reveal on climb/bank).
-      { mat: 1, geo: xform(new THREE.CylinderGeometry(0.29, 0.22, 0.12, 7), { y: 0.61 }) },
-    ]),
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.16, 0.12), { x: 0.44, z: 0.02, y: 0.50, rz: 0.6, ry: 0.4 }) },   // breach the SECOND cone's rim
+      // the SUNKEN THROAT — a magma pool (mat 1) recessed DEEP in the crater (rim ~0.74, pool
+      // top ~0.62), only ~⅓ of the footprint (Fable r13 D2 — the MID form must UNDER-fire the
+      // floor flowlobe). Occluded in side elevation by the open cone's near wall; a hot pool
+      // only from above / on oblique approach (the withheld-glow reveal on climb/bank).
+      { mat: 1, geo: xform(new THREE.CylinderGeometry(0.20, 0.15, 0.10, 7), { y: 0.57 }) },
+    ], { foil: true }),   // foil-dark cones (Fable D1) so the throat is the ONLY bright event
     // MID mass, ~2:1. ρ≈0.62 (cluster spread). r 7–13, h 6–11. Explicit tilt.
     place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (14.5 + 0.66 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },
   },
@@ -703,22 +706,25 @@ const ARCHETYPES = {
   riftwall: {
     step: 89, biomes: calderaNew, matIndex: 3,
     build: () => mergeCalderaParts([
-      // stacked HORIZONTAL strata slabs — varied lengths, offset laterally, each on a slightly
-      // different roll/yaw so the coursing breaks (no clean stacked-crate read); a wide 5-sided
-      // frustum stratum mixed in so not every edge is a right angle.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.54, 0.60, 0.32, 5), { y: 0.16, ry: 1.62, sx: 1.05, sz: 0.62, rz: 0.03 }) },  // base plinth stratum (5-sided → no crate corners)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.90, 0.26, 0.38), { x: -0.08, z: -0.03, y: 0.45, ry: -0.05, rz: -0.04 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.68, 0.22, 0.34), { x: 0.14, z: 0.03, y: 0.69, ry: 0.07, rz: 0.05 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.24, 0.32), { x: -0.26, z: 0.05, y: 0.86, ry: 0.12, rz: -0.10 }) },          // proud OVERHANGING shoulder (asymmetric crown)
-      // a stepped colonnade band partway up the face (a few short vertical notches)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.09, 0.30, 0.10), { x: 0.20, z: 0.22, y: 0.42 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.09, 0.30, 0.10), { x: 0.34, z: 0.22, y: 0.42 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.09, 0.26, 0.10), { x: 0.48, z: 0.22, y: 0.40 }) },
+      // stacked HORIZONTAL strata — each course sinks ≥20% into the one below (NO daylight
+      // through the massif, Fable r13 D1), varied lengths + broken end-steps so the wall
+      // terminates jagged not sawn; a wide 5-sided base stratum so not every edge is 90°.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.56, 0.62, 0.42, 5), { y: 0.18, ry: 1.62, sx: 1.05, sz: 0.62, rz: 0.03 }) },  // base plinth stratum (5-sided)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.90, 0.34, 0.40), { x: -0.08, z: -0.03, y: 0.42, ry: -0.05, rz: -0.04 }) },        // course 2 (bottom 0.25 sinks into base top 0.39)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.30, 0.36), { x: 0.16, z: 0.03, y: 0.64, ry: 0.07, rz: 0.05 }) },            // course 3 (sinks into course 2)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.30, 0.34), { x: -0.28, z: 0.05, y: 0.82, ry: 0.12, rz: -0.10 }) },          // proud OVERHANGING shoulder (asymmetric crown)
+      // broken END-steps — offset chunks that jog the wall's ends (no sawn 90° termination)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.24, 0.26, 0.30), { x: 0.52, z: -0.02, y: 0.36, ry: 0.20, rz: 0.09 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.22, 0.28), { x: -0.54, z: 0.02, y: 0.30, ry: -0.16 }) },
+      // a stepped colonnade band partway up the face (short vertical notches — the columnar echo)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.08, 0.28, 0.10), { x: 0.18, z: 0.20, y: 0.40 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.08, 0.28, 0.10), { x: 0.31, z: 0.20, y: 0.40 }) },
     ]),
-    // BACKDROP massif: derive its own floor from measured ρ (widen propclearance to biome 3).
-    // ρ≈1.0 (boxy) — couple x = 26 + 1.02·r like the glacier wall; foam:false (fog-line).
-    // Wide 5–7:1: r 12–24 → world width ~24–48; h 18–28. Rides the height-fog.
-    place: (side, rnd) => { const r = 12 + rnd() * 12; return { x: side * (26 + 1.02 * r + rnd() * 8), h: 18 + rnd() * 10, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
+    // BACKDROP massif (the glacierwall pattern): LARGE r + SMALL h so the stacked courses
+    // stretch WIDE and squash LOW → a long horizontal-banded rim wall, not a totem. ρ≈0.7,
+    // couple x = 26 + 1.0·r (inner edge ≥ 26, far off-lane); foam:false (fog-line). r 30–50 →
+    // world width ~42–70; h 13–20 → world height ~13–20 ≈ 3.5–5:1. Rides the height-fog.
+    place: (side, rnd) => { const r = 30 + rnd() * 20; return { x: side * (26 + 1.0 * r + rnd() * 10), h: 13 + rnd() * 7, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
   },
   // EMBERFALL CALDERA — THE RARE TALL PUNCTUATION (CALDERA-BIBLE.md §4.6): a volcanic NECK —
   // the eroded throat of a dead vent, a single leaning tapered monolith on a BROAD skirt with
@@ -727,21 +733,23 @@ const ARCHETYPES = {
   riftfang: {
     step: 149, biomes: calderaNew, matIndex: 3,
     build: () => mergeCalderaParts([
-      // broad basal skirt (≥55% of height → grows from mass, not a picket)
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.64, 0.38, 6), { y: 0.19, ry: 0.2 }) },
-      // neck segments — a CHUNKY plug (a solid volcanic neck, not a needle): each offset +x/+z
-      // so the stack LEANS without internal rotation, tapering only gently.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.44, 0.50, 6), { x: 0.05, z: 0.02, y: 0.56, ry: 0.5 }) },
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.27, 0.36, 0.46, 6), { x: 0.14, z: 0.06, y: 0.98, ry: 1.0 }) },
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.29, 0.40, 6), { x: 0.24, z: 0.10, y: 1.34, ry: 1.6 }) },
-      // two-jag broken crown at OPPOSING offsets (asymmetric, never a centred point), blunter
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.17, 0.30, 5), { x: 0.33, z: 0.05, y: 1.63, rz: -0.28 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.22, 5), { x: 0.17, z: 0.16, y: 1.57, rz: 0.42 }) },
+      // A CHUNKY volcanic PLUG (~2.5–3:1, not a needle — Fable r13 rebuild): a broad FLARED
+      // skirt (the mountain eroded away from around the neck) + a half-sunk collar chunk, then
+      // gently-tapering segments that LEAN hard via progressive x/z OFFSETS (never internal
+      // tilt — the (r,h,r) shear rule), capped by a real asymmetric two-jag broken crown.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.86, 0.40, 6), { y: 0.20, ry: 0.2 }) },                 // broad flared skirt
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: -0.44, z: 0.10, y: 0.14, sy: 0.7, ry: 0.6 }) }, // half-sunk collar chunk (eroded debris)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.48, 0.60, 0.48, 6), { x: 0.06, z: 0.02, y: 0.56, ry: 0.5 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.38, 0.50, 0.44, 6), { x: 0.20, z: 0.07, y: 0.96, ry: 1.0 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.29, 0.41, 0.38, 6), { x: 0.40, z: 0.13, y: 1.30, ry: 1.6 }) },  // hard lean out
+      // asymmetric TWO-JAG crown at opposing offsets, ≥0.15 height differential, both off-axis
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.24, 0.42, 5), { x: 0.56, z: 0.10, y: 1.60, rz: -0.34 }) },        // tall jag (far)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.17, 0.26, 5), { x: 0.34, z: 0.22, y: 1.48, rz: 0.40 }) },         // short jag (near, off-axis)
     ]),
-    // RARE tall PUNCTUATION: the sanctioned tall exception. ρ≈0.5. r 6–11, h 26–40 world.
-    // Placed at the band EDGES (|x| ≥ 60 via the coupling) so it brackets ASHTALON's stage,
-    // never a centre obstruction. Explicit tilt (stands plumb; the lean is in the geometry).
-    place: (side, rnd) => { const r = 6 + rnd() * 5; return { x: side * (56 + 0.6 * r + rnd() * 10), h: 26 + rnd() * 14, r, tilt: 0 }; },
+    // RARE tall PUNCTUATION: the sanctioned tall exception, now ~2.5–3:1 (a plug, not a pin).
+    // ρ≈0.75. Placed at the band EDGES (|x| ≥ 60 via the coupling) so it brackets ASHTALON's
+    // stage. Explicit tilt (stands plumb; the lean is in the geometry).
+    place: (side, rnd) => { const r = 9 + rnd() * 6; return { x: side * (56 + 0.6 * r + rnd() * 10), h: 24 + rnd() * 12, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
