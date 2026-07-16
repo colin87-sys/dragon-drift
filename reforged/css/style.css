@@ -2370,20 +2370,60 @@ body[data-qtier="2"] .speedlines { display: none; }
   transform: translateX(-110%); animation: title-shine 0.7s ease-out 0.05s forwards; }
 @keyframes title-shine { to { transform: translateX(110%); } }
 
-/* --- Screen transitions: in-only fade+rise, freshness-guarded in ui.js --- */
+/* --- Screen transitions: fade+rise entrances, freshness-guarded in ui.js --- */
 .screen.screen-anim { animation: screen-in var(--t-screen) var(--ease-out); }
 @keyframes screen-in { from { opacity: 0; transform: translateY(8px); } }
-.screen.stagger > * { animation: rise-in 0.35s var(--ease-out) backwards; }
-.screen.stagger > *:nth-child(1) { animation-delay: 0ms; }
-.screen.stagger > *:nth-child(2) { animation-delay: 30ms; }
-.screen.stagger > *:nth-child(3) { animation-delay: 60ms; }
-.screen.stagger > *:nth-child(4) { animation-delay: 90ms; }
-.screen.stagger > *:nth-child(5) { animation-delay: 120ms; }
-.screen.stagger > *:nth-child(6) { animation-delay: 150ms; }
-.screen.stagger > *:nth-child(7) { animation-delay: 180ms; }
-.screen.stagger > *:nth-child(8) { animation-delay: 210ms; }
-.screen.stagger > *:nth-child(9) { animation-delay: 240ms; }
+
+/* U13 — staggered reveal (entrances --ease-out; nothing pops). ui.js applies
+   .stagger on FRESH navigations to the dense meta screens; a `.stagger-kids`
+   container passes the reveal down to ITS children (cards/rows) instead of
+   animating as one slab. Capped at 12 individually staggered items — everything
+   past the cap arrives together as one wave (§B U13). transform/opacity only. */
+.screen.stagger > :not(.stagger-kids),
+.screen.stagger .stagger-kids > :not(.stagger-kids) { animation: rise-in 0.35s var(--ease-out) backwards; }
+.screen.stagger > :nth-child(2),  .screen.stagger .stagger-kids > :nth-child(2)  { animation-delay: calc(var(--t-stagger) * 1); }
+.screen.stagger > :nth-child(3),  .screen.stagger .stagger-kids > :nth-child(3)  { animation-delay: calc(var(--t-stagger) * 2); }
+.screen.stagger > :nth-child(4),  .screen.stagger .stagger-kids > :nth-child(4)  { animation-delay: calc(var(--t-stagger) * 3); }
+.screen.stagger > :nth-child(5),  .screen.stagger .stagger-kids > :nth-child(5)  { animation-delay: calc(var(--t-stagger) * 4); }
+.screen.stagger > :nth-child(6),  .screen.stagger .stagger-kids > :nth-child(6)  { animation-delay: calc(var(--t-stagger) * 5); }
+.screen.stagger > :nth-child(7),  .screen.stagger .stagger-kids > :nth-child(7)  { animation-delay: calc(var(--t-stagger) * 6); }
+.screen.stagger > :nth-child(8),  .screen.stagger .stagger-kids > :nth-child(8)  { animation-delay: calc(var(--t-stagger) * 7); }
+.screen.stagger > :nth-child(9),  .screen.stagger .stagger-kids > :nth-child(9)  { animation-delay: calc(var(--t-stagger) * 8); }
+.screen.stagger > :nth-child(10), .screen.stagger .stagger-kids > :nth-child(10) { animation-delay: calc(var(--t-stagger) * 9); }
+.screen.stagger > :nth-child(11), .screen.stagger .stagger-kids > :nth-child(11) { animation-delay: calc(var(--t-stagger) * 10); }
+.screen.stagger > :nth-child(12), .screen.stagger .stagger-kids > :nth-child(12) { animation-delay: calc(var(--t-stagger) * 11); }
+.screen.stagger > :nth-child(n+13), .screen.stagger .stagger-kids > :nth-child(n+13) { animation-delay: calc(var(--t-stagger) * 12); }
 @keyframes rise-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* U13 — exits: the panel leaves at --t-exit/--ease-in, ALWAYS faster than any
+   entry. `visible` (every routing/camera/seatbelt semantic: atShop, inSubscreen,
+   hideShopFx) drops the SAME frame in ui.hideScreen; `.screen-leaving` only
+   keeps the last frame painted while it fades, and can never eat input. */
+.screen.screen-leaving { display: flex; animation: screen-out var(--t-exit) var(--ease-in) forwards; }
+.screen.screen-leaving, .screen.screen-leaving * { pointer-events: none !important; }
+@keyframes screen-out { to { opacity: 0; transform: translateY(6px); } }
+
+/* U13 — idle life: a 1px hairline sweeps the meta topbar every ~11s (transform/
+   opacity only). If you consciously notice the loop, it's tuned too strong. */
+.screen-topbar { overflow: hidden; }
+.screen-topbar::after { content: ''; position: absolute; left: 0; bottom: 0;
+  width: 34%; height: 1px; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,214,150,0.5), transparent);
+  transform: translateX(-110%); animation: hairline-sweep 11s linear infinite; }
+@keyframes hairline-sweep {
+  0%   { transform: translateX(-110%); opacity: 0; }
+  2%   { opacity: 0.8; }
+  11%  { transform: translateX(420%); opacity: 0; }
+  100% { transform: translateX(420%); opacity: 0; }
+}
+
+/* U13 — secondary-motion garnish, HERO moments only (equip/purchase commit):
+   a hairline shine trails the state flip ~90ms behind (HSR grammar). Never on
+   high-frequency snaps (settings toggles stay silent + still). */
+.shine-once { position: relative; overflow: hidden; }
+.shine-once::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,240,205,0.35) 50%, transparent 58%);
+  transform: translateX(-110%); animation: title-shine 0.6s var(--ease-out) 0.09s forwards; }
 
 /* --- Appointment UI: honest badges + daily glow --- */
 .btn-tertiary, .btn-secondary { position: relative; }
@@ -2819,7 +2859,10 @@ body.screen-open .menu-motes { display: block; }
 
 /* --- Reduced motion: every Spectacle effect collapses gracefully --- */
 @media (prefers-reduced-motion: reduce) {
-  .screen.screen-anim, .screen.stagger > * { animation: none; }
+  .screen.screen-anim, .screen.stagger > *, .screen.stagger .stagger-kids > * { animation: none; }
+  .screen.screen-leaving { display: none; animation: none; }
+  .screen-topbar::after { display: none; animation: none; }
+  .shine-once::after { display: none; animation: none; }
   .badge { animation: none; }
   .btn-daily.glow, .btn-primary.breathe, .daily-streak { animation: none; }
   .menu-motes { display: none !important; }

@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { on, emit } from './events.js';
 import { game } from './gameState.js';
 import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACKS, trackUnlocked, setMusicVolume, setSfxVolume } from './sfx.js';
-import { comboTier, EMBER_ICON } from './util.js';
+import { comboTier, EMBER_ICON, tweenNum } from './util.js';
 import { saveData, persist, persistNow, unfreezeSaves, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { todaysDailyMod } from './daily.js';
@@ -765,14 +765,17 @@ export const ui = {
       this.dismissCelebrate();
     });
 
-    // Revive offer buttons
+    // Revive offer buttons (a sibling of #screen — the delegated tick doesn't
+    // reach it, so U11 wires the commit/decline voices here).
     root.querySelector('#btn-revive').addEventListener('click', (e) => {
       e.stopPropagation();
+      uiSound.confirm();
       this.hideReviveOffer();
       handlers.onRevive && handlers.onRevive();
     });
     root.querySelector('#btn-giveup').addEventListener('click', (e) => {
       e.stopPropagation();
+      uiSound.back();
       this.hideReviveOffer();
       handlers.onGiveUp && handlers.onGiveUp();
     });
@@ -1736,6 +1739,7 @@ export const ui = {
   dismissCelebrate() {
     if (!els.celebrate.classList.contains('visible')) return false;
     if (performance.now() - celebrateShownAt < 600) return true; // eaten, not dismissed
+    uiSound.back();   // U11: the celebration closes (sibling of #screen — no delegated tick)
     els.celebrate.classList.remove('visible');
     // Clear after the fade so the canvas leaves the DOM (preview.js's
     // isConnected sweep auto-disposes the turntable).
@@ -1913,7 +1917,7 @@ export const ui = {
           <div class="mission-info">
             <div class="mission-label">${m.def.label}</div>
             ${barHtml(m.progress / m.def.target)}
-            <div class="mission-prog">${Math.min(m.progress, m.def.target)} / ${m.def.target}</div>
+            <div class="mission-prog"><b data-n="${Math.min(m.progress, m.def.target)}">${Math.min(m.progress, m.def.target)}</b> / ${m.def.target}</div>
           </div>
           <div class="mission-reward">◆ ${m.def.reward}</div>
         </div>`).join('');
@@ -1927,10 +1931,10 @@ export const ui = {
           <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
-        <div class="mission-list">${missions}</div>
+        <div class="mission-list stagger-kids">${missions}</div>
         <div class="weekly-strip expanded">
           <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ` <span class="feather" title="Phoenix Feather — bridges one missed streak day">${ICONS.feather}</span>` : ''}</div>
-          <div class="weekly-rows">
+          <div class="weekly-rows stagger-kids">
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
               <span class="weekly-label">${t.def.label}</span>
@@ -1999,7 +2003,7 @@ export const ui = {
             <div class="daily-title">${ICONS.rush} THE GAUNTLET</div>
             <div class="daily-sub">Tap a boss to fight it solo${multi ? ', or FLY THE GAUNTLET for all of them back-to-back' : ''}.</div>
             ${stageSel}
-            <div class="rush-roster">${chips}</div>
+            <div class="rush-roster stagger-kids">${chips}</div>
             ${info.bestClearMs > 0 ? `<div class="rush-best">Best clear <b>${fmtT(info.bestClearMs)}</b>${info.cleared > 1 ? ` · cleared ${info.cleared}×` : ''}</div>` : ''}
           </div>
           ${multi ? `<button class="btn-secondary btn-fly-rush glow" id="btn-fly-rush">FLY THE GAUNTLET</button>` : ''}
@@ -2034,7 +2038,7 @@ export const ui = {
               <canvas class="hero-thumb-canvas" data-key="${k}" data-tier="${tier}" width="120" height="120"></canvas>
               <span class="tgem"></span></div>`;
         }).join('');
-        body = `<div class="hero-select" id="hero-select">
+        body = `<div class="hero-select stagger-kids" id="hero-select">
           <div class="hero-stage" id="hero-stage">
             <div class="hero-gem" id="hero-gem"></div>
             <canvas class="hero-canvas" id="hero-canvas" width="640" height="640"></canvas>
@@ -2063,7 +2067,7 @@ export const ui = {
               <div class="skin-cost ${owned ? 'owned' : ''}">${equipped ? 'EQUIPPED' : owned ? 'TAP TO EQUIP' : `◆ ${r.cost}`}</div>
             </div>`;
         }).join('');
-        body = `<div class="shop-grid">${cards}</div>
+        body = `<div class="shop-grid stagger-kids">${cards}</div>
           <p class="share-hint">Riders pay a bonus on every ember banked at the end of a run.</p>`;
 
       } else if (shopTab === 'music') {
@@ -2089,7 +2093,7 @@ export const ui = {
               <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? `${eqBars} ON AIR` : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
             </div>`;
         }).join('');
-        body = `<div class="shop-grid">${cards}</div>
+        body = `<div class="shop-grid stagger-kids">${cards}</div>
           <p class="share-hint">New stations join the radio rotation everywhere — pause menu, N / [ ] keys.</p>`;
 
       } else { // style — flightmark trail cosmetics
@@ -2113,17 +2117,17 @@ export const ui = {
               <div class="skin-cost ${owned ? 'owned' : ''}">${active ? 'ACTIVE' : owned ? 'TAP TO EQUIP' : `◆ ${mark.cost}`}</div>
             </div>`;
         }).join('');
-        body = `<div class="shop-grid">${defaultCard}${markCards}</div>
+        body = `<div class="shop-grid stagger-kids">${defaultCard}${markCards}</div>
           <p class="share-hint">Trail marks are purely cosmetic — fly any color you like.</p>`;
       }
 
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">SHOP</span>
-          <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
+          <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b></div>
           <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
-        <div class="shop-scroll">
+        <div class="shop-scroll stagger-kids">
           <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
           ${body}
           <p class="share-hint" id="shop-hint"></p>
@@ -2178,7 +2182,7 @@ export const ui = {
           <span class="topbar-title">SETTINGS</span>
           <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
-        <div class="settings-body">
+        <div class="settings-body stagger-kids">
           <div class="settings-section">Game</div>
           ${isTouch() ? '' : swRow('assist', 'mouseSteer', 'MOUSE STEERING', 'Hold left-click to steer · right-click or Space boosts.')}
           <div class="settings-group">
@@ -2290,12 +2294,17 @@ export const ui = {
       }
     }
 
+    // A new screen cancels any in-flight exit fade (rapid back-and-forth nav).
+    els.screen.classList.remove('screen-leaving');
+    clearTimeout(screenLeaveTO);
     els.screen.innerHTML = html;
     els.screen.classList.add('visible');
     document.body.classList.add('screen-open');
-    // The hero start screen runs its own bespoke entrance (see .hero-* CSS), so
-    // the generic per-child stagger is reserved for other dense screens.
-    els.screen.classList.remove('stagger');
+    // U13 — the dense meta screens stagger their primary children in (fresh
+    // navigations only: tab re-renders rebuild the same nodes and must not
+    // re-cascade). The hero start screen keeps its bespoke entrance (.hero-*
+    // CSS) and the recap runs its own ledger cascade.
+    els.screen.classList.toggle('stagger', fresh && type !== 'start' && type !== 'gameover');
     els.screen.classList.toggle('hero-screen', type === 'start');
     // The whole shop (every tab) shows the live astral biome behind it, so de-dim it.
     els.screen.classList.toggle('shop-screen', type === 'shop');
@@ -2388,6 +2397,25 @@ export const ui = {
       });
     }
     wireScreenButtons(type);
+
+    // U13 — universal number tweening (the recap rollup made law): a wallet
+    // total COUNTS to its new value on a same-screen re-render (purchase, claim)
+    // instead of snapping; fresh opens paint instantly (numbers aren't theater
+    // on entry — the recap owns its own count-up).
+    const wallet = type === 'shop' ? els.screen.querySelector('.screen-topbar .meta-chip b')
+      : type === 'pilot' ? els.screen.querySelector('.meta-row .meta-chip:last-child b') : null;
+    if (wallet && !fresh && walletScreen === type &&
+        walletShown !== null && walletShown !== saveData.embers) {
+      tweenNum(wallet, walletShown, saveData.embers);
+    }
+    walletScreen = type;
+    walletShown = wallet ? saveData.embers : null;
+    // Quest progress reveals count up on a genuine open (300–500ms ease-out).
+    if (type === 'quests' && fresh) {
+      for (const el of els.screen.querySelectorAll('.mission-prog b')) {
+        tweenNum(el, 0, Number(el.dataset.n || 0), { dur: 480 });
+      }
+    }
   },
 
   // Duration of the recap's reveal queue (main.js delays blank-tap arming).
@@ -2401,6 +2429,16 @@ export const ui = {
 
   hideScreen() {
     pauseSubscreen = false;
+    // U13 exit ritual: nothing pops — the panel fades out at --t-exit/--ease-in.
+    // 'visible' (which carries EVERY routing/camera/seatbelt semantic — atShop,
+    // inSubscreen, hideShopFx, the showcase framing) is removed THIS frame, so
+    // game logic sees the screen as gone instantly; 'screen-leaving' merely holds
+    // the last frame painted (pointer-events dead) while the fade plays.
+    if (els.screen.classList.contains('visible')) {
+      els.screen.classList.add('screen-leaving');
+      clearTimeout(screenLeaveTO);
+      screenLeaveTO = setTimeout(() => els.screen.classList.remove('screen-leaving'), 220);
+    }
     els.screen.classList.remove('visible');
     document.body.classList.remove('screen-open');
   },
@@ -2502,10 +2540,15 @@ export const ui = {
         </div>
       </div>
       <p class="action-key">${isTouch() ? 'tap outside the menu to resume' : 'Esc or click outside the menu to resume'}</p>`;
+    els.screen.classList.remove('screen-leaving');
+    clearTimeout(screenLeaveTO);
     els.screen.classList.add('visible');
     document.body.classList.add('screen-open');
-    els.screen.classList.remove('stagger');
+    els.screen.classList.remove('stagger');   // ZZZ rule: pause snaps, no cascade
     if (fresh) restartAnim(els.screen, 'screen-anim');
+    // U11 — pause is a screen opening over the world too: one soft central
+    // whoosh on a genuine open (tab re-renders stay silent).
+    if (fresh) uiSound.whoosh();
     els.screen.onclick = null; // pause uses the global outside-tap-to-resume
 
     const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
@@ -2522,6 +2565,7 @@ export const ui = {
           pmQuit.dataset.label = pmQuit.textContent;
           pmQuit.textContent = 'ABANDON RUN?';
           pmQuit.classList.add('danger-armed');
+          uiSound.arm();   // U11: the armed-danger cue
           clearTimeout(quitTO);
           quitTO = setTimeout(() => {
             pmQuit.dataset.armed = '';
@@ -2678,6 +2722,9 @@ const barHtml = (frac) =>
 // Where BACK should land from shop/settings/pilot (start, gameover or pause).
 let lastScreen = 'start';
 let returnScreen = 'start';
+let screenLeaveTO = 0;      // U13: clears the .screen-leaving exit-fade holder
+let walletShown = null;     // U13: wallet value last painted on a meta screen…
+let walletScreen = '';      // …and which screen painted it (tween on re-render)
 let pauseSubscreen = false; // shop/settings opened from the pause menu
 let shopTab = 'dragons';    // dragons | riders | music | style
 let heroKey = null;         // the dragon shown in the hero character-select stage
@@ -2712,7 +2759,7 @@ function wireScreenButtons(type) {
   if (type === 'quests' || type === 'daily' || type === 'rush') {
     returnScreen = 'start';
     const fly = q('#btn-fly-daily');
-    if (fly) fly.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
+    if (fly) fly.onclick = stop(() => { uiSound.confirm(); handlers.onStart && handlers.onStart('daily'); });
     // Dev stage-jump selector: a button arms the stage the next launch pins the boss to.
     for (const sb of els.screen.querySelectorAll('.rush-stage-btn[data-stage]')) {
       sb.onclick = stop(() => {
@@ -2721,10 +2768,10 @@ function wireScreenButtons(type) {
       });
     }
     const flyRush = q('#btn-fly-rush');
-    if (flyRush) flyRush.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(null, rushDebugStage));   // whole gauntlet (a multi-stage boss opens in the armed stage in dev)
+    if (flyRush) flyRush.onclick = stop(() => { uiSound.confirm(); handlers.onStartRush && handlers.onStartRush(null, rushDebugStage); });   // whole gauntlet (a multi-stage boss opens in the armed stage in dev)
     // Tap a roster chip → fight just that ONE boss (pinned to the armed stage in dev).
     for (const chip of els.screen.querySelectorAll('.rush-chip.pick[data-boss]')) {
-      chip.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(chip.dataset.boss, rushDebugStage));
+      chip.onclick = stop(() => { uiSound.confirm(); handlers.onStartRush && handlers.onStartRush(chip.dataset.boss, rushDebugStage); });
     }
   }
   if (type === 'gameover') returnScreen = 'gameover';
@@ -2811,7 +2858,9 @@ function wireScreenButtons(type) {
           }
           const res = buyOrEquipDragon(heroKey);
           if (res === 'need-more') { needMore(d.cost, d.name); return; }
+          if (res === 'equipped') uiSound.confirm();   // U11: commit voice (a buy sings via celebrate)
           ui.showScreen('shop');
+          shineEquipState();
           if (res === 'bought') ui.celebrate({ kind: 'dragon', tier: 'big', title: d.name, subtitle: d.title,
             renderPreview: (c) => attachPreviewCanvas(c, 'dragon', ascendedDef(d, maxTierFor(heroKey), 0)) });
         });
@@ -2968,7 +3017,9 @@ function wireScreenButtons(type) {
           saveData.riders.equipped = key;
           persistNow();
           handlers.onEquipRider && handlers.onEquipRider(key);
+          uiSound.confirm();   // U11: equip commit (a buy sings via celebrate)
           ui.showScreen('shop');
+          shineEquipState();
         } else if (saveData.embers >= r.cost) {
           saveData.embers -= r.cost;
           saveData.riders.owned.push(key);
@@ -3034,13 +3085,17 @@ function wireScreenButtons(type) {
         const id = card.dataset.flightmark;
         if (id === '') {
           handlers.onEquipFlightmark && handlers.onEquipFlightmark('');
+          uiSound.confirm();
           ui.showScreen('shop');
+          shineEquipState();
           return;
         }
         const mark = FLIGHTMARKS.find(m => m.id === id);
         if (flightmarkOwned(id)) {
           handlers.onEquipFlightmark && handlers.onEquipFlightmark(id);
+          uiSound.confirm();
           ui.showScreen('shop');
+          shineEquipState();
         } else if (saveData.embers >= mark.cost) {
           if (handlers.onBuyFlightmark && handlers.onBuyFlightmark(id)) {
             handlers.onEquipFlightmark && handlers.onEquipFlightmark(id);
@@ -3195,6 +3250,7 @@ function wireScreenButtons(type) {
           reset.dataset.label = reset.textContent;
           reset.textContent = armedLabel;
           reset.classList.add('danger-armed');
+          uiSound.arm();   // U11: the armed-danger cue
           clearTimeout(disarmTO);
           disarmTO = setTimeout(() => {
             reset.dataset.armed = '';
@@ -3211,6 +3267,15 @@ function wireScreenButtons(type) {
       });
     }
   }
+}
+
+// U13 — secondary-motion garnish on the equip HERO moment: after the shop
+// re-renders with the new state, a hairline shine trails the state chip ~90ms
+// behind the flip (the CSS owns the delay). Never used on settings toggles.
+function shineEquipState() {
+  const el = els.screen.querySelector('.cta-state') ||
+             els.screen.querySelector('.skin-card.equipped .skin-cost');
+  if (el) el.classList.add('shine-once');
 }
 
 function challengeUrl(score) {
