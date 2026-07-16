@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
+// The shipped god-ray shaft tint (godrays.js uTint = 1.0,0.9,0.72). Default for
+// every biome so god-rays stay byte-identical unless a biome overrides godrayTint.
+const GODRAY_TINT_DEF = new THREE.Color(1.0, 0.9, 0.72);
+
 // Six cycling biomes, ~1500m each with a 150m crossfade at the seam.
 // Everything visual (sky, fog, lights, water, ambient particles, fauna)
 // lerps between biome palettes; props/obstacle materials switch per instance
@@ -154,19 +158,49 @@ export const BIOMES = [
     bullets: { dark: 0xa84167 },
   },
   {
-    // Night garden — slow-bobbing translucent glow-jellies (additive blend)
+    // THE LUMEN MIRE (LUMEN-MIRE-BIBLE.md) — a nocturnal bioluminescent wetland.
+    // THEOLOGY: "Nothing here shines from the sky — the drowned forest makes its own
+    // light, every glow is a living thing." PR-1 substrate: the AMBER MIRE atmosphere
+    // + biome-4 material retune. Firefly-GOLD dominant (the research "forbidden teal
+    // band" ~490–510nm escape) so it can NEVER be confused with the teal-green Aurora
+    // night. The sky is a dark warm-neutral ROOF (Canopy Law — no sky is composed),
+    // stars barely glimpsed; the STORY is under-brim glow + the black mirror + amber motes.
     name: 'LUMEN MIRE',
     keyShift: -4,
-    stars: 0.6,
-    sky: { top: C(0x0c1430), mid: C(0x1d2a55), horizon: C(0x3fd8b0), sun: C(0x9fffe0) },
-    fog: { color: C(0x123a3a), near: 55, far: 300 },
-    light: { sun: C(0x70e8c0), sunI: 1.15, hemiSky: C(0x2a5a6a), hemiGround: C(0x0c2a1a) },
-    water: { deep: C(0x041820), shallow: C(0x0f6a5a), waveAmp: 0.6 },
-    ambient: { color: C(0xaaffc0), fall: 0.15, sway: 3.4, size: 0.42, opacity: 0.9 },
-    fauna: { color: C(0x80ffc8), scale: 1.1, flap: 0.3 }, // glow-jellies: large, slow bob
+    stars: 0.2,
+    // Warm-neutral dark ROOF: top nudged off blue, mid off green (Fable PR-1 gate —
+    // no cool sky stop may survive from the shipped teal night), horizon amber haze.
+    sky: { top: C(0x0d0b0e), mid: C(0x171410), horizon: C(0x2b2314), sun: C(0x4a3418) },
+    fog: { color: C(0x141a14), near: 45, far: 260 },
+    // Dual-fog far color (§5.2): the near air is dark humid warm-green swamp; distance
+    // desaturates TOWARD amber haze (dark-scene aerial perspective fades to the dominant
+    // GLOW hue, not blue-grey) — the cheapest identity move + the anti-Aurora firewall.
+    fogFarColor: C(0x2b2314),
+    // Swamp air pools LOW on the water — the knee-height ground-mist sheet (dive = into
+    // the mist). OPTIONAL channel (0 elsewhere).
+    atmos: { heightK: 0.05 },
+    // NO dominant sun (theology firewall): a low dim WARM key, dark hemiSky, and a warm
+    // amber hemiGround so undersides pick up bounce from the glowing water/mist — this is
+    // what SELLS "lit from below/within" (the inverse of a sky-lit night).
+    light: { sun: C(0x6a4e24), sunI: 0.85, hemiSky: C(0x141c18), hemiGround: C(0x2a1e0c) },
+    // The black mirror: near-still (waveAmp low) so it DOUBLES every glow — the reflection
+    // is load-bearing (address + mirror = the biome handshake).
+    water: { deep: C(0x040914), shallow: C(0x0c1a18), waveAmp: 0.2 },
+    // Theology firewall: "nothing shines from the sky." A night swamp has no sun-shafts —
+    // meter the shared god-ray fan WAY down (default 1 = byte-identical elsewhere; ~0 like
+    // Aurora would kill the faint glow-halos, so keep a dim residue) AND warm the shaft tint
+    // to the amber glow-haze family so any residual reads as organism-lit mist, not a sun
+    // (Fable PR-1 gate: grey-white point-source fan = a theology breach). See main.js god-ray gate.
+    godrayMul: 0.06,
+    godrayTint: C(0xc0782c),
+    // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
+    // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
+    ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.5, opacity: 0.7 },
+    fauna: { color: C(0xffd24a), scale: 0.9, flap: 0.4 }, // drifting lantern-motes (amber)
     props: ['glowcap', 'glowcapSmall', 'spirevine'],
-    matIndex: 4, // mossy biolume
-    // Contrast gate: dark band vs this biome's near-black fog (L≈0.19) — lifted.
+    matIndex: 4, // Mire: dead wet matter + living amber glow
+    // Contrast gate: danger magenta vs this biome's dark humid fog — re-verified by
+    // bulletcontrast on the new palette.
     bullets: { dark: 0xaf4f73 },
   },
   {
@@ -278,6 +312,12 @@ const env = {
   // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
   // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
   atmosHeightK: 0, atmosInscatter: 0,
+  // God-ray fan scale (OPTIONAL; 1 everywhere by default → byte-identical shafts).
+  // A night biome (Lumen Mire) meters it down; consumed by main.js's god-ray gate.
+  godrayMul: 1,
+  // God-ray shaft tint (OPTIONAL; the shipped warm-white default → byte-identical).
+  // A biome may warm/cool the residual shafts. Consumed by main.js's god-ray gate.
+  godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
   cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(),
@@ -343,6 +383,8 @@ export function computeEnv(dist) {
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
+  env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
+  env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
   // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.
   env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, ts);
