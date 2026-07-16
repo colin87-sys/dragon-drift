@@ -71,7 +71,7 @@ function stilettoMats(def, glow, stage) {
   // Wing membrane — GOSSAMER pale lavender-pink translucent glass (the concept's airy wings,
   // which outrank the sheet's darker 0x2a1a38→0x6a5a88 spec — the owner's images win on taste),
   // 4 value tiers stepping ≥0.05 L smoke tip-ward → lit pale root; SHARED across all four wings.
-  const memTiers = [0x8a6a92, 0xaa8ab4, 0xc8acd4, 0xe6cceb].map((c) => {
+  const memTiers = [0x9a7ea6, 0xb89ac4, 0xceb4da, 0xe8d2ee].map((c) => {   // uniformly pale across span (the innermost cell lifted so the gossamer read holds close-up too)
     const m = new THREE.MeshStandardMaterial({ color: c, emissive: 0x000000, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.42 });
     m.envMapIntensity = 0.25; return m;
   });
@@ -589,13 +589,15 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
     hand.position.set(-K[0], -K[1], -K[2]);
     tip.add(hand);
 
-    // HIND pair — a RIGID single-segment blade on a builder-internal pivot, seated 0.28
-    // body aft + one plate below + raked 12° flatter, published via auxWingPivots.
+    // HIND pair — a RIGID single-segment veined blade on a builder-internal pivot, seated
+    // 0.28 body aft + one plate below + raked 12° flatter (so the four blades read as a
+    // shallow X, all separate; fore/hind planform overlap ≤20%), published via auxWingPivots.
+    const hindLen = foreLen * hindScale;
     const hindPivot = new THREE.Group();
     const hr = attach.hindWingRoot(1);
     hindPivot.position.set(hr.x, hr.y, hr.z);
-    hindPivot.rotation.x = 0.21;   // 12° flatter rake
-    if (hindScale > 0) hindPivot.add(buildOneBlade(M, foreLen * hindScale, chord));
+    hindPivot.rotation.x = 0.24;   // 12° flatter rake + a touch of down-tilt so the hind reads BELOW the fore spoke
+    if (hindScale > 0) hindPivot.add(buildOneBlade(M, hindLen, chord));
 
     // Mirror the LEFT: ONE outer lmirror wrapper parenting BOTH pivots (fore + hind).
     if (side === -1) {
@@ -604,16 +606,22 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
     } else { group.add(pivot); group.add(hindPivot); }
 
     const s = side === 1 ? 'R' : 'L';
-    // Tip marker duplicates stilettoBlade() (module-level → the trail-detach bug is
+    // Fore tip marker duplicates stilettoBlade() (module-level → the trail-detach bug is
     // impossible) and rides the FOLDING hand.
     const tipP = stilettoBlade(1, foreLen, chord);
     const marker = new THREE.Object3D();
     marker.position.set(tipP[0], tipP[1], tipP[2]);
     hand.add(marker);
+    // Hind tip marker rides the rigid hind pivot (the blade tip in the pivot's local frame).
+    const htipP = stilettoBlade(1, hindLen, chord);
+    const hMarker = new THREE.Object3D();
+    hMarker.position.set(htipP[0], htipP[1], htipP[2]);
+    hindPivot.add(hMarker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
-    pivots['hindPivot' + s] = hindPivot;
+    pivots['hindPivot' + s] = hindPivot; pivots['hindTipMarker' + s] = hMarker;
     wingElements.push({ root: [rootC.x, rootC.y, rootC.z], tip: [rootC.x + side * tipP[0], rootC.y + tipP[1], rootC.z + tipP[2]], length: foreLen, tipObj: marker });
+    wingElements.push({ root: [hr.x * side, hr.y, hr.z], tip: [hr.x * side + side * htipP[0], hr.y + htipP[1], hr.z + htipP[2]], length: hindLen, tipObj: hMarker });
   }
   // THE HUM — the hind pair rides the same glide-hold waveform at a 0.35 beat-cycle
   // offset (radians: 0.35·2π ≈ 2.20) / 0.9× amplitude. Nullable + additive: null for
