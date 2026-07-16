@@ -68,8 +68,12 @@ export const BIOMES = [
     // "children" over dark water — the boss's value inversion rehearsed by the wildlife).
     fauna: { color: C(0xf6ead8), scale: 1.25, flap: 0.55 },
     faunaFlyby: true, // foreground egret flyby pass visible over the lane
-    props: ['tower', 'column', 'archruin', 'slab', 'dome'],
-    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-2+)
+    // New drowned-ruins kit (biomes:lagoonNew, default-on): rotunda hero + lilyraft/wrackstone rest-notes
+    // (+ rootbastion/arcade/campanile/sentinel to come). The legacy verdigris props (tower/column/…) still
+    // spawn as placeholder until the PR-3 composition pass migrates them behind ?props=v1. (This array is
+    // documentation only — spawning is gated by each archetype's `biomes` whitelist in environment.js.)
+    props: ['rotunda', 'lilyraft', 'wrackstone', 'tower', 'column', 'archruin', 'slab', 'dome'],
+    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-3+)
     // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
     // deep-rose (re-run bulletcontrast after the jade-water retune).
     bullets: { dark: 0xaf4f73 },
