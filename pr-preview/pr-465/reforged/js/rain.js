@@ -26,6 +26,11 @@ function mulberry32(a) {
 let rain = null, mat = null, posAttr = null, drawCount = COUNT;
 let off = null, len = null, wid = null, spd = null;
 const _dir = new THREE.Vector3(), _view = new THREE.Vector3(), _wax = new THREE.Vector3();
+// Fallback axes for the width-billboard cross product: when a drop sits on the camera's
+// vertical axis, _view ∥ _dir and cross(_dir,_view)=0 → normalize()=NaN → NaN verts →
+// a NaN-alpha quad that blanks the whole frame on real GPUs (SwiftShader silently clips
+// it, which is why it only bit real devices). Cross _dir with a non-parallel world axis.
+const _AXIS_X = new THREE.Vector3(1, 0, 0), _AXIS_Z = new THREE.Vector3(0, 0, 1);
 
 export function createRain(scene) {
   const rnd = mulberry32(0x7a1f2e3d);
@@ -86,7 +91,7 @@ export function createRain(scene) {
         float hf = 1.0 - smoothstep(14.0, 22.0, vWorldY);            // clean the pale horizon SLOT
         float cf = mix(0.5, 1.0, smoothstep(0.0, 0.5, abs(vScreenX))); // relieve the center (rings/telegraphs)
         float a = vAlpha * he * ve * hf * cf * uRainMix;
-        if (a < 0.003) discard;
+        if (!(a > 0.003)) discard;   // note: !(a>x) also discards NaN (NaN>x is false) — belt-and-braces vs a stray NaN alpha blanking the frame
         gl_FragColor = vec4(uColor, a);
       }`,
     transparent: true, depthWrite: false, depthTest: true, blending: THREE.NormalBlending,
@@ -126,8 +131,17 @@ export function updateRain(dt, camera, env) {
     off[i * 3] = ox; off[i * 3 + 1] = oy; off[i * 3 + 2] = oz;
     const wx = cx + ox, wy = cy + oy, wz = cz + oz;
     // Billboard the quad to the camera around the fall axis.
-    _view.set(-ox, -oy, -oz).normalize();          // camera → this drop (camera-relative)
-    _wax.crossVectors(_dir, _view).normalize();
+    _view.set(-ox, -oy, -oz);                      // camera → this drop (camera-relative)
+    const vl = _view.length();
+    if (vl > 1e-4) _view.multiplyScalar(1 / vl); else _view.set(0, 0, 1);
+    // Width axis ⟂ fall ⟂ view. When the drop is on the vertical axis, _view ∥ _dir and this
+    // cross is ~0 → normalize would be NaN → NaN verts blank the frame on real GPUs. Guard it:
+    // fall back to _dir × worldX (and worldZ if _dir is itself ∥ X).
+    _wax.crossVectors(_dir, _view);
+    let wl = _wax.length();
+    if (wl < 1e-4) { _wax.crossVectors(_dir, _AXIS_X); wl = _wax.length(); }
+    if (wl < 1e-4) { _wax.crossVectors(_dir, _AXIS_Z); wl = _wax.length(); }
+    _wax.multiplyScalar(wl > 1e-4 ? 1 / wl : 0);
     const hw = wid[i] * 0.5, L = len[i];
     // up-wind trail = -fall * L
     const tx = -_dir.x * L, ty = -_dir.y * L, tz = -_dir.z * L;
