@@ -2045,7 +2045,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _dAz = abs(atan(sin(_az - _sunAz), cos(_az - _sunAz)));           // wrapped angular distance to the breach azimuth
           float _breachClear = mix(0.4, 1.0, smoothstep(0.32, 0.9, _dAz));        // <=40% within ~18deg of the breach
           float _veil = clamp(_curt * _grain * _band * _breachClear * uRainVeil, 0.0, 1.0);
-          vec3 _veilCol = fogFarColor * (1.0 + 1.1 * uRainVeilFlash);             // the lightning flash lights the veil
+          vec3 _veilCol = fogFarColor * (1.0 + 1.6 * uRainVeilFlash);             // the lightning flash lights the far curtains → veil reads as stacked sheets in depth
           col = mix(col, _veilCol, _veil * 0.34);                                 // push to a 6-9% squint-read (Fable r1 — software-GL eats a third)
           col *= 1.0 - _veil * 0.09;                                              // a dense shaft reads darker than the haze
         }
@@ -2056,9 +2056,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           vec2 _faz = normalize(d.xz + vec2(1e-4));
           float _fdw = 0.4 + 0.6 * max(0.0, dot(_faz, uStormFlashDir));           // 40/60 dark/bright hemisphere
           float _fband = 0.30 + 0.70 * smoothstep(0.0, 0.5, h);                   // upper sky lifts most
-          float _fl = uStormFlash * _fdw * _fband * (1.0 - 0.7 * cCov);           // clouds stay dark
+          float _fl = uStormFlash * _fdw * _fband * (1.0 - 0.9 * cCov);           // clouds stay dark (harder hold)
           col = mix(col, vec3(0.78, 0.81, 0.88), clamp(_fl, 0.0, 0.55));          // desaturated #c7cfe0
-          col = min(col, vec3(0.82));                                             // white-out guard (no channel > ~0.82)
+          col = min(col, vec3(mix(0.82, 0.45, cCov)));                            // white-out cap 0.82; DECK capped at L0.45 so it silhouettes against the flash
         }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops

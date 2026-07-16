@@ -16,6 +16,7 @@
 // Core #ffffff, inner bloom #cdd6ff, outer halo #8fa8ff→#a98bff. Tint the halo, never the core.
 import * as THREE from 'three';
 import { TEMPEST_WIND } from './biomes.js';
+import { makeGlowTexture } from './util.js';
 
 const POOL = 3;                       // ≤2 simultaneous events + 1 spare (budget)
 const MAX_SEG = 128;                  // per-pass segment cap (trunk+branches, well under the 400 total budget)
@@ -45,14 +46,23 @@ function _mkPass(color, width, opacity, blending) {
   return { ls, g, pos: g.attributes.position, col: g.attributes.color };
 }
 
+let _glareTex = null, _ringGeo = null;
 export function initStormLightning(s) {
   scene = s;
+  _glareTex = makeGlowTexture('234,240,255');                  // #eaf0ff sea-contact glow
+  _ringGeo = new THREE.RingGeometry(0.72, 1.0, 28); _ringGeo.rotateX(-Math.PI / 2);  // flat splash ring
   for (let i = 0; i < POOL; i++) {
     const core = _mkPass(0xffffff, 1, 0.95, THREE.NormalBlending);
     const bloom = _mkPass(0xcdd6ff, 1, 0.5, THREE.AdditiveBlending);
-    const halo = _mkPass(0x9fb0ff, 1, 0.22, THREE.AdditiveBlending);
-    scene.add(halo.ls); scene.add(bloom.ls); scene.add(core.ls);   // halo behind, core on top
-    pool.push({ core, bloom, halo, active: false, t: 0, dur: 0, x: 0, z: 0, restrokes: [], peak: 1 });
+    const halo = _mkPass(0x9fb0ff, 1, 0.30, THREE.AdditiveBlending);
+    // Sea contact: a tall vertical glare streak (Sprite) + a flat expanding splash ring (Mesh).
+    const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: _glareTex, color: 0xeaf0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glare.scale.set(3.2, 8.5, 1);
+    const ring = new THREE.Mesh(_ringGeo, new THREE.MeshBasicMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    ring.visible = false; glare.visible = false;
+    glare.renderOrder = 4; ring.renderOrder = 4;
+    scene.add(halo.ls); scene.add(bloom.ls); scene.add(core.ls); scene.add(glare); scene.add(ring);  // halo behind, core on top
+    pool.push({ core, bloom, halo, glare, ring, active: false, t: 0, dur: 0, bx: 0, bz: 0, restrokes: [], peak: 1 });
   }
 }
 export function setStormLightningEnabled(on) { enabled = !!on; if (!on) { flashSky = flashRain = 0; for (const b of pool) _hide(b); } }
@@ -60,7 +70,7 @@ export function getStormFlashSky() { return flashSky; }
 export function getStormFlashRain() { return flashRain; }
 export function getStormFlashDir() { return _flashDir; }
 
-function _hide(b) { b.active = false; b.core.ls.visible = b.bloom.ls.visible = b.halo.ls.visible = false; }
+function _hide(b) { b.active = false; b.core.ls.visible = b.bloom.ls.visible = b.halo.ls.visible = false; if (b.glare) { b.glare.visible = false; b.ring.visible = false; } }
 
 // Build a jagged cloud→sea polyline with branches into the three passes. offset drives bloom/halo width.
 function _buildBolt(b, x, z, scale) {
@@ -68,6 +78,7 @@ function _buildBolt(b, x, z, scale) {
   const N = 10;                                    // trunk joints (8–12)
   const pts = [];
   const topX = x, topZ = z, botX = x + _wind.x * (6 + Math.random() * 10), botZ = z + _wind.y * (6 + Math.random() * 10);
+  b.bx = botX; b.bz = botZ;   // sea-contact point for the glare + ring
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     let px = topX + (botX - topX) * t, py = CLOUD_Y + (SEA_Y - CLOUD_Y) * t, pz = topZ + (botZ - topZ) * t;
@@ -97,9 +108,9 @@ function _buildBolt(b, x, z, scale) {
     branches.push(bp);
   }
   // Emit into each pass. trunkOnly=false uses branches; core taper via vertex brightness.
-  _emit(b.core, pts, branches, 0.0, [1, 1, 1], [0.7, 0.7, 0.7]);
-  _emit(b.bloom, pts, branches, 0.5, [0.80, 0.84, 1.0], [0.55, 0.60, 0.85]);
-  _emit(b.halo, pts, branches, 2.0, [0.56, 0.69, 1.0], [0.66, 0.55, 0.85]);  // #8fa8ff→#a98bff top→bottom
+  _emit(b.core, pts, branches, 0.0, [1, 1, 1], [0.92, 0.92, 0.95]);            // trunk stays hot to the water (return-stroke brightest at contact)
+  _emit(b.bloom, pts, branches, 0.24, [0.80, 0.84, 1.0], [0.62, 0.66, 0.90]);  // tighter offset (0.15–0.3m) so it weaves, not tramlines
+  _emit(b.halo, pts, branches, 1.5, [0.56, 0.69, 1.0], [0.66, 0.55, 0.90]);   // #8fa8ff→#a98bff violet, wider near the deck
 }
 
 // Turn a polyline (+branches) into LineSegments pairs, offset ⟂-ish for width, with a top→bottom colour ramp.
@@ -109,8 +120,8 @@ function _emit(pass, pts, branches, offset, cTop, cBot) {
   const push = (arr, useBranch) => {
     for (let i = 0; i + 3 < arr.length && v + 2 <= MAX_SEG * 2; i += 3) {
       const y0 = arr[i + 1], y1 = arr[i + 4];
-      const off0 = offset * (0.2 + 0.8 * (1 - y0 / CLOUD_Y)) * (useBranch ? 0.5 : 1); // width tapers toward the sea; branches thinner
-      const off1 = offset * (0.2 + 0.8 * (1 - y1 / CLOUD_Y)) * (useBranch ? 0.5 : 1);
+      const off0 = offset * (0.35 + 0.65 * (y0 / CLOUD_Y)) * (useBranch ? 0.5 : 1); // WIDER near the deck, tapering to the sea contact; branches thinner
+      const off1 = offset * (0.35 + 0.65 * (y1 / CLOUD_Y)) * (useBranch ? 0.5 : 1);
       const s0 = ((i / 3) % 2 === 0) ? 1 : -1;                                        // alternate the offset side → apparent width
       P[v * 3] = arr[i] + _wind.y * off0 * s0; P[v * 3 + 1] = y0; P[v * 3 + 2] = arr[i + 2] - _wind.x * off0 * s0;
       const t0 = 1 - y0 / CLOUD_Y; _rampCol(Cc, v, cTop, cBot, t0, useBranch);
@@ -126,10 +137,11 @@ function _emit(pass, pts, branches, offset, cTop, cBot) {
   pass.g.setDrawRange(0, v);
 }
 function _rampCol(Cc, v, cTop, cBot, t, branch) {
-  const b = branch ? 0.6 : 1;   // branches dimmer than the committed trunk
-  Cc[v * 3] = (cTop[0] + (cBot[0] - cTop[0]) * t) * b;
-  Cc[v * 3 + 1] = (cTop[1] + (cBot[1] - cTop[1]) * t) * b;
-  Cc[v * 3 + 2] = (cTop[2] + (cBot[2] - cTop[2]) * t) * b;
+  const b = branch ? 0.6 : 1;             // branches dimmer than the committed trunk
+  const te = branch ? t : t * 0.15;       // the TRUNK holds ≥85% to the water (only branches taper) — kills mid-air-termination
+  Cc[v * 3] = (cTop[0] + (cBot[0] - cTop[0]) * te) * b;
+  Cc[v * 3 + 1] = (cTop[1] + (cBot[1] - cTop[1]) * te) * b;
+  Cc[v * 3 + 2] = (cTop[2] + (cBot[2] - cTop[2]) * te) * b;
 }
 
 // Fire a strike at WORLD xz. peak: full (1.0) for lethal, partial (~0.3) for far heroes.
@@ -138,6 +150,7 @@ export function strike(wx, wz, peak) {
   const b = pool.find((p) => !p.active) || pool[0];
   _buildBolt(b, wx, wz, 1);
   b.active = true; b.t = 0; b.peak = peak;
+  b.glare.position.set(b.bx, 4.2, b.bz); b.ring.position.set(b.bx, 0.35, b.bz); b.ring.scale.setScalar(0.5);
   // dur: leader + return + a seeded re-stroke train (anti-metronome: intervals from Math.random, render-only)
   b.restrokes = [];
   const nR = 2 + (Math.random() * 3 | 0);
@@ -154,9 +167,9 @@ let _capT = 0;
 export function updateStormLightning(dt, camera, env, time) {
   if (!enabled) return;
   const active = (env.rainMix || 0) > 0.02;
-  if (_BOLTCAP && active) {   // force frequent strikes so a still catches a lit bolt (flash decays naturally)
+  if (_BOLTCAP && active) {   // keep ONE bolt spawned + PIN it lit each frame so a still always shows the channel
     _capT -= dt;
-    if (_capT <= 0) { strike(camera.position.x - 8, camera.position.z - 55, 1.0); _capT = 0.28; }
+    if (_capT <= 0 || !pool.some((p) => p.active)) { strike(camera.position.x - 8, camera.position.z - 55, 1.0); _capT = 0.6; }
   }
   // Directional flash: recompute the xz azimuth from the camera to the last strike each frame.
   { const dx = _lastX - camera.position.x, dz = _lastZ - camera.position.z, dl = Math.hypot(dx, dz) || 1; _flashDir.set(dx / dl, dz / dl); }
@@ -201,8 +214,21 @@ export function updateStormLightning(dt, camera, env, time) {
     const coreA = Math.max(lit, after);
     b.core.ls.visible = coreA > 0.01; b.core.ls.material.opacity = 0.95 * coreA;
     b.bloom.ls.visible = lit > 0.01; b.bloom.ls.material.opacity = 0.5 * lit;
-    b.halo.ls.visible = lit > 0.01; b.halo.ls.material.opacity = 0.22 * lit;
+    b.halo.ls.visible = lit > 0.01; b.halo.ls.material.opacity = 0.30 * lit;
+    // Sea contact: the glare streak flares with the strokes; the splash ring expands 0.5→7m over ~0.42s and fades.
+    b.glare.visible = coreA > 0.01; b.glare.material.opacity = 0.85 * coreA;
+    const rt = Math.min(1, b.t / 0.42);
+    b.ring.visible = rt < 1 && b.peak > 0.5;         // ring only on committed (near-full) strikes
+    if (b.ring.visible) { b.ring.scale.setScalar(0.5 + rt * 6.5); b.ring.material.opacity = 0.5 * (1 - rt) * b.peak; }
     // Re-kick the flash on each re-stroke so the flash stutters WITH the bolt.
     if (kick > 0) { flashSky = Math.max(flashSky, b.peak * kick * 0.7); flashRain = Math.max(flashRain, b.peak * kick * 0.65); }
+    // Capture aid: pin the channel fully lit so a still always shows morphology (never overrides gameplay — URL-gated).
+    if (_BOLTCAP) {
+      b.core.ls.visible = true; b.core.ls.material.opacity = 0.95;
+      b.bloom.ls.visible = true; b.bloom.ls.material.opacity = 0.5;
+      b.halo.ls.visible = true; b.halo.ls.material.opacity = 0.30;
+      b.glare.visible = true; b.glare.material.opacity = 0.85;
+      flashSky = Math.max(flashSky, 0.5); flashRain = Math.max(flashRain, 0.55);
+    }
   }
 }
