@@ -861,10 +861,11 @@ export const DRAGONS = {
     // defaults (the venom family is 292°, never the rig's hot-pink). Eyes stay OUT of surge arrays.
     feverWing: 0x000000,          // the kill-switch — wings stay silhouette on Surge (the still is the spectacle)
     wingEmissive: 0x000000, wingMembraneEmissive: 0x000000,   // glass stays glass (kills the cruise/boost membrane-glow target)
-    feverEye: 0xe86aff,           // eyes blaze fill-line orchid, never rig magenta
-    surgeHi: 0xef8aff,            // every flared venom mat lerps toward the drip-hi, never white-gold
+    feverEye: 0xcf66ff,           // eyes blaze UV-orchid, never rig magenta (deep-saturated violet so ACES lands it on orchid, not hot-pink)
+    surgeHi: 0xc860ff,            // every flared venom mat lerps toward a SATURATED orchid, never a pinkish-white (kills the Surge white-bloom clip)
     feverWash: [0.07, 0.02, 0.10],  // blacklight wash (proposed; owner call #4)
-    surgeGlowMultiplier: 4,       // the fill emissive scaling on Venom Overdrive (volume is the read; a modest lift)
+    surgeGlowMultiplier: 2,       // the fill emissive scaling on Venom Overdrive — kept LOW so the flare lifts the still to a brighter ORCHID without clipping to a white bloom (the read is VOLUME + saturation, not raw intensity)
+    surgeMotes: true,             // Venom Overdrive: streams venom-family motes on Surge (census: 1 mote default; the lock's 2nd behind perf-HUD proof — owner call #5b)
     hideRiderGlow: true,          // the gaster owns the rear frame
     // Cool venom-identity cruise rim (the anti-flat-black lever): a cold steel-violet edge so the
     // near-black chitin reads OUTLINED, not a silhouette. Wings are flat panels → drop their rim.

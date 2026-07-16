@@ -27,6 +27,7 @@ globalThis.document = { hidden: false, addEventListener() {}, removeEventListene
 if (!globalThis.localStorage) { const s = new Map(); globalThis.localStorage = { getItem: (k) => s.has(k) ? s.get(k) : null, setItem: (k, v) => s.set(k, String(v)), removeItem: (k) => s.delete(k), clear: () => s.clear() }; }
 if (!globalThis.location) globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 
+const fs = await import('node:fs');
 const THREE = await import('three');
 const { DRAGONS } = await import('../js/dragons.js');
 const { ascendedDef, maxTierFor } = await import('../js/ascension.js');
@@ -557,6 +558,103 @@ if (!cp1) {
   const t1 = createPulseTimer({ seed: 0x7e57, duty: 0.12 }), t2 = createPulseTimer({ seed: 0x7e57, duty: 0.12 });
   let same = true; for (let i = 0; i < 2000; i++) { t1.tick(1 / 60); t2.tick(1 / 60); if (Math.abs(t1.state().env01 - t2.state().env01) > 1e-9) { same = false; break; } }
   ok(same, `${key}: pulseTimer deterministic — same seed → identical strike schedule`);
+}
+
+// ── BELLADONNA STILETTO (SSSR premium wasp-DRAGON, 4 forms) — the BREWING ladder + the venom
+// contract (I5 / §9). Asserts the still FILLS (sacFill 0.05→1.00 exact), the waist TIGHTENS
+// (waistPinch monotonic ↓, ≥0.22 floor), the hind pair buds + the drip stages, the anti-SPINDLE
+// chord floor holds every form, the venom accent is the 292° family (never warm/green/gold), the
+// fever firewall keeps the wings DARK + venom orchid (never rig-magenta/white-gold), the four-wing
+// auxWingPivots hook is null at f0 then carries the 0.35-cycle offset, and the import firewall holds.
+if (!cp1) {
+  const key = 'stiletto';
+  const d = DRAGONS[key];
+  const satV = (hex) => { const r = (hex >> 16 & 255), g = (hex >> 8 & 255), b = (hex & 255), mx = Math.max(r, g, b); return mx ? (mx - Math.min(r, g, b)) / mx : 0; };
+  const srgbL = (hex) => { const r = (hex >> 16 & 255) / 255, g = (hex >> 8 & 255) / 255, b = (hex & 255) / 255; return (Math.max(r, g, b) + Math.min(r, g, b)) / 2; };
+  const monoUp = (a) => a.every((v, i) => i === 0 || v > a[i - 1]);
+  const monoDn = (a) => a.every((v, i) => i === 0 || v < a[i - 1]);
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  ok(d.forms.length === 4, `${key}: forms accretive length 4`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    group.updateMatrixWorld(true);
+    let tris = 0, nan = 0; const P = new THREE.Vector3();
+    group.traverse((o) => { if (!o.isMesh || !o.geometry) return; const p = o.geometry.attributes.position; if (!p) return;
+      tris += p.index ? p.index.count / 3 : p.count / 3;
+      for (let i = 0; i < p.count; i++) { P.fromBufferAttribute(p, i); if (!Number.isFinite(P.x) || !Number.isFinite(P.y) || !Number.isFinite(P.z)) nan++; } });
+    per.push({ def, m: def.model, parts, tris: Math.round(tris), nan, met: measure(key, f) });
+  }
+  // CONTRACT + BUDGET: no NaN, under 6000, spine + wingElements + tail joints published.
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].nan === 0, `${key} f${f}: no NaN vertices (${per[f].nan})`);
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    ok(!!per[f].parts.dripBead === (f >= 2), `${key} f${f}: drip bead present iff f≥2`);
+  }
+  // TRIS: strictly monotonic through f2; the apex rung is LIGHT-driven (brimming fill + lit channel
+  // + lit pterostigma add ZERO tris), so f3 ≥ f2 (the growth verb BREWING is asserted below, not tris).
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[3].tris >= per[2].tris,
+    `${key}: tris grow f0<f1<f2 then hold at the light-driven apex (${per.map((p) => p.tris).join(', ')})`);
+  // BREWING — the still FILLS (exact), the waist TIGHTENS (its own unique monotonic ↓, ≥0.22 floor).
+  const sacFill = per.map((p) => p.m.sacFill);
+  ok(sacFill[0] === 0.05 && sacFill[1] === 0.30 && sacFill[2] === 0.60 && sacFill[3] === 1.00, `${key}: sacFill {.05,.30,.60,1.00} exact (${sacFill.join(',')})`);
+  const waist = per.map((p) => p.m.waistPinch);
+  ok(monoDn(waist), `${key}: waistPinch TIGHTENS each rung (${waist.join('→')})`);
+  for (let f = 0; f <= maxT; f++) ok(waist[f] >= 0.22, `${key} f${f}: waistPinch ≥0.22 floor (${waist[f]})`);
+  const gseg = per.map((p) => p.m.gasterSegments);
+  ok(gseg[0] === 2 && gseg[1] === 3 && gseg[2] === 4 && gseg[3] === 4, `${key}: gaster segments {2,3,4,4} (${gseg.join(',')})`);
+  const windows = gseg.map((g) => Math.min(3, Math.max(0, g - 1)));
+  ok(windows[0] === 1 && windows[1] === 2 && windows[2] === 3 && windows[3] === 3, `${key}: sac windows {1,2,3,3} (${windows.join(',')})`);
+  const drip = per.map((p) => p.m.dripStage);
+  ok(drip[0] === 0 && drip[1] === 0 && drip[2] === 1 && drip[3] === 2, `${key}: dripStage {0,0,1,2} (${drip.join(',')})`);
+  const hind = per.map((p) => p.m.hindwingScale);
+  ok(hind[0] === 0 && hind[1] === 0.45 && hind[2] === 0.62 && hind[3] === 0.62, `${key}: hindwingScale {0,.45,.62,.62} (${hind.join(',')})`);
+  const ant = per.map((p) => p.m.antennaeLen);
+  ok(ant[0] === 0.4 && monoUp(ant) && ant[3] === 1.0, `${key}: antennaeLen 0.4→1.0 monotonic (${ant.join('→')})`);
+  const cells = per.map((p) => p.m.forewingCells);
+  ok(cells[0] === 3 && cells[1] === 4 && cells[2] === 5 && cells[3] === 5, `${key}: forewing cells {3,4,5,5} (${cells.join(',')})`);
+  // ANTI-SPINDLE: the forewing chord floor holds every form (a blade, never a mosquito filament).
+  const chord = per.map((p) => p.m.forewingChord);
+  for (let f = 0; f <= maxT; f++) ok(chord[f] >= 0.24 && chord[f] <= 0.30, `${key} f${f}: forewing chord ∈[0.24,0.30] (${chord[f]})`);
+  // span:body grows (the wing spreads) under the 2.5 cap; eye:head narrows; body value DARKENS.
+  const sb = per.map((p) => p.met.spanBody);
+  ok(monoUp(sb) && sb[3] <= 2.5 + 1e-6, `${key}: span:body grows each rung, apex ≤2.5 (${sb.map((x) => x.toFixed(2)).join('→')})`);
+  const eh = per.map((p) => p.met.eyeHead);
+  ok(monoDn(eh), `${key}: eye:head narrows each rung (${eh.map((x) => x.toFixed(2)).join('→')})`);
+  const bl = per.map((p) => srgbL(p.def.body));
+  ok(bl[0] > bl[1] && bl[1] > bl[2] && bl[2] > bl[3], `${key}: body value DARKENS each rung (${bl.map((x) => x.toFixed(3)).join('→')})`);
+  // POSTURE: the side line-of-action carries ≥1 inflection (thorax crown → waist dip → gaster swell).
+  for (let f = 0; f <= maxT; f++) { const ys = per[f].parts.spinePoints.map((p) => p.y); let infl = 0; for (let i = 1; i < ys.length - 1; i++) if ((ys[i] - ys[i - 1]) * (ys[i + 1] - ys[i]) < 0) infl++; ok(infl >= 1, `${key} f${f}: line-of-action ≥1 inflection (${infl})`); }
+  // FOUR-WING RIG: auxWingPivots null at f0 (hind withheld) then carries the 0.35-cycle beat offset.
+  ok(!per[0].parts.auxWingPivots, `${key} f0: auxWingPivots null (hind pair withheld)`);
+  for (let f = 1; f <= maxT; f++) { const a = per[f].parts.auxWingPivots; ok(a && a.length === 1 && Math.abs(a[0].phase - 0.35 * 2 * Math.PI) < 1e-6 && a[0].ampScale === 0.9, `${key} f${f}: auxWingPivots phase 0.35·2π / amp 0.9`); }
+  // wingElements: 2 (fore only) at f0, 4 (fore + hind) at f1+.
+  ok(per[0].parts.wingElements.length === 2, `${key} f0: 2 wingElements (fore only)`);
+  for (let f = 1; f <= maxT; f++) ok(per[f].parts.wingElements.length === 4, `${key} f${f}: 4 wingElements (fore + hind)`);
+  // FOLD: the span CONTRACTS on the fold pose (the wasp rest posture) every form.
+  for (let f = 0; f <= maxT; f++) ok(per[f].met.foldSpan < per[f].met.span, `${key} f${f}: span contracts on fold (${per[f].met.foldSpan.toFixed(2)} < ${per[f].met.span.toFixed(2)})`);
+  // ACCENT LAW (§9 law-9): the venom accent is the UV-orchid family (±20° of 292°), saturated, zero warm/green/gold.
+  const ah = hueOf(d.accentHue);
+  ok(hueDist(ah, 292) <= 20, `${key}: accentHue in the 292°±20 UV-orchid lane (${ah.toFixed(0)}°)`);
+  ok(satV(d.accentHue) >= 0.4, `${key}: accent is saturated (not near-white/grey)`);
+  // FEVER FIREWALL: wings DARK on Surge (the kill-switch), every fever emissive in the 292° family
+  // (never rig-magenta hot-pink ~330°, never white-gold), coreGlow null by design (volume-not-intensity).
+  ok(d.feverWing === 0x000000, `${key}: feverWing === 0x000000 (wings dark on Surge — the kill-switch)`);
+  ok(d.wingEmissive === 0x000000 && d.wingMembraneEmissive === 0x000000, `${key}: wing cruise/boost emissive explicitly black (glass stays glass)`);
+  for (const [n, hex] of [['feverEye', d.feverEye], ['surgeHi', d.surgeHi], ['eye', d.eye], ['apexEye', d.apexEye], ['accentHue', d.accentHue]]) {
+    ok(hueDist(hueOf(hex), 292) <= 22, `${key}: ${n} in the venom 292° lane (${hueOf(hex).toFixed(0)}°)`);
+    ok(satV(hex) >= 0.25, `${key}: ${n} saturated (not a white-gold/pink wash)`);
+  }
+  ok(d.coreGlow === undefined, `${key}: coreGlow unset (null by design — the still never breathes with opacity)`);
+  // CRUISE-EMISSIVE closed list: nothing warm/green anywhere in the venom family.
+  for (const [n, hex] of [['trail', d.trail], ['boostTrail', d.boostTrail]]) { const h = hueOf(hex); ok(h >= 250 && h <= 320, `${key}: ${n} in the violet family (${h.toFixed(0)}°)`); }
+  // IMPORT FIREWALL: the module never imports the forbidden smooth-hull / organism families.
+  const src = fs.readFileSync(new URL('../js/dragonStiletto.js', import.meta.url), 'utf8');
+  for (const bad of ['dragonOrganism', 'dragonNightFury', 'dragonUnifiedHull', 'growSkinnedExtension', 'sweepProfileSmooth'])
+    ok(!new RegExp(`^\\s*import[^\\n]*['"][^'"]*${bad}`, 'm').test(src), `${key}: no forbidden import of ${bad}`);
 }
 
 
