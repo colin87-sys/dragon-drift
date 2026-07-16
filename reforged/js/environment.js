@@ -1216,7 +1216,7 @@ const ARCHETYPES = {
   // cones — the sanctioned "sparse feathered reeds" exception to no-sharp-verticals) at
   // varied heights + 1 leaning bare snag. Sweeps past fast; sells speed. All near-black.
   reedveil: {
-    step: 23, biomes: mireNew, matIndex: 4,
+    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34,   // park ALL (x 22–34) inside a gate corridor — reeds+reflections would break the lozenge mirror
     build: () => {
       const parts = [];
       const tufts = [
@@ -1240,7 +1240,7 @@ const ARCHETYPES = {
   // knuckled — never straight cylinders) sharing one blobby crown mass at the top third.
   // The mid-ground black shape the drape fringe + future glow-carriers read AGAINST.
   boleveil: {
-    step: 41, biomes: mireNew, matIndex: 4,
+    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48,   // park INNER HALF (x 36–48) inside a gate corridor; outer boles (x≥48) stay as framing mid-walls
     build: () => {
       const parts = [];
       const boles = [
@@ -1386,7 +1386,7 @@ const ARCHETYPES = {
       }
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.13, 5), { y: 1.06 }) }); // dark crown binding — the apex notch (silhouette signature at distance)
       const merged = mergeParts(parts, 4);
-      bakeMireLadder(merged.geometry, { apexY: 1.14 });          // core→bloom→dark up the glow
+      bakeMireLadder(merged.geometry, { apexY: 1.14, mid: [0.72, 0.53, 0.28] }); // core→bloom→dark; darker mid (Fable §1 rider) concentrates the white core in the top ~20%
       merged.materials[merged.materials.length - 1] = propMats.mireHeroLadder; // mat-1 group reads the ladder + hero glow
       return merged;
     },
@@ -1939,6 +1939,27 @@ function heroHash(n) {
 }
 const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
 
+// THE GATE-CLEARING CORRIDOR resolver (Fable Stage-1 gate §2) — around each KEPT glowarch peak the
+// swamp OPENS so the hero reads: the PR-2 dark screens (reedveil/boleveil) park inside a corridor.
+// Returns the kept-peak dist covering `dist` (park iff finite), or NaN. PURE (no rnd/state): recomputes
+// the arch's OWN keep from the peak index via the SAME hashes/easement, so the clearing and the gate can
+// never disagree. Window `dist − P ∈ [−170, +40]` (covers the 150m read-in; re-closes just past the gate
+// so the trees frame it from behind). Reused by Stage-3's cap/bloom gate-clear.
+function mireGateClearPeak(dist) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;              // 300
+  const pk0 = Math.round((dist - HERO_PEAK_OFFSET) / period);
+  for (let pk = pk0 - 1; pk <= pk0 + 1; pk++) {
+    const Pd = pk * period + HERO_PEAK_OFFSET;
+    const rel = dist - Pd;
+    if (rel < -170 || rel > 40) continue;                            // outside the corridor window
+    const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+    const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+    const peakEase = pLocal >= 1050 && pLocal <= 1350;               // easement at the PEAK (self-consistent)
+    if (localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5)) return Pd; // = the arch's keep test
+  }
+  return NaN;
+}
+
 // --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
 // Inside a strait2 rock run the camera deck-skims (rings clamped y5–7) and the
 // composition law is WIDE+LOW: nothing may run off the top of the frame. The
@@ -2033,6 +2054,10 @@ function writeMatrix(band, i, d) {
     // (b) The reserved 30° THRUMSWARM easement (bible §2): local [1050,1350] stays clear of the
     // hero + glow families (PR-6 builds the Held-Breath hush proper; PR-3 just never seats one there).
     const inEasement = local >= 1050 && local <= 1350;
+    // Gate-clearing corridor (Fable Stage-1 gate §2): the PR-2 dark screens (reedveil/boleveil) with
+    // a `gateClear` half-width park inside the corridor around a KEPT glowarch peak so the hero reads
+    // and its reflection lozenge survives. Render-only + PURE (mireGateClearPeak reuses the arch hashes).
+    if (active && band.def.gateClear && Math.abs(d.x) < band.def.gateClear && !Number.isNaN(mireGateClearPeak(d.dist))) active = false;
     if (active && band.def.hero) {
       // heroSolo (Fable ensemble §2): an ON-LANE hero (glowarch, place x:0) exists on BOTH sides'
       // slot streams — park the -side twin so a single gate straddles x0 (else two arches z-fight).
