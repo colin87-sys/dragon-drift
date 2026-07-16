@@ -111,6 +111,14 @@ const PROP_NOISE_HEAD = /* glsl */`
 const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
 const propAerialColor   = { value: new THREE.Color(0x000000) };
 
+// Fable 79 HERO BACKLIT-RIM lever — a per-biome optional channel (0 everywhere but the Mire) that
+// dragon.js reads each frame to backlight the drake's silhouette in the biome's horizon colour. Not a
+// shader uniform (the rim GLSL is untouched); a plain JS signal on the same optional-channel pattern.
+let heroRimK = 0;
+const heroRimCol = new THREE.Color();
+const _heroRim = { k: 0, color: heroRimCol };
+export function getHeroRim() { _heroRim.k = heroRimK; return _heroRim; }
+
 function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
@@ -536,8 +544,8 @@ function bakeTempleLadder(geo, waterY = 0.0, bandH = 0.22) {
 // hue the roster otherwise lacks. Normal-keyed like the foliage: a lit petal catch on up-faces → a
 // deeper blush body in shadow, so a bud reads as a rounded bloom (two value zones), never a flat pink
 // blob. Diffuse only (no emissive — a flower is not a lantern; gilt stays the only warm emitter).
-const _LAG_BLOOM = [0.949, 0.780, 0.651];  // 0xf2c7a6 sunlit blush petal (up-facing catch)
-const _LAG_BLOOM_D = [0.788, 0.541, 0.431]; // 0xc98a6e deeper blush body (shadow side of the bloom)
+const _LAG_BLOOM = [0.937, 0.647, 0.541];  // 0xefa58a warm ROSE-blush petal (up-facing catch) — deepened + more saturated so it reads as a clear 2nd warm hue, not pale cream (still off the magenta danger-bullet lane)
+const _LAG_BLOOM_D = [0.760, 0.443, 0.376]; // 0xc27160 deeper rose body (shadow side of the bloom)
 // PR-2 (Fable figgate r1): the WOOD bake — fig trunk + strangler roots via `bake:'wood'`. Dark BARK-BROWN,
 // deliberately a DIFFERENT hue+value slot from the moss-verdigris waterline and the green canopy (Fable: the
 // old green roots merged into "generic moss" and the strangle read vanished). Normal-keyed like the foliage:
@@ -2210,6 +2218,103 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // lotusraft — LOW REST / nature (§7.3.5): a raft of flat lily pads flush with the mirror + STANDING lotus
+  // blooms and a seed-pod spear. Fills the flat near-water VOID (Fable in-game review: the lower third read
+  // as an empty teal plain) and brings the roster's SECOND warm hue — blush lotus blooms (bake:'bloom',
+  // NOT magenta: that lane is role-locked to danger bullets) — plus the vertical accent the flat pads lack.
+  // No stone, no gilt. The only prop that touches all three greens + the blush.
+  lotusraft: {
+    step: 19, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.14, sMin: 0.9, sMax: 1.06 }, // low rest commons: scatters over the open near-water, near-empty in the breaths
+    build: () => {
+      const parts = [];
+      // LILY PADS — paper-thin water-conforming discs (bake:'lily' → olive top), flush with the mirror.
+      // Varied sizes; the main pad gets a radial NOTCH (the Victoria-amazonica aerial signature).
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.36, 10, 0.55, 2 * Math.PI - 1.0), { y: 0.02, rx: -Math.PI / 2 }) }); // main pad, notched (rounder → organic pad, not a stone tile)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.24, 9), { x: 0.44, z: -0.16, y: 0.02, rx: -Math.PI / 2 }) });        // sibling pad (flush)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.16, 8), { x: -0.32, z: 0.30, y: 0.02, rx: -Math.PI / 2 }) });        // young pad (flush)
+      // LOTUS BLOOMS — upward-opening CUPS (Fable r1: downward cones read as toadstools; a lotus bloom is
+      // the OPPOSITE solid — petals flaring UP and OUT, widest at the top RIM, open center). Each = a thin
+      // green stem + an open petal cup (a frustum widening upward); plus one tighter closed BUD and one
+      // flat SEED POD for variety. Spread across the pad cluster (no clump). bake:'bloom' (rose-blush).
+      const bloom = (x, z, h, r, kind) => {   // 'cup' open petals / 'bud' closed pointed / 'pod' flat seed head
+        parts.push({ mat: 0, bake: 'lily', geo: frustumBetween([x, 0.0, z], [x, h, z], 0.018, 0.014, 2) });   // green stem
+        let g;
+        if (kind === 'cup') g = xform(new THREE.CylinderGeometry(r, r * 0.32, r * 1.5, 6, 1, true), { x, z, y: h + r * 0.75 });   // OPEN petal cup — wide rim UP
+        else if (kind === 'bud') g = xform(new THREE.ConeGeometry(r * 0.62, r * 2.2, 5), { x, z, y: h + r * 1.1 });                // closed pointed bud (teardrop, apex up)
+        else g = xform(new THREE.ConeGeometry(r * 1.0, r * 0.55, 6), { x, z, y: h + r * 0.28, rx: Math.PI });                      // flat seed pod (wide flat top)
+        parts.push({ mat: 0, bake: 'bloom', geo: g });
+      };
+      bloom(0.04, 0.10, 0.24, 0.062, 'cup');    // open cup, main pad
+      bloom(-0.16, -0.02, 0.19, 0.055, 'cup');  // open cup, main pad (left)
+      bloom(0.42, -0.14, 0.20, 0.05, 'bud');    // closed bud — moved to the RIGHT sibling pad (Fable: fix the clump)
+      bloom(-0.06, -0.22, 0.25, 0.052, 'pod');  // seed pod, front edge
+      return mergeLagoonParts(parts);
+    },
+    // LOW hugger, flush with the water: h ≤ ~1.3 world. tilt 0 EXPLICIT (a raft conforms to the water; a
+    // tilted raft is a floe, and a missing tilt is a NaN quaternion). Draw r first, couple x.
+    place: (side, rnd) => {
+      const r = 3.5 + rnd() * 3;
+      const p = { x: side * (15 + 0.72 * r + rnd() * 5), h: 0.9 + rnd() * 0.35, r, tilt: 0 };
+      if (HERO_SET.has('lotusraft')) p.rotY = 0;
+      return p;
+    },
+  },
+
+  // nagawall — BACKDROP / civilization (§7.3.6): a colossal half-drowned NAGA — the serpent body as a
+  // rhythmic run of masonry COIL-HUMPS arcing in and out of the water, ending in a fanned 7-head cobra
+  // HOOD reared against the sunset, the far end a broken stump. Round humps + the Khmer fan = "giant
+  // serpent" in ONE read; the kit's only long horizontal (it UNDERLINES the horizon, never walls). FIREWALL
+  // vs the drowned-footbridge hazard: no deck / piers / straight spans — round humps ONLY, far off-lane.
+  // Tide-laddered stone, plumb, NO gilt (hood eye-sockets a withheld Stage-2 option only).
+  nagawall: {
+    step: 101, biomes: lagoonV3, matIndex: 0, arrivalPark: true, oneSide: true, comp: { floor: 0 }, // rare backdrop EVENT: one side per congregation, fully parked in the breaths, never both horizons
+    build: () => {
+      const parts = [];
+      // COIL-HUMPS — a run of round masonry humps (identical-family radii, strict rhythm), the serpent
+      // surfacing in coils. Each = 2 frusta (up-over-down) meeting at the peak; contiguous, dipping to the
+      // waterline (y0) between coils. Grows toward the head (+x). Round tube ONLY (hazard firewall).
+      const hump = (xC, w, hp, r) => {
+        const xL = xC - w / 2, xR = xC + w / 2;
+        parts.push({ mat: 0, geo: frustumBetween([xL, 0.0, 0], [xC, hp, 0], r * 0.85, r, 4) });
+        parts.push({ mat: 0, geo: frustumBetween([xC, hp, 0], [xR, 0.0, 0], r, r * 0.85, 4) });
+      };
+      const n = 5, w = 0.19, x0 = -0.40;
+      for (let i = 0; i < n; i++) { const t = i / (n - 1); hump(x0 + i * w, w, 0.30 + 0.20 * t, 0.075); }   // 5 × 16 = 80
+      // BROKEN STUMP — the tail end (−x): a low broken half-coil lost to the water (ruin, not a clean end).
+      parts.push({ mat: 0, geo: frustumBetween([-0.55, 0.0, 0.0], [-0.47, 0.17, 0.0], 0.05, 0.072, 4) });     // 8
+      // COBRA HOOD — a fanned 7-head Khmer naga hood reared at the head (+x) end. A broad upright geometric
+      // FAN with a SCALLOPED rim (7 tips = 7 heads, 6 notches), read in silhouette against the gold sky.
+      // Front + back faces so it reads from both sides. NO eyes (withheld).
+      {
+        const hx = x0 + (n - 1) * w + w * 0.45, neckY = 0.50, B = [hx, neckY, 0];
+        const heads = 7, spread = 0.34, tipY = 1.08, notchDrop = 0.13, edgeFall = 0.40;
+        const rim = [];
+        for (let k = 0; k < 2 * heads - 1; k++) {
+          const u = k / (2 * heads - 2) - 0.5;                 // -0.5..0.5 across the hood
+          const isTip = (k % 2) === 0;
+          rim.push([hx + u * spread, tipY - Math.abs(u) * edgeFall - (isTip ? 0 : notchDrop), 0]);   // tips high, notches dropped; edges fall away (arced hood)
+        }
+        const v = [];
+        for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k], ...rim[k + 1]);     // front fan
+        for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k + 1], ...rim[k]);     // back fan (reversed winding)
+        const hood = new THREE.BufferGeometry();
+        hood.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        hood.computeVertexNormals();
+        hood.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: hood });   // (2·heads−2)·2 = 24
+      }
+      return mergeLagoonParts(parts);
+    },
+    // BACKDROP, LONG + LOW (~5:1 wide): r 60–100 (the length), h 10–16 (underlines, never walls). FAR
+    // off-lane: |x| ≥ 60 so the central third of the frame stays clear. tilt 0 EXPLICIT (PLUMB-TIDE).
+    place: (side, rnd) => {
+      const r = 60 + rnd() * 40;
+      const p = { x: side * (62 + 0.35 * r + rnd() * 14), h: 10 + rnd() * 6, r, tilt: 0 };
+      if (HERO_SET.has('nagawall')) p.rotY = 0;   // debug: pin yaw so the hood + humps face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2239,6 +2344,8 @@ const FOAM_CFG = {
   figgate: { rx: 0.62, rz: 0.30 },   // Lost Lagoon v3 gateway — elliptical collar wraps the wide thin footprint (roots + jambs enter the water)
   mangrovehold: { r: 0.55 },         // Lost Lagoon v3 mangrove islet — a round jade tide collar where the crinoline of stilt-root feet meets the mirror (the jade anklet)
   prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
+  lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
+  nagawall: false,                   // Lost Lagoon v3 naga backdrop — NO collar (a bright foam ring 60+ off-lane is an artifact; the arcade/riftwall precedent)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
@@ -3200,6 +3307,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
   propAerialUniform.value = env.propAerial ?? 0;
   propAerialColor.value.copy(env.propAerialColor);
+  // Fable 79 hero backlit-rim lever: mirror the lerped env for dragon.js to consume via getHeroRim()
+  // (0 everywhere but the Mire → the rim boost is a byte-identical no-op elsewhere).
+  heroRimK = env.heroRim ?? 0;
+  heroRimCol.copy(env.heroRimColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down

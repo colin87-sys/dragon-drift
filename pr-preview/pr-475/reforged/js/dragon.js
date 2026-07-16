@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { damp, makeGlowTexture } from './util.js';
+import { damp, makeGlowTexture, makeTrailTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
-import { setFeverWarm } from './environment.js';
+import { setFeverWarm, getHeroRim } from './environment.js';
 import { setWaterHeroPool } from './water.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
@@ -367,7 +367,7 @@ export function createDragon(scene, def, riderDef) {
   // rimWingMul tames the wing rim per-dragon: flat faceted wings catch far more grazing-angle rim than the
   // rounded body, so a body-tuned cruise rim washes the whole wing in a cheap chrome outline the body
   // lacks. The Tempest (hot P1b rim + flat storm panels) drops it hard so the wing matches the body.
-  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm, mul: def.rimWingMul ?? 1 });
+  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm, mul: def.rimWingMul ?? 1, wing: true });   // wing: the per-biome backlit boost is DAMPED ×0.35 on flat facets (Fable 79 — no chrome plates)
   for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 * rpm });
   surgeMix = 0;
   surgeAnimT = 0;
@@ -428,8 +428,8 @@ export function createDragon(scene, def, riderDef) {
   // hard-white) core, so the additive tail-exhaust / body-trail read as FIRE instead of a blue-skirt
   // gray + white-core cloud that stacks along the rear-chase axis into a cream plume (the "white mess").
   const fireTrails = def.fireTrails;
-  const cyanTex = makeGlowTexture(fireTrails ? '255,150,60' : '120,220,255', fireTrails ? '255,226,184' : '255,255,255');
-  const blueTex = makeGlowTexture(fireTrails ? '255,110,30' : '80,130,255', fireTrails ? '255,214,150' : '255,255,255');
+  const cyanTex = makeTrailTexture(fireTrails ? '255,150,60' : '120,220,255', fireTrails ? '255,226,184' : '255,255,255');   // Fable 79: tight shoulder-free falloff — the frozen puff-stack was reading as balloons under the hero
+  const blueTex = makeTrailTexture(fireTrails ? '255,110,30' : '80,130,255', fireTrails ? '255,214,150' : '255,255,255');
 
   trailSprites = [];
   for (let i = 0; i < TRAIL_POOL; i++) {
@@ -1754,13 +1754,17 @@ export function updateDragon(dt, player, time) {
   // Cruise rim hue is per-dragon: a warm cream by default, but a COLD storm-steel for the Tempest so her
   // charcoal reads OUTLINED with a cool identity in cruise instead of a warm-lit generic silhouette
   // (glow-up: kill the flat-black read; a storm dragon's edge must be cold, not cream).
+  const lever = getHeroRim();   // per-biome backlit-rim lever — k is 0 everywhere but the Mire (Fable 79)
   _rimCol.setHex(activeDef.rimCruise ?? 0xfff0d8);
+  // The boost is SCENE light (the ember horizon behind the hero), so it drags the edge hue toward the
+  // biome backlight — capped at 0.65 so a cold-identity skin (Tempest) keeps a third of its own edge.
+  if (lever.k > 0.001) _rimCol.lerp(lever.color, Math.min(0.65, lever.k * 1.1));
   if (surgeMix > 0.002) {
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
-    _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));
+    _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));   // Surge still takes the hue over the biome backlight
   }
   const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
-  updateRim(_rimCol, rimStrength);
+  updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   // H7 DRAGON VITALS: bondBodyMul steps the emissive floor down per heart lost,
@@ -1856,7 +1860,7 @@ export function updateDragon(dt, player, time) {
     s.userData.life -= dt * 2.5;
     if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
     else {
-      s.material.opacity = s.userData.life * (activeDef.fireTrails ? 0.32 : 0.65);
+      s.material.opacity = s.userData.life * (activeDef.fireTrails ? 0.40 : 0.85);   // Fable 79: comp for the ~¼-energy tight trail curve — restores in-motion centreline luminance
       const sz = 0.8 + (1 - s.userData.life) * 2.2;
       s.scale.set(sz, sz, 1);
     }
@@ -1888,7 +1892,7 @@ export function updateDragon(dt, player, time) {
       );
     }
   }
-  const boostOp = activeDef.fireTrails ? 0.4 : 0.8;   // fire exhaust runs dimmer + sparser so it doesn't wash the scene gold (owner: "too much")
+  const boostOp = activeDef.fireTrails ? 0.50 : 0.95;   // fire exhaust runs dimmer + sparser so it doesn't wash the scene gold (owner: "too much"); Fable 79: +comp for the tight trail curve
   const boostSzK = activeDef.fireTrails ? 2.4 : 3.5, boostSz0 = activeDef.fireTrails ? 1.0 : 1.2;
   for (const s of boostTrailSprites) {
     if (!s.visible) continue;
