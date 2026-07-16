@@ -1251,6 +1251,44 @@ const ARCHETYPES = {
     // every frame). tilt small (crown reach is offset-built, not tilted).
     place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 43 + rnd() * 8, r: 11 + rnd() * 5, tilt: side * (0.02 + rnd() * 0.04) }),
   },
+
+  // glowcolossus — THE HERO (LUMEN-MIRE-BIBLE §4 / Fable PR-3 §1). A colossal ancient
+  // weather-torn giant mushroom — a NatGeo MONUMENT, not a toadstool: a squashed sagged
+  // dome (h:w ≤ 0.45) offset off a fat off-center tapering stalk, one collapsed sag-lobe +
+  // a torn rim, a broken fairy-ring court (one toppled dead). The ONLY emitter is the
+  // recessed down-facing GILL DISH (mat 1 living-amber, recessed ~20% inside the rim, tilted
+  // up toward the stalk so it's dark from overhead, a warm underlit shelf from the ¾ vantage —
+  // the "under the brim" address). Cap/stalk/court are dark foil (mat 0). Everything indexed
+  // (sphere/cone/cyl) → no toNonIndexed. Registered LAST. ~131 tris.
+  glowcolossus: {
+    step: 61, biomes: mireNew, matIndex: 4,
+    build: () => {
+      const parts = [];
+      // main dome — squashed asymmetric sagged umbrella, offset off the stalk axis
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.56, 8, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.05, y: 0.5, sy: 0.62, sz: 0.88 }) });
+      // collapsed sag-lobe on one flank (asymmetry + the "torn" beat), interpenetrating ≥25%
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.36, 6, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.30, z: 0.05, y: 0.44, sy: 0.5, sz: 0.8 }) });
+      // GILL DISH — the sole emitter. Open cone, apex UP (inner raised / outer low → tilts up
+      // toward the stalk), recessed to 0.46 (< dome 0.56) and seated under the dome's overhang.
+      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.46, 0.14, 9, 1, true), { x: 0.05, y: 0.42 }) });
+      // fat tapering stalk (wider at the waterline), off-center under the dome
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.22, 0.52, 7, 1, true), { y: 0.26 }) });
+      // one bulging buttress swelling interpenetrating the stalk base
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.14, 0.34, 5, 1, true), { x: 0.14, z: -0.04, y: 0.17, rz: 0.12 }) });
+      // fairy-ring court — 2 glowing minis (dark cap + tiny down-facing under-glow) + 1 toppled dead
+      const minis = [{ x: 0.42, z: 0.2 }, { x: -0.38, z: -0.26 }];
+      for (const m of minis) {
+        parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.12, 5, 1, true), { x: m.x, z: m.z, y: 0.07 }) });
+        parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.10, 0.07, 5, 1, true), { x: m.x, z: m.z, y: 0.05 }) });
+      }
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.36, 5, 1, true), { x: -0.44, z: 0.3, y: 0.06, rz: 1.35, ry: 0.5 }) });
+      return mergeParts(parts, 4);
+    },
+    // Colossal: r 26–36, h 16–22 → cap diameter ~35–50m vs a ~3m dragon. Heroes stand PLUMB
+    // (tilt 0 explicit — a missing tilt is a NaN quaternion); all lean is offset geometry. Draw r
+    // first, couple x to it (colonnata law); propclearance (biome-4 CI) verifies the inner edge.
+    place: (side, rnd) => { const r = 26 + rnd() * 10; return { x: side * (18 + 0.80 * r + rnd() * 5), h: 16 + rnd() * 6, r, tilt: 0 }; },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1279,6 +1317,7 @@ const FOAM_CFG = {
   // and overhead families get no ring (a collar under a fog-line massif or a floating canopy
   // would be a bright off-lane artifact — the ridge lesson).
   reedveil: { r: 0.5 }, boleveil: false, canopywall: false, drape: false,
+  glowcolossus: { r: 0.42 }, // hero — a faint warm waterline collar on the fat stalk, not surf
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
