@@ -67,6 +67,11 @@ This doc distills HOW Frozen was actually done (July 2026, ~12 ledger lessons + 
 redirects) into a reusable, biome-agnostic pipeline, and then applies it to the
 recommended next biome (Emberfall Caldera) as a worked example.
 
+**The bar for every one of these overhauls is defined in PART 0 — THE AWE DOCTRINE.
+Read it before Part A.** 4.2/5 is the pass gate; AWE is the target. Part 0 is standing
+owner doctrine: it applies to every biome overhaul, not any one biome, and it is
+first-class — equal in rank to determinism, 60fps, and Part B distinctness.
+
 **What this doc is NOT:** a license to copy Frozen. Part B is the owner's hard
 requirement — read it twice. What transfers between biomes is the METHOD, the PIPELINE,
 and the TECHNIQUES. Never the geometry, never the palette, never the hazard forms.
@@ -87,6 +92,136 @@ Read-first stack (in order, before any code):
    `crevasseCore`, FOAM_CFG, `place()`/`writeMatrix`), `js/obstacles.js`
    (`SKIN_BUILDERS`/`hazardMesh`/`bakeIceLadder`/`buildObstacleMesh`), `js/hazards.js`
    (the biome-hazard runtime), `js/biomes.js` (the biome's atmosphere entry).
+
+---
+
+# PART 0 — THE AWE DOCTRINE (standing; EVERY biome overhaul inherits this)
+
+This part outranks everything below it except the owner. It is not per-biome guidance
+— it is the STANDING bar and the STANDING art-direction workflow that every overhaul
+(Caldera, and every biome after it) runs before and through Part A's pipeline. A
+session that executes Part A perfectly but skips Part 0 has built a well-verified
+mediocre biome.
+
+## 0.1 THE AWE BAR — the primary success criterion
+
+**The bar for every biome is NOT "good enough." It is: a player looks at the scene
+and thinks "wow, this game is absolutely beautiful."** AAA-premium — the reaction a
+flagship console title earns, not "impressive for procedural vanilla Three.js." That
+sentence is the primary success criterion of a biome overhaul; everything in Part A
+is machinery for reaching it without breaking the game.
+
+Rank order, so no session confuses the floor with the target:
+
+- **4.2/5 is the FLOOR** — the per-element pass gate (A1 Stage 2/5, A6). A 4.2 means
+  an element is ALLOWED to ship. It does not mean the biome is done.
+- **AWE is the TARGET** — the biome-level criterion the assembled overhaul is judged
+  against, on the moving in-context flythrough and the owner's preview. A biome can
+  pass every element gate and still fail the overhaul: Frozen's ossuary was exactly
+  this failure (every headless gate green, a Fable checkpoint passed, owner verdict
+  NO — it aimed at unease when the bar was awe).
+
+A biome overhaul is DONE when the flythrough makes the sentence true, and not before.
+Budget iteration for the gap between "all elements ≥4.2" and "absolutely beautiful" —
+that gap is where the real art direction happens.
+
+## 0.2 SCENE COMPOSITION is a first-class deliverable
+
+A beautiful scene is COMPOSED, not accumulated. Premium props in an un-art-directed
+scene read as a prop catalog, not a place — composition is a deliverable with its own
+spec and its own checkpoint, never a side effect of nice props. Per biome, the
+following are explicitly art-directed (in the Stage-1 bible, as a **composition
+script**) and then verified on captures:
+
+- **Framing** — what the player's forward view down the lane actually serves: what
+  flanks the corridor, what the sky band holds, what the water doubles. The lane is
+  the camera dolly; design the shot it takes.
+- **Depth layering** — deliberate fore/mid/background reads: in-lane hazards (fore),
+  the prop roster (mid), massifs sinking into the far fog (back). Each layer must
+  separate in value and scale; the dual-fog story (A5) is the layering instrument.
+- **Silhouette** — the skyline the biome cuts against its own sky: where it's jagged,
+  where it rests, where the one tall punctuation mark stands (A3.1–A3.3).
+- **A COLOR SCRIPT** — the deliberate palette progression of the scene: sky → fog →
+  mass → accent → water → danger magenta, with named relationships (what's warm vs
+  cool, what's saturated vs held back, what the eye's one "expensive" hue is). Derived
+  from the theology sentence, checked against `bulletcontrast` and Law 8.
+- **Light + time-of-day mood** — where the key light comes from, what it rakes across,
+  what it silhouettes, and the mood that time-of-day choice buys (Frozen's low sunset
+  sun was a composition decision before it was a lighting value).
+- **Atmosphere** — mist/haze/fog/height-fog/particles as COMPOSITION tools: what they
+  veil, what they separate, where the air pools, what drifts through the frame.
+- **Reflections / water** — where relevant, the water is half the frame: mirror vs
+  chop is a composition choice (double the heroes, or scatter them).
+- **Focal hierarchy** — where the eye goes FIRST, second, third, in a typical stretch.
+  If everything asks for attention, nothing is the hero.
+- **Negative space** — restraint as composition law (A3.6): the empty stretches are
+  what make the colossal forms land. Design the emptiness, don't just tolerate it.
+- **THE MOTION READ** — the scene is experienced at flight speed, not as a hero frame.
+  Compose the FLYTHROUGH: how layers parallax, the rhythm of dense → empty → hero
+  moment, how often a designed shot crosses the view, whether the composition still
+  reads in the 3 seconds a player actually has. A static frame that scores 5/5 and a
+  flythrough that reads as noise = a failed composition.
+
+**The composition earns its own Fable checkpoint** — scored on the Stage-4 moving
+in-context captures as its own line item beside the per-element scores (floor 4.2/5,
+target the 0.1 bar). Element scores never substitute for it; see A6.
+
+## 0.3 THE REFERENCE NORTH STAR
+
+The standing visual target for the game: **a cross between Ghost of Tsushima and
+Breath of the Wild, shot like National Geographic.**
+
+- **Ghost of Tsushima** — painterly cinematic color, bold saturated color fields, wind
+  and atmosphere as living mood, the guiding-the-eye discipline of its composition.
+- **Breath of the Wild** — stylized, READABLE sense-of-place and wonder: clean forms
+  that carry identity at distance, a world that invites the eye toward landmarks.
+- **National Geographic** — the natural awe/realism of nature-documentary photography:
+  real geology and real light doing something extraordinary, the patience of a held
+  wide shot, the sense that this place EXISTS.
+
+Each biome's art direction STUDIES these for PRINCIPLES — composition, color
+relationships, light, mood — **never to copy their content, assets, scenes, or
+landmarks** (0.5 / Part B). The output of reference study is composition laws and
+palette logic in the biome's own vocabulary, never "build the thing from that game."
+
+## 0.4 THE RESEARCH → FABLE-SYNTHESIZES WORKFLOW (how art direction runs)
+
+This is the mandatory shape of the art-direction work, per biome:
+
+1. **Fable is the ACTIVE art director and owns the vision end to end** — from Stage 1
+   through every checkpoint through Gate 2 and the final composition score. Not a
+   one-shot critic: the same directing intelligence, resumed (SendMessage keeps its
+   loaded context), across the whole arc.
+2. **Fable does NOT do the grunt research itself.** Fable decides WHAT to research and
+   HOW — the reference questions, the real-world subjects, the specific unknowns —
+   then **delegates the research to Opus**: spawn general/Explore/web-research agents
+   to study the reference games' scene composition (0.3) and real-world / National
+   Geographic references for THIS biome's subject (its geology/ecology, color
+   palettes, lighting, atmospheric depth).
+3. **Opus gathers and reports the research back. Then Fable SYNTHESIZES it** into the
+   plan / build sheet: the biome bible (Stage 1), the color script, the composition
+   laws (0.2), the prop + hazard roster, the material direction, the phased build
+   order. Research is raw material; the bible is Fable's synthesis, not a paste of
+   findings.
+4. **Fable stays the art director through every checkpoint** — studio contact sheets,
+   in-context captures, the composition checkpoint, Gate 2 — so the vision that
+   directed the research is the one grading the pixels.
+
+Stage the research digest and the synthesized bible as durable files (scratchpad
+digest → `reforged/<BIOME>-BIBLE.md`), so mid-arc sessions inherit the vision instead
+of re-deriving it.
+
+## 0.5 AWE NEVER LICENSES REPLICATION (Part 0 ↔ Part B — critical)
+
+"Make it absolutely beautiful" is not permission to (a) literally copy a reference
+game's content, assets, scenes, or landmarks, or (b) replicate another Dragon Drift
+biome's look, shapes, or palette because that biome already scored well. **Beauty is
+DERIVED from THIS biome's own identity, material, and light** — its theology sentence,
+its geology, its verb, its boss. The north star (0.3) supplies grammar; the biome
+supplies every noun. These two doctrines reinforce each other: the most awe-inducing
+version of a biome is the one only IT could be, and a biome that borrows another's
+beauty has failed BOTH bars at once. Part B gates this mechanically — including the
+AWE-SOURCE row in the "Frozen-recolored" checklist.
 
 ---
 
@@ -116,7 +251,10 @@ hazards → atmosphere/ambient), one PR each, coexist-flagged.
 
 Spawn a **high-effort Fable art director** with: the renders, the biome's identity
 triple from BIOME-DESIGN §4 (hazard + verb + anchor boss), the owner's emotion target,
-and Part B of this doc. It must deliver:
+and Part 0 + Part B of this doc. It runs the **Part 0.4 workflow** — Fable directs the
+research questions, delegates the gathering to Opus agents (reference-game composition
+per 0.3 + real-world/NatGeo references for this biome's subject), then SYNTHESIZES the
+reports into the bible — and it must deliver:
 
 - **One generating theology sentence** that every element derives from. Frozen's was
   "cool light lives IN the ice; warm light only ever comes FROM the sun" — one sentence
@@ -128,6 +266,11 @@ and Part B of this doc. It must deliver:
   against it. Awe grammar = a FEW colossal, intact, luminous forms with negative space
   — never a rubble field of mid-size "clusters with a story" (that's mid-frequency
   noise with no focal hero).
+- **The scene-composition script (Part 0.2)** — framing, depth layers, silhouette
+  skyline, the color script, light/time-of-day mood, atmosphere, water/reflection
+  role, focal hierarchy, negative space, and the motion read at flight speed, for
+  THIS biome. It is a first-class deliverable and will be scored as its own
+  checkpoint at Stage 4/A6.
 - **The full prop roster on paper** (≥4 outline families, one hero, one foil, one
   massif — see A3), each with mass class, accent policy, and step rarity.
 - **Opposition against its Law-4 twin** and against every OTHER premium biome: name the
@@ -199,7 +342,10 @@ light, in-lane, moving** — clone `tools/hazshot.mjs` (flies the showcase in-bi
 bursts frames as the dragon passes each element) and the `frozenclose` flythrough.
 Judge: silhouettes hold against the biome's brightest sky region; the value ladder
 still reads on camera-facing faces; magenta danger wins; the dragon roster pops
-(BIOME-DESIGN Law 8).
+(BIOME-DESIGN Law 8). **This is also where the Part 0.2 COMPOSITION CHECKPOINT is
+scored** — on the MOVING captures, as its own line item: depth layers separate,
+focal hierarchy leads the eye, the color script holds, negative space lands, and the
+flythrough — not just a hero frame — points at the 0.1 awe bar.
 
 ### Stage 5 — Harsh Fable checkpoint (the gate)
 
@@ -474,12 +620,18 @@ applies to every new continuous field):
 2. **Per-element harsh Fable checkpoint, hard floor 4.2/5 — scored on studio contact
    sheets AND re-scored in-context in the shipping light.** Studio-only scores don't
    count.
-3. Verify before claiming: full headless suite + envcount `--ci` + NaN scan + coverage
+3. **The COMPOSITION checkpoint + the AWE BAR (Part 0).** The assembled scene gets its
+   own Fable score on the moving in-context captures against the 0.2 composition
+   script — floor 4.2/5, target "wow, this game is absolutely beautiful" (0.1).
+   Per-element scores never substitute for it; a roster of 4.2s that composes into
+   noise fails here.
+4. Verify before claiming: full headless suite + envcount `--ci` + NaN scan + coverage
    tests + real renders you have LOOKED at. Never claim a visual result without a PNG.
-4. The owner judges feel/awe/motion on the PR preview (staged with the biome pin and a
-   what-to-look-at list). The owner outranks every gate.
-5. **SW re-stamp (`node tools/stamp-sw.mjs`) before every fly-test hand-off.**
-6. One lesson file per change (`leapfrog/lessons/`, `graphics-` slug for this track).
+5. The owner judges feel/awe/motion on the PR preview (staged with the biome pin and a
+   what-to-look-at list). The owner outranks every gate — and the owner's bar is
+   Part 0.1, not the floor.
+6. **SW re-stamp (`node tools/stamp-sw.mjs`) before every fly-test hand-off.**
+7. One lesson file per change (`leapfrog/lessons/`, `graphics-` slug for this track).
 
 ---
 
@@ -530,6 +682,15 @@ come from — and it must not be Frozen's low gold sun). Start from real-world r
 for the biome's OWN geology/ecology (Frozen started from tabular bergs and Khumbu
 seracs; Caldera starts from columnar basalt and pahoehoe — not from bergs).
 
+**The awe bar is bounded by this mandate (Part 0.5 — read them together):** the Part 0
+demand for "absolutely beautiful" is NEVER an excuse to lift a reference game's
+content, scenes, or assets (the north star is studied for principles only), and NEVER
+an excuse to replicate another Dragon Drift biome's look, shapes, or palette because
+that biome already proved beautiful. Chasing awe by borrowing fails BOTH doctrines at
+once: it isn't distinct, and it isn't this biome's beauty. Awe is reached by pushing
+the biome's OWN identity, material, and light further — not by reaching for someone
+else's.
+
 **The "Frozen-recolored" checklist** — the builder self-checks it at Stage 1 and the
 Gate-2 Fable agent MUST run it explicitly on the contact sheets + in-context captures:
 
@@ -548,6 +709,11 @@ Gate-2 Fable agent MUST run it explicitly on the contact sheets + in-context cap
       (Frozen, Aurora)? If two biomes could swap screenshots, one of them changes.
 - [ ] State the biome's theology sentence and Frozen's next to each other: different
       subjects, different light sources, different verbs?
+- [ ] AWE-SOURCE (Part 0.5): for each designed beauty beat (the hero landmark, the
+      color script's money hue, the signature light moment), name the biome-native
+      source it derives from — its material, its light, its identity triple. Any beat
+      whose honest description is "the shot from <reference game>" or "<other premium
+      biome>'s composition, retinted" is a copy: RETHINK it, don't retint it.
 - [ ] MECHANICAL GREP (run it, don't eyeball — this is the check that catches a
       silent recolor): in the new kit's diff, every `bakeIceLadder(` call passes an
       explicit `stops:`; zero references to `_FROST`, `_MIDICE`, `_BELLY`,
@@ -784,6 +950,7 @@ THE RULE's whole point.
 ---
 
 *After Caldera ships and the owner signs it, the next biome runs this same doc from
-Part A with a fresh identity — and Part B applies to Caldera then too: the third biome
+Part 0 with a fresh identity — the awe bar and the research → Fable-synthesizes
+workflow are standing, not per-biome — and Part B applies to Caldera then too: the third biome
 may not replicate Frozen OR Caldera. Every overhaul adds one more "must not resemble"
 row to the checklist. Update this playbook's Part B list as premium biomes accumulate.*
