@@ -23,6 +23,7 @@ import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
+import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
@@ -1244,6 +1245,7 @@ function resumeFromPause() {
   discardNextDelta = true;
   game.pauseReason = '';
   game.state = 'playing';
+  uiSound.back();   // U11: the pause panel closes (Esc / outside tap / RESUME)
   ui.hideScreen();
   music.start();
 }

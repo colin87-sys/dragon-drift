@@ -86,6 +86,12 @@ export const uiSound = {
   search()  { blip({ type: 'triangle', from: 2600, to: 2500, dur: 0.028, vol: 0.05 }); },
   lock()    { blip({ type: 'sine', from: 1560, to: 1180, dur: 0.09, vol: 0.075 });
               blip({ type: 'sine', from: 2320, to: 1760, dur: 0.07, vol: 0.035, delay: 0.015 }); },
+  // U11 (Phase 4) — the ARMED-DANGER cue: a short falling pair, unmistakably
+  // "down" (the sonic mirror of the red armed chrome). Fires when a destructive
+  // two-step arms (RESET ALL PROGRESS / ABANDON RUN) — the second, committing
+  // tap gets no fanfare: erase/quit is not a celebration.
+  arm()     { blip({ type: 'triangle', from: 980, to: 620, dur: 0.10, vol: 0.085 });
+              blip({ type: 'triangle', from: 740, to: 470, dur: 0.10, vol: 0.055, delay: 0.07 }); },
   bell(role) {
     if (role === 'gold' || role === 'jade') {
       blip({ type: 'sine', from: 1480, to: 1720, dur: 0.05, vol: 0.05 });
