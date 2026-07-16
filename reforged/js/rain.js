@@ -13,7 +13,7 @@
 // distant rain-sheet in the sky-dome shader. This file is the primitive swap only.
 import * as THREE from 'three';
 
-const NEAR = 90, MID = 260, COUNT = NEAR + MID;
+const NEAR = 140, MID = 340, COUNT = NEAR + MID;   // hero density bumped to ~480 (Fable: driving, not steady) — via COUNT, never alpha
 const R_FAR = 38, Y_LO = -26, Y_HI = 26;   // tighter volume → the hero streaks read DENSE near the camera (Layer C adds far density)
 const LEAN_K = 0.25;   // ~14° off vertical along the wind
 
@@ -50,9 +50,10 @@ export function createRain(scene) {
     off[i * 3] = Math.cos(ang) * rad;
     off[i * 3 + 1] = Y_LO + rnd() * (Y_HI - Y_LO);
     off[i * 3 + 2] = Math.sin(ang) * rad;
-    // ±40% length variance is mandatory (uniformity is the debug tell).
+    // ±40% length variance is mandatory (uniformity is the debug tell) + a rare extra-long
+    // speed-line class (~10% of heroes at 11–12m) that sells the wind harder than uniform lengths.
     const lv = 0.6 + rnd() * 0.8;
-    iLen[i] = (near ? 7.0 : 3.75) * lv;                     // near 5–9m, mid 2.5–5m
+    iLen[i] = (near && rnd() < 0.1) ? (11.0 + rnd()) : (near ? 7.0 : 3.75) * lv;   // near 5–9m (+long class), mid 2.5–5m
     iWidth[i] = near ? 0.07 + rnd() * 0.04 : 0.045 + rnd() * 0.025;
     iAlpha[i] = near ? 0.30 : 0.18;
     speed[i] = (near ? 30 : 22) * (0.8 + rnd() * 0.4);      // ±20%

@@ -1853,6 +1853,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     zenith: env.skyTop,
     waveAmp: env.waveAmp,
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
+    rainRipple: env.rainMix, // rain Layer B: splash rings where the rain hits the sea (rides rainMix)
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
