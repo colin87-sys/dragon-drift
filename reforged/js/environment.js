@@ -214,6 +214,12 @@ function makeMats() {
   mats.mireFarLiving = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xf7b048, vertexColors: true, roughness: 0.4, emissive: 0xf08c28, emissiveIntensity: 1.8,
   }), true);
+  // THE MIRE EMBER material (Fable ensemble §3 tier 4) — the glowbloom near-scatter breadcrumbs: the
+  // PALE afterglow hue, dimmest tier (the lane written in embers, never lanterns competing with the hero).
+  // Blooms are NEAR (low fog tax) so @0.85 still reads. Own material so the pale hue never touches a hero.
+  mats.mireEmberLiving = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffd98a, roughness: 0.4, emissive: 0xffc86a, emissiveIntensity: 0.85,
+  }));
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -1457,7 +1463,12 @@ const ARCHETYPES = {
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
       parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.42, 9, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.7, sy: 0.62 }) }); // GLOWING cap dome (obvious from above)
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.42, 0.06, 9, 1, true), { y: 0.7 }) }); // dark rim band for definition
-      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 6, 3), { y: 0.98 }) }); // bright crown boss on top
+      // 3 DARK MOTTLE patches on the cap shoulder (Fable §7-C): break the single blown dome into
+      // core (crown boss) → bloom (dome) → dark (rim + mottles); flattened low spheres seated ~0.02 into the dome.
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.13, 5, 2), { x: 0.24, z: 0.10, y: 0.80, sy: 0.4 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.11, 5, 2), { x: -0.19, z: 0.16, y: 0.82, sy: 0.4 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.10, 5, 2), { x: 0.03, z: -0.27, y: 0.83, sy: 0.4 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 6, 3), { y: 0.98 }) }); // bright crown boss on top (the core)
       return mergeParts(parts, 4);
     },
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (16 + rnd() * 6)), h: 20 + rnd() * 6, r: 16 + rnd() * 6, tilt: 0, rotY: 0 }),
@@ -1469,12 +1480,17 @@ const ARCHETYPES = {
     step: 200, biomes: [], matIndex: 4,
     build: () => {
       const parts = [];
-      const pods = [{ x: 0, z: 0, h: 0.92, s: 0.17 }, { x: 0.28, z: 0.10, h: 0.7, s: 0.12 }, { x: -0.24, z: 0.14, h: 0.78, s: 0.13 }, { x: 0.1, z: -0.26, h: 0.6, s: 0.11 }];
+      const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
+      // Wide height stagger (Fable §7-D: 0.50–0.95 so it doesn't read as one row from the chase cam) + jittered XZ.
+      const pods = [{ x: 0.02, z: 0.0, h: 0.95, s: 0.17 }, { x: 0.31, z: 0.13, h: 0.72, s: 0.13 }, { x: -0.27, z: 0.19, h: 0.58, s: 0.14 }, { x: 0.13, z: -0.31, h: 0.50, s: 0.12 }];
       for (const p of pods) {
-        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.03, 0.05, p.h, 4).toNonIndexed(), { x: p.x, z: p.z, y: p.h / 2, rz: p.x * 0.3 }) }); // dark stalk
-        parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(p.s, 0), { x: p.x, z: p.z, y: p.h }) }); // glowing bulb
+        parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.028, 0.045, p.h, 3)), { x: p.x, z: p.z, y: p.h / 2, rz: p.x * 0.3 }) }); // dark stalk (3-seg, Fable §7-D)
+        parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(p.s + 0.03, p.s * 0.55, 5, 1, true)), { x: p.x, z: p.z, y: p.h - p.s * 0.5 }) }); // dark CALYX cup — the bulb sits in a dark husk
+        parts.push({ mat: 1, geo: xform(new THREE.OctahedronGeometry(p.s, 0), { x: p.x, z: p.z, y: p.h }) }); // glowing bulb (faceted lantern-gem)
       }
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      merged.materials[merged.materials.length - 1] = propMats.mireEmberLiving; // pale afterglow tier-4 @0.85
+      return merged;
     },
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 16 + rnd() * 6, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
