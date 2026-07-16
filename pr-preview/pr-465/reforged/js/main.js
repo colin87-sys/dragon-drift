@@ -83,6 +83,13 @@ import { BUILD, BUILT } from './buildId.js';
       'font:10px/1 ui-monospace,Menlo,Consolas,monospace;color:rgba(255,255,255,.5);' +
       'letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.6)';
     document.body.appendChild(el);
+    // Live perf read (pin/debug only): the graphics tier is dynamic — it degrades under load — and
+    // the water swell geometry is FLAT at tier 2, so a struggling device silently loses the wave roll.
+    // Surface both so a device-only "sea won't swell" is one screenshot, not a guessing game.
+    setInterval(() => {
+      const t = document.body.dataset.qtier;
+      el.textContent = `build ${BUILD} · tier ${t} · swell ${getWaterSwellOn() ? 'on' : 'off'}`;
+    }, 1000);
   } catch (e) { /* non-fatal cosmetic */ }
 })();
 
