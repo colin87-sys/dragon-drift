@@ -72,7 +72,7 @@ export const BIOMES = [
     // (+ rootbastion/arcade/campanile/sentinel to come). The legacy verdigris props (tower/column/…) still
     // spawn as placeholder until the PR-3 composition pass migrates them behind ?props=v1. (This array is
     // documentation only — spawning is gated by each archetype's `biomes` whitelist in environment.js.)
-    props: ['rotunda', 'lilyraft', 'wrackstone', 'rootbastion', 'tower', 'column', 'archruin', 'slab', 'dome'],
+    props: ['rotunda', 'lilyraft', 'wrackstone', 'rootbastion', 'arcade', 'tower', 'column', 'archruin', 'slab', 'dome'],
     matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-3+)
     // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
     // deep-rose (re-run bulletcontrast after the jade-water retune).
