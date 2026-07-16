@@ -543,8 +543,8 @@ const _LAG_BLOOM_D = [0.788, 0.541, 0.431]; // 0xc98a6e deeper blush body (shado
 // old green roots merged into "generic moss" and the strangle read vanished). Normal-keyed like the foliage:
 // a little lit bark catches on top-curves, the vertical flanks stay dark brown → dark roots gripping pale
 // stone (the Ta Prohm contrast) with their OWN value zone. Gives the prop its 3rd organized zone.
-const _WOOD_LIT = [0.420, 0.306, 0.196];   // 0x6b4e32 sunlit bark (up-facing curves)
-const _WOOD_DARK = [0.157, 0.106, 0.063];  // 0x281b10 dark bark (flanks, undersides — the strangling dark)
+const _WOOD_LIT = [0.360, 0.262, 0.170];   // 0x5c4329 sunlit bark (up-facing curves) — TIGHTENED range (Fable mangrovehold: ivory feet read as flat-tape paddles; keep all wood in one brown family)
+const _WOOD_DARK = [0.205, 0.145, 0.092];  // 0x342517 shadow bark (flanks, undersides) — lightened so thin legs read as one grown root system, not mixed lumber
 function bakeWood(geo, upThresh = 0.45) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -2118,27 +2118,26 @@ const ARCHETYPES = {
       // TRUNK — a short woody column SUSPENDED above the water (base at y0.40 → the airgap is below it),
       // holding the canopy. bake:'wood' (dark bark).
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([0.0, 0.40, 0.0], [0.02, 0.74, 0.0], 0.14, 0.11, 6) });   // trunk (12)
-      // STILT ROOTS — a crinoline of arcing prop-roots from the trunk base DOWN-AND-OUT to feet at the
-      // water (y0), splayed at UNEVEN azimuths (no radial-clone spider). Each: start near the trunk (high,
-      // central) → arc out+down → splayed FLARED foot. bake:'wood'. World-radius floor via a fat foot.
-      const leg = (az, reach, y0, footR, seg) => {
+      // STILT ROOTS — true mangrove PROP-ROOT ARCS (Fable r1: straight tripod struts read as "kindling"; a
+      // mangrove root BOWS — convex-outward, the knee kicked OUTSIDE the foot, then a buttress foot-flare
+      // that GRIPS). 3 segments/leg: out-and-down at ~55° (thick base) → KNEE past the foot (the bow) →
+      // near-vertical to a FLARED buttress foot. bake:'wood' bark; UNEVEN azimuths (a crinoline, not a clock).
+      const leg = (az, R) => {
         const c = Math.cos(az), s = Math.sin(az);
-        const p0 = [0.07 * c, 0.46, 0.07 * s], p1 = [reach * 0.6 * c, y0 + 0.20, reach * 0.6 * s], p2 = [reach * c, y0, reach * s];
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.055, 0.045, seg) });
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.045, footR, seg) });   // flared foot
+        const p0 = [0.09 * c, 0.48, 0.09 * s];          // trunk attach (high, central, thick)
+        const p1 = [R * 1.16 * c, 0.27, R * 1.16 * s];  // KNEE — bows OUT past the foot (convex-outward arc)
+        const p2 = [R * 1.02 * c, 0.11, R * 1.02 * s];  // curling back in + down
+        const p3 = [R * 0.94 * c, 0.0, R * 0.94 * s];   // foot at the waterline (knee R > foot R = the bow)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.062, 0.046, 3) }); // thick base → taper (6)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.046, 0.038, 2) }); // short knee (4)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p2, p3, 0.038, 0.072, 3) }); // taper → FLARED buttress foot (6)
       };
-      // uneven azimuths + varied reach/foot so the crinoline reads organic, not a clock face
-      leg(0.35, 0.50, 0.0, 0.085, 3);   // (12) — all 3-seg → triangular prism (round root), never a flat strap
-      leg(1.30, 0.44, 0.0, 0.075, 3);   // (12)
-      leg(2.30, 0.52, 0.0, 0.085, 3);   // (12)
-      leg(3.15, 0.40, 0.0, 0.070, 3);   // (12)
-      leg(4.20, 0.48, 0.0, 0.080, 3);   // (12)
-      leg(5.25, 0.42, 0.0, 0.072, 3);   // (12)
+      leg(0.30, 0.48); leg(1.15, 0.42); leg(2.25, 0.50); leg(3.10, 0.40); leg(4.15, 0.47); leg(5.20, 0.44); // 6 × 16 = 96
       // CANOPY — a BROAD sheared green crown (bake:'lily'), the visual mass that outweighs the legs so it
       // reads TREE not spider. Two overlapping squashed lobes (the figgate/karstfang law: rounded blobs +
       // overlap, never a flat pad or one convex boulder), seated low so they weld to the trunk top.
       parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.52, 0), { x: -0.02, z: 0.0, y: 0.86, sx: 1.22, sy: 0.62, sz: 1.14 }) });  // main broad canopy (20)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.24, z: 0.14, y: 0.94, sx: 1.06, sy: 0.66, sz: 0.96 }) });  // overlapping lobe (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.38, 0), { x: 0.14, z: 0.10, y: 0.92, sx: 1.06, sy: 0.66, sz: 0.98 }) });  // overlapping lobe — pulled IN + bigger so the two blobs merge (Fable r1: kill the pac-man notch) (20)
       return mergeLagoonParts(parts);
     },
     // LOW islet, ~1:1 (broad canopy + splayed legs ≈ as wide as tall): r 4.5–7, h 4–7 (never crowds the
