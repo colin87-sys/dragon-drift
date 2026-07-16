@@ -1268,19 +1268,24 @@ const ARCHETYPES = {
       parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.56, 8, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.05, y: 0.5, sy: 0.62, sz: 0.88 }) });
       // collapsed sag-lobe on one flank (asymmetry + the "torn" beat), interpenetrating ≥25%
       parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.36, 6, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.30, z: 0.05, y: 0.44, sy: 0.5, sz: 0.8 }) });
-      // GILL DISH — the sole emitter. Open cone, apex UP (inner raised / outer low → tilts up
-      // toward the stalk), recessed to 0.46 (< dome 0.56) and seated under the dome's overhang.
-      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.46, 0.14, 9, 1, true), { x: 0.05, y: 0.42 }) });
+      // GILL DISH root (Fable v41) — the below/reflection read: shallow down-facing cone, apex up.
+      // The BLACK MIRROR is the ¾-from-below vantage inverted, so the reflection twin views this.
+      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.44, 0.12, 8, 1, true), { x: 0.05, y: 0.45 }) });
+      // THE GILL-MARGIN FOLD (Fable v41) — the CHASE-CAM read. A frustum folding DOWN-AND-OUT
+      // (rTop 0.44 high → rBottom 0.52 low ≈ 33° below horizontal, normal outward) so the game's
+      // near-horizontal camera ray catches a warm underline. Stays INSIDE the dome silhouette
+      // (rim ~0.56 → a dark lip always crowns it: on-contour glow = flush LED, banned) and dips
+      // just below the skirt so the horizontal ray reaches it. Same mireLiving material.
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.44, 0.52, 0.09, 8, 1, true), { x: 0.05, y: 0.41 }) });
       // fat tapering stalk (wider at the waterline), off-center under the dome
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.22, 0.52, 7, 1, true), { y: 0.26 }) });
       // one bulging buttress swelling interpenetrating the stalk base
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.14, 0.34, 5, 1, true), { x: 0.14, z: -0.04, y: 0.17, rz: 0.12 }) });
-      // fairy-ring court — 2 glowing minis (dark cap + tiny down-facing under-glow) + 1 toppled dead
-      const minis = [{ x: 0.42, z: 0.2 }, { x: -0.38, z: -0.26 }];
-      for (const m of minis) {
-        parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.12, 5, 1, true), { x: m.x, z: m.z, y: 0.07 }) });
-        parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.10, 0.07, 5, 1, true), { x: m.x, z: m.z, y: 0.05 }) });
-      }
+      // fairy-ring court — 1 glowing mini (dark cap + under-glow) + 1 dark mini + 1 toppled dead
+      // (irregular; cut one glowing mini to pay the gill-fold tri bill, Fable v41)
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.12, 5, 1, true), { x: 0.42, z: 0.2, y: 0.07 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.10, 0.07, 5, 1, true), { x: 0.42, z: 0.2, y: 0.05 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.13, 0.11, 5, 1, true), { x: -0.38, z: -0.26, y: 0.06 }) });
       parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.36, 5, 1, true), { x: -0.44, z: 0.3, y: 0.06, rz: 1.35, ry: 0.5 }) });
       return mergeParts(parts, 4);
     },
