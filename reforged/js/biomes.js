@@ -272,10 +272,10 @@ export const BIOMES = [
       top: C(0x2b333d),      // the storm deck overhead — near-black blue-grey (rain-core register, cooled)
       mid: C(0x4d5346),      // the green-grey core belt — DESATURATED teal-olive (real green-storm-sky), never emerald
       horizon: C(0xb4bab6),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
-      sun: C(0xe0b070),      // the veiled-amber bruise where the hidden 0–5° sun sits — a glow, never a disc
-      // N9 clouds: the heaviest deck in the cycle — gold-leaning lit tops (low hidden sun) over
-      // committed near-black undersides (the black shadow is what makes the cloud read as SOLID mass).
-      cloud: { amount: 0.95, lit: C(0xe9cf9e), shadow: C(0x2e363f) },
+      sun: C(0xbcae96),      // the hidden sun is a DIM veiled bruise behind cloud — muted warm-grey, never a bright gold disc (it was 0xe0b070 blazing amber, which read as a sunny day)
+      // N9 clouds: the heaviest deck in the cycle — faint gold-leaning lit tops (the rationed stolen
+      // warmth) over committed near-black undersides (the black shadow is what makes the cloud read SOLID).
+      cloud: { amount: 0.97, lit: C(0xcdd0c8), shadow: C(0x252c33) },
     },
     fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
     // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
@@ -284,7 +284,15 @@ export const BIOMES = [
     fogFarColor: C(0xa7b2b0),
     // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
     atmos: { heightK: 0.04 },
-    light: { sun: C(0xffd28a), sunI: 1.25, hemiSky: C(0x6b7a80), hemiGround: C(0x2c3a3c) },
+    // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
+    // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
+    // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
+    // rationed cloud-rim/socket gold, never as the field light.
+    light: { sun: C(0xaebac2), sunI: 0.82, hemiSky: C(0x5a6a72), hemiGround: C(0x2c3a3c) },
+    // Meter the shared god-ray fan WAY down (the Mire precedent): a storm has NO sun shafts — the
+    // default godrayMul:1 + warm tint was the giant gold glitter-column washing every frame warm.
+    godrayMul: 0.05,
+    godrayTint: C(0x9fb0bc),   // cool steel — any residual haze glow stays cold, never gold
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
