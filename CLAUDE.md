@@ -36,6 +36,14 @@ poverty), how to get real DEPTH / THICKNESS / RICHNESS, the reusable fingered-me
 the tail-chain + wrist-fold MOTION kit (the −anchor + mirror rigging gotchas), withheld
 component glow, the cruise-visible tier ladder, the Fable-critic-per-checkpoint process, and the
 verification harness. Read it so you start rich on turn one instead of building a stick dragon.
+**Then read [`reforged/AAA-PIPELINE.md`](./reforged/AAA-PIPELINE.md)** — the premium LIGHT +
+POLISH + GATE-CONVERGENCE playbook distilled from the Thunderhead Tempest (the roster's premium
+bar): the value-structure law (core→bloom→dark on every hero element), the 12-entry cheap-tell
+registry with the law that kills each (flat-tape bones, chrome outlines, onion-ring glows,
+metronome timing…), the three-judge split (machine numbers / harsh Fable ≥4.2 / owner feel), and
+the one-revise-round convergence protocol with numeric pixel targets. The Tempest needed ~9
+critic rounds and a 4-phase glow-up to discover these laws; a dragon built to them from I1
+should land each gate in ONE round.
 
 **Tuning or building a WING-FLAP animation?** Read
 [`reforged/FLAP-DESIGN.md`](./reforged/FLAP-DESIGN.md) first — the flap playbook: the 3-segment
