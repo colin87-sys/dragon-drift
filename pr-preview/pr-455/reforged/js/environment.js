@@ -498,6 +498,7 @@ const ARCHETYPES = {
   // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
   icetower: {
     step: 170, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.0 }, // rarer + capped (Move 2: the Sun Gate is the tallest paired hero at a peak, not this)
+    deckSkim: 'park', // narrow vertical — reads as a tower even height-squashed; parks in strait2 run windows
     // The Fable studio gate (2.0/5) flagged this as the "man-made" repeat offense —
     // uniform taper + concentric coursing + aligned seams read as a water tower /
     // chimney / ziggurat. Rebuilt to BREAK the coursing: a fat tabular base, then
@@ -620,7 +621,7 @@ const ARCHETYPES = {
     // World ratio 2·ρ·r / h ≈ 1.34·r/h → h 11–17 vs r 24–36 keeps it ≥1.8:1 wider-than-tall
     // (Fable r3 D3). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion);
     // the lean lives in the geometry.
-    place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (15 + 0.72 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },
+    place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (16 + 0.78 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },  // propclearance: ρ 0.654·sMax 1.12 → inner ≥16 (clears the ±16 gate veil; tall hero)
   },
   // EMBERFALL CALDERA — THE LOW REST + glow carrier 1 (CALDERA-BIBLE.md §4.2): a pahoehoe
   // lava-flow tongue — a low, WIDE, ropey crust of offset-stacked plates with rounded lobed
@@ -651,7 +652,7 @@ const ARCHETYPES = {
     // LOW horizontal REST: normalized yMax ~0.28 → world height h·0.28. r 10–20 WIDE, h 8–14
     // small → world ~18–34 wide × ~2.5–4.5 tall ≈ 5:1. ρ≈0.9 (wide plates); inner edge
     // |x|−ρ·r ≥ 14.5 → couple x = 14.5 + 0.92·r. Explicit tilt (hugs the route, slight roll).
-    place: (side, rnd) => { const r = 10 + rnd() * 10; return { x: side * (14.5 + 0.92 * r + rnd() * 5), h: 8 + rnd() * 6, r, tilt: side * (rnd() * 0.06 - 0.02) }; },
+    place: (side, rnd) => { const r = 10 + rnd() * 10; return { x: side * (15 + 1.05 * r + rnd() * 5), h: 8 + rnd() * 6, r, tilt: side * (rnd() * 0.06 - 0.02) }; },  // propclearance: ρ 0.944·sMax 1.06 → inner ≥14.5 (low rest)
   },
   // EMBERFALL CALDERA — THE BARE FOIL (CALDERA-BIBLE.md §4.4): an aa-clinker / breadcrust
   // rubble mound — chaotic angular jumble, NO glow, one material. The silence that makes
@@ -668,7 +669,7 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: -0.10, z: 0.30, y: 0.14, ry: 1.6 }) },                 // foot rubble, half-buried
     ], { foil: true }),
     // FOIL rubble mound: broad, ~1.6:1. ρ≈0.75. r 5–11, h 5–9 → wider than tall.
-    place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (14.5 + 0.78 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.14 - 0.05) }; },
+    place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (15.2 + 0.82 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.10 - 0.04) }; },  // propclearance: ρ 0.689·sMax 1.08 → inner ≥14.5 (foil; tilt trimmed for lean margin)
   },
   // EMBERFALL CALDERA — MID MASS + glow carrier 2 (CALDERA-BIBLE.md §4.3): a fused cinder /
   // spatter-cone cluster (2–3 squat cones, breached crater rims) with ONE sunken glowing
@@ -697,7 +698,7 @@ const ARCHETYPES = {
       { mat: 1, geo: xform(new THREE.CylinderGeometry(0.20, 0.15, 0.10, 7), { y: 0.57 }) },
     ], { foil: true }),   // foil-dark cones (Fable D1) so the throat is the ONLY bright event
     // MID mass, ~2:1. ρ≈0.62 (cluster spread). r 7–13, h 6–11. Explicit tilt.
-    place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (14.5 + 0.66 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },
+    place: (side, rnd) => { const r = 7 + rnd() * 6; return { x: side * (15.5 + 0.88 * r + rnd() * 6), h: 6 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.02) }; },  // propclearance: ρ 0.754·sMax 1.10 → inner ≥15.5 (mid)
   },
   // EMBERFALL CALDERA — THE DISTANT MASSIF (CALDERA-BIBLE.md §4.5): the caldera RIM — a long,
   // dark, flat-topped escarpment banded with HORIZONTAL strata (distinguished from the hero's
@@ -749,7 +750,10 @@ const ARCHETYPES = {
     // RARE tall PUNCTUATION: the sanctioned tall exception, now ~2.5–3:1 (a plug, not a pin).
     // ρ≈0.75. Placed at the band EDGES (|x| ≥ 60 via the coupling) so it brackets ASHTALON's
     // stage. Explicit tilt (stands plumb; the lean is in the geometry).
-    place: (side, rnd) => { const r = 9 + rnd() * 6; return { x: side * (56 + 0.6 * r + rnd() * 10), h: 24 + rnd() * 12, r, tilt: 0 }; },
+    // Height trimmed (top ~30–43 not ~65) + pushed further out (|x| ≥ 62) so the tall spire
+    // BRACKETS the reserved lit horizon band from its EDGES instead of towering into the
+    // central third where ASHTALON's silhouette lands (Fable composition gate §3.7).
+    place: (side, rnd) => { const r = 9 + rnd() * 6; return { x: side * (62 + 0.6 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
@@ -903,6 +907,7 @@ const ARCHETYPES = {
   // the ±16 gameplay-gate veil. Registered LAST so no band's render-rnd stream shifts.
   sungate: {
     step: 300, biomes: frozenNew, matIndex: 2, paired: true, hero: true,
+    deckSkim: 'park', // tall paired pylons — a squashed doorway reads broken; parks in strait2 run windows
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.62, 0.72, 0.44, 6), { x: -0.14, y: 0.22, ry: 0.3 }) },     // FAT tabular base slab (~40% height — the mass), seated OUTward
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.92, 0.34, 0.86), { x: -0.04, y: 0.55, ry: 0.12 }) },            // lower block — WIDER + DEEPER (chunk, not slab); grows toward the outer side
@@ -1057,6 +1062,58 @@ export function propDiag() {
   });
 }
 
+// --- Runtime prop-instance factory (rock-run props-in-lane, Move 1) ----------
+// The ONE shared geometry source for both consumers of an archetype: the
+// decorative horizon bands (makeBand, below — untouched) and the in-lane
+// `buildPropRun` in obstacles.js. Returns the same `{geometry, materials}` a
+// band gets — materials are the SHARED `propMats.primary/accent[biomeIdx]`
+// singletons, so an in-lane instance is tonally indistinguishable from the
+// horizon by construction. Runtime callers run after createEnvironment (which
+// sets propMats); the lazy makeMats() init exists only so headless tools/tests
+// can call this without booting the whole environment (same idiom as
+// buildArchetypeMesh/propDiag). Additive-only: nothing else reads these.
+// `matIndex` (optional) re-skins the build to another biome's shared material
+// pair — build() bakes the archetype's HOME biome (e.g. berg/floe/skerry bake
+// aurora idx 6), but a RUN_KIT may borrow them into another biome's lane
+// (RUN_KIT.frozen wants idx 2 glacial ice). Remap is by material identity, so
+// it stays correct regardless of which of primary/accent a build emits.
+export function buildPropArchetype(id, matIndex = null) {
+  const def = ARCHETYPES[id];
+  if (!def) return null;
+  if (!propMats) propMats = makeMats();
+  const out = def.build(); // fresh geometry each call; caller owns disposal
+  if (matIndex != null) {
+    out.materials = out.materials.map((m) => {
+      if (propMats.primary.includes(m)) return propMats.primary[matIndex];
+      if (propMats.accent.includes(m)) return propMats.accent[matIndex];
+      return m;
+    });
+  }
+  return out;
+}
+// Per-consumer clone of a shared prop material (in-lane props need a per-section
+// fade clone). Material.clone() does NOT carry onBeforeCompile/customProgramCacheKey
+// (they're own-property assignments Material.copy skips), so the weathering detail
+// must be re-applied or the clone silently loses the noise/AO/atmos injection and
+// reads plastic next to the bands it must match.
+export function clonePropMaterial(m) {
+  return addPropDetail(m.clone());
+}
+// Placement metadata for the same archetype, so RUN_KIT/buildPropRun can reason
+// about it without reaching into the private table.
+export function propArchetypeMeta(id) {
+  const def = ARCHETYPES[id];
+  if (!def) return null;
+  return {
+    matIndex: def.matIndex,
+    step: def.step,
+    biomes: def.biomes.slice(),
+    comp: def.comp ? { ...def.comp } : null,
+    foam: def.foam !== undefined ? def.foam : null,
+    paired: !!def.paired,
+  };
+}
+
 export function createEnvironment(scene, seed = CONFIG.seed) {
   sceneRef = scene;
   rnd = mulberry32(seed + 99);
@@ -1206,6 +1263,14 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 function makeBand(scene, def) {
   const perSide = Math.ceil(WALL_WINDOW / def.step);
   const { geometry, materials } = def.build();
+  // Object-space top of this archetype (world top = h·yMax), cached for the
+  // deck-skim height clamp — measured from the real geometry so it can't drift.
+  if (def._yMax === undefined) {
+    const p = geometry.getAttribute('position');
+    let yMax = 0;
+    for (let i = 0; i < p.count; i++) yMax = Math.max(yMax, p.getY(i));
+    def._yMax = yMax || 1;
+  }
   // N15 guard: prop materials sample `aoBake`; a build path that skips mergeParts()
   // (or geometry with no normals) would leave it undefined → 0 → BLACK props when the
   // toggle is on. Unreachable today (all builds route through mergeParts), but cheap
@@ -1313,6 +1378,38 @@ function heroHash(n) {
 }
 const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
 
+// --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
+// Inside a strait2 rock run the camera deck-skims (rings clamped y5–7) and the
+// composition law is WIDE+LOW: nothing may run off the top of the frame. The
+// in-lane props are capped by RUN_KIT.heightCapY, but the biome's own decorative
+// BANDS (bergwall h up to ~38 at x≈32+) would still read as canyon walls at that
+// camera height — the "tall narrow claustrophobic" failure. So obstacles.js
+// registers each strait2 section's dist window here, and writeMatrix clamps band
+// prop WORLD HEIGHT (height axis only — radius keeps its size, so a tall berg
+// squashes into wide tabular pack ice, the north-star composition) inside them.
+// Render-only and pure (no rnd; rotY is cached on first write), so refreshing is
+// always safe. Never touched outside Frozen; empty list = byte-identical output.
+let deckSkimWindows = [];
+const DECK_SKIM_CAP_Y = 8.5;  // world-Y ceiling for band prop tops inside a window
+                              // (≈ RUN_KIT.frozen.heightCapY — bands never top the lane props)
+export function addDeckSkimWindow(a, b) {
+  deckSkimWindows.push([a, b]);
+  if (deckSkimWindows.length > 48) deckSkimWindows.splice(0, deckSkimWindows.length - 48);
+  // Re-write every live band matrix so instances already recycled into the new
+  // window pick up the cap immediately (pure — safe to run at any time).
+  for (const band of bands) {
+    for (let i = 0; i < band.data.length; i++) writeMatrix(band, i, band.data[i]);
+    band.mesh.instanceMatrix.needsUpdate = true;
+    band.foam.instanceMatrix.needsUpdate = true;
+    if (band.mesh.instanceColor) band.mesh.instanceColor.needsUpdate = true;
+  }
+}
+export function resetDeckSkimWindows() { deckSkimWindows = []; }
+function inDeckSkim(dist) {
+  for (const w of deckSkimWindows) if (dist >= w[0] && dist <= w[1]) return true;
+  return false;
+}
+
 const m4 = new THREE.Matrix4();
 const quat = new THREE.Quaternion();
 const eul = new THREE.Euler();
@@ -1364,8 +1461,22 @@ function writeMatrix(band, i, d) {
       else k = c.sMin + (c.sMax - c.sMin) * g;
     }
   }
+  // Deck-skim rule (see the window block above), inside a strait2 run window:
+  // WIDE archetypes clamp world HEIGHT to the sightline (top = d.h·k·yMax − 0.5 ≤
+  // DECK_SKIM_CAP_Y — they squash into pack ice); NARROW verticals (icetower, the
+  // sungate pylons) can't be squashed out of reading as towers, so they PARK
+  // (`deckSkim:'park'`) — the same include/exclude rule the lane roster follows.
+  let hK = 1;
+  if (active && bi === 2 && deckSkimWindows.length && inDeckSkim(d.dist)) {
+    if (band.def.deckSkim === 'park') {
+      active = false;
+    } else {
+      const capH = (DECK_SKIM_CAP_Y + 0.5) / (band.def._yMax || 1);
+      if (d.h * k > capH) hK = capH / (d.h * k);
+    }
+  }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k, d.r * k));
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
@@ -1441,6 +1552,7 @@ function reseedBand(band) {
 
 export function resetEnvironment(seed) {
   if (seed !== undefined) rnd = mulberry32(seed + 99);
+  deckSkimWindows = [];     // strait2 run windows die with the run (re-registered on spawn)
   arenaPropsGate = false;   // ARENA (PR-A): a new-run reseed from a paused void frame reseats the bands VISIBLE (belt-and-braces to the self-healing per-frame restore)
   resetArenaSet();          // ARENA (PR-H1/H2): same belt-and-braces for the heaven furniture
   for (const band of bands) reseedBand(band);
