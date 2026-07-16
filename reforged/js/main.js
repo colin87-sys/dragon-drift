@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -1877,8 +1877,10 @@ function tick() {
       // N9: ease the shafts down as clouds drift across the sun (damped in env;
       // getCloudSunCover() is 0 when clouds are off → shipped intensity).
       const cloudGate = 1 - 0.75 * getCloudSunCover();
+      // godrayMul() meters the shared shaft fan per biome (seam-lerped; 1 = shipped).
+      // Lumen Mire's "nothing shines from the sky" night keeps only a dim residue.
       setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
-        Math.min(sunFacing, 1) * 0.6 * cloudGate);
+        Math.min(sunFacing, 1) * 0.6 * cloudGate * godrayMul());
     } else {
       setGodRaySun(0.5, 0.8, 0);
     }
