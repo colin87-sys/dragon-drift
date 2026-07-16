@@ -220,6 +220,19 @@ function xform(geo, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 
   return geo;
 }
 
+// An open-ended tapered frustum spanning two arbitrary 3D points (radius r0 at p0 → r1 at p1), oriented
+// along the segment — for arcing organic ribs (fig roots) that xform's axis-aligned rotations can't
+// place. `seg`·2 tris. Points are [x,y,z]; chain several to trace a curved root over a stone face.
+function frustumBetween(p0, p1, r0, r1, seg = 4) {
+  const d = new THREE.Vector3(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]);
+  const len = d.length() || 1e-4;
+  const geo = new THREE.CylinderGeometry(r1, r0, len, seg, 1, true); // r1 = top (toward p1), r0 = bottom (toward p0)
+  geo.translate(0, len / 2, 0);                                       // base at origin, extends +Y
+  geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+  geo.translate(p0[0], p0[1], p0[2]);
+  return geo;
+}
+
 function mergeParts(parts, biomeIdx) {
   const groups = [[], []];
   for (const p of parts) groups[p.mat].push(p.geo);
@@ -342,18 +355,33 @@ function bakeLilyFoliage(geo) {
 // (wrackstone). Mirrors mergeCalderaParts; render-only, so determinism is untouched. (Lagoon code
 // greps clean of _CAL_/caldera/frost; the symmetric grep keeps both kits leak-free.)
 function mergeLagoonParts(parts, opts = {}) {
-  const groups = [[], []];
-  for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
-  const geos = [];
-  const mats = [];
-  for (let m = 0; m < 2; m++) {
-    if (!groups[m].length) continue;
-    geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
-    mats.push(m === 0 ? (opts.foil ? propMats.lagoonFoil : propMats.lagoonStone) : propMats.gilt);
+  // mat 0 = the stone group (lagoonStone, reads vColor) or the no-bake foil mass; mat 1 = gilt accent
+  // (vertexColors off). COMPOSITE bake system (Fable rootbastion pre-assess): a mat-0 part may carry
+  // `bake:'lily'` to tag it FOLIAGE; untagged mat-0 parts get the tide ladder. Each subset is baked
+  // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
+  // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
+  // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
+  const accent = [], ladder = [], foliage = [];
+  for (const p of parts) {
+    const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
+    if (p.mat === 1) accent.push(g);
+    else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
+    else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → foliage
+    else ladder.push(g);                                                 // untagged → tide ladder
+  }
+  const stone = [];
+  if (ladder.length) { const g = ladder.length > 1 ? mergeGeometries(ladder) : ladder[0]; if (!opts.foil) bakeTideLadder(g); stone.push(g); }
+  if (foliage.length) { const g = foliage.length > 1 ? mergeGeometries(foliage) : foliage[0]; bakeLilyFoliage(g); stone.push(g); }
+  const geos = [], mats = [];
+  if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
+  if (accent.length) {
+    const ag = accent.length > 1 ? mergeGeometries(accent) : accent[0];
+    // the stone group carries a per-vertex `color` from the bake; pad the accent group with a matching
+    // (unused — gilt has vertexColors off) color attr so the final merge's attribute sets align.
+    if (stone.length && !ag.getAttribute('color')) ag.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(ag.attributes.position.count * 3), 3));
+    geos.push(ag); mats.push(propMats.gilt);
   }
   const geometry = mergeGeometries(geos, true);
-  if (opts.bake === 'lily') bakeLilyFoliage(geometry);   // living foliage (pads/reeds/canopy) — not the tide ladder
-  else if (!opts.foil) bakeTideLadder(geometry);          // the foil carries NO ladder (bare masonry)
   bakeAO(geometry);
   return { geometry, materials: mats };
 }
@@ -1252,6 +1280,41 @@ const ARCHETYPES = {
     // (clears the ±16 gate veil). tilt a breath (a heap may lean).
     place: (side, rnd) => { const r = 4.5 + rnd() * 3; return { x: side * (16 + 0.72 * r + rnd() * 4), h: 3.5 + rnd() * 1.5, r, tilt: side * (rnd() * 0.08 - 0.03) }; },
   },
+  // THE LOST LAGOON — THE MID MASS (LOST-LAGOON-BIBLE.md §4.3): a slumped masonry chunk being swallowed
+  // by a strangler fig — 2–3 arcing root ribs gripping the stone, holding up one broad wind-sheared
+  // parasol. The theology's second claiming ENACTED mid-action (the garden winning, on camera). The one
+  // COMPOSITE: tide-laddered stone (plumb) + tagged olive foliage (roots + canopy) in ONE material group.
+  rootbastion: {
+    step: 43, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.15, sMin: 0.90, sMax: 1.10 }, // mid mass: clusters into archipelagos, off the seam (fumarole precedent)
+    build: () => {
+      const parts = [];
+      // STONE (untagged → tide ladder). PLUMB (Fable PLUMB-TIDE law: the jade waterline is a level water
+      // stain; an instance tilt would rotate the baked band diagonal). All slump lives ABOVE the band.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.22, 0.38), { y: 0.11 }) });                              // 12 — waterline course; top edge AT y0.22 = the band boundary (dead-level jade)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.40, 0.33, 0.34), { y: 0.385, ry: 0.18, rz: 0.10 }) });         // 12 — slumped upper mass (entirely in the bleach stop → free to shear)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.18, 0.18, 0.18), { x: 0.12, z: 0.30, y: 0.09, ry: 0.5 }) });    // 12 — satellite chunk (the next stone the fig reaches for)
+      // FIG (tagged bake:'lily' → foliage). A SHORT trunk from the stone crown holding a broad low canopy
+      // that DRAPES over the ruin (Ta Prohm, not a tree on a pedestal); roots + canopy originate here.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.18, 5, 1, true), { y: 0.61 }) }); // 10 — trunk (sunk into the crown at y0.52, top y0.70 into the canopy)
+      // 3 ROOT RIBS — each a chain of tapering frusta that GRIP the stone (standoff small), start inside
+      // the trunk, taper down, and FLARE at a foot entering the water (Fable GRIP law: not tentacle/pipe/LED).
+      const rib = (pts, radii) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'lily', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], 4) }); };
+      rib([[0.00, 0.62, 0.05], [0.05, 0.48, 0.16], [0.07, 0.24, 0.19], [0.09, 0.01, 0.25]], [0.055, 0.045, 0.040, 0.075]); // A: down the +z face → foot flares (24)
+      rib([[0.02, 0.60, -0.02], [0.20, 0.46, 0.02], [0.29, 0.20, 0.05], [0.33, 0.01, 0.09]], [0.050, 0.038, 0.032, 0.062]); // B: down the +x face, thinner (24)
+      rib([[0.04, 0.52, 0.14], [0.09, 0.28, 0.24], [0.12, 0.09, 0.30]], [0.042, 0.036, 0.055]);                              // C: short — grips the satellite chunk (16)
+      // PARASOL CANOPY (Fable PARASOL law: exactly 2 flat broad pads, overlapping ≥30%, both sheared the
+      // SAME way — down-lane +z — matching the rotunda wound-aim). Each pad = top + reversed underside
+      // sandwich so it reads from the worm's-eye (backlit foliage: olive top / shadow-green under).
+      const pad = (r, seg, o) => { parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(r, seg), { ...o, rx: -Math.PI / 2 }) }); parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(r, seg), { ...o, rx: Math.PI / 2, y: o.y - 0.02 }) }); };
+      pad(0.42, 7, { x: 0.02, z: 0.04, y: 0.74, sx: 1.15, sz: 0.88, rz: 0.12 }); // pad A — broad drape OVER the stone (spreads to x±0.48 > stone ±0.20), wind-sheared (14)
+      pad(0.30, 6, { x: 0.09, z: 0.16, y: 0.67, sx: 1.05, sz: 0.85, rz: 0.12 }); // pad B — overlaps A, same shear, forward + lower (12)
+      return mergeLagoonParts(parts);
+    },
+    // MID mass, ~1.6–1.9:1 wide (the broad canopy drapes wider than the mass is tall): r 8–11, h 6–8.5
+    // → world ≈ 1.6:1 wide. tilt 0 EXPLICIT (PLUMB-TIDE law — the slump is in the geometry, never an
+    // instance tilt). Draw r first, couple x → inner edge ≥15.5.
+    place: (side, rnd) => { const r = 8 + rnd() * 3; return { x: side * (15.5 + 0.66 * r + rnd() * 4), h: 6 + rnd() * 2.5, r, tilt: 0 }; },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1275,6 +1338,7 @@ const FOAM_CFG = {
   rotunda: { r: 0.8 },   // Lost Lagoon hero — the drum waterline weld: the jade tide-band doubled in the mirror
   lilyraft: false,       // Lost Lagoon commons — NO collar: the pads ARE the waterline event; a foam ring on a 2m pad reads as an artifact (Fable pre-authorized)
   wrackstone: { r: 0.6 },// Lost Lagoon foil rubble — a pale tide collar where the heap meets the mirror (clinker precedent)
+  rootbastion: { r: 0.7 },// Lost Lagoon mid mass — waterline weld under the slumped stone (roots enter here)
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
