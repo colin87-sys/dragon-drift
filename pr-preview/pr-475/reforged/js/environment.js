@@ -2172,17 +2172,20 @@ const ARCHETYPES = {
       T(xform(new THREE.BoxGeometry(0.72, 0.30, 0.72), { y: 0.15, ry: Math.PI / 4 }));                  // tier 1 redent (12)
       T(xform(new THREE.BoxGeometry(0.58, 0.26, 0.58), { x: 0.03, z: -0.03, y: 0.43 }));                // tier 2 (12)
       T(xform(new THREE.BoxGeometry(0.48, 0.26, 0.48), { x: 0.03, z: -0.03, y: 0.43, ry: Math.PI / 4 })); // tier 2 redent (12)
-      // COLLAPSED QUADRANT — a fallen dressed block at the foot (the corner that gave way → ruin, not cake).
-      T(xform(new THREE.BoxGeometry(0.22, 0.16, 0.19), { x: -0.44, z: 0.34, y: 0.08, ry: 0.5, rz: 0.14 })); // (12)
-      // OGIVAL TOWER — 3 shrinking redented mini-tiers (slight yaw jitter → tumbled, not machined) rising to
-      // a lotus-bud finial. This crown is what says "prasat" on the horizon.
-      T(xform(new THREE.BoxGeometry(0.38, 0.16, 0.38), { x: 0.03, z: -0.03, y: 0.64, ry: 0.20 }));      // tower tier a (12)
-      T(xform(new THREE.BoxGeometry(0.28, 0.15, 0.28), { x: 0.03, z: -0.03, y: 0.80, ry: -0.15 }));     // tower tier b (12)
-      T(xform(new THREE.BoxGeometry(0.20, 0.13, 0.20), { x: 0.03, z: -0.03, y: 0.93, ry: 0.10 }));      // tower tier c (12)
-      // LOTUS-BUD FINIAL — a rounded ogive: a TALL bulb tapering to a SOFT point (a lotus bud, not the
-      // sharp crystal spike of p1). A big belly + a short wide cap that sits ON it so the transition curves.
-      T(xform(new THREE.IcosahedronGeometry(0.18, 0), { x: 0.03, z: -0.03, y: 1.04, sy: 1.15 }));        // bud belly — tall bulb (20)
-      T(xform(new THREE.ConeGeometry(0.14, 0.16, 6), { x: 0.03, z: -0.03, y: 1.26 }));                   // bud cap — short, wide, soft point (18)
+      // COLLAPSED QUADRANT — a BOLD fallen dressed block at the foot (Fable r1: the collapse was timid — a
+      // detail, not a statement). Bigger + sheared, the corner that gave way → ruin, not wedding cake.
+      T(xform(new THREE.BoxGeometry(0.30, 0.22, 0.26), { x: -0.47, z: 0.36, y: 0.11, ry: 0.5, rz: 0.18 })); // (12)
+      // OGIVAL TOWER — carry the REDENT to the tip (Fable r1: the crown reverted to a plain box-stack). The
+      // WIDEST neck tier gets the same 2-interpenetrating-45°-boxes star as the base; then a single ogee
+      // tier tapers into the bud → the serrated Angkor edge runs the full height, no parallel-sided stack.
+      T(xform(new THREE.BoxGeometry(0.40, 0.18, 0.40), { x: 0.04, z: -0.04, y: 0.65 }));                    // tower tier a (12)
+      T(xform(new THREE.BoxGeometry(0.33, 0.18, 0.33), { x: 0.04, z: -0.04, y: 0.65, ry: Math.PI / 4 }));   // tower tier a REDENT (12)
+      T(xform(new THREE.BoxGeometry(0.22, 0.16, 0.22), { x: 0.04, z: -0.04, y: 0.84, ry: 0.25 }));          // tower tier b — ogee taper into the bud (12)
+      // LOTUS-BUD FINIAL — SEATED (Fable r1: was a "gem in a hat" — a pyramid floating on a shelf). A bulb
+      // + a cap whose base is NARROWER than the bulb and SUNK into it → one continuous convex close, a soft
+      // point (a lotus bud, not a rocket nose-cone).
+      T(xform(new THREE.IcosahedronGeometry(0.17, 0), { x: 0.04, z: -0.04, y: 1.00, sy: 1.12 }));           // bulb (20)
+      T(xform(new THREE.ConeGeometry(0.11, 0.20, 6), { x: 0.04, z: -0.04, y: 1.16 }));                      // cap: base r0.11 < bulb, sunk in, soft point (18)
       // GILT DOORWAY REVEAL — a withheld gold doorway RECESSED into the base tier front face (set behind
       // the face plane so it's the aperture address, the temple's "why", never an outer gilt panel).
       parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.17, 0.22, 0.10), { z: 0.40, y: 0.15 }) }); // (12)
