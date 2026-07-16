@@ -9,7 +9,8 @@ const VIEW = { width: 1280, height: 820 };
 const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({ v:2, embers:50, stats:{runs:5}, skins:{owned:['azure'],equipped:'azure'}, flags:{seenFirstSurge:true,hintsSeen:9}, settings:{reticle:false} }))`;
 const tag = process.argv[2] || 'c1';
 const camMul = +(process.argv[3] || 1.35);
-const { page, done, errors } = await boot({ query: '?biome=0&debug&props=v3&hero=karstfang', viewport: VIEW, deviceScaleFactor: 1.4, initScript: save });
+const HERO = process.env.HERO || 'karstfang';   // any v3 prop: HERO=figgate node tools/_kfclose.mjs fg1
+const { page, done, errors } = await boot({ query: `?biome=0&debug&props=v3&hero=${HERO}`, viewport: VIEW, deviceScaleFactor: 1.4, initScript: save });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.waitForFunction(() => window.__dd && window.__dd.game, { timeout: 15000 }).catch(() => {});
 for (let a = 0; a < 12; a++) {

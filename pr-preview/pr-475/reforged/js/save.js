@@ -38,6 +38,11 @@ const DEFAULTS = {
     // EMBERSIGHT §F player contract: SCOREKEEPER pins score+distance at full
     // alpha (H2); IMMERSIVE HUD hides all but the safety floor (H3).
     scorekeeper: false, immersiveHud: false,
+    // EMBERSIGHT H7 §F — DRAGON VITALS (default OFF): enables the flagged
+    // living-gauge channels on the dragon (wing-charge stamina, body-light
+    // health, 1-heart heartbeat) and deepens the chrome rest-ghosts one step
+    // (Law 1's contract). `?vitals=1` is the dev alias for the same flag.
+    dragonVitals: false,
     // EMBERSIGHT H6 §F — the per-element HUD override matrix. Each element is
     // ALWAYS (pinned) / DYNAMIC (the H1 relevance table, default) / OFF. OFF never
     // removes the safety floor (LIFE-at-critical, the seal beat, boss WARNING).
