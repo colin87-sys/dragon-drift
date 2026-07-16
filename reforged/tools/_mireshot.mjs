@@ -3,7 +3,8 @@
 import { writeFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
 
-const VIEW = { width: 1120, height: 700 };
+const VIEW = { width: 640, height: 1386 };   // PORTRAIT — match the phone (1320x2868 ≈ 0.46); the
+                                             // vertical FOV shows the overhead canopy the landscape crop hid
 const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   v: 2, embers: 50, stats: { runs: 5 },
   skins: { owned: ['azure'], equipped: 'azure' },
@@ -30,9 +31,7 @@ async function shots(query, tag, dists) {
   return errors;
 }
 
-const eMire = await shots('?biome=4&debug', 'mire', [700, 1500, 2600]);
-const eAur = await shots('?biome=6&debug', 'aurora', [1500]);
+const eMire = await shots('?biome=4&debug', 'mire', [600, 780, 960, 1140, 1650]);
 console.log('mire console errors:', eMire.length);
 if (eMire.length) console.log(eMire.slice(0, 4).join('\n'));
-console.log('aurora console errors:', eAur.length);
 console.log('wrote /tmp/mire-*.png');
