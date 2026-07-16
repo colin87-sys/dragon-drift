@@ -89,6 +89,16 @@ export function skyColorAt(d, env, sunDir, out) {
   out.x = lerp(lerp(lerp(H.r, M.r, t1), T.r, t2), F.r, ff) + G.r * glow;
   out.y = lerp(lerp(lerp(H.g, M.g, t1), T.g, t2), F.g, ff) + G.g * glow;
   out.z = lerp(lerp(lerp(H.b, M.b, t1), T.b, t2), F.b, ff) + G.b * glow;
+  // EYE-BREACH mirror (Tempest): the ported-drift trap that bit deckBias — the low-frequency ambient
+  // approximation MUST see the breach too, or the world's sky-IBL fill won't answer the eye of the gale.
+  // Kept deliberately SIMPLE (the shaped almond is a fragment-only cosmetic; the SH probe only needs the
+  // NET brightening toward the sun az): a warm-white lift concentrated on the sun direction. 0 when
+  // env.breachMix is absent/0 → byte-identical (guards tests/skyprobe.mjs, which never sets breachMix).
+  const bm = env.breachMix || 0;
+  if (bm > 0) {
+    const bwin = Math.pow(s, 8.0) * bm;   // s = clamped alignment to sunDir (computed above)
+    out.x += 0.30 * bwin; out.y += 0.28 * bwin; out.z += 0.24 * bwin;   // warm-white ambient lift
+  }
 }
 
 // Project the sky radiance into the 9 SH coefficients of `outSH` (raw radiance —
