@@ -33,8 +33,11 @@ const TORSO_Y = 0.15;
 // Palette anchors (violet-black lacquer; apex reference values — the per-form
 // darkening ramp rides the def's `colors` hex).
 const CHITIN = 0x150b1d, VENTER = 0x2f1a38, SHEEN_V = 0x4a2a68, SHEEN_T = 0x1e4a4e;
-// UV-orchid venom family (292°) — the ONLY emissive.
-const ORCHID = 0xd936ff, FILL_LINE = 0xe86aff, FILL_BODY = 0x8a1eb0, BEAD = 0xef8aff, BREW = 0x8a1eb0;
+// UV-orchid venom family (292°) — the ONLY emissive. NOTE the colours are DEEPLY saturated
+// violet (B >> R, low G) on purpose: ACES tonemapping desaturates bright emissive toward
+// white, so an already-orchid hex renders hot-PINK; over-saturating toward violet lands the
+// rendered glow on true UV-orchid (the "carry the colour in the bloom" law).
+const ORCHID = 0xd936ff, FILL_LINE = 0xb852ff, FILL_BODY = 0x7410ea, BEAD = 0xc850ff, BREW = 0x6a10c8;
 
 // hex-lerp — blend two colours by t (derive dorsal / value-band tiers from the
 // per-form body/venter hexes so the banding tracks the darkening ladder).
@@ -84,16 +87,25 @@ function stilettoMats(def, glow, stage) {
   // brew (NOT a dark cover — the brew must read bright through it). Bright orchid-tinted glass.
   const sacWall = new THREE.MeshStandardMaterial({ color: lerpHex(ORCHID, 0xffffff, 0.2), emissive: 0x000000, flatShading: true, roughness: 0.28, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.26 });
   sacWall.envMapIntensity = 0.35;
-  // The FILL — opaque emissive liquid (the diegetic power meter). fillLine is the near-white-hot
-  // surface (the brightest gaster pixel); fillBody the orchid brew. In flareMats.
-  const fillLine = mk(FILL_LINE, { emissive: FILL_LINE, emissiveIntensity: 1.7 });
-  fillLine.userData.baseEmissive = FILL_LINE; fillLine.userData.baseIntensity = 1.7;
-  const fillBody = mk(0xb43ae8, { emissive: 0xb43ae8, emissiveIntensity: 1.0 });   // a brighter orchid brew (the deep 0x8a1eb0 read near-black under the wall)
-  fillBody.userData.baseEmissive = 0xb43ae8; fillBody.userData.baseIntensity = 1.0;
+  // The FILL — opaque emissive liquid (the diegetic power meter). DARK DIFFUSE + a
+  // blue-dominant orchid EMISSIVE: the warm studio key can't pinken a near-black diffuse, so
+  // the emissive carries a pure UV-orchid (B >> R) instead of desaturating to hot-pink.
+  // fillLine is the thin near-hot meniscus (small area → no white bloom); fillBody the large
+  // brew that carries the hue. Moderate intensity so ACES doesn't clip to white.
+  const fillLine = mk(0x2a0a3e, { emissive: FILL_LINE, emissiveIntensity: 1.05 });
+  fillLine.userData.baseEmissive = FILL_LINE; fillLine.userData.baseIntensity = 1.05;
+  const fillBody = mk(0x140424, { emissive: FILL_BODY, emissiveIntensity: 0.95 });
+  fillBody.userData.baseEmissive = FILL_BODY; fillBody.userData.baseIntensity = 0.95;
+  // On Surge the fills barely brighten (the lock: "the fill LEVEL is the read, not intensity")
+  // — cranking intensity hits the ACES knee and desaturates the orchid toward pink/white. So
+  // the fills hold their saturated orchid; the Venom Overdrive ESCALATION lives in the bead +
+  // channel igniting, the eyes blazing, the motes, and the wash. (flareIntensityWeight small.)
+  fillLine.userData.flareIntensityWeight = 0.3; fillLine.userData.flareColorWeight = 0.5;
+  fillBody.userData.flareIntensityWeight = 0.3; fillBody.userData.flareColorWeight = 0.5;
   // Drip bead (f2+), stinger channel + pterostigma (f3) — dark until their form, then
   // venom-lit. Seam mats DoubleSide (the culled-ignition gotcha).
-  const bead = mk(BEAD, { emissive: BEAD, emissiveIntensity: 0.6 });
-  bead.userData.baseEmissive = BEAD; bead.userData.baseIntensity = 0.6;
+  const bead = mk(0x2a0a3e, { emissive: BEAD, emissiveIntensity: 0.72 });
+  bead.userData.baseEmissive = BEAD; bead.userData.baseIntensity = 0.72;
   const channel = new THREE.MeshStandardMaterial({ color: lerpHex(body, ORCHID, 0.2), emissive: ORCHID, emissiveIntensity: 0.05, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
   channel.userData.baseEmissive = ORCHID; channel.userData.baseIntensity = 0.05;
   // Pterostigma — a near-black-violet OPAQUE wing-spot that reads as a dark cell on the pale
@@ -211,9 +223,10 @@ function sacWindow(C, u, v, n, r, frac) {
   const fill = fanTris(kept.map((p) => toW(p, brewC)));       // the opaque emissive brew body
   const back = fanTris(hexVerts(floorC, u, v, r * 0.99));     // the dark floor
   const wall = fanTris(hexVerts(wallC, u, v, r));             // the glass wall (low-opacity sheen)
-  // The MENISCUS — a bright strip at the brew top, ALWAYS drawn (at full fill it rides the
-  // top vertices so the brimming still still shows its power line).
-  const up = vscl(v, r * 0.11);
+  // The MENISCUS — a THIN bright strip at the brew top, ALWAYS drawn (at full fill it rides
+  // the top vertices so the brimming still still shows its power line). Kept thin so it is a
+  // small near-hot LINE, never a large white bloom area (the anti-white-clip choice).
+  const up = vscl(v, r * 0.055);
   let line;
   if (cross.length >= 2) { const a0 = toW(cross[0], brewC), a1 = toW(cross[1], brewC); line = [[a0, a1, vadd(a1, up)], [a0, vadd(a1, up), vadd(a0, up)]]; }
   else { const tL = toW([-r * 0.5, r * 0.84], brewC), tR = toW([r * 0.5, r * 0.84], brewC); line = [[tL, tR, vadd(tR, up)], [tL, vadd(tR, up), vadd(tL, up)]]; }
@@ -694,25 +707,30 @@ function buildStilettoMaskHead(def, model, mats) {
     group.add(flatTriMesh(vC, M.veinCap));
   }
 
-  // Almond EYE-SHELLS — a faceted compound-cut socket bevel (dark chitin frame) + a
-  // venom-lit octahedron core: reads as a crafted EYE, not a floating glow diamond. Eye
-  // narrows + the light GROWS up the ladder (light growing is the grind reward); the still
-  // stays the brightest venom mass, so the eyes ride a moderate intensity.
+  // Almond EYE-SHELLS — a RECESSED faceted socket BOWL (a ring of dark-chitin bevel walls,
+  // outer rim proud + inner rim sunk so it self-shadows) framing a venom-lit octahedron GEM
+  // core seated in the recess: reads as a crafted eye-socket, NOT a floating glow diamond.
+  // The light grows as the eye narrows up the ladder, but the still stays the brightest venom
+  // mass, so the eyes ride a MODERATE intensity (kept under the ACES clip knee).
   const es = model.eyeScale ?? 1;
-  eyeMat.emissiveIntensity = 0.6 + 0.9 * (model.glowLevel ?? 1);
+  eyeMat.emissiveIntensity = 0.5 + 0.55 * (model.glowLevel ?? 1);
   for (const side of [1, -1]) {
-    const ex = side * 0.20 * hs, ey = 0.10 * hs, ez = -0.10 * hs;
-    // socket bevel — a dark faceted almond frame around the eye (the compound-cut rim).
-    const r = 0.15 * hs * es, sx = 1.5, sy = 0.72;
-    group.add(flatTriMesh([
-      [[ex - r * sx, ey, ez], [ex, ey + r * sy, ez - r * 0.3], [ex + r * sx, ey, ez]],
-      [[ex - r * sx, ey, ez], [ex + r * sx, ey, ez], [ex, ey - r * sy, ez - r * 0.3]],
-    ], M.venter));
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.115 * hs * es, 0), eyeMat);
-    eye.position.set(ex, ey, ez - 0.01 * hs);
-    eye.scale.set(sx, sy, 1);
-    eye.rotation.y = side * 0.28;
-    eye.rotation.z = -side * 0.16;   // almond tilt (outer corner lifts)
+    const ex = side * 0.205 * hs, ey = 0.10 * hs, ez = -0.09 * hs;
+    const R = 0.15 * hs * es, sx = 1.45, sy = 0.82, N = 8;
+    // the socket bowl — outer rim proud (+z), inner rim sunk (−z), so the wall self-shadows.
+    const sT = [], ring = [];
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2, co = Math.cos(a), si = Math.sin(a);
+      ring.push({ out: [ex + co * R * sx, ey + si * R * sy, ez + 0.035 * hs], inn: [ex + co * R * 0.6 * sx, ey + si * R * 0.6 * sy, ez - 0.03 * hs] });
+    }
+    for (let i = 0; i < N; i++) { const A = ring[i], B = ring[(i + 1) % N]; sT.push([A.out, A.inn, B.inn], [A.out, B.inn, B.out]); }
+    group.add(flatTriMesh(sT, M.venter));
+    // the venom-lit octahedron GEM, seated in the recess (a real 3D gem, not a flat lozenge).
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * hs * es, 0), eyeMat);
+    eye.position.set(ex, ey, ez - 0.02 * hs);
+    eye.scale.set(sx * 0.6, sy * 0.6, 0.72);
+    eye.rotation.y = side * 0.30;
+    eye.rotation.z = -side * 0.18;   // almond tilt (outer corner lifts)
     group.add(eye);
   }
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.30 * hs); group.add(motifAnchor);
@@ -755,15 +773,16 @@ function buildStingerLanceTail(def, model, mats, anchor) {
   const chainAdd = (z, mesh) => { let j = nChain - 1; for (; j >= 0; j--) if (z >= jAnchor(j).z - 1e-6) break; const an = jAnchor(Math.max(0, j)); mesh.position.set(-an.x, -an.y, -an.z); joints[Math.max(0, j)].add(mesh); return mesh; };
   for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, knapLoft(stem.slice(i0, i1 + 1), NEEDLE_PROFILE, M.chitinFlank, false)); }
 
-  // 2 LANCET BARBS — a ×0.8 pair of short faceted blades breaking the mid-length, raked
-  // back (the needle survives edge-on + reads as a barbed stiletto, not a smooth spike).
-  { const mi = Math.round(nSeg * 0.5), ms = stem[mi], br = ms.rx;
+  // LANCET BARBS — backward-swept faceted blades breaking the needle silhouette at ~40% and
+  // ~62% length (a barbed stiletto, not a smooth spike; they also thicken the edge-on read).
+  for (const [ft, sc] of [[0.40, 1.0], [0.62, 0.72]]) {
+    const mi = Math.round(nSeg * ft), ms = stem[Math.min(nSeg, mi)], br = ms.rx;
     for (const side of [1, -1]) {
-      const bx = side * br, by = ms.cy, bz = ms.z;
-      const tip2 = [side * br * 2.0, by - br * 0.4, bz + T * 0.10];
+      const bx = side * br * 0.8, by = ms.cy, bz = ms.z;
+      const tip2 = [side * br * 3.4 * sc, by - br * 1.2 * sc, bz + T * 0.16 * sc];   // long, swept back + down
       chainAdd(bz, flatTriMesh([
-        [[bx, by + br * 0.4, bz - br * 0.4], tip2, [bx, by - br * 0.4, bz]],
-        [[bx, by + br * 0.4, bz - br * 0.4], [bx - side * br * 0.3, by, bz - br * 0.2], tip2],
+        [[bx, by + br * 0.5, bz - br * 0.5], tip2, [bx, by - br * 0.5, bz]],
+        [[bx, by + br * 0.5, bz - br * 0.5], [bx - side * br * 0.4, by, bz - br * 0.3], tip2],
       ], M.chitinFlank));
     }
   }
