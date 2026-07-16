@@ -55,7 +55,7 @@ export const BIOMES = [
     // horizon + the only GREEN/vegetation in the cycle. PR-1 = the atmosphere/materials substrate.
     name: 'THE LOST LAGOON',
     keyShift: 0,
-    stars: 0.15,   // first stars at dusk
+    stars: 0,   // Fable in-game review: at golden hour the star-speckle read as noise in the empty upper sky — a clear warm tropical sky, no stars
     sky: { top: C(0x0d1f3c), mid: C(0x235058), horizon: C(0xffb060), sun: C(0xffd080),
       // N9 clouds: warm dusk cumulus — sunlit tops, cool blue undersides.
       cloud: { amount: 0.85, lit: C(0xffe4b8), shadow: C(0x1e2c46) } },

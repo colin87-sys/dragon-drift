@@ -368,7 +368,7 @@ function mergeCalderaParts(parts, opts = {}) {
 // PR-0 palette substrate (jungle drowned temple, §7.2): the crown moves OFF the old cold
 // bone-bleach (that is Glacier/Hollowgate turf) toward warm HONEY — the cycle's only warm-and-
 // green biome now reads golden-hour tropical, never molten, never bleached. Jade + drowned kept.
-const _LAG_BLEACH = [0.910, 0.788, 0.561]; // 0xe8c98f warm HONEY limestone crown (SE-Asian karst, golden hour)
+const _LAG_BLEACH = [0.941, 0.769, 0.451]; // 0xf0c473 warm HONEY-GOLD limestone crown (Fable in-game review: the karst faces read grey-olive; pushed warmer+more saturated so the limestone JOINS the golden hour)
 const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop, kept)
 const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline, kept)
 function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
@@ -1869,7 +1869,7 @@ const ARCHETYPES = {
   // profile is a SURFACE OF REVOLUTION → yaw-INVARIANT (the name test survives every random rotY). No
   // gilt (nature). If the tropical karst doesn't land here, the identity is wrong — stop, don't tune.
   karstfang: {
-    step: 41, biomes: lagoonV3, matIndex: 0, arrivalPark: true, sizeClass: true, comp: { floor: 0.12, sMin: 0.88, sMax: 1.18 }, // mid mass: clusters into archipelagos, off the open-mirror seam + empty in the breaths; 3 size classes (a 1.42× mother-island breaks the horizon)
+    step: 41, biomes: lagoonV3, matIndex: 0, arrivalPark: true, sizeClass: true, giant: true, comp: { floor: 0.12, sMin: 0.88, sMax: 1.18 }, // mid mass: clusters into archipelagos, off the open-mirror seam + empty in the breaths; size classes + a rare COLOSSAL height-boost class that breaks the horizon (Fable in-game review)
     build: () => {
       const parts = [];
       // MAIN KARST TOWER — a 7-seg LATHE (surface of revolution → reads identical from any yaw). The
@@ -2622,6 +2622,7 @@ function writeMatrix(band, i, d) {
   // Composition rhythm — FROZEN only, PURE (no rnd), evaluated AFTER the rotY init
   // so no rnd() call order changes. Parks off-beat instances and scales the rest.
   let k = 1;
+  let giantH = 1;   // Fable in-game review: a rare COLOSSAL karst class that punches the horizon — a HEIGHT-only boost (footprint stays lane-safe; only karstfang opts in via def.giant)
   if (active && bi === 2 && band.def.comp) {
     const g = frozenComp(d.dist);
     const c = band.def.comp;
@@ -2694,6 +2695,10 @@ function writeMatrix(band, i, d) {
     if (active && band.def.sizeClass) {
       const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
       k *= hc < 0.5 ? 0.62 : hc < 0.82 ? 1.0 : 1.42;
+      // COLOSSAL class (karstfang only): the top ~10% of the biggest bucket grow TALLER still — a height-
+      // only boost so a few monoliths break the horizon and dwarf the dragon (awe), while the XZ footprint
+      // stays at the 1.42 mother-island size that already clears the lane. Render-only, pure hash.
+      if (band.def.giant && hc >= 0.90) giantH = 1.5;
     }
   } else if (active && bi === 4) {
     // THE LUMEN MIRE composition (LUMEN-MIRE-BIBLE §2 / Fable PR-3 §4). PURE (no rnd), after the
@@ -2753,7 +2758,7 @@ function writeMatrix(band, i, d) {
     }
   }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK, d.r * k));
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK * giantH, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
