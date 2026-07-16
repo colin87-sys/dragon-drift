@@ -2271,29 +2271,32 @@ const ARCHETYPES = {
     step: 101, biomes: lagoonV3, matIndex: 0, arrivalPark: true, oneSide: true, comp: { floor: 0 }, // rare backdrop EVENT: one side per congregation, fully parked in the breaths, never both horizons
     build: () => {
       const parts = [];
-      // COIL-HUMPS — a run of round masonry humps (identical-family radii, strict rhythm), the serpent
-      // surfacing in coils. Each = 2 frusta (up-over-down) meeting at the peak; contiguous, dipping to the
-      // waterline (y0) between coils. Grows toward the head (+x). Round tube ONLY (hazard firewall).
+      // COIL-HUMPS — a run of ROUND masonry coils (Fable r1: triangular sawteeth read as a dragon spine;
+      // a masonry naga coil is a SQUAT round ARCH, wider than tall). Each hump is a 4-point SINE arc → the
+      // two middle points sit high + close = a rounded CREST, never a peak; wider than tall. Contiguous,
+      // dipping to the waterline (y0) between coils, grows toward the head. Round tube ONLY (hazard firewall).
       const hump = (xC, w, hp, r) => {
-        const xL = xC - w / 2, xR = xC + w / 2;
-        parts.push({ mat: 0, geo: frustumBetween([xL, 0.0, 0], [xC, hp, 0], r * 0.85, r, 4) });
-        parts.push({ mat: 0, geo: frustumBetween([xC, hp, 0], [xR, 0.0, 0], r, r * 0.85, 4) });
+        const P = (t) => [xC - w / 2 + t * w, hp * Math.sin(t * Math.PI), 0];   // sine arch: 0 at ends, hp mid
+        const pts = [P(0), P(0.36), P(0.64), P(1)], rr = [r * 0.82, r, r, r * 0.82];
+        for (let i = 0; i < 3; i++) parts.push({ mat: 0, geo: frustumBetween(pts[i], pts[i + 1], rr[i], rr[i + 1], 3) }); // 3 frusta × 3-seg = 18
       };
-      const n = 5, w = 0.19, x0 = -0.40;
-      for (let i = 0; i < n; i++) { const t = i / (n - 1); hump(x0 + i * w, w, 0.30 + 0.20 * t, 0.075); }   // 5 × 16 = 80
+      const n = 5, w = 0.34, x0 = -0.68;
+      for (let i = 0; i < n; i++) { const t = i / (n - 1); hump(x0 + i * w, w, 0.28 + 0.08 * t, 0.09); }   // 5 × 18 = 90; w0.34 > hp0.36 → squat
       // BROKEN STUMP — the tail end (−x): a low broken half-coil lost to the water (ruin, not a clean end).
-      parts.push({ mat: 0, geo: frustumBetween([-0.55, 0.0, 0.0], [-0.47, 0.17, 0.0], 0.05, 0.072, 4) });     // 8
-      // COBRA HOOD — a fanned 7-head Khmer naga hood reared at the head (+x) end. A broad upright geometric
-      // FAN with a SCALLOPED rim (7 tips = 7 heads, 6 notches), read in silhouette against the gold sky.
-      // Front + back faces so it reads from both sides. NO eyes (withheld).
+      parts.push({ mat: 0, geo: frustumBetween([-0.86, 0.0, 0.0], [-0.78, 0.16, 0.0], 0.06, 0.08, 4) });     // 8
+      // COBRA HOOD — a fanned 7-head Khmer naga hood REARED VERTICAL off the tallest coil (Fable r1: the
+      // hood was lying near-horizontal, reading as a floating plate). It now spreads SIDEWAYS (in Z,
+      // perpendicular to the body) and rises in Y → a broad upright fan from the lane, a thin sliver in top-
+      // plan. SCALLOPED rim (7 tips = 7 heads, 6 notches). Base seated ON the last crest. NO eyes (withheld).
       {
-        const hx = x0 + (n - 1) * w + w * 0.45, neckY = 0.50, B = [hx, neckY, 0];
-        const heads = 7, spread = 0.34, tipY = 1.08, notchDrop = 0.13, edgeFall = 0.40;
+        const xLast = x0 + (n - 1) * w, hpLast = 0.28 + 0.08;   // the tallest coil's crest
+        const B = [xLast, hpLast, 0];
+        const heads = 7, spread = 0.46, tipY = hpLast + 0.66, notchDrop = 0.12, edgeFall = 0.34;
         const rim = [];
         for (let k = 0; k < 2 * heads - 1; k++) {
-          const u = k / (2 * heads - 2) - 0.5;                 // -0.5..0.5 across the hood
+          const u = k / (2 * heads - 2) - 0.5;
           const isTip = (k % 2) === 0;
-          rim.push([hx + u * spread, tipY - Math.abs(u) * edgeFall - (isTip ? 0 : notchDrop), 0]);   // tips high, notches dropped; edges fall away (arced hood)
+          rim.push([xLast, tipY - Math.abs(u) * edgeFall - (isTip ? 0 : notchDrop), u * spread]);   // spread in Z, rise in Y → reared vertical fan
         }
         const v = [];
         for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k], ...rim[k + 1]);     // front fan
