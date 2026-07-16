@@ -245,7 +245,7 @@ const fragmentShader = /* glsl */`
       // charcoal (0x232836) never melts into the sea (Law 8). Violence = white-on-dark CONTRAST,
       // kept by limiting the WHITE fraction, not by crushing the black.
       float trough = 1.0 - smoothstep(-0.7, 0.15, sStorm);
-      vec3 dk = max(col * mix(1.0, 0.73, trough), vec3(0.094, 0.125, 0.149));
+      vec3 dk = max(col * mix(1.0, 0.68, trough), vec3(0.094, 0.125, 0.149)); // deeper between-lane AVERAGE (drama) with the #182026 FLOOR held (dragon guard) — different numbers
       col = mix(col, dk, uStormSea);
 
       // (b) Wind-combed foam LANES — SMOOTH value-noise along the wind (NO floor() blocks — those
@@ -257,13 +257,13 @@ const fragmentShader = /* glsl */`
       float lane = smoothstep(0.70, 1.0, mix(l0, l1, smoothstep(0.0, 1.0, fract(along)))); // fades over ~50m
       float fAc = fract(wf.y * 0.10);                    // feathered cross-profile → no hard edge
       lane *= smoothstep(0.06, 0.42, fAc) * smoothstep(0.94, 0.58, fAc);
-      float fleck = smoothstep(0.90, 1.0, hash(floor(vec2(wf.x * 0.3, wf.y * 0.9) + 31.0))) * 0.15;
+      float fleck = smoothstep(0.90, 1.0, hash(floor(vec2(wf.x * 0.6, wf.y * 1.8) + 31.0))) * 0.15; // halved cell → finer flecks, kills the last soft-rectangle ghosts
       float foamS = lane + fleck;
       foamS *= smoothstep(-0.05, 0.55, sStorm) * (0.6 + 0.4 * smoothstep(0.1, 0.5, h + 0.2)); // crest-biased + torn by ripple
       foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
       foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
-      // #c4cdce overcast foam; capped so peak luminance ~ the horizon slot (white fraction ≤~18%).
-      col = mix(col, vec3(0.71, 0.74, 0.75), clamp(foamS * uStormSea, 0.0, 0.34));
+      // #c4cdce overcast foam; peak raised for CONTRAST (not coverage) against the deeper field.
+      col = mix(col, vec3(0.71, 0.74, 0.75), clamp(foamS * uStormSea, 0.0, 0.41));
     }
 
     // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
