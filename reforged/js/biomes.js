@@ -328,7 +328,7 @@ export const BIOMES = [
     // LineSegments streak layer (rainMix-gated). Small, dim, low-falling froth over the sea.
     ambient: { color: C(0x9fb0b4), fall: 1.5, sway: 2.0, size: 0.18, opacity: 0.35 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
-    props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
+    props: ['stormprow'], // the storm-carved roster (stormprow shipped; stackgrave/tafonihold/stormstack/arcuswall/rainshaft in later PRs). NOTE: doc-only — the archetype's `biomes: tempestNew` whitelist is the actual spawn gate
     matIndex: 7, // storm slate
     // No bullets override needed: with the fog held at L≈0.31 and the horizon under the 0.75 read
     // ceiling, all six role colours (danger + band + reflects) clear both fog and horizon on the

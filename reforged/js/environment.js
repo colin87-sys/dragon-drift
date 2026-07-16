@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mulberry32 } from './util.js';
 import { CONFIG } from './config.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
-import { biomeIndexAt, computeEnv } from './biomes.js';
+import { biomeIndexAt, computeEnv, TEMPEST_WIND } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
@@ -223,6 +223,17 @@ function makeMats() {
   mats.lagoonFoil = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0x6f7a68, roughness: 0.74, metalness: 0.03, emissive: 0x1a241f, emissiveIntensity: 0.12,
   }));
+  // TEMPEST REACH new-kit material (TEMPEST-REACH-BIBLE.md) — a FOURTH ladder, the WIND-SCOUR
+  // ladder: cool-dominant storm slate whose carved read comes entirely from the baked vColor
+  // stops keyed to the scour axis (wind-facing = pale SCOUR / body = DAMP / waterline belly =
+  // SOAKED). color white so the ladder shows through; a DARK cool emissive base so the ladder
+  // survives backlight against the pale storm horizon (ladderEmissive fold) WITHOUT the wet
+  // rock ever reading as a light source — ENTIRELY BARE (no accent/gold anywhere). roughness
+  // 0.34 = a wet storm-scoured sheen. storm-teal is BANNED — this stays value-structured slate.
+  mats.tempestStone = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.34, metalness: 0.05,
+    emissive: 0x1a2228, emissiveIntensity: 0.30,
+  }), true);
   return mats;
 }
 let propMats = null;
@@ -321,6 +332,60 @@ function mergeCalderaParts(parts, opts = {}) {
   }
   const geometry = mergeGeometries(geos, true);
   if (!opts.foil) bakeCalderaLadder(geometry);   // the foil carries NO ladder (stays uniformly dark)
+  bakeAO(geometry);
+  return { geometry, materials: mats };
+}
+
+// TEMPEST REACH wind-scour value ladder (TEMPEST-REACH-BIBLE.md) — a FOURTH ladder, sibling of
+// the Caldera ember one but keyed to the STORM'S OWN AXIS instead of world-DOWN. The scour axis
+// leans down-wind (0.8·windX, 0.5, 0.8·windZ from TEMPEST_WIND) — the direction the gale bites
+// the rock. Per-triangle geometric normal · scourAxis paints the storm history: faces the wind
+// bites (high dot) scour PALE; the low waterline belly stays SOAKED near-black; everything else
+// is DAMP body. Three storm-tells fall out of the bake: the pale wind-facing scour, the dark
+// soaked waterline undercut, and the horizontal stratification (each stratum's up/down faces
+// alternate scour/damp). Cool-dominant stops — NO storm-teal (banned). Zero triangle cost.
+const _TMP_AXIS = (() => {
+  const v = new THREE.Vector3(0.8 * TEMPEST_WIND.x, 0.5, 0.8 * TEMPEST_WIND.z);
+  return v.normalize();
+})();
+const _TMP_SCOUR = [0.557, 0.604, 0.627];   // #8e9aa0 wind-facing scour (high dot) — the pale wind-bitten faces
+const _TMP_DAMP = [0.294, 0.329, 0.361];    // #4b545c body — the standard wet slate
+const _TMP_SOAKED = [0.137, 0.169, 0.192];  // #232b31 waterline belly (low-y) — the SOAKED undercut storm-tell
+function bakeTempestLadder(geo) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+    const dot = nr.dot(_TMP_AXIS);                          // scour axis: high dot = wind-facing (bitten) face
+    const yc = (a.y + b.y + c.y) / 3;                        // face-centroid height (unit space, pre-scale)
+    // The SOAKED belly holds the low waterline undercut (yc ≤ 0.20); above it the wind decides:
+    // faces turned INTO the down-wind scour axis (dot > 0.32) go pale SCOUR, the lee/body stays DAMP.
+    const s = yc <= 0.20 ? _TMP_SOAKED : dot > 0.32 ? _TMP_SCOUR : _TMP_DAMP;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// Merge a Tempest new-kit archetype: force NON-INDEXED parts → ≤2 material groups → bake the
+// wind-scour value ladder → bake AO. Primary group (mat 0) = the ladder material (reads vColor);
+// accent group (mat 1) = accent[7] (vertexColors off). stormprow uses ONLY mat 0, but the
+// 2-group support is kept for the next family. Render-only — determinism is untouched.
+function mergeTempestParts(parts) {
+  const groups = [[], []];
+  for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
+  const geos = [];
+  const mats = [];
+  for (let m = 0; m < 2; m++) {
+    if (!groups[m].length) continue;
+    geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
+    mats.push(m === 0 ? propMats.tempestStone : propMats.accent[7]);
+  }
+  const geometry = mergeGeometries(geos, true);
+  bakeTempestLadder(geometry);
   bakeAO(geometry);
   return { geometry, materials: mats };
 }
@@ -511,6 +576,12 @@ const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevin
 // (they coexist in-field; the full legacy retirement + Wastes retire-from-CYCLE is the final PR).
 const lagoonNew = PROPS_V1 ? [] : [0];   // rotunda (+ arcade/rootbastion/lilyraft/wrackstone/campanile/sentinel to come)
 const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once the kit completes)
+// TEMPEST REACH overhaul (TEMPEST-REACH-BIBLE.md) — same flip idiom. Default (v2) = the new
+// storm-carved kit (stormprow hero + stackgrave/tafonihold/stormstack/arcuswall/rainshaft to
+// come, wind-scour value ladder); `?props=v1` restores the empty legacy roster. The archetype's
+// `biomes: tempestNew` whitelist is the ONLY spawn gate. Kit is built up over PRs.
+const tempestNew = PROPS_V1 ? [] : [7];  // stormprow (+ storm roster to come)
+const tempestOld = PROPS_V1 ? [7] : [];  // legacy (empty — biome 7 shipped propless)
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -1714,6 +1785,57 @@ const ARCHETYPES = {
     },
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 16 + rnd() * 6, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
+
+  // TEMPEST REACH — HERO #1 (TEMPEST-REACH-BIBLE.md): stormprow, a storm-carved SHEARED WEDGE.
+  // A layered wedge whose long dip-slope steps up out of the sea to ONE sharp crest, the whole
+  // mass leaning visibly DOWN-WIND — a dark diagonal against the pale horizon slot. THE DIAGONAL
+  // IS THE IDENTITY. Built as offset-stacked box strata: the lean is carried entirely by lateral
+  // OFFSET in build() (never internal rotation — the (r,h,r) instance scale shears internal tilts
+  // FLAT). Each stratum steps shorter on the WINDWARD (−x) side → the stepped dip-slope; each
+  // rides further LEEWARD (+x) as it rises → the leaning overhang crest. The waterline stratum is
+  // narrower + recessed → the UNDERCUT storm-tell. Strata interpenetrate ≥25%. The three mandatory
+  // storm-tells all read: waterline undercut + visible lean + horizontal stratification. ENTIRELY
+  // BARE — ONE material group (mat 0 = tempestStone), zero emissive/accent/gold. The carved read
+  // is the baked wind-scour value ladder (pale wind-bitten scour / damp body / soaked belly). rotY
+  // pinned so the local scour axis stays wind-aligned and every prow leans the SAME down-wind way.
+  stormprow: {
+    step: 17, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 },
+    build: () => {
+      const parts = [];
+      // [centerX, y, width(x), height, depth(z)] — 6 MAIN strata, bottom→crest. Windward edge
+      // (centerX − w/2) steps IN going up (dip-slope); leeward edge (centerX + w/2) steps OUT + up
+      // (the down-wind overhang). Stratum 0 is the recessed narrow waterline belly (undercut).
+      const strata = [
+        [-0.12, 0.09, 0.44, 0.20, 0.48],   // 0 WATERLINE belly — narrower + recessed → the undercut
+        [-0.05, 0.24, 0.70, 0.22, 0.62],   // 1 overhangs the belly all round (the storm undercut)
+        [ 0.05, 0.40, 0.66, 0.22, 0.58],   // 2
+        [ 0.14, 0.56, 0.56, 0.22, 0.52],   // 3
+        [ 0.22, 0.72, 0.44, 0.22, 0.44],   // 4
+        [ 0.30, 0.88, 0.30, 0.22, 0.34],   // 5 CREST — the one sharp leeward peak
+      ];
+      for (const [x, y, w, h, d] of strata) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
+      }
+      // Protruding ledge slabs at the stratum interfaces — thin, seated windward, wider in z so
+      // they read as horizontal scour ledges (the STRATIFICATION tell) + add carved shear detail.
+      const ledges = [
+        [-0.30, 0.19, 0.30, 0.05, 0.50],
+        [-0.18, 0.35, 0.30, 0.05, 0.48],
+        [-0.02, 0.51, 0.26, 0.05, 0.42],
+        [ 0.30, 0.83, 0.16, 0.10, 0.30],   // crest splinter — sharpens the peak
+      ];
+      for (const [x, y, w, h, d] of ledges) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
+      }
+      return mergeTempestParts(parts);
+    },
+    // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.52, measured from the
+    // geometry) so the inner edge = |x| − ρ·r·sMax − lean stays well clear. Mid-field |x| ~30–40.
+    // tilt leans AWAY from the lane (side*negative, sungate idiom); ALWAYS numeric (a missing tilt
+    // → NaN quaternion → invisible). rotY pinned 0 so the wedge diagonal reads broadside down-lane
+    // and the baked wind-scour stays aligned. CONSTANT 3 rnd() draws (r, x-jitter, h).
+    place: (side, rnd) => { const r = 8 + rnd() * 6; return { x: side * (26 + 0.52 * r + rnd() * 5), h: 9 + rnd() * 5, r, tilt: side * -0.05, rotY: 0 }; },  // propclearance: ρ 0.52·sMax 1.12 → inner ≥24 (mid-field hero)
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1750,6 +1872,9 @@ const FOAM_CFG = {
   // ensemble (Fable §2): glowarch = two legs → ELLIPTICAL waterline collar (archruin precedent);
   // parked forms carry inert rows until their stage activates + tunes them.
   glowarch: { rx: 0.66, rz: 0.16 }, glowtree: false, glowshroom: false, glowbloom: false,
+  // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
+  // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
+  stormprow: { rx: 0.55, rz: 0.40 },
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the

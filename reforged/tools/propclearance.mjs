@@ -37,7 +37,7 @@ const GATE_VEIL = 16;              // the Phase Gate veil half-span
 // PR-1 SCOPE: the Frozen biome (2) is the owner's acute complaint and is enforced
 // (CI-fail). Other biomes have pre-existing stragglers (shipped) — Fable's plan says
 // REPORT them as a follow-up, don't fix them in this PR. So they warn, not fail.
-const SCOPE_BIOME = [2, 3, 4];   // Frozen (2) + Caldera (3) + Lumen Mire (4, the overhaul biome) CI-enforced
+const SCOPE_BIOME = [2, 3, 4, 7];   // Frozen (2) + Caldera (3) + Lumen Mire (4) + Tempest Reach (7, the overhaul biome) CI-enforced
 const data = propClearanceData();
 let fails = 0, strays = 0;
 const rows = [];
