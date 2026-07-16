@@ -114,7 +114,7 @@ function buildSlipstream(def, model, attach) {
   // (NOT the constructor emissiveIntensity — it overwrites it every frame). A withheld filament MUST
   // set both, or it idles at the default (intensity 1.0, white) → an always-on LED. Base 0.04 =
   // imperceptible in cruise; the ×surgeGlowMultiplier tick ignites it as an EVENT (AAA tell 3 / DD §6.1).
-  filMat.userData.baseEmissive = cyan; filMat.userData.baseIntensity = 0.04;
+  filMat.userData.baseEmissive = cyan; filMat.userData.baseIntensity = 0.055;   // cruise imperceptible; ×surgeGlowMultiplier(20) ignites to ~1.0 (reads as an EVENT)
   mats.push(filMat);
   // the recessed filament: a thin tapered ridge riding the keel top from nape to the tail root.
   const z0 = -2.4, z1 = attach.tailAnchor.z, N = seg(9);
@@ -122,7 +122,7 @@ function buildSlipstream(def, model, attach) {
   for (let i = 0; i <= N; i++) {
     const t = i / N, z = z0 + (z1 - z0) * t;
     const y = attach.keelTopAt(z) + 0.015;             // sits just proud of the keel, in the scute channel
-    const w = 0.018 * (1 - 0.6 * t);                   // tapers nose→tail (≤~1–2px at chase cam)
+    const w = 0.026 * (1 - 0.55 * t);                  // a hair wider so the ignited LINE reads continuous (tell #10), still ≤~2px at chase cam
     verts.push(-w, y, z, w, y, z);
   }
   for (let i = 0; i < N; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
@@ -133,6 +133,7 @@ function buildSlipstream(def, model, attach) {
   // the terminus stud — a small cyan node + a soft bloom sprite at the tail root fork
   const studMat = new THREE.MeshStandardMaterial({ color: 0x2a4a68, emissive: cyan, emissiveIntensity: 0.30, roughness: 0.3, flatShading: true });
   studMat.userData.baseEmissive = cyan; studMat.userData.baseIntensity = 0.30;   // the ONE idle-lit point (the grind-tease)
+  studMat.userData.flareIntensityWeight = 0.22;   // damp its Surge flare (sgm 20 would blow the stud white — tell #6); the filament carries the ignition
   mats.push(studMat);
   const stud = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), studMat);
   stud.position.set(0, attach.keelTopAt(z1) + 0.02, z1 + 0.05);

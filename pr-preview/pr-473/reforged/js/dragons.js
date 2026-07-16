@@ -56,7 +56,9 @@ export const DRAGONS = {
       covertRanks: 0,   // laddered per form (0 whelp → 2 apex)
       // TAIL MOTION — a light courier's trailing drift with a LIVE vertical wave (the rear-chase axis).
       tailWhip: true, tailLagScale: 0.14, tailUndulateX: 0.24, tailRudderScale: 0.5, tailGirth: 1.2,
-      surgeGlowMultiplier: 10,   // the Slipstream blaze on Surge — ~45% of the Vesper/Eternal ceiling (22)
+      surgeGlowMultiplier: 20,   // the Slipstream IGNITION must READ on Surge (gate: 10 gave a ~0.4 product ACES ate).
+      // Radiant<Eternal is honored by AREA not intensity — a thin bright filament LINE, never a blaze/wash
+      // (feverWing black firewalls the wings; the lit-cyan AREA stays a fraction of an Eternal's surge).
       flapBias: 1.1, flapAmp: 0.9,
     },
     // Three FLEDGING rungs (the falcon molt: down → pin feathers → full primaries). Each rung
