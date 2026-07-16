@@ -1283,7 +1283,7 @@ const ARCHETYPES = {
   // parasol. The theology's second claiming ENACTED mid-action (the garden winning, on camera). The one
   // COMPOSITE: tide-laddered stone (plumb) + tagged olive foliage (roots + canopy) in ONE material group.
   rootbastion: {
-    step: 43, biomes: lagoonNew, matIndex: 0, arrivalPark: true, comp: { floor: 0.10, sMin: 0.90, sMax: 1.12 }, // mid mass: clusters into archipelagos, off the seam + empty in the breaths (Fable r1)
+    step: 43, biomes: lagoonNew, matIndex: 0, arrivalPark: true, sizeClass: true, comp: { floor: 0.10, sMin: 0.90, sMax: 1.12 }, // mid mass: clusters into archipelagos, off the seam + empty in the breaths; 3 size classes for island hierarchy (Fable r1/r1b)
     build: () => {
       const parts = [];
       // STONE (untagged → tide ladder). PLUMB (Fable PLUMB-TIDE law: the jade waterline is a level water
@@ -1950,12 +1950,18 @@ function writeMatrix(band, i, d) {
       const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
       if (seamDelta < 220) active = false;
     }
-    // Backdrop massif (arcade) is an EVENT, not wallpaper (Fable r1): only ONE side per congregation
-    // (a per-peak hash picks the side) so a drowned colonnade never walls BOTH horizons at once.
+    // Backdrop massif (arcade) is an EVENT, not wallpaper (Fable r1b): a DUTY CYCLE keeps a drowned
+    // colonnade in only ~1 of 3 congregations (a per-peak hash), and when present it is on ONE side
+    // only (a second per-peak hash picks it) — so most stretches have NO arcade anywhere, and it never
+    // walls both horizons. A single rare instance shows its own broken START and END instead of an
+    // edge-to-edge conveyor of overlapping walls.
     if (active && band.def.oneSide) {
       const peakIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
-      const pickRight = heroHash(peakIdx) < 0.5;
-      if ((pickRight && d.side < 0) || (!pickRight && d.side > 0)) active = false;
+      if (heroHash(peakIdx) >= 0.38) active = false;                     // present at ~1 in 3 congregations
+      else {
+        const pickRight = heroHash(peakIdx * 2 + 1) < 0.5;
+        if ((pickRight && d.side < 0) || (!pickRight && d.side > 0)) active = false;
+      }
     }
     if (active && band.def.comp) {
       const g = lagoonComp(d.dist);
@@ -1963,6 +1969,14 @@ function writeMatrix(band, i, d) {
       const density = c.floor + (1 - c.floor) * g;
       if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
       else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
+    // Island SIZE HIERARCHY (Fable r1b): break the "even subdivision of equal mounds" by scaling each
+    // mid-mass instance into one of three size classes via a PURE per-instance hash — mostly small/mid
+    // children with an occasional large mother-island, so a congregation reads as ONE layered landform
+    // rather than a picket of clones. Render scale only (no rnd, no new tris) → determinism-safe.
+    if (active && band.def.sizeClass) {
+      const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
+      k *= hc < 0.5 ? 0.62 : hc < 0.82 ? 1.0 : 1.42;
     }
   }
   // Deck-skim rule (see the window block above), inside a strait2 run window:
