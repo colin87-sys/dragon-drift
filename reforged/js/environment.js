@@ -652,21 +652,34 @@ const ARCHETYPES = {
     build: () => {
       const parts = [];
       const nSeg = 11, dth = (Math.PI * 2) / nSeg;
-      const open = new Set([2, 6, 7]);        // 3 windows; {6,7} adjacent → the wide collapse gap; asymmetric
-      const domePhi = 6.20;                    // aligns the dome's missing quarter with drum sectors {6,7} → both wounds face (x−,z−)
-      // BASE PLINTH — a battered skirt at the waterline; carries the continuous JADE tide band.
+      const open = new Set([0, 2, 3]);        // window {0} (+x) + the wide collapse {2,3} (adjacent, ~+z); asymmetric keyhole
+      const arched = new Set([0]);            // the intact window gets a pointed-arch lintel (the biome's arch vocabulary)
+      const domePhi = 2.22;                    // dome's missing quarter centred on the drum collapse ({2,3}, ~+z) → one coherent wound facing the studio cameras
+      // BASE PLINTH — a battered skirt at the waterline with a CLOSED TOP (Fable D1): the flying game's
+      // top-down is a shipping camera, so a hollow ribbon shows sky through it. Truncated-cone side wall
+      // + an up-facing top disc → a solid jade annulus in plan; the never-seen underside is skipped.
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 8, 1, true), { y: 0.08 }) });
-      // PIERCED DRUM WALL — hand-built with a HORIZONTAL EDGE LOOP at the tide-band height (y=0.22):
-      // every triangle sits inside ONE ladder stop, so the jade waterline is a DEAD-LEVEL line, not a
-      // per-quad sawtooth (Fable D1 — the position-keyed-ladder tall-face trap: colour is per-face, so
-      // any quad straddling the band splits into a jade tri + a bleach tri along its diagonal). Base
-      // widened to 0.63 to sink into the plinth top (0.60) → no plan-view seam (D4). 8 piers × 2 courses.
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.60, 8), { y: 0.16, rx: -Math.PI / 2 }) });
+      // PIERCED DRUM WALL — HORIZONTAL EDGE LOOP at the tide-band height (y=0.22): every triangle sits
+      // inside ONE ladder stop, so the jade waterline is a DEAD-LEVEL line, not a per-quad sawtooth
+      // (the position-keyed-ladder tall-face trap: colour is per-face, so any quad straddling the band
+      // splits into a jade tri + a bleach tri along its diagonal). Base r0.63 sinks into the plinth top.
+      // 8 piers × 2 courses; the intact window {0} gets a 2-tri inverted-V lintel → a pointed-arch read.
       {
         const rings = [ { y: 0.0, r: 0.63 }, { y: 0.22, r: 0.575 }, { y: 0.60, r: 0.50 } ];
         const P = (ring, a) => [Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r];
         const v = [];
         for (let s = 0; s < nSeg; s++) {
-          if (open.has(s)) continue;
+          if (open.has(s)) {
+            if (arched.has(s)) {   // pointed-arch lintel: apex hangs into the top of the opening
+              const a0 = s * dth, a1 = (s + 1) * dth, am = (a0 + a1) / 2;
+              const rT = 0.50, rA = 0.52, yT = 0.60, yA = 0.44;
+              const TL = [Math.cos(a0) * rT, yT, Math.sin(a0) * rT], TR = [Math.cos(a1) * rT, yT, Math.sin(a1) * rT];
+              const TM = [Math.cos(am) * rT, yT, Math.sin(am) * rT], A = [Math.cos(am) * rA, yA, Math.sin(am) * rA];
+              v.push(...TL, ...A, ...TM, ...TM, ...A, ...TR);   // outward winding, apex low → pointed soffit
+            }
+            continue;
+          }
           const a0 = s * dth, a1 = (s + 1) * dth;
           for (let c = 0; c < 2; c++) {
             const lo = rings[c], hi = rings[c + 1];
@@ -680,14 +693,13 @@ const ARCHETYPES = {
         drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2)); // match the primitive parts' attribute set for the merge
         parts.push({ mat: 0, geo: drum });
       }
-      // CORNICE — a chunky springline course BROKEN over the collapse (skips sectors {6,7}) so no thin
-      // arc floats across the void (Fable D2b). Shares the drum's sector indexing; barely proud
-      // (overhang 0.02 over the drum top r0.50) + 0.09 tall → a lip, not a frisbee (D2a).
+      // CORNICE — short ASYMMETRIC stubs flanking the collapse (a 2-sector run {4,5} + a 1-sector {1}),
+      // the rest fallen (Fable r5: broken entablature reads as accident when asymmetric, not design).
       {
+        const present = [1, 4, 5];
         const yb = 0.55, yt = 0.64, rC = 0.52;
         const v = [];
-        for (let s = 0; s < nSeg; s++) {
-          if (s === 6 || s === 7) continue;    // break over the collapse
+        for (const s of present) {
           const a0 = s * dth, a1 = (s + 1) * dth;
           const p0b = [Math.cos(a0) * rC, yb, Math.sin(a0) * rC], p1b = [Math.cos(a1) * rC, yb, Math.sin(a1) * rC];
           const p0t = [Math.cos(a0) * rC, yt, Math.sin(a0) * rC], p1t = [Math.cos(a1) * rC, yt, Math.sin(a1) * rC];
@@ -699,8 +711,8 @@ const ARCHETYPES = {
         corn.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
         parts.push({ mat: 0, geo: corn });
       }
-      // DOME — a broad hemisphere with a TRUE quarter collapsed; phiStart aligns the missing wedge with
-      // the drum collapse gap so both wounds face one way. Rim sinks into the cornice; OCULUS at the apex.
+      // DOME — a broad hemisphere with a TRUE quarter collapsed toward the drum gap (both wounds ~+z →
+      // the collapse reads coherently at elevation). Rim sinks into the cornice; OCULUS at the apex.
       parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: 0.60 }) });
       // INNER LINING (Fable D3) — a concentric shell at 0.43 with REVERSED winding (faces inward) over
       // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
@@ -713,13 +725,14 @@ const ARCHETYPES = {
         inner.computeVertexNormals();
         parts.push({ mat: 0, geo: xform(inner, { y: 0.60 }) });
       }
-      // BROKEN-EDGE RUBBLE — tumbled blocks at the collapse foot (incl. a fallen cornice chunk) that
-      // explain both wounds, on the collapse side (x−,z−), at the waterline so the jade band stains them.
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.13, 0.14), { x: -0.34, z: -0.30, y: 0.12, ry: 0.7, rz: 0.15 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.13, 0.10, 0.12), { x: -0.11, z: -0.42, y: 0.10, ry: 1.1, rz: -0.25 }) });
-      // OCULUS gilt reveal — an INWARD-facing ring recessed just BELOW the apex lip (Fable D4: gilt is
-      // NEVER on an outer face). Exterior gold = zero; the gold is sunset caught inside the hole.
-      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 6, 1, true), { y: 0.60 + 0.46 * Math.cos(0.30) - 0.05 }) });
+      // BROKEN-EDGE RUBBLE — tumbled blocks (a fallen cornice chunk among them) at the collapse foot (+z),
+      // resting on the plinth top so the jade band stains their feet.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.13, 0.14), { x: -0.05, z: 0.36, y: 0.19, ry: 0.7, rz: 0.15 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.13, 0.10, 0.12), { x: 0.14, z: 0.44, y: 0.16, ry: 1.1, rz: -0.25 }) });
+      // OCULUS gilt reveal — an INWARD-facing frustum recessed at the apex, extended DOWN into the interior
+      // (Fable D2) so the withheld gold catches from the worm's-eye low-oblique through the collapse. Never
+      // an exterior face — the gold is only sunset trapped inside the hole (r0.12 < oculus rim 0.136).
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 6, 1, true), { y: 0.95 }) });
       return mergeLagoonParts(parts);
     },
     // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
