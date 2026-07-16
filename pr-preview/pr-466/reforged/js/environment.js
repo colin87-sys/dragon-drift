@@ -1236,7 +1236,7 @@ const FOAM_CFG = {
   riftwall: false,                    // distant rim massif on the fog line — no collar (bright ring 30+ off-lane = artifact)
   riftfang: { r: 0.5 },               // volcanic neck — thin collar at the base
   rotunda: { r: 0.8 },   // Lost Lagoon hero — the drum waterline weld: the jade tide-band doubled in the mirror
-  lilyraft: { r: 0.5 },  // Lost Lagoon commons — a subtle pad collar; the pads ARE the waterline event (drop to false if it eats the mirror)
+  lilyraft: false,       // Lost Lagoon commons — NO collar: the pads ARE the waterline event; a foam ring on a 2m pad reads as an artifact (Fable pre-authorized)
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
