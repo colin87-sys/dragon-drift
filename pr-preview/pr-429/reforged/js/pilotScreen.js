@@ -39,7 +39,7 @@ function featsBody() {
           ${rewardCell}
         </div>`;
     }).join('');
-    return `<div class="pilot-cat">${label}</div><div class="feat-grid">${cards}</div>`;
+    return `<div class="pilot-cat">${label}</div><div class="feat-grid stagger-kids">${cards}</div>`;
   }).join('');
 }
 
@@ -91,7 +91,7 @@ function logBody() {
 
   return lifetime + records + `
     <div class="pilot-cat">DRAGON MASTERY</div>
-    <div class="mastery-list">${masteryRows}</div>
+    <div class="mastery-list stagger-kids">${masteryRows}</div>
     <p class="pm-hint">Stars pay embers — every dragon remembers the miles you fly it.</p>`;
 }
 
@@ -112,7 +112,7 @@ function titlesBody() {
         <span class="title-name">— no title —</span><span class="title-src"></span>
         <span class="title-state">${equipped ? 'TAP TO WEAR' : 'WORN'}</span>
       </div>`;
-  return `<div class="title-list">${none}${rows}</div>
+  return `<div class="title-list stagger-kids">${none}${rows}</div>
     <p class="pm-hint">Your title rides on the start screen and every share card.</p>`;
 }
 
@@ -130,7 +130,7 @@ export function buildPilotHtml(tab) {
       <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b></div>
     </div>
     <div class="seg-row shop-tabs">${tabBtn('feats', '⬢ FEATS')}${tabBtn('log', '✈ FLIGHT LOG')}${tabBtn('titles', '« TITLES »')}</div>
-    <div class="pilot-body">${body}</div>
+    <div class="pilot-body stagger-kids">${body}</div>
     <div class="action-row"><button class="btn-secondary" id="btn-back">← BACK</button></div>`;
 }
 
