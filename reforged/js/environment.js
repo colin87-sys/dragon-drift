@@ -381,6 +381,13 @@ const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 // it grows the biome is intentionally sparser than the legacy roster (restraint > clutter).
 const calderaNew = PROPS_V1 ? [] : [3];  // colonnata (+ flowlobe/fumarole/clinker/riftwall/riftfang to come)
 const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the kit completes)
+// THE LUMEN MIRE overhaul (LUMEN-MIRE-BIBLE.md) — same flip idiom. Default = the new
+// bioluminescent-swamp kit (canopy/depth/roof first, hero + glow carriers over later PRs,
+// under-brim glow ladder); `?props=v1` restores the legacy glowcap/spirevine cones. Kit is
+// built up over PRs; while it grows the biome is intentionally sparse (depth/roof, near-zero
+// emissive) — the darkness is the investment the PR-3 hero pays off (owner brightness lock).
+const mireNew = PROPS_V1 ? [] : [4];     // canopywall/reedveil/boleveil/drape (+ hero/roster/skins to come)
+const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevine (retired once the kit completes)
 // THE LOST LAGOON overhaul (LOST-LAGOON-BIBLE.md) — consolidates biomes 0+1. Default (v2) = the
 // new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
 // restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
@@ -835,7 +842,7 @@ const ARCHETYPES = {
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
-    step: 26, biomes: [4], matIndex: 4,
+    step: 26, biomes: mireOld, matIndex: 4,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.22, 0.78, 7), { y: 0.39 }) },
       { mat: 1, geo: xform(new THREE.SphereGeometry(0.52, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2), { y: 0.76, sy: 0.55 }) },
@@ -843,7 +850,7 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: side * (15 + rnd() * 8), h: 8 + rnd() * 11, r: 2.5 + rnd() * 2.5, tilt: side * (rnd() * 0.1 - 0.03) }),
   },
   glowcapSmall: {
-    step: 14, biomes: [4], matIndex: 4,
+    step: 14, biomes: mireOld, matIndex: 4,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.1, 0.16, 0.6, 6), { y: 0.3 }) },
       { mat: 1, geo: xform(new THREE.SphereGeometry(0.36, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), { y: 0.58, sy: 0.5 }) },
@@ -854,7 +861,7 @@ const ARCHETYPES = {
   },
   // Twisting vine spire with a glowing seed-pod tip.
   spirevine: {
-    step: 34, biomes: [4], matIndex: 4,
+    step: 34, biomes: mireOld, matIndex: 4,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.6, 5), { y: 0.3, rz: 0.12 }) },
       { mat: 0, geo: xform(new THREE.ConeGeometry(0.11, 0.5, 5), { x: 0.06, y: 0.72, rz: -0.18 }) },
@@ -1127,6 +1134,123 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // ===== THE LUMEN MIRE — PR-2 depth + canopy substrate (LUMEN-MIRE-BIBLE.md §4) =====
+  // Registered LAST so no existing band's render-rnd draw order shifts. All near-black
+  // mat-0 dark foil (the "matter drinks" side of the ladder); the only emissive is
+  // canopywall's 2 pinprick distant beacons. Owner brightness lock: PR-2 adds DARKNESS
+  // (mass, roof, depth) — glow arrives with the PR-3 hero, never a brighter night.
+
+  // canopywall — the distant MASSIF ("the swamp's far mountain"). A cumulus-line of drowned
+  // tree crowns: 6 squashed dome-lobes (sy ≤ 0.7·sx — scalloped LOBES, never peaks) at
+  // staggered azimuth+radius (rotY-proof), necking to a narrow root-stem the ground-mist
+  // severs so it floats on fog. Mass in the upper y-band; crops the horizon under the amber
+  // haze. 2 pinprick beacons recessed under lobe overhangs (the under-brim address at a mile).
+  canopywall: {
+    step: 83, biomes: mireNew, matIndex: 4,
+    build: () => {
+      const parts = [];
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.5, 5).toNonIndexed(), { y: 0.25 }) });
+      const lobes = [
+        { x: 0.00, z: 0.00, y: 0.74, s: 0.62, sy: 0.55, sz: 0.9, ry: 0.3 },
+        { x: 0.44, z: 0.10, y: 0.60, s: 0.50, sy: 0.50, sz: 1.2, ry: 1.1 },
+        { x: -0.42, z: 0.16, y: 0.64, s: 0.54, sy: 0.52, sz: 0.8, ry: 2.0 },
+        { x: 0.18, z: -0.32, y: 0.56, s: 0.46, sy: 0.48, sz: 1.1, ry: 3.0 },
+        { x: -0.24, z: -0.26, y: 0.58, s: 0.44, sy: 0.46, sz: 0.9, ry: 4.0 },
+        { x: 0.30, z: 0.36, y: 0.50, s: 0.42, sy: 0.50, sz: 1.3, ry: 5.2 },
+      ];
+      for (const l of lobes) parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(l.s, 0), { x: l.x, z: l.z, y: l.y, sy: l.sy, sz: l.sz, ry: l.ry }) });
+      parts.push({ mat: 1, geo: xform(new THREE.CircleGeometry(0.009, 4).toNonIndexed(), { x: 0.30, z: 0.05, y: 0.52, rx: -Math.PI / 2 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.CircleGeometry(0.008, 4).toNonIndexed(), { x: -0.28, z: 0.10, y: 0.50, rx: -Math.PI / 2 }) });
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => { const r = 30 + rnd() * 18; return { x: side * (30 + 1.0 * r + rnd() * 24), h: 26 + rnd() * 12, r, tilt: 0 }; },
+  },
+
+  // reedveil — NEAR depth screen. A comb of 5 feathered reed tufts (each = 2 thin splayed
+  // cones — the sanctioned "sparse feathered reeds" exception to no-sharp-verticals) at
+  // varied heights + 1 leaning bare snag. Sweeps past fast; sells speed. All near-black.
+  reedveil: {
+    step: 23, biomes: mireNew, matIndex: 4,
+    build: () => {
+      const parts = [];
+      const tufts = [
+        { x: 0.00, z: 0.00, h: 1.00, r: 0.05 },
+        { x: 0.30, z: 0.12, h: 0.72, r: 0.045 },
+        { x: -0.26, z: 0.18, h: 0.86, r: 0.05 },
+        { x: 0.14, z: -0.24, h: 0.60, r: 0.04 },
+        { x: -0.20, z: -0.20, h: 0.92, r: 0.05 },
+      ];
+      for (const t of tufts) {
+        parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(t.r, t.h, 3), { x: t.x, z: t.z, y: t.h / 2, rz: 0.05 }) });
+        parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(t.r * 0.7, t.h * 0.7, 3), { x: t.x + 0.05, z: t.z, y: t.h * 0.4, rz: -0.18 }) });
+      }
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.06, 1.1, 4), { x: 0.34, z: -0.10, y: 0.5, rz: 0.5 }) });
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => ({ x: side * (22 + rnd() * 12), h: 6 + rnd() * 4, r: 3 + rnd() * 3, tilt: side * (rnd() * 0.06 - 0.02) }),
+  },
+
+  // boleveil — MID depth screen. 3 bare drowned boles (offset-stacked BOWED segments,
+  // knuckled — never straight cylinders) sharing one blobby crown mass at the top third.
+  // The mid-ground black shape the drape fringe + future glow-carriers read AGAINST.
+  boleveil: {
+    step: 41, biomes: mireNew, matIndex: 4,
+    build: () => {
+      const parts = [];
+      const boles = [
+        { x: 0.00, z: 0.00, lean: 0.06 },
+        { x: 0.34, z: 0.12, lean: -0.10 },
+        { x: -0.30, z: 0.16, lean: 0.12 },
+      ];
+      for (const b of boles) {
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.5, 4).toNonIndexed(), { x: b.x, z: b.z, y: 0.25, rz: b.lean }) });
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.045, 0.07, 0.42, 4).toNonIndexed(), { x: b.x + b.lean * 0.4, z: b.z, y: 0.62, rz: -b.lean * 1.4 }) });
+      }
+      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.02, z: 0.06, y: 0.82, sy: 0.6, sx: 1.2 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.28, z: -0.04, y: 0.74, sy: 0.55 }) });
+      return mergeParts(parts, 4);
+    },
+    place: (side, rnd) => ({ x: side * (36 + rnd() * 22), h: 16 + rnd() * 10, r: 8 + rnd() * 6, tilt: side * (rnd() * 0.05 - 0.02) }),
+  },
+
+  // drape — THE OVERHEAD CEILING (the Canopy Law mechanism). A "weeping titan": a slender
+  // bowed trunk (unit y 0..0.66, ρ ≤ 0.09 — scaffolding, mostly out of frame) carrying a
+  // radially-overhanging crown of 3 squashed dome-lobes + a ragged hem of 8 short hanging
+  // fronds, ALL above unit y 0.66. The `overhead` declaration (read by propclearance) audits
+  // clearance from the sub-0.66 trunk ONLY and asserts the crown sits at world y ≥ 28 (above
+  // laneMaxY 22 + camera) — so the roof paints the top of frame without ever blocking the lane.
+  // Dark foil (moss DARK); the glowing air is the PR-1 mote system drifting under the fringe.
+  drape: {
+    step: 19, biomes: mireNew, matIndex: 4,
+    overhead: { unitY: 0.66, minWorldY: 28 },
+    build: () => {
+      const parts = [];
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.05, 0.09, 0.66, 4).toNonIndexed(), { y: 0.33, rz: 0.04 }) });
+      // Radial crown of squashed dome-lobes, ALL fully above unit y 0.66 (bottom ≥ 0.67 so
+      // no crown vertex counts against lane clearance) and overhanging in every yaw (rotY-proof).
+      const lobes = [
+        { x: 0.00, z: 0.00, y: 0.92, s: 0.54, sy: 0.44 },   // bottom ≈ 0.92 − 0.24 = 0.68
+        { x: 0.46, z: 0.16, y: 0.86, s: 0.44, sy: 0.42 },   // bottom ≈ 0.86 − 0.18 = 0.68
+        { x: -0.42, z: -0.12, y: 0.88, s: 0.46, sy: 0.42 }, // bottom ≈ 0.88 − 0.19 = 0.69
+      ];
+      for (const l of lobes) parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(l.s, 0), { x: l.x, z: l.z, y: l.y, sy: l.sy }) });
+      // ragged hem: 8 short fronds pointing DOWN (rx PI), tips kept ≥ unit 0.66 (above the
+      // flyable ceiling — so they never count against lane clearance and never read as a wall).
+      const fr = [
+        { x: 0.48, z: 0.12, len: 0.13 }, { x: 0.28, z: 0.36, len: 0.10 },
+        { x: -0.42, z: 0.08, len: 0.12 }, { x: -0.20, z: -0.34, len: 0.10 },
+        { x: 0.12, z: -0.40, len: 0.13 }, { x: 0.44, z: -0.18, len: 0.11 },
+        { x: -0.48, z: -0.16, len: 0.11 }, { x: 0.02, z: 0.46, len: 0.10 },
+      ];
+      for (const f of fr) parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.03, f.len, 3).toNonIndexed(), { x: f.x, z: f.z, y: 0.79 - f.len / 2, rx: Math.PI }) });
+      return mergeParts(parts, 4);
+    },
+    // h kept LOW (43–51) so the crown hangs at world y ≈ 28–34 — the closest legal roof, which
+    // enters the top of frame at a nearer z (a denser top-band window → the Canopy Law holds
+    // every frame). tilt small (crown reach is offset-built, not tilted).
+    place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 43 + rnd() * 8, r: 11 + rnd() * 5, tilt: side * (0.02 + rnd() * 0.04) }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1151,6 +1275,10 @@ const FOAM_CFG = {
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
+  // Lumen Mire PR-2 depth/canopy: reedveil gets a faint warm waterline collar; the mid/far
+  // and overhead families get no ring (a collar under a fog-line massif or a floating canopy
+  // would be a bright off-lane artifact — the ridge lesson).
+  reedveil: { r: 0.5 }, boleveil: false, canopywall: false, drape: false,
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -1230,15 +1358,24 @@ export function propClearanceData() {
   return Object.entries(ARCHETYPES).map(([name, def]) => {
     const { geometry } = def.build();
     const p = geometry.getAttribute('position');
-    let rho = 0, yMax = 0, xMax = 0;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); rho = Math.max(rho, Math.hypot(x, z)); yMax = Math.max(yMax, p.getY(i)); xMax = Math.max(xMax, x); }
+    let rho = 0, yMax = 0, xMax = 0, rhoLane = 0;
+    // OVERHEAD amendment (LUMEN-MIRE-BIBLE.md drape / Fable PR-2 §2c): an archetype may
+    // declare `overhead:{unitY,minWorldY}` — a roof whose crown reaches over the lane at a
+    // height the flight band never touches. Its LANE clearance is measured from the sub-unitY
+    // band (the trunk) ONLY; the crown is audited by a separate min-world-height assert.
+    const ov = def.overhead || null;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rad = Math.hypot(x, z);
+      rho = Math.max(rho, rad); yMax = Math.max(yMax, y); xMax = Math.max(xMax, x);
+      if (ov && y < ov.unitY) rhoLane = Math.max(rhoLane, rad);
+    }
     geometry.dispose();
     const samples = [];
     for (const a of grid) for (const b of grid) for (const c of grid) for (const d of grid) {
       const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
       samples.push(def.place(1, rnd));
     }
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, samples };
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, samples };
   });
 }
 

@@ -197,7 +197,9 @@ export const BIOMES = [
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
     ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.5, opacity: 0.7 },
     fauna: { color: C(0xffd24a), scale: 0.9, flap: 0.4 }, // drifting lantern-motes (amber)
-    props: ['glowcap', 'glowcapSmall', 'spirevine'],
+    // Overhaul kit (LUMEN-MIRE-BIBLE.md) — the depth/canopy substrate as it lands; `?props=v1`
+    // restores the legacy glowcap/spirevine. Mirror grows with each PR (hero + roster to come).
+    props: ['canopywall', 'reedveil', 'boleveil', 'drape'],
     matIndex: 4, // Mire: dead wet matter + living amber glow
     // Contrast gate: danger magenta vs this biome's dark humid fog — re-verified by
     // bulletcontrast on the new palette.
