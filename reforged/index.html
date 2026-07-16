@@ -21,6 +21,44 @@
   <script type="importmap">
     { "imports": { "three": "./lib/three.module.js" } }
   </script>
+  <script>
+    // TEMP DIAGNOSTIC (Tempest black-screen hunt) — surfaces the FIRST fatal render error
+    // on-screen. Real-device GPUs fail where the headless software GL does not, and one test
+    // device has no console, so we can't otherwise see the cause. Only reveals itself when a
+    // GPU/render-fatal error fires → invisible to normal play. Remove once diagnosed.
+    (function () {
+      var shown = false;
+      function show(tag, msg) {
+        try {
+          var pre = document.getElementById('__diag_pre');
+          if (shown && pre) { pre.textContent += '\n[' + tag + '] ' + msg; return; }
+          shown = true;
+          var d = document.createElement('div');
+          d.style.cssText = 'position:fixed;left:0;top:0;right:0;z-index:99999;max-height:65%;overflow:auto;background:rgba(130,0,0,.94);color:#fff;font:12px/1.45 monospace;padding:10px;white-space:pre-wrap;';
+          d.innerHTML = '<b>DIAG (temporary): first render error — screenshot this</b>';
+          pre = document.createElement('div'); pre.id = '__diag_pre'; pre.style.marginTop = '6px';
+          pre.textContent = '[' + tag + '] ' + msg;
+          d.appendChild(pre);
+          (document.body || document.documentElement).appendChild(d);
+        } catch (e) {}
+      }
+      window.addEventListener('error', function (e) {
+        show('error', (e.message || 'error') + '  @ ' + (e.filename || '').split('/').pop() + ':' + (e.lineno || ''));
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e.reason; show('promise', (r && (r.stack || r.message)) || String(r));
+      });
+      var _ce = console.error;
+      console.error = function () {
+        try {
+          var s = Array.prototype.map.call(arguments, function (a) { return (a && a.stack) || String(a); }).join(' ');
+          if (/shader|program|link|compile|WebGL|GL_|framebuffer|context lost|INVALID_/i.test(s)) show('gl', s.slice(0, 1000));
+        } catch (e) {}
+        return _ce.apply(console, arguments);
+      };
+      window.addEventListener('webglcontextlost', function () { show('webgl', 'WEBGL CONTEXT LOST'); }, true);
+    })();
+  </script>
 </head>
 <body>
   <div class="load-hint">
