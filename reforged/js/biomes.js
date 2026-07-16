@@ -269,13 +269,14 @@ export const BIOMES = [
     keyShift: -3,
     stars: 0,
     sky: {
-      top: C(0x2b333d),      // the storm deck overhead — near-black blue-grey (rain-core register, cooled)
-      mid: C(0x4d5346),      // the green-grey core belt — DESATURATED teal-olive (real green-storm-sky), never emerald
+      top: C(0x232a33),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
+      mid: C(0x525f4e),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
       horizon: C(0xb4bab6),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
-      sun: C(0xbcae96),      // the hidden sun is a DIM veiled bruise behind cloud — muted warm-grey, never a bright gold disc (it was 0xe0b070 blazing amber, which read as a sunny day)
-      // N9 clouds: the heaviest deck in the cycle — faint gold-leaning lit tops (the rationed stolen
-      // warmth) over committed near-black undersides (the black shadow is what makes the cloud read SOLID).
-      cloud: { amount: 0.97, lit: C(0xcdd0c8), shadow: C(0x252c33) },
+      sun: C(0x8f948c),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
+      // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed near-black (the dark
+      // underside is what makes the cloud read as SOLID storm mass), lit tops held BELOW the horizon
+      // slot's value so the slot stays the frame's brightest hole.
+      cloud: { amount: 0.97, lit: C(0xb9c0bb), shadow: C(0x1d242c), force: true }, // force: the storm deck is the biome's identity, on even without the global sky-cloud toggle (tier-gated for perf)
     },
     fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
     // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
@@ -296,8 +297,10 @@ export const BIOMES = [
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
-    // Driving rain motes on ONE wind vector — few / long / thin (readable rain is SPARSE rain).
-    ambient: { color: C(0xb8c4c6), fall: 6.5, sway: 2.4, size: 0.22, opacity: 0.5 },
+    // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
+    // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
+    // sprites are the proper fix (a later ambient-profile pass) — until then, few/dim beats star-like.
+    ambient: { color: C(0x93a2a6), fall: 6.5, sway: 2.4, size: 0.22, opacity: 0.35 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
     props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
     matIndex: 7, // storm slate
@@ -378,7 +381,7 @@ const env = {
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
-  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(),
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -448,5 +451,9 @@ export function computeEnv(dist) {
   env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, ts);
   env.cloudLit.lerpColors(a.sky.cloud?.lit ?? a.sky.top, b.sky.cloud?.lit ?? b.sky.top, ts);
   env.cloudShadow.lerpColors(a.sky.cloud?.shadow ?? a.sky.mid, b.sky.cloud?.shadow ?? b.sky.mid, ts);
+  // Cloud FORCE (Tempest): a storm's deck is its identity, not an opt-in — a biome with cloud.force
+  // renders clouds even when the global sky-cloud toggle is off (still tier-gated for perf, like all
+  // clouds). Lerped 0→1 so every non-forcing biome stays byte-identical (opt-in as before).
+  env.cloudForce = lerp(a.sky.cloud?.force ? 1 : 0, b.sky.cloud?.force ? 1 : 0, ts);
   return env;
 }
