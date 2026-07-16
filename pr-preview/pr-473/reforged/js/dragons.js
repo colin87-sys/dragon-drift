@@ -52,6 +52,7 @@ export const DRAGONS = {
       // trail (wingParts-3), tighter + quicker than the Tempest's rolling front, a firm glide-hold.
       wingParts: 3, rootAmp: 0.55, midAmp: 0.20, tipAmp: 0.34, midLag: 0.55, tipLag: 1.15,
       glidePow: 1.7, restLift: 0.02, apexRoot: 0.07, apexMid: 0.04, apexTip: 0.08, tipApexSweep: 0.16,   // a BROAD held glide (not a raised fairy-wing V)
+      combShoulderFold: true,   // the blade-comb folds at the shoulder (wingDebugPose fold tuck) — azure-only gate so other wingParts dragons keep their fold pose
       covertRanks: 0,   // laddered per form (0 whelp → 2 apex)
       // TAIL MOTION — a light courier's trailing drift with a LIVE vertical wave (the rear-chase axis).
       tailWhip: true, tailLagScale: 0.14, tailUndulateX: 0.24, tailRudderScale: 0.5, tailGirth: 1.2,

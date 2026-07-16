@@ -137,7 +137,7 @@ export function setFlapDebugPose(parts, model, state) {
     // rake so the primaries stack parallel. Written wrapper-CONSISTENT (identical L/R — the outer
     // scale.x=-1 mirror flips the L side; NEVER the per-side-sign poseBladePivots path, which would
     // double-flip and desync). Gated to a blade-comb rig → other wingParts dragons are untouched.
-    if (dive > 0 && (parts.wingBladePivotsR || parts.wingBladePivotsL)) {
+    if (dive > 0 && model.combShoulderFold && (parts.wingBladePivotsR || parts.wingBladePivotsL)) {
       for (const pv of [parts.wingPivotR, parts.wingPivotL]) if (pv) pv.rotation.set(0.16, 1.32, -0.46);
       for (const md of [parts.wingMidR, parts.wingMidL]) if (md) md.rotation.set(0, 0.30, 0);
       for (const tp of [parts.wingTipR, parts.wingTipL]) if (tp) tp.rotation.set(0, 0.18, -0.10);
