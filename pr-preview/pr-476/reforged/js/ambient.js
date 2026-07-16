@@ -1,6 +1,22 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
-import { bindAtmosphere } from './atmosphere.js';
+import { bindAtmosphere, chainBeforeCompile } from './atmosphere.js';
+
+// MOTE DEPTH-FADE (Fable 70) — a per-biome lever (default 0 = byte-identical, the godrayMul pattern).
+// PointsMaterial attenuates SIZE with distance but not ALPHA, so a far mote stays as bright as a near
+// one — 1200 identical points collapse into a flat screen overlay ("confetti") that eats the black
+// mirror. This fades a mote's alpha by view depth (quadratic, 20→110m) so the field RECEDES. At
+// value 0, mix(1.0, x, 0.0) ≡ 1.0 exactly → every other biome's rendered output is bit-identical.
+const moteFadeUniform = { value: 0 };
+function moteDepthFadeShader(shader) {
+  shader.uniforms.moteDepthFade = moteFadeUniform;
+  shader.vertexShader = shader.vertexShader
+    .replace('void main() {', 'varying float vMoteDepth;\nvoid main() {')
+    .replace('#include <project_vertex>', '#include <project_vertex>\n\tvMoteDepth = -mvPosition.z;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('void main() {', 'varying float vMoteDepth;\nuniform float moteDepthFade;\nvoid main() {')
+    .replace('#include <opaque_fragment>', '\tfloat _mdf = clamp((vMoteDepth - 20.0) / 90.0, 0.0, 1.0);\n\tdiffuseColor.a *= mix(1.0, 1.0 - _mdf * _mdf, moteDepthFade);\n#include <opaque_fragment>');
+}
 
 // Atmosphere particles wrapped around the camera — snow in Frozen Reach,
 // leaves in the Sanctuary, dust in the Wastes, RISING embers in the Caldera,
@@ -48,14 +64,14 @@ export function createAmbient(scene) {
   points = new THREE.Points(
     geo,
     // N8 PR B: motes join the atmosphere (Points run the fog chunk); identity off.
-    bindAtmosphere(new THREE.PointsMaterial({
+    chainBeforeCompile(bindAtmosphere(new THREE.PointsMaterial({
       size: 0.4,
       map: makeGlowTexture('255,255,255'),
       transparent: true,
       opacity: 0.75,
       depthWrite: false,
       color: 0xffffff,
-    }))
+    })), moteDepthFadeShader)
   );
   points.frustumCulled = false;
   scene.add(points);
@@ -134,6 +150,7 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
   // bossMix=0, so a normal run is byte-identical to pre-Increment-3.
   points.material.opacity = (env.ambOpacity + feverMix * 0.2) * (1 - 0.55 * bossMix);
   points.material.size = env.ambSize * (1 - 0.25 * bossMix);
+  moteFadeUniform.value = env.moteDepthFade ?? 0;   // Fable 70: per-biome far-mote depth fade (0 = byte-identical)
 
   const speedDrift = Math.max(0, playerSpeed - 35) * 0.5 * dt;
   const cx = camera.position.x;

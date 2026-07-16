@@ -5,6 +5,7 @@ import { hitPlayer } from './collision.js';
 import { makeGlowTexture } from './util.js';
 import { burst } from './particles.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
+import { strike as lightningStrike } from './stormLightning.js';
 
 // Biome hazards (BIOME-DESIGN.md §5.3) — dodge-only, magenta, role-locked.
 // Placement is deterministic (level.js#overlayBiomeHazards on its OWN RNG
@@ -152,10 +153,24 @@ export function initHazards(s) {
 // p = { dist, x, warn, radius, phase } from out.hazards.
 export function addHazard(p) {
   if (!scene) return;
-  const period = p.warn + CONFIG.hazardBurstDur + CONFIG.hazardIdle;
   const group = new THREE.Group();
   group.position.set(p.x, 0, -p.dist);
 
+  // LIGHTNING (Tempest): no persistent mesh — a two-stage magenta telegraph, then a bolt spawned via
+  // stormLightning at the fire moment. FAR read = a soft pulsing cloud "bruise" high above (no filament);
+  // NEAR read = a magenta spot on the water at the exact lane. Both role-locked danger magenta (Law 6).
+  if (p.type === 'lightning') {
+    const spot = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, color: DANGER, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    spot.scale.set(p.radius * 2.4, p.radius * 2.4, 1); spot.position.y = 0.4; group.add(spot);
+    const bruise = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, color: DANGER, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    bruise.scale.set(22, 15, 1); bruise.position.y = 34; group.add(bruise);
+    scene.add(group);
+    const period = p.warn + 0.35 + (2.5 + p.phase * 2.5);   // ~4–6.5s, seeded per-site scatter (no lockstep)
+    vents.push({ type: 'lightning', group, spot, bruise, dist: p.dist, x: p.x, warn: p.warn, radius: p.radius, phase: p.phase, period, fired: false });
+    return;
+  }
+
+  const period = p.warn + CONFIG.hazardBurstDur + CONFIG.hazardIdle;
   const core = new THREE.Mesh(coreGeo, coreMat);
   core.visible = false;
   group.add(core);
@@ -194,6 +209,33 @@ export function updateHazards(dt, player, time) {
   for (let i = vents.length - 1; i >= 0; i--) {
     const v = vents[i];
     if (v.dist < player.dist - CONFIG.cullBehind) { removeAt(i); continue; }
+
+    // LIGHTNING: two-stage telegraph → a ≤0.35s lethal strike (bolt + full flash via stormLightning).
+    if (v.type === 'lightning') {
+      const cyc = (time + v.phase * v.period) % v.period;
+      const charging = cyc < v.warn;
+      const bt = cyc - v.warn;
+      const firing = bt >= 0 && bt < 0.35;
+      const charge = charging ? cyc / v.warn : 0;
+      const pulseHz = 2.0 + charge * charge * 3.0;                  // 2→5Hz accelerate (the "about to fire" grammar)
+      const pulse = 0.5 + 0.5 * Math.sin(time * pulseHz * 6.283);
+      if (firing) {
+        if (!v.fired) { lightningStrike(v.x, -v.dist, 1.0); v.fired = true; }   // the bolt + full flash, at the site
+        v.bruise.material.opacity = 0.0;
+        v.spot.material.opacity = 0.9;                             // the water glares back at the strike
+      } else {
+        if (charging) v.fired = false;
+        v.bruise.material.opacity = (0.12 + charge * 0.5) * pulse;  // FAR read: the cloud bruise, readable ≥150m
+        v.spot.material.opacity = charge * charge * 0.7 * pulse;    // NEAR read: the exact lane, ramps in late (charge²)
+      }
+      const ss = v.radius * (2.0 + charge * 0.8); v.spot.scale.set(ss, ss, 1);
+      // Collision — lethal ONLY during the ≤0.35s strike, dodge-only (zero knockback), never in a boss fight.
+      if (firing && !game.inBoss && game.state === 'playing') {
+        const dx = player.position.x - v.x, dz = player.dist - v.dist;
+        if (dx * dx + dz * dz < (v.radius + R) * (v.radius + R)) hitPlayer(player, CONFIG.hazardDamage, 'lightning', { x: 0, y: -1 });
+      }
+      continue;
+    }
 
     // Where in its cycle is this vent? phase offset keeps the field out of lockstep.
     const cyc = (time + v.phase * v.period) % v.period;
@@ -244,7 +286,9 @@ export function updateHazards(dt, player, time) {
 function removeAt(i) {
   const v = vents[i];
   scene.remove(v.group);
-  v.flare.material.dispose();
+  if (v.flare) v.flare.material.dispose();
+  if (v.spot) v.spot.material.dispose();
+  if (v.bruise) v.bruise.material.dispose();
   vents.splice(i, 1);
 }
 
@@ -257,7 +301,7 @@ export function resetHazards() {
 // Capture-only: report each live vent's display state so a tool can wait for a chosen phase
 // (idle vs eruption) before shooting — the vent cycles on the render clock, not game.time.
 export function debugVentStates() {
-  return vents.map((v) => ({ dist: v.dist, x: v.x, erupting: v.core.visible, up: v.core.scale.y, flareOp: v.flare.material.opacity }));
+  return vents.map((v) => ({ dist: v.dist, x: v.x, erupting: v.core ? v.core.visible : false, up: v.core ? v.core.scale.y : 0, flareOp: v.flare ? v.flare.material.opacity : (v.spot ? v.spot.material.opacity : 0) }));
 }
 
 const _tmp = new THREE.Vector3();

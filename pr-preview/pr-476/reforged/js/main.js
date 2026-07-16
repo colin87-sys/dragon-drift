@@ -1650,7 +1650,7 @@ function tick() {
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());
     updateGoldEmbers(dt, player, clock.getElapsedTime());
-    updatePbMarker(dt, player, clock.getElapsedTime());
+    if (!cleanShot) updatePbMarker(dt, player, clock.getElapsedTime());   // the PB banner is dev/HUD chrome — never in a capture frame
     updateHints(dt, player);
     music.update(game, player);
     ui.update(player);
