@@ -20,7 +20,10 @@ const KEYS = (process.argv[3] ? process.argv[3].split(',') : ['rotunda']);
 mkdirSync('reforged-captures', { recursive: true });
 const srv = await serve();
 const browser = await pw.chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1720, height: 1680 }, deviceScaleFactor: 2 });
+// Viewport MUST be at least as tall as the composited sheet (rows·CELL) — the #sheet canvas is
+// position:fixed, so any rows below the viewport fold are silently clipped from the screenshot (the
+// bug that ate the 7th arch-verification tile: a 4-row×520 sheet is 2080 CSS tall, > a 1680 viewport).
+const page = await browser.newPage({ viewport: { width: 1120, height: 2200 }, deviceScaleFactor: 2 });
 page.on('pageerror', (e) => console.error('PAGEERR', e.message));
 await page.goto(`${srv.url}/tools/propstudio.html`);
 await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });

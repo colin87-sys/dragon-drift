@@ -29,6 +29,23 @@ named identifier.
      deferred — the sanctioned §1 exception; banked anchor **THE SKYWEFT**, banked hazard
      `veil` solar-wind curtains), so the "no orphan biome" rule holds via the breather
      designation. Full plan: `reforged/AURORA-SHALLOWS-PLAN.md`.
+   - **AMENDMENT (2026-07-16, owner-approved): 8 biomes — the LOST LAGOON consolidation.**
+     Sunken Sanctuary (biome 0) and Amber Wastes (biome 1) are consolidated into ONE premium
+     biome, **THE LOST LAGOON** (`BIOMES[0]`, anchor **HOLLOWGATE** kept). Amber Wastes is
+     *absorbed, not deleted* — its bleached-bone becomes the Lagoon's ABOVE-TIDE ladder stop —
+     and **retired from `CYCLE`** (the `BIOMES[1]` entry is parked, not renumbered, so all later
+     indices are stable). Authority: `reforged/LOST-LAGOON-BIBLE.md`; the code `CYCLE` flip is
+     that biome's **PR-6** (retire Wastes + park legacy archetypes). This drops the planned
+     lineup 9 → **8 biomes**: Lost Lagoon `[0]`, Frozen `[2]`, Caldera `[3]`, Lumen Mire `[4]`,
+     Astral `[5]`, Aurora `[6]`, **Tempest Reach `[7]` (STORMREND)**, **Tidal Reef `[8]`
+     (BRINEHOLM)**. With Amber Wastes `[1]` out of the cycle, the `CYCLE` progressions renumber:
+     interim `[0,2,3,4,6,5]`; with Tempest `[0,7,2,3,4,6,5]`; final 8-biome `[0,8,7,2,3,4,6,5]`
+     (Tempest/Tidal keep their "right after biome 0, before Frozen" slot — the exact position is
+     the owner's to confirm at flip time). **Tempest Reach is now the immediate next NEW biome**:
+     its anchor STORMREND (`bossDefs.js` `stormrend`, "the Tempest Herald") already ships, so it
+     is not an orphan; the rideable **Thunderhead Tempest** dragon reinforces the storm identity
+     (`TEMPEST-THUNDERHEAD-BUILDSHEET.md`). Tidal Reef follows once BRINEHOLM is ready. Every
+     biome (new or retooled) obeys `BIOME-OVERHAUL-PLAYBOOK.md` **Part 0 (awe doctrine)** + Part B.
 2. **Mechanics: hazards-first, kinematics later.** Biome hazards are DODGE-ONLY at first
    (they can kill you, they never move you). The data schema carries the flight-feel
    scalars from day one (defaulted neutral = byte-identical), so turning on a kinematic
