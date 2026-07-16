@@ -68,15 +68,18 @@ function stilettoMats(def, glow, stage) {
   // band (the "wet lacquer"); everything else 0.7 (the anti-Vesper gloss finish).
   const sheenViolet = mk(SHEEN_V, { roughness: 0.35 }); sheenViolet.envMapIntensity = 0.4;
   const sheenTeal = mk(SHEEN_T, { roughness: 0.35 }); sheenTeal.envMapIntensity = 0.4;
-  // Wing membrane — single-layer translucent, 4 value tiers stepping ≥0.05 L
-  // smoke-violet tip-ward → lit root; SHARED across all four wings (batching).
-  const memTiers = [0.0, 0.34, 0.66, 1.0].map((f) => {
-    const m = new THREE.MeshStandardMaterial({ color: lerpHex(0x2a1a38, 0x6a5a88, f), emissive: 0x000000, flatShading: true, roughness: 0.7, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.70 });
-    m.envMapIntensity = 0.22; return m;
+  // Wing membrane — GOSSAMER pale lavender-pink translucent glass (the concept's airy wings,
+  // which outrank the sheet's darker 0x2a1a38→0x6a5a88 spec — the owner's images win on taste),
+  // 4 value tiers stepping ≥0.05 L smoke tip-ward → lit pale root; SHARED across all four wings.
+  const memTiers = [0x6a4a7c, 0x8c6aa2, 0xac8ac6, 0xceaee4].map((c) => {
+    const m = new THREE.MeshStandardMaterial({ color: c, emissive: 0x000000, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.56 });
+    m.envMapIntensity = 0.25; return m;
   });
-  // Vein skeleton — opaque raised bones + a lighter rim-catch cap (the CP1 recipe).
-  const veinMat = mk(lerpHex(body, VENTER, 0.5));
-  const veinCap = mk(lerpHex(body, 0x6a5a88, 0.5));
+  // Vein skeleton — opaque raised ridges + a lighter PINK rim-catch (the concept's pink
+  // venation, read as sculpted rays; NON-emissive — the lock's glow budget bans wing glow
+  // except the pterostigma, so the pink is diffuse colour, never light).
+  const veinMat = mk(0x9a5a92);
+  const veinCap = mk(0xe6a4d6);
   // Sac WALL — the ONLY body transparency: a single-layer LOW-opacity glass sheen over the
   // brew (NOT a dark cover — the brew must read bright through it). Bright orchid-tinted glass.
   const sacWall = new THREE.MeshStandardMaterial({ color: lerpHex(ORCHID, 0xffffff, 0.2), emissive: 0x000000, flatShading: true, roughness: 0.28, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.26 });
@@ -453,30 +456,97 @@ export function stilettoBlade(t, len, chord) {
   return [x, y, z, chord];
 }
 
-// One blade placeholder (canonical +X): the leading costa + a flat translucent membrane
-// panel cupping aft. Returns a Group. `cells` unused at I0 (vein fan lands I2).
-function buildOneBlade(M, len, chord, tierMat) {
+// A raised VEIN — a tapered tent-ridge from a→b with a lighter rim-catch cap on its
+// spine (the CP1 recipe → the vein reads as a raised sculpted RAY on the glass, not a
+// flat print). Pushes tris into `veinT` (opaque body) + `capT` (lighter rim).
+function vein(veinT, capT, a, b, wB, wT, lift) {
+  const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
+  const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
+  const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
+  const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.4, b[2]];
+  veinT.push([aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);
+  const aC = [a[0] + px * wB * 0.3, a[1] + lift, a[2] + pz * wB * 0.3];
+  capT.push([aT, bT, aC]);
+}
+
+// THE VEINED GLASS BLADE-WING (the hero — a long NARROW gossamer blade with insect
+// venation, per the concept). Returns { arm, hand, K } for the wrist fold (the outer
+// membrane rides `hand` so the fold never tears it — the −anchor law). A clean high-aspect
+// BLADE panel (leading COSTA + a parallel trailing edge tapering to a point), value-tiered
+// translucent glass, with a raised VENATION overlay (the bold costa + a fan of veins from
+// the carpal node K + a longitudinal vein), an OPAQUE knife-edge HEM along the trailing
+// polyline, and the dark PTEROSTIGMA at 0.82 span.
+function buildVeinedWing(M, len, chord, cellN) {
+  const arm = new THREE.Group(), hand = new THREE.Group();
+  const LE = (t) => { const b = stilettoBlade(t, len, chord); return [b[0], b[1], b[2]]; };
+  const chordW = chord * len;
+  // Chord-width profile: a slim base, swelling to the max chord near t≈0.32, then tapering
+  // to a POINT at the tip (a blade, never a fan). Aft direction = +z (the wing sweeps back).
+  const cp = (t) => chordW * Math.pow(Math.sin(Math.PI * Math.pow(Math.min(1, Math.max(0.001, t)), 0.70)), 0.9);
+  const TE = (t) => { const p = LE(t); return [p[0], p[1] - 0.015 * len, p[2] + cp(t)]; };
+  const K = LE(0.38);
+  const tierAt = (t) => t < 0.5 ? M.memTiers[3] : (t < 0.8 ? M.memTiers[2] : M.memTiers[1]);   // root pale-lit → tip smoke
+  // Build the membrane STRIP over a t-range into a group, tier-batched (one draw per tier).
+  const buildStrip = (t0, t1, grp) => {
+    const N = Math.max(3, Math.round((t1 - t0) * 11));
+    const byT = new Map();
+    for (let i = 0; i < N; i++) {
+      const ta = t0 + (t1 - t0) * i / N, tb = t0 + (t1 - t0) * (i + 1) / N;
+      const A = LE(ta), B = LE(tb), At = TE(ta), Bt = TE(tb);
+      const mat = tierAt((ta + tb) / 2);
+      let a = byT.get(mat); if (!a) byT.set(mat, a = []);
+      a.push([A, At, Bt], [A, Bt, B]);
+    }
+    for (const [m, tris] of byT) grp.add(flatTriMesh(tris, m));
+  };
+  buildStrip(0, 0.38, arm);     // inner root membrane rides the arm
+  buildStrip(0.38, 1, hand);    // the outer blade rides the hand (folds at K)
+  // ── VENATION overlay (raised pink ridges): the bold COSTA (root→K on arm, K→tip on hand),
+  // a fan of veins from K to the trailing edge (dominant + decay), and a longitudinal vein.
+  { const rv = [], rc = []; vein(rv, rc, LE(0), K, 0.03 * len, 0.024 * len, 0.035 * len); arm.add(flatTriMesh(rv, M.veinMat)); arm.add(flatTriMesh(rc, M.veinCap)); }
+  const cv = [], cc = [];
+  vein(cv, cc, K, LE(1), 0.024 * len, 0.005 * len, 0.03 * len);   // costa outer (dominant)
+  for (let i = 1; i <= cellN; i++) {
+    const tv = 0.44 + 0.5 * (i / (cellN + 1));                     // fan endpoints along the trailing edge
+    vein(cv, cc, K, TE(tv), 0.013 * len * (1 - 0.05 * i), 0.003 * len, 0.02 * len);
+  }
+  // a longitudinal vein mid-chord (root→tip) — the ladder rail the fan crosses.
+  const midOf = (t) => { const a = LE(t), b = TE(t); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]; };
+  vein(cv, cc, midOf(0.42), midOf(0.92), 0.011 * len, 0.004 * len, 0.018 * len);
+  hand.add(flatTriMesh(cv, M.veinMat));
+  hand.add(flatTriMesh(cc, M.veinCap));
+  // ── OPAQUE KNIFE-EDGE HEM — a connected strip just inboard of the trailing edge (the sharp
+  // edge WITHOUT alpha; the census choice). Split at K so it folds with the hand.
+  const hemStrip = (t0, t1, grp) => {
+    const N = Math.max(2, Math.round((t1 - t0) * 11)), t = [];
+    let pT = TE(t0), pL = LE(t0);
+    for (let i = 1; i <= N; i++) {
+      const tt = t0 + (t1 - t0) * i / N, cT = TE(tt), cL = LE(tt);
+      const pin = [pT[0] + (pL[0] - pT[0]) * 0.10, pT[1] + 0.002 * len, pT[2] + (pL[2] - pT[2]) * 0.10];
+      const cin = [cT[0] + (cL[0] - cT[0]) * 0.10, cT[1] + 0.002 * len, cT[2] + (cL[2] - cT[2]) * 0.10];
+      t.push([pT, cT, cin], [pT, cin, pin]);
+      pT = cT; pL = cL;
+    }
+    grp.add(flatTriMesh(t, M.chitinDorsal));
+  };
+  hemStrip(0.38, 1, hand);
+  hemStrip(0.02, 0.38, arm);
+  // ── PTEROSTIGMA — the dark wing-spot at 0.82 span on the leading costa (2-tri inset;
+  // diffuse dark until f3, then venom-lit — the ONLY wing emissive ever). Rides the hand.
+  const ps = LE(0.82), pw = 0.05 * len;
+  hand.add(flatTriMesh([
+    [[ps[0] - pw, ps[1] + 0.005 * len, ps[2] - pw * 0.4], [ps[0] + pw, ps[1] + 0.005 * len, ps[2]], [ps[0], ps[1] + 0.005 * len, ps[2] + pw]],
+  ], M.stigma));
+  return { arm, hand, K };
+}
+
+// A hind-blade (uses the same veined-wing builder at 3 cells; I3 seats/rakes the pair).
+function buildOneBlade(M, len, chord) {
   const g = new THREE.Group();
-  const N = 5;
-  const LE = [], TE = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const [x, y, z] = stilettoBlade(t, len, chord);
-    LE.push([x, y, z]);
-    TE.push([x, y - 0.02 * len, z + chord * len * (0.4 + 0.6 * Math.sin(t * Math.PI))]);
-  }
-  const mem = [];
-  for (let i = 0; i < N; i++) {
-    mem.push([LE[i], TE[i], TE[i + 1]], [LE[i], TE[i + 1], LE[i + 1]]);
-  }
-  g.add(flatTriMesh(mem, tierMat));
-  // Costa — a raised leading bone (a thin tent) so the blade isn't a 2-tri plane.
-  const costa = [];
-  for (let i = 0; i < N; i++) {
-    const a = LE[i], b = LE[i + 1], up = 0.03 * len;
-    costa.push([a, b, [a[0], a[1] + up, a[2]]], [[a[0], a[1] + up, a[2]], b, [b[0], b[1] + up, b[2]]]);
-  }
-  g.add(flatTriMesh(costa, M.veinMat));
+  const { arm, hand, K } = buildVeinedWing(M, len, chord, 3);
+  g.add(arm);
+  const h = new THREE.Group(); h.position.set(K[0], K[1], K[2]);
+  hand.position.set(-K[0], -K[1], -K[2]); h.add(hand); g.add(h);
   return g;
 }
 
@@ -487,13 +557,16 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
   const foreLen = spanScale * 1.1;                 // half-span in world units
   const chord = model.forewingChord ?? 0.27;       // × wing length
   const hindScale = model.hindwingScale ?? 0.62;
-  const foreTier = M.memTiers[3], hindTier = M.memTiers[2];
-  M.wingMat = foreTier;
+  const cellN = Math.round(model.forewingCells ?? 5);
+  M.wingMat = M.memTiers[3];   // the rig-driven membrane material (the lit cell tier)
 
   const pivots = {}, wingElements = [];
   const auxEntries = [];
   for (const side of [1, -1]) {
-    // FORE pair — the wingParts 3-seg cascade (pivot → mid → tip). Canonical +X.
+    // FORE pair — the wingParts cascade (pivot → mid → tip). Canonical +X. The whole outer
+    // wing (veins + membrane + hem + pterostigma) rides `hand` on `tip`; the costa root
+    // rides `arm` on `mid`; the wrist folds at the carpal node K (the −anchor law, rest
+    // pose byte-identical).
     const rootC = attach.wingRoot(1);
     const pivot = new THREE.Group();
     pivot.position.set(rootC.x, rootC.y, rootC.z);
@@ -501,11 +574,8 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
-    // The wrist fold: split the blade at a carpal K (0.38 span node); the whole hand
-    // (outer blade) rides tip at −K so the rest pose is byte-identical (the −anchor law).
-    const K = stilettoBlade(0.38, foreLen, chord);
-    mid.add(buildOneBlade(M, foreLen * 0.42, chord, foreTier));   // arm (inner)
-    const hand = buildOneBlade(M, foreLen, chord, foreTier);      // hand (full blade)
+    const { arm, hand, K } = buildVeinedWing(M, foreLen, chord, cellN);
+    mid.add(arm);
     tip.position.set(K[0], K[1], K[2]);
     hand.position.set(-K[0], -K[1], -K[2]);
     tip.add(hand);
@@ -516,7 +586,7 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
     const hr = attach.hindWingRoot(1);
     hindPivot.position.set(hr.x, hr.y, hr.z);
     hindPivot.rotation.x = 0.21;   // 12° flatter rake
-    if (hindScale > 0) hindPivot.add(buildOneBlade(M, foreLen * hindScale, chord, hindTier));
+    if (hindScale > 0) hindPivot.add(buildOneBlade(M, foreLen * hindScale, chord));
 
     // Mirror the LEFT: ONE outer lmirror wrapper parenting BOTH pivots (fore + hind).
     if (side === -1) {
@@ -544,7 +614,7 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
   }
 
   return {
-    group, spineMats: [], flareMats: [], wingMat: M.wingMat,
+    group, spineMats: [], flareMats: [M.stigma], wingMat: M.wingMat,   // pterostigma ×4 lights on f3/Surge (the only wing emissive)
     parts: { ...pivots, wingElements, auxWingPivots: auxEntries.length ? auxEntries : null },
   };
 }
