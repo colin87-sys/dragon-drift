@@ -522,6 +522,12 @@ body[data-qtier="2"] .hud-sew { display: none; }
 @keyframes hud-flash { 0% { transform: scale(1.14); } 100% { transform: scale(1); } }
 /* SCOREKEEPER (§F): pins score + distance at full alpha, defeats the ghosts. */
 body.hud-scorekeeper .score.rest { opacity: 1; }
+/* EMBERSIGHT H7 §F — DRAGON VITALS ON (Law 1's contract): the dragon now
+   carries the ambient stamina read (wing-charge studs), so the arc's
+   rest-ghost deepens ONE STEP (0.30 → 0.18). Only channels the dragon
+   actually carries deepen; LIFE already rests at 0. The per-element ALWAYS
+   override (body.hud-stamina-always, higher specificity) still wins. */
+html.vitals-on .g-arc.rest { opacity: 0.18; }
 
 /* Stamina arc — a compact bar just under the dragon, ~body-width (not wings),
    with a constant thickness (non-scaling stroke) so narrowing it never thins
