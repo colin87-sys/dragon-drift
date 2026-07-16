@@ -1898,6 +1898,61 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // figgate — FEATURE MID (nature ∩ civilization), the Ta Prohm money-shot (§7.3.3): a THICK-walled temple
+  // gateway CHUNK (two jambs + a lintel, doorway open THROUGH to the sky) with a strangler FIG seated on
+  // the lintel — dark roots cascade down both jambs to the water, a green parasol canopy crowns it. Three
+  // silhouette signals = "tree eating a temple gate": the rectangular doorway HOLE (civ) / the green CANOPY
+  // crown (nature) / the dark ROOTS draping the jambs (the strangling). FIREWALL vs the Sinking-Gates
+  // hazard (a bare free-standing arch): THICK + rectangular + canopy-crowned + root-draped + off-lane — a
+  // gate no player mistakes for the deadly frame. Composite bakes: temple sandstone gateway (bake:'temple')
+  // + dark fig wood/roots (bake:'root') + green canopy (bake:'lily') + a withheld gilt doorway-soffit reveal.
+  figgate: {
+    step: 61, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0.08, sMin: 0.9, sMax: 1.1 }, // feature mid: clusters into the archipelagos, off the open-mirror seam + empty in the breaths
+    build: () => {
+      const parts = [];
+      // GATEWAY CHUNK — thick masonry, PLUMB (temple ladder is position-keyed: moss-verdigris waterline /
+      // amber sandstone above). Two jambs + a lintel bridging them = a doorframe; the void BETWEEN the
+      // jambs, below the lintel, is the doorway — open front-to-back (a real through-hole → the occlusion-
+      // masked god-rays carve a shaft through it at the right yaw). Asymmetric (jamb heights differ + a
+      // broken wall stub) so it reads as RUIN, not a built arch.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.64, 0.34), { x: -0.35, y: 0.32 }) });                 // left jamb (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.72, 0.34), { x: 0.35, y: 0.36 }) });                  // right jamb — taller (asymmetric) (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.06, 0.20, 0.36), { y: 0.74 }) });                           // lintel — overlaps both jamb tops (occlusion weld) (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.34, 0.30), { x: 0.64, y: 0.17, z: -0.02, ry: 0.22 }) }); // broken wall stub off the right jamb (ruin chunk) (12)
+      // GILT DOORWAY-SOFFIT REVEAL — a small gilt panel RECESSED inside the doorway at the top, under the
+      // lintel (z-depth 0.16 < the 0.34 jamb depth → set back). The withheld temple gold, seen only INSIDE
+      // the reveal when the sunset rakes through the door (never an outer face — the aperture address).
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.36, 0.09, 0.16), { x: 0, y: 0.62 }) });                                     // (12)
+      // STRANGLER FIG — a short thick woody TRUNK from the lintel (bake:'root' → dark), holding the canopy.
+      parts.push({ mat: 0, bake: 'root', geo: frustumBetween([0.04, 0.82, 0.02], [-0.02, 1.02, 0.0], 0.15, 0.10, 5) });                   // trunk (10)
+      // CANOPY — a broad billowing leafy crown, built as ROUNDED squashed blobs (bake:'lily' → the 3-stop
+      // foliage), NOT flat parasol pads (the f1 canopy read as a dark UFO/mushroom hat — the frisbee cheap-
+      // tell karstfang already taught us). A wide main dome + an offset lobe = a sprawling fig canopy; both
+      // squashed (sy<1) so they billow wide, seated low so they overlap the trunk (occlusion weld). This is
+      // the heavy-greenery signal the owner asked for.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.46, 0), { x: -0.02, z: 0.02, y: 1.08, sx: 1.28, sy: 0.60, sz: 1.14 }) });  // main broad crown (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: 0.22, z: 0.16, y: 1.16, sx: 1.10, sy: 0.66, sz: 0.98 }) });   // offset lobe (billow, breaks the single dome) (20)
+      // ROOTS — dark fig roots (bake:'root') cascade down BOTH jambs to the water, the GRIP law: start near
+      // the lintel, hug the jamb face (small standoff), taper, FLARE at the foot entering the water. The
+      // Ta Prohm strangle. 4 ribs (2 per jamb), 2-link chains; the thin outer pair use fewer facets.
+      const rib = (pts, radii, seg = 3) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'root', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], seg) }); };
+      rib([[-0.28, 0.72, 0.17], [-0.33, 0.40, 0.21], [-0.36, 0.03, 0.23]], [0.05, 0.04, 0.075]);        // L front (12)
+      rib([[-0.42, 0.66, 0.09], [-0.46, 0.34, 0.11], [-0.48, 0.02, 0.10]], [0.045, 0.035, 0.06], 2);    // L outer, thin (8)
+      rib([[0.30, 0.78, 0.17], [0.35, 0.44, 0.21], [0.38, 0.03, 0.23]], [0.05, 0.04, 0.075]);            // R front (12)
+      rib([[0.44, 0.70, 0.09], [0.48, 0.36, 0.11], [0.50, 0.02, 0.10]], [0.045, 0.035, 0.06], 2);        // R outer, thin (8)
+      return mergeLagoonParts(parts);
+    },
+    // MID feature, ~1.3:1 (gateway a touch taller than wide): r 9–13, h 12–17. tilt 0 EXPLICIT (PLUMB-TIDE
+    // — the moss waterline is a level stain). Draw r first, couple x so the inner edge clears the ±16 gate
+    // veil at the worst comp scale (sMax 1.1). No sizeClass (a gateway is one built size, not an island).
+    place: (side, rnd) => {
+      const r = 9 + rnd() * 4;
+      const p = { x: side * (17 + 0.9 * r + rnd() * 5), h: 12 + rnd() * 5, r, tilt: 0 };
+      if (HERO_SET.has('figgate')) p.rotY = 0;   // debug: pin yaw so the doorway faces down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1924,6 +1979,7 @@ const FOAM_CFG = {
   rootbastion: { r: 0.7 },// Lost Lagoon mid mass — waterline weld under the slumped stone (roots enter here)
   arcade: false,          // Lost Lagoon backdrop massif — no collar (a bright ring 75+ off-lane is an artifact)
   karstfang: { r: 0.45 }, // Lost Lagoon v3 sea-stack — a thin jade tide collar where the notched foot meets the mirror
+  figgate: { rx: 0.62, rz: 0.30 },   // Lost Lagoon v3 gateway — elliptical collar wraps the wide thin footprint (roots + jambs enter the water)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
