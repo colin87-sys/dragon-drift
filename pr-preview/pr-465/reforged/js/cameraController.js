@@ -42,6 +42,14 @@ const DEATH_DUR = 0.45;
 
 // Start-screen showcase orbit
 let showcaseAngle = 0;
+// U12a — menu-as-camera-shot: the hub-orbit ↔ shop-static framing swap is a
+// short DOLLY (eased over ~--t-screen), never a hard cut. shopW blends the two
+// EXISTING framings; wasShowcase gates the ease to showcase↔showcase frames
+// only — entering the showcase from a non-showcase state (pause-shop,
+// gameover-shop) still SNAPS to the target pose, exactly as shipped, so the
+// camera can never swing through world geometry from a mid-run chase pose.
+let shopW = 0;
+let wasShowcase = false;
 // Splash attract-screen framing: behind the dragon, looking down the course.
 let splashT = 0;
 
@@ -167,19 +175,32 @@ export const cameraCtl = {
       const fovTarget = 66 + Math.sin(splashT * 0.70) * 0.7;
       camera.fov = damp(camera.fov, fovTarget, 3, dt);
       camera.updateProjectionMatrix();
+      wasShowcase = false;
       return;
     }
     // Start-screen showcase: slow orbit around the live dragon. The SHOP is STATIC
     // (shopMode) — a fixed hero framing, no orbit, so the dragon sits composed in the
-    // real environment with the horizon behind it.
+    // real environment with the horizon behind it. U12a eases BETWEEN the two
+    // framings (both endpoints byte-identical to the shipped poses).
     if (showcase) {
-      if (!shopMode) showcaseAngle += dt * 0.3;
-      const ang = shopMode ? 0.32 : showcaseAngle;   // fixed gentle 3/4 for the shop
-      const r = shopMode ? 12.5 : 10.5;
-      const ox = player.position.x + Math.sin(ang) * r;
-      const oy = player.position.y + (shopMode ? 2.1 : 2.6) + (shopMode ? 0 : Math.sin(showcaseAngle * 0.6) * 1.2);
-      const oz = player.position.z + Math.cos(ang) * r;
-      let fovTarget = shopMode ? 55 : 58;
+      shopW = wasShowcase ? damp(shopW, shopMode ? 1 : 0, 10, dt) : (shopMode ? 1 : 0);
+      wasShowcase = true;
+      const w = shopW;
+      // The orbit slows to a stop as the shop framing takes over and resumes as
+      // it releases — angle continuity, so neither edge of the ease can snap.
+      showcaseAngle += dt * 0.3 * (1 - w);
+      // Blend the two poses in WORLD space (orbit angles don't lerp cleanly).
+      const px = player.position.x, py = player.position.y, pz = player.position.z;
+      const hx = px + Math.sin(showcaseAngle) * 10.5;                       // hub orbit pose
+      const hy = py + 2.6 + Math.sin(showcaseAngle * 0.6) * 1.2;
+      const hz = pz + Math.cos(showcaseAngle) * 10.5;
+      const sx = px + Math.sin(0.32) * 12.5;                                // shop static pose (gentle 3/4)
+      const sy = py + 2.1;
+      const sz = pz + Math.cos(0.32) * 12.5;
+      const ox = hx + (sx - hx) * w;
+      const oy = hy + (sy - hy) * w;
+      const oz = hz + (sz - hz) * w;
+      let fovTarget = 58 + (55 - 58) * w;
       if (introT > 0 && !shopMode) {
         // Glide in from a low/wide/far pose; the offset decays to nothing as the
         // orbit takes over. damp() keeps it buttery and frame-rate independent.
@@ -196,14 +217,15 @@ export const cameraCtl = {
         smoothPos.copy(camera.position);
       }
       // Shop: look a touch BELOW the dragon so it rides higher in the frame, clear of
-      // the stats/EQUIP panel that overlays the lower third.
-      camera.lookAt(player.position.x, player.position.y + (shopMode ? -0.9 : 0.5), player.position.z);
+      // the stats/EQUIP panel that overlays the lower third (blended with the ease).
+      camera.lookAt(player.position.x, player.position.y + 0.5 + (-0.9 - 0.5) * w, player.position.z);
       if (Math.abs(camera.fov - fovTarget) > 0.05) {
         camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();
       }
       return;
     }
+    wasShowcase = false;   // U12a: any non-showcase frame re-arms the snap-on-entry rule
     // Cinematic overtake framing (ASHTALON flythrough): look BACK and TRACK the
     // hunter as it climbs up behind and sweeps past (the look pivots as it crosses
     // you), then blend home to the normal chase as it pulls ahead. Deterministic,

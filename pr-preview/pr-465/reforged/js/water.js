@@ -231,30 +231,39 @@ const fragmentShader = /* glsl */`
     float crest = smoothstep(0.13 * waveAmp + 0.03, 0.26 * waveAmp + 0.05, h);
     float foamN = hash(floor(p * 3.0) + floor(time * 1.6));
     float foam = crest * smoothstep(0.55, 1.0, foamN);
-    col += vec3(0.82, 0.92, 1.0) * foam * 0.4;
+    col += vec3(0.82, 0.92, 1.0) * foam * 0.4 * (1.0 - 0.7 * uStormSea); // storm replaces this blue-white foam with its own overcast streaks below
 
-    // --- STORMSEA (uStormSea 0 = shipped calm sea; the read survives with the vertex swell OFF,
-    // because the trough + streak terms are computed here in the fragment from world xz) ---
+    // --- STORMSEA (uStormSea 0 = shipped calm sea). Computed in-fragment from world xz so the
+    // violence reads with the vertex swell OFF / on tier2. Built to the Fable STORMSEA gate order. ---
     if (uStormSea > 0.001) {
       vec2 wind = vec2(${TEMPEST_WIND.x}, ${TEMPEST_WIND.z});
       vec2 windP = vec2(-wind.y, wind.x);
-      // Low-freq storm swell, recomputed in-fragment so troughs read on tier2 / swell-off.
+      vec2 wf = vec2(dot(p, wind), dot(p, windP));   // wind space: x = along-wind, y = across
       float sStorm = sin(dot(p, wind) * ${STORM_SWELL.freq} + time * ${STORM_SWELL.speed});
-      // (a) Near-black TROUGHS — the darkness is what sells the violence (storm-ocean research).
-      float trough = 1.0 - smoothstep(-0.7, 0.12, sStorm);   // ~1 deep in the trough
-      col *= mix(1.0, 0.58, trough * uStormSea);
-      // (b) Wind-combed foam STREAKS — hash cells stretched ALONG the wind (long + thin),
-      // drifting slowly downwind so they never strobe; crest-biased + torn by the ripple.
-      vec2 wf = vec2(dot(p, wind), dot(p, windP));
-      float sA = smoothstep(0.80, 0.995, hash(floor(vec2(wf.x * 0.03 + time * 0.5, wf.y * 0.42))));
-      float sB = smoothstep(0.88, 1.0,   hash(floor(vec2(wf.x * 0.06 + time * 0.7, wf.y * 0.85) + 17.3)));
-      float streak = clamp(sA * 0.7 + sB * 0.35, 0.0, 1.0);
-      // Soft ACROSS-streak profile so each lit cell reads as a feathered streak, not a hard tile.
-      float fyA = fract(wf.y * 0.42);
-      streak *= smoothstep(0.0, 0.32, fyA) * smoothstep(1.0, 0.68, fyA);
-      streak *= smoothstep(-0.05, 0.6, sStorm) * (0.5 + 0.5 * smoothstep(0.05, 0.4, h));
-      // #c4cdce overcast foam (never blue-white), capped low so the white fraction stays ≲20%.
-      col = mix(col, vec3(0.77, 0.80, 0.81), clamp(streak * uStormSea, 0.0, 0.28));
+
+      // (a) Trough darkening — EASED (×0.73) with a HARD FLOOR #182026 so the Thunderhead's
+      // charcoal (0x232836) never melts into the sea (Law 8). Violence = white-on-dark CONTRAST,
+      // kept by limiting the WHITE fraction, not by crushing the black.
+      float trough = 1.0 - smoothstep(-0.7, 0.15, sStorm);
+      vec3 dk = max(col * mix(1.0, 0.73, trough), vec3(0.094, 0.125, 0.149));
+      col = mix(col, dk, uStormSea);
+
+      // (b) Wind-combed foam LANES — SMOOTH value-noise along the wind (NO floor() blocks — those
+      // read as banned pack-ice), feathered across, true ~50m×~2.5m anisotropy, lanes ~10m apart.
+      float along  = wf.x * 0.02 + time * 0.5;           // 50m cells, slow downwind drift
+      float acrossI = floor(wf.y * 0.10);                // ~10m lane spacing
+      float l0 = hash(vec2(floor(along), acrossI));
+      float l1 = hash(vec2(floor(along) + 1.0, acrossI));
+      float lane = smoothstep(0.70, 1.0, mix(l0, l1, smoothstep(0.0, 1.0, fract(along)))); // fades over ~50m
+      float fAc = fract(wf.y * 0.10);                    // feathered cross-profile → no hard edge
+      lane *= smoothstep(0.06, 0.42, fAc) * smoothstep(0.94, 0.58, fAc);
+      float fleck = smoothstep(0.90, 1.0, hash(floor(vec2(wf.x * 0.3, wf.y * 0.9) + 31.0))) * 0.15;
+      float foamS = lane + fleck;
+      foamS *= smoothstep(-0.05, 0.55, sStorm) * (0.6 + 0.4 * smoothstep(0.1, 0.5, h + 0.2)); // crest-biased + torn by ripple
+      foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
+      foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
+      // #c4cdce overcast foam; capped so peak luminance ~ the horizon slot (white fraction ≤~18%).
+      col = mix(col, vec3(0.71, 0.74, 0.75), clamp(foamS * uStormSea, 0.0, 0.34));
     }
 
     // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
@@ -262,7 +271,7 @@ const fragmentShader = /* glsl */`
     // otherwise has no micro-sparkle of its own). Kept rare so it reads as
     // catch-lights, not noise.
     float glit = hash(floor(p * 4.0) + floor(time * 3.0));
-    col += sunColor * step(0.9965 - 0.002 * uHeavenGlow * az, glit) * pow(1.0 - NdotV, 1.6) * 1.5;   // a few more catch-lights inside the blast column
+    col += sunColor * step(0.9965 - 0.002 * uHeavenGlow * az, glit) * pow(1.0 - NdotV, 1.6) * 1.5 * (1.0 - 0.5 * uStormSea);   // a few more catch-lights inside the blast column; halved under storm (overcast, and foam must not stack to over-bright white)
 
     // Manual fog (matches scene linear fog) — dual-color (§5.2): the fog
     // itself grades from the NEAR color into the FAR color with the same
