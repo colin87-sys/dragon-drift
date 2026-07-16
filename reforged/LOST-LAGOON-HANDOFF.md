@@ -96,8 +96,133 @@ mirror — update it. Coexist → prove a hero → migrate; never break the ship
 
 ## 7. FABLE'S SYNTHESIZED PLAN (creative direction + roster + build order)
 
-<!-- FABLE_PLAN -->
-_(pending — inserted from Fable's synthesis)_
+> Synthesized by Fable (art director), 2026-07-16, with live reference research. This supersedes
+> `LOST-LAGOON-BIBLE.md` §4 (prop roster) and amends §3 (palette); the bible's theology/composition/hazard/
+> atmosphere survive. Extend it with your own research — it's the floor, not the ceiling.
+
+### 7.0 Why v2 failed → the law it mints
+Five masonry variations on one abstract theme collapse into "gray-green lumps" at gameplay distance because
+nothing was a NAMEABLE THING. **THE NAME TEST (the kit's governing law): a passing player must name each prop
+in one word — mountain / temple / tree / flower / serpent.** Every archetype below is built from the most
+instantly-nameable silhouette its reference offers. The engine substrate (bakes, 2-material contract,
+`mergeLagoonParts`, `lagoonComp`, PR-1 atmosphere) is retained wholesale — we replace the vocabulary, not the grammar.
+
+### 7.1 Research moodboard — six defining motifs
+- **M1 Undercut karst tower (Ha Long Bay / El Nido):** isolated limestone towers with a wave-cut **marine notch**
+  at the tide line → a **top-heavy, mushroom profile WIDER above than at the waterline foot**, green scrub crown.
+  The notch hands us a dark core + a jade waterline event *for free.*
+- **M2 Lotus-bud temple tower (Angkor Wat prasat):** **redented, ogival** stepped tiers tapering to a lotus-bud
+  point — the planet's most recognizable "lost temple," made of stacked shrinking boxes + frusta.
+- **M3 The Bayon face (colossus solved for random yaw):** four serene closed-eyed faces, **one per cardinal
+  direction** → reads from every yaw (the Khmer already solved our random-rotation constraint).
+- **M4 Strangler fig on the gate (Ta Prohm):** roots "coil more like reptiles than plants," gripping/splitting
+  masonry — the most photographed lost-jungle-temple image; our composite dark-root/pale-stone bake was built for it.
+- **M5 Naga balustrade:** a stone serpent-body run terminating in a **fanned 7-head cobra hood** — a horizontal
+  counter-form owned by no other biome; a water-serpent god belongs half-drowned.
+- **M6 Jade water, mangrove arcs, long golden hour:** El Nido pale-jade→emerald water; red-mangrove trunks
+  **suspended above the water on arcing stilt-root tripods**; Ghost-of-Tsushima's held-long, region-graded golden
+  hour with wind always moving something.
+
+### 7.2 Palette + material identity (mapped to the bake system) — the cycle's only WARM-AND-GREEN biome
+Honey stone + THREE living greens + jade tidewater + gilt sunset. Move stone OFF the old cold bone-bleach (that's
+Glacier/Hollowgate turf) toward **honey**. Two stone families via the existing per-part bake TAG (add `bake:'temple'`
+— one material, one draw call, two geologies):
+
+| Ladder stop | KARST limestone (default) | TEMPLE sandstone (`bake:'temple'`) |
+|---|---|---|
+| Crown (above tide, ×1.10 gradient) | honey `0xE8C98F` | amber `0xD9AE7C` |
+| Tide band | jade algae `0x35896A` (keep) | moss verdigris `0x4E9468` |
+| Drowned | slate-teal `0x163A40` (keep) | laterite `0x3A3226` |
+
+Greens: amend `bakeLilyFoliage` to **3 stops** — sunlit olive-gold `0x9FAE4A` / **new mid fern `0x55803E`** / shadow
+jungle `0x27452C`; lotus pads keep a cooler `0x4E8A5A`. Water shallow → jade-turquoise `0x2F8578` (green-biased
+always; deepen the jade never the gold). Gilt UNCHANGED (`0xFFD28A`/emissive `0xFFB040`, aperture-reveal only, ≤3
+of 6 props). Re-run `bulletcontrast.mjs` on every palette move; danger stays magenta.
+
+### 7.3 The roster — six nameable silhouettes
+Global contracts: ≤150 tris; ≤2 material groups via `mergeLagoonParts`; parts interpenetrate ≥25%; `tilt:0` on every
+laddered mass (PLUMB-TIDE); pairwise-coprime prime `step`s; FOAM_CFG row each; inner clearance ≥14.5; **every
+proportion-critical feature designed at WORLD aspect under `(r,h,r)` and divided back**; yaw-robustness argued per
+prop. Nature:civilization ≈ 3.5:2.5 (deliberately nature-forward).
+
+1. **`karstfang` — MID mass (nature) — BUILD FIRST.** A Ha Long fenglin tower: top-heavy honey limestone, wave-cut
+   notch at the waterline, broken twin summit under a jungle cap. Three-signal silhouette (wider-above-notch / dark
+   undercut / green crown) = "tropical sea-rock" at 300 m; lathed profile is yaw-invariant. `step 41`,
+   `arrivalPark`, `sizeClass` (1.4× breaks the horizon inside congregations), `comp:{floor:0.12,sMin:0.88,sMax:1.18}`.
+   No gilt. ~110 tris (6-seg stacked-frusta lathe, 5 stations, edge loop AT band height, 2 offset summit frusta,
+   2 wind-flagged canopy pads). This prop dominates instance count — **if karst doesn't land, the identity is wrong,
+   stop the train.**
+2. **`prasat` — HERO (civilization).** Drowned temple-mountain summit: two redented stepped tiers → ogival lotus-bud
+   tower carrying **four Bayon faces (one per side → yaw-proof)** + one gilt doorway. `step 167`, `arrivalPark`,
+   `comp:{floor:0,sMin:1.0,sMax:1.16}`, r~16–26, h~26–40 → **breaks the horizon** (the mandated landmark). ~150 tris
+   (redenting = 2 interpenetrating offset boxes/tier; 3 shrinking frusta + bud; faces = 4 shallow eroded-plane masks
+   recessed, value-carved not material; gilt door reveal). **Gated hardest** — face fallbacks pre-named (eyes-closed
+   shallower relief → blind gilt-niche door). World-aspect the faces (1:1.2 tall) and doorway.
+3. **`figgate` — FEATURE MID (nature ∩ civ).** The Ta Prohm money-shot: a thick-walled temple gateway chunk,
+   doorway open to sky, a strangler fig seated on the lintel with dark roots cascading down both jambs to the water,
+   parasol canopy above. Firewall vs the Sinking-Gates hazard: THICK/rectangular/canopy-crowned/root-draped/off-lane
+   (the hazard is a bare free-standing arch). `step 61`, `arrivalPark`, `comp:{floor:0.08,sMin:0.9,sMax:1.1}`. Gilt =
+   recessed doorway-soffit reveal (sky burns through at the right yaw = free god-ray). ~140 tris; roots obey the GRIP
+   law; gate needs a top-cap course.
+4. **`mangrovehold` — LOW COMMONS #1 (nature).** A red-mangrove islet: trunk **suspended above the water on a
+   crinoline of arcing stilt roots**, broad sheared canopy. The airgap (a tree on legs over its reflection) says
+   "tropical lagoon" and nothing else; it's the scale cue. `step 29`, `sizeClass`, `comp:{floor:0.15,sMin:0.8,
+   sMax:1.05}`, h~4–7 (never crowds the horizon). Tide ring dashes across the thin legs = a jade anklet. ~120 tris.
+   **Spider-kill:** legs arc DOWN-AND-OUT, taper, flare at the foot; canopy mass must outweigh leg mass; world-radius
+   floor on legs for the chase cam.
+5. **`lotusraft` — LOW REST #2 (nature) — evolve the ONE v2 survivor.** Keep shipped `lilyraft` (4.3/5) + add 3–5
+   standing lotus buds/blooms (warm blush `0xF2C7A6` via `bake:'bloom'`, air/water rhyme, NOT magenta-adjacent) and
+   seed-pod spears — the vertical accent + second hue it lacked. `step 19`, low `comp.floor`, pad-clip fix rides
+   along. ≤75 tris.
+6. **`nagawall` — BACKDROP (civilization).** A colossal half-drowned naga: serpent body as a rhythmic run of 5–7
+   masonry coil-humps ending in a **fanned 7-head cobra hood** against the sunset, the far end a broken stump.
+   Round humps + Khmer fan = "giant serpent" in one read; the kit's only long horizontal. Firewall vs the drowned-
+   footbridge hazard: no deck/piers/straight spans; round humps only; far-x. `step 101`, `oneSide`, `comp:{floor:0}`,
+   `|x|≥60`, low h~10–16 (underlines, never walls; central third stays clear). No gilt (hood eye-sockets a withheld
+   Stage-2 option only). ~130 tris. Fallback if it reads "sea monster": straight rail-on-coils causeway + one hood.
+
+Roles: HERO `prasat` · MID `karstfang`+`figgate` · COMMONS `mangrovehold`+`lotusraft` · BACKDROP `nagawall`.
+Steps 167/41/61/29/19/101 (pairwise coprime). **Append all six at the END of `ARCHETYPES`** (RNG-order law).
+
+### 7.4 Build order (coexist → prove a hero → migrate) + gates
+Register the six as a `lagoonV3` list beside the current kit (a `?props=v3`-style seam); v2 stays default until the
+migration PR. **The two never-again checks from the hoarder-house lesson: the `bi===0` comp branch must consume the
+new archetypes' knobs, and every v2 archetype must route through the parked (`lagoonOld`-style) list — verify in the
+WIDE gameplay follow-cam, not the studio.**
+- **PR-0 Palette substrate:** `bake:'temple'` + 3-stop foliage + `bake:'bloom'` + water/crown nudges; A/B capture; `bulletcontrast` green.
+- **PR-1 `karstfang`** (identity prover — if it fails, the identity is wrong). **PR-2 `prasat`** (hero). **PR-3 `figgate`+`mangrovehold`**. **PR-4 `lotusraft` evolve + `nagawall`**. **PR-5 MIGRATION** (flip default to v3, park v2, re-tune `lagoonComp`, montage, owner sign-off).
+- Every PR: full headless suite, `gold-determinism` byte-identical (props are render-only — keep it so), `bulletcontrast`, `envcount`, propclearance + NaN `place()` scan, biome-pinned preview + what-to-look-at list, **one ledger lesson file**.
+
+**Per-prop gate (Fable ≥4.2, judged on in-context captures at the real `(r,h,r)`):**
+1. **THE NAME TEST** — one word at cruise distance; miss = auto-fail regardless of craft.
+2. **VALUE STRUCTURE** — ≥3 organized zones (sunlit crown / dark core-or-notch / jade waterline) + the mirror double; numeric luminance-Δ target set at pre-assess.
+3. **DISTINCTNESS** — silhouette-diff vs the five in-set, vs Glacier/Caldera/Aurora, vs all hazard skins + the Sinking Gates (mandatory for `figgate` & `nagawall`).
+4. **YAW ROBUSTNESS** — 4 yaws incl. worst case; no yaw collapses the name test.
+5. **MACHINE** — ≤150 tris, ≤2 groups, world-aspect numbers recorded, `tilt:0` where laddered.
+One revise round per prop; a third attempt means change technique, not parameters. **The owner outranks every gate.**
+
+### 7.5 Cheap-tell kill-list (checklist before any critic spawn)
+1. Karst = traffic cone → the marine notch is mandatory + top-heavy (shoulder r > foot r), dark undercut, broken twin summit.
+2. Karst = ice horn → green crown + honey ladder + undercut; no facet sparkle; no ice hexes in lagoon code.
+3. Canopy = broccoli/table → parasol law: 2–3 offset elliptical sheared pads, Δh≥0.10, one draped into stone, ~10% apex rise, wind-flagged.
+4. Mangrove = spider → legs arc down-and-out, taper, flare at foot, uneven azimuths; crown mass > leg mass; world-radius floor on legs.
+5. Temple = wedding cake / stairs-to-nowhere → tiers REDENTED + one collapsed quadrant; ogival crown not a box stack; a doorway gives it a "why."
+6. Faces = toys → eroded flat planes, eyes closed, serene, 4-way symmetric, no material change; fallbacks pre-named.
+7. Naga = sea monster/coaster → humps are masonry (identical-family radii, strict rhythm, laddered, plumb); hood is a geometric fan, no eyes by default.
+8. Scenery rhymes with a hazard → silhouette firewall: no free-standing bare arch anywhere; silhouette-diff vs all hazard skins at pre-assess.
+9. Gray lumps (the original sin) → no prop ships below 3 value zones; no stone face achromatic; saturation floor asserted on capture cross-sections.
+10. Gilt drift → LED/lamp → gilt only inside recessed aperture reveals, ≤3 props, never a band/tide-line/outer face.
+11. Unit-space lie → every hole/notch/face/opening designed at WORLD aspect under `(r,h,r)`, numbers in the build sheet, judged in-context.
+12. Palette drift → deepen the jade never the gold; never blue water; never bone-white crowns; never night-biolume greens.
+
+**Definition of done for the whole redesign:** a blind gameplay-distance capture where a stranger says *"flooded
+jungle temple ruins in Asia somewhere — beautiful,"* with ≥1 nameable NATURE form + ≥1 nameable CIVILIZATION form in
+frame, ≥45% open gold mirror, and no lump anywhere.
+
+_Key sources: Speleogenesis & UNESCO (Ha Long karst/marine-notch), Facts&Details / Paths Unwritten / Wikipedia
+(Angkor Wat prasat), Smarthistory / Wikipedia (Bayon faces), Wikipedia / Atlas Obscura (Ta Prohm figs), NCpedia /
+Smithsonian NMAA (naga balustrade), Smithsonian Ocean / USGS (mangrove stilt roots), journeyera / swallowsnotes
+(El Nido jade water), PlayStation Blog / Sucker Punch SIGGRAPH 2021 (Ghost of Tsushima golden-hour grading)._
 
 ---
 
