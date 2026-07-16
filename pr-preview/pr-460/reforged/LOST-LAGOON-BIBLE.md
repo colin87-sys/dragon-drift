@@ -262,12 +262,24 @@ owner signs the hero.
 **Build order (coexist → prove on the hero → migrate), one PR each:**
 - **PR-1 — Atmosphere + materials substrate:** water/fog/sky/hemiGround retune, petals, egrets,
   `bakeTideLadder` + `lagoonStone`/`gilt` materials. Transforms 100% of pixels; blind-test vs old.
-- **PR-2 — THE HERO `rotunda` + composition system** (arrival park, alternating flanks, density
-  rhythm, horizon easement) behind `?props=v1`. Proves the three riskiest ideas at once (tide ladder
-  on a colossal mass, aperture theology + god-rays + sun-through-window, mirror doubling). Studio
-  contact sheet floor 4.2/5, then re-scored in-context + the FRAME per §2 targets.
-- **PR-3 — the roster:** lilyraft + wrackstone → rootbastion → arcade → campanile → sentinel.
-  envcount + propclearance (widened) + NaN place() scan per PR.
+  ✅ SHIPPED (Fable 4.4/5).
+- **PR-2 — THE HERO `rotunda`.** ✅ SHIPPED — studio contact-sheet **4.3/5** (8 rounds), in-context
+  **4.5/5**, both against the 4.2 floor. Proved the three riskiest ideas at once (tide ladder on a
+  colossal mass, aperture theology + sun-through-the-wound, mirror doubling — the bar-setting shot is
+  the fly-under-the-drowned-dome frame with the reflection completing the broken arch into an ellipse).
+  148 tris, gold-determinism byte-identical. Minted the geometry laws the roster inherits
+  (edge-loop-at-band-height; re-weld-when-you-break-a-course; reverse-lining; spandrel arch; wound-aim).
+  The **composition system** (arrival-park gate for bi===0, alternating flanks, density rhythm, horizon
+  easement) + the **legacy-kit migration** (the hardcoded `biomes:[0]`/`[0,1]` Sunken-Sanctuary props →
+  a `lagoonOld` flag) are DEFERRED to land WITH the roster: twinning + density can only be tuned once
+  more than one new archetype exists (Fable's carried watch item). Until then biome 0 coexists — the
+  rotunda spawns at default density/random yaw among the legacy placeholder ruins (which read as drowned
+  ruins against the PR-1 jade atmosphere for free). A default-off `?hero=<archetype>` debug seam poses +
+  isolates the hero for bar-setting renders.
+- **PR-3 — the roster + composition:** lilyraft + wrackstone → rootbastion → arcade → campanile →
+  sentinel, then wire the bi===0 composition (arrival park + congregation rhythm) + migrate the legacy
+  kit to `lagoonOld`. envcount + propclearance (widened) + NaN place() scan per PR. Tighten the arcade
+  lancet ~15% vs the rotunda's (gothic, not campground); watch dome-twinning at cluster density.
 - **PR-4 — in-lane skins** trio + `hazardMesh` bi===0 seam + coverage exports + hazardskin entries;
   scored in the sun corridor (worst light).
 - **PR-5 — the Sinking Gates** hazard (level.js overlay + hazards.js runtime + resume() cursor).
