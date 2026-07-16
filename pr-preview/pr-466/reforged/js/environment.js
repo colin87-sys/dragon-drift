@@ -393,6 +393,7 @@ const PROPS_V1 = _envParams.get('props') === 'v1';
 // front faces down-lane for the in-context bar-setting render. Skips the rnd() rotY init, so it is
 // determinism-UNSAFE and must never be set in shipping — the gate is that the param is absent by default.
 const HERO_POSE = _envParams.get('hero');
+const HERO_SET = new Set((HERO_POSE || '').split(',').map((s) => s.trim()).filter(Boolean));   // ?hero=a,b keeps several archetypes in biome 0 (e.g. the hero + a rest-note, to judge one beside the other)
 // Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
 const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier (no-spike glacier ice): bergwall/serac/terrace/icetower/glacierwall/sungate(hero)
@@ -1145,7 +1146,7 @@ const ARCHETYPES = {
       // ρ 0.70·sMax 1.10 → 0.77; couple x at 0.80·r so the inner edge = 16 + 0.03·r ≥ 16 clears the ±16
       // gate veil at every size (colonnata precedent), not just the 14.5 fairness floor.
       const p = { x: side * (16 + 0.80 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 };
-      if (HERO_POSE === 'rotunda') p.rotY = 0;   // debug: wound (local +z) faces down-lane toward the camera
+      if (HERO_SET.has('rotunda')) p.rotY = 0;   // debug: wound (local +z) faces down-lane toward the camera
       return p;
     },
   },
@@ -1215,6 +1216,41 @@ const ARCHETYPES = {
     // pad is a floe; and a missing tilt is a NaN quaternion). Draw r first, couple x (ρ≈0.68 footprint).
     place: (side, rnd) => { const r = 3.5 + rnd() * 4; return { x: side * (14.5 + 0.74 * r + rnd() * 5), h: 0.9 + rnd() * 0.3, r, tilt: 0 }; },
   },
+  // THE LOST LAGOON — THE BARE FOIL (LOST-LAGOON-BIBLE.md §4.5): a slumped heap of recognizably DRESSED
+  // temple stones — a coursed standing stub with its capital still proud, a fallen column broken into
+  // drums, tumbled blocks. NO ladder, NO gilt, NO light at all: the rest note whose silence makes the
+  // gilt elsewhere earned. Legible RUIN (not a rock pile) is what makes the darkness read reverent, not
+  // unfinished. lagoonFoil mass (foil path skips the tide bake); mat-1 EMPTY (grep-enforced).
+  wrackstone: {
+    step: 31, biomes: lagoonNew, matIndex: 0, comp: { floor: 0.55, sMin: 0.90, sMax: 1.08 }, // foil rest note (clinker's role numbers)
+    build: () => {
+      const parts = [];
+      // SURVIVING STUB — ONE course (Fable w1: a 2-course shaft previews the PR-4 pillar HAZARD skin;
+      // a rest note must never rhyme with a collider). A low proud STUMP, not a monument — the capital
+      // rides its crest as the unit-top; the tall slot belongs to campanile.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.32, 0.44, 0.28), { x: -0.24, z: -0.06, y: 0.22, ry: 0.25 }) });            // 12
+      // CAPITAL (locked as-built, just lowered onto the stump) — a flared frustum + an abacus slab.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.15, 0.10, 0.10, 5, 1, true), { x: -0.24, z: -0.06, y: 0.49, rz: 0.05 }) }); // 10
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.06, 0.22), { x: -0.24, z: -0.06, y: 0.565, ry: 0.25, rz: 0.05 }) });       // 12 (crest ~0.60 = unit-top)
+      // FALLEN DRESSED BLOCKS — 3 tumbled cubes forming a CLOSED chain from the stump to the drums (Fable
+      // w1: no water gap in plan). Orderly breakage: dressed stone keeps flat faces; each overlaps a
+      // neighbour in plan, varied ry, resting on the ground / each other.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.22, 0.24), { x: -0.02, z: 0.02, y: 0.11, ry: 0.5, rz: 0.05 }) });   // 12 (bridges stump→centre)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.18, 0.20), { x: 0.18, z: 0.14, y: 0.09, ry: 1.1 }) });             // 12
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.18, 0.15, 0.17), { x: 0.14, z: -0.14, y: 0.075, ry: 0.3, rz: -0.05 }) }); // 12
+      // COLUMN DRUMS — the architecture SENTENCE. 6-seg (rounder break face reads "column slice", not a
+      // box — Fable w1) lying along z (rx π/2) so the front drum's circular BREAK FACE addresses the
+      // front/¾ camera; a slipped half-drum behind almost re-assembles toward it (the column that stood).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.28, 6), { x: 0.30, z: 0.16, y: 0.13, rx: Math.PI / 2, ry: 0.15 }) }); // 24 (closed; +z break face to camera)
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 6, 1, true), { x: 0.34, z: -0.10, y: 0.11, rx: Math.PI / 2, ry: 0.35 }) }); // 12 (open; +z end sinks into the full drum → occluded)
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.13, 6), { x: 0.34, y: 0.11, z: -0.23, ry: Math.PI }) });   // 6 (cap the far −z break end → no paper void)
+      return mergeLagoonParts(parts, { foil: true });
+    },
+    // MID foil scatter, ~2:1 WIDE (Fable w1): normalized crest ~0.60, so h 3.5–5 world → the capital-
+    // stump reads proud over a low wide rubble field, never a tower. Draw r first, couple x → inner ≥16
+    // (clears the ±16 gate veil). tilt a breath (a heap may lean).
+    place: (side, rnd) => { const r = 4.5 + rnd() * 3; return { x: side * (16 + 0.72 * r + rnd() * 4), h: 3.5 + rnd() * 1.5, r, tilt: side * (rnd() * 0.08 - 0.03) }; },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1237,6 +1273,7 @@ const FOAM_CFG = {
   riftfang: { r: 0.5 },               // volcanic neck — thin collar at the base
   rotunda: { r: 0.8 },   // Lost Lagoon hero — the drum waterline weld: the jade tide-band doubled in the mirror
   lilyraft: false,       // Lost Lagoon commons — NO collar: the pads ARE the waterline event; a foam ring on a 2m pad reads as an artifact (Fable pre-authorized)
+  wrackstone: { r: 0.6 },// Lost Lagoon foil rubble — a pale tide collar where the heap meets the mirror (clinker precedent)
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
@@ -1244,7 +1281,7 @@ const FOAM_CFG = {
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
 // posed hero stands alone in the real biome for the bar-setting render (legacy placeholder clutter off).
-if (HERO_POSE) for (const [name, d] of Object.entries(ARCHETYPES)) { if (name !== HERO_POSE && Array.isArray(d.biomes)) d.biomes = d.biomes.filter((b) => b !== 0); }
+if (HERO_POSE) for (const [name, d] of Object.entries(ARCHETYPES)) { if (!HERO_SET.has(name) && Array.isArray(d.biomes)) d.biomes = d.biomes.filter((b) => b !== 0); }
 
 // --- Diagnostic export (tools/envcount.mjs) — BEHAVIOR-INERT -----------------
 // Builds every archetype headlessly and reports its geometry/material/instance
