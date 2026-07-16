@@ -632,22 +632,22 @@ const ARCHETYPES = {
   flowlobe: {
     step: 23, biomes: calderaNew, matIndex: 3,
     build: () => mergeCalderaParts([
-      // THREE crust plates set with VISIBLE seams between them (the veins show through the
-      // gaps), each plate proud enough (h~0.16) that its edges WALL the recessed magma.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.50, 0.17, 6), { x: -0.02, z: -0.30, y: 0.085, ry: 1.4, sx: 1.22, sz: 1.05 }) },   // rear plate
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.52, 0.18, 6), { x: 0.02, z: 0.18, y: 0.09, ry: 0.20, sx: 1.28, sz: 1.15 }) },    // mid body plate
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.40, 0.15, 6), { x: 0.00, z: 0.60, y: 0.075, ry: 0.8, sx: 1.12, sz: 1.05 }) },    // front advancing lobe
-      // two rounded lobe NOSES at the front — the staggered ropey advance (broken front edge)
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.27, 0.12, 5), { x: -0.26, z: 0.60, y: 0.06, ry: 0.5, sx: 1.1 }) },
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.21, 0.24, 0.11, 5), { x: 0.30, z: 0.56, y: 0.055, ry: 1.2 }) },
-      // EMBER-VEIN network — magma accent (mat 1) as a thin branching fissure network sitting
-      // on the EXPOSED crust top (the big mid plate), tops just proud of the plate surface so
-      // it reads from above as glowing lava cracks (the flying game's primary view: a dark
-      // tongue veined with fire). Thin (≤0.06) so it reads as a fissure, never an LED panel.
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.15, 0.78), { x: -0.07, z: 0.10, y: 0.12, ry: 0.16 }) },     // main vein — offset + angled (not a centred axis), tops just proud so it reads from above
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.30, 0.14, 0.042), { x: 0.10, z: 0.30, y: 0.115, ry: -0.78 }) },   // offshoot forks off HIGH (z 0.30), steep angle
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.24, 0.14, 0.038), { x: -0.20, z: -0.15, y: 0.115, ry: 0.55 }) },  // offshoot forks off LOW (z −0.15), different angle → irregular delta, not a glyph
-    ]),
+      // THE MAGMA CORE (mat 1) — a wide low glowing interior plate, stretched along the flow
+      // axis (z). The dark crust islands above cover most of it; it shows ONLY through the
+      // joints and around the plate edges → an organic joint-following lava-vein network,
+      // recessed and walled by construction (Fable r9 D1: fire lives BETWEEN the crusts, not
+      // drawn ON them — that killed the rune/LED read).
+      { mat: 1, geo: xform(new THREE.CylinderGeometry(0.54, 0.58, 0.15, 6), { y: 0.075, ry: 0.20, sx: 1.12, sz: 1.5 }) },
+      // DARK CRUST ISLANDS (mat 0 = foil, so the tongue is the biome's BLACK BASELINE — Fable
+      // D2) seated ON the core, each proud (top ~0.185) so its edges WALL the magma veins; set
+      // with gaps between them and short of the core rim → magma shows as seams + a molten edge.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.40, 0.17, 6), { x: -0.22, z: -0.20, y: 0.10, ry: 0.5, sx: 1.25, sz: 1.5 }) },   // rear-left crust
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.38, 0.17, 6), { x: 0.24, z: -0.05, y: 0.10, ry: 1.2, sx: 1.18, sz: 1.45 }) },   // right crust (thin central seam between L/R)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.33, 0.15, 6), { x: -0.03, z: 0.35, y: 0.09, ry: 0.8, sx: 1.25, sz: 1.15 }) },   // mid-front crust (cross seams)
+      // two staggered front lobe NOSES (foil) — the advancing tongue with molten between them
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.27, 0.12, 5), { x: -0.28, z: 0.60, y: 0.065, ry: 0.5, sx: 1.1 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.23, 0.11, 5), { x: 0.29, z: 0.57, y: 0.06, ry: 1.2 }) },
+    ], { foil: true }),
     // LOW horizontal REST: normalized yMax ~0.28 → world height h·0.28. r 10–20 WIDE, h 8–14
     // small → world ~18–34 wide × ~2.5–4.5 tall ≈ 5:1. ρ≈0.9 (wide plates); inner edge
     // |x|−ρ·r ≥ 14.5 → couple x = 14.5 + 0.92·r. Explicit tilt (hugs the route, slight roll).
