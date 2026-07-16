@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
+// The shipped god-ray shaft tint (godrays.js uTint = 1.0,0.9,0.72). Default for
+// every biome so god-rays stay byte-identical unless a biome overrides godrayTint.
+const GODRAY_TINT_DEF = new THREE.Color(1.0, 0.9, 0.72);
+
 // Six cycling biomes, ~1500m each with a 150m crossfade at the seam.
 // Everything visual (sky, fog, lights, water, ambient particles, fauna)
 // lerps between biome palettes; props/obstacle materials switch per instance
@@ -164,7 +168,9 @@ export const BIOMES = [
     name: 'LUMEN MIRE',
     keyShift: -4,
     stars: 0.2,
-    sky: { top: C(0x0a0b12), mid: C(0x141a14), horizon: C(0x2b2314), sun: C(0x4a3418) },
+    // Warm-neutral dark ROOF: top nudged off blue, mid off green (Fable PR-1 gate —
+    // no cool sky stop may survive from the shipped teal night), horizon amber haze.
+    sky: { top: C(0x0d0b0e), mid: C(0x171410), horizon: C(0x2b2314), sun: C(0x4a3418) },
     fog: { color: C(0x141a14), near: 45, far: 260 },
     // Dual-fog far color (§5.2): the near air is dark humid warm-green swamp; distance
     // desaturates TOWARD amber haze (dark-scene aerial perspective fades to the dominant
@@ -182,8 +188,11 @@ export const BIOMES = [
     water: { deep: C(0x040914), shallow: C(0x0c1a18), waveAmp: 0.2 },
     // Theology firewall: "nothing shines from the sky." A night swamp has no sun-shafts —
     // meter the shared god-ray fan WAY down (default 1 = byte-identical elsewhere; ~0 like
-    // Aurora would kill the faint glow-halos, so keep a dim residue). See main.js god-ray gate.
-    godrayMul: 0.15,
+    // Aurora would kill the faint glow-halos, so keep a dim residue) AND warm the shaft tint
+    // to the amber glow-haze family so any residual reads as organism-lit mist, not a sun
+    // (Fable PR-1 gate: grey-white point-source fan = a theology breach). See main.js god-ray gate.
+    godrayMul: 0.06,
+    godrayTint: C(0xc0782c),
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
     ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.5, opacity: 0.7 },
@@ -306,6 +315,9 @@ const env = {
   // God-ray fan scale (OPTIONAL; 1 everywhere by default → byte-identical shafts).
   // A night biome (Lumen Mire) meters it down; consumed by main.js's god-ray gate.
   godrayMul: 1,
+  // God-ray shaft tint (OPTIONAL; the shipped warm-white default → byte-identical).
+  // A biome may warm/cool the residual shafts. Consumed by main.js's god-ray gate.
+  godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
   cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(),
@@ -372,6 +384,7 @@ export function computeEnv(dist) {
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
   env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
+  env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
   // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.
   env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, ts);

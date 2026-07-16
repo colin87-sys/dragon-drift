@@ -25,6 +25,9 @@ export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, aur
 // A night biome meters the shared sun-shaft fan down (Lumen Mire). Read by main.js.
 let _godrayMul = 1;
 export function godrayMul() { return _godrayMul; }
+// Per-biome god-ray shaft tint (seam-lerped; shipped warm-white = byte-identical). Read by main.js.
+const _godrayTint = new THREE.Color(1.0, 0.9, 0.72);
+export function godrayTint() { return _godrayTint; }
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -1591,6 +1594,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // --- Biome atmosphere lerp: sky, fog, lights, water all follow the seam.
   const env = computeEnv(playerDist);
   _godrayMul = env.godrayMul ?? 1;   // exposed for main.js's god-ray gate (seam-lerped)
+  if (env.godrayTint) _godrayTint.copy(env.godrayTint);   // per-biome shaft tint (seam-lerped)
   // ARENA (PR-A) — THE injection: blend the live env scratch toward the void palette (arenaSkin.js) BEFORE
   // the fan-out below, so sky uniforms, scene.fog, sun/hemi, setWaterTint AND updateAmbient all read the
   // overridden scratch. mix 0 ⇒ zero writes ⇒ byte-identical for every other boss + all flight.

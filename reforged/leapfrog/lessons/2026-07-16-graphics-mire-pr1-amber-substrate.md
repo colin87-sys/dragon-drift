@@ -18,15 +18,21 @@ clean, envcount all-green.
    vs Aurora is now decisive (warm-amber-hazy vs cool-green-clean). Rule for any night biome adjacent
    to another: pick a side of the teal band and commit; don't split the difference.
 
-2. **"Nothing shines from the sky" is a checkable theology that drove a code lever.** A night swamp
+2. **"Nothing shines from the sky" is a checkable theology that drove TWO code levers.** A night swamp
    has no sun-shafts, but the shared god-ray fan (`godrays.js`, driven by `sunFacing * 0.6` in
    `main.js`) blew a bright beige fan across the whole frame the moment Mire's amber horizon sat
    dead-ahead of the sun — the exact "over-poured god-ray fan greys out the scene" failure the Caldera
-   lesson flagged. Fix: a per-biome **`godrayMul`** (default 1 = byte-identical everywhere; the
-   three-touch env-lerp so it crossfades at seams; exposed from `environment.js` as `godrayMul()`,
-   folded into the `setGodRaySun` intensity in `main.js`). Mire ships `0.15` — a dim residue that
-   reads as glow-haze around the fungi, not a sun fan. This is the reusable "meter the fan" lever the
-   Caldera composition gate asked for; future night/overcast biomes get it for free.
+   lesson flagged, AND (the Fable PR-1 gate's blocking delta) a grey-white point-source fan reads,
+   blind, as a SUN — a direct theology breach on the very PR meant to prove the theology. Fix: a
+   per-biome **`godrayMul`** (intensity meter) AND a per-biome **`godrayTint`** (shaft color), both
+   default to the shipped values (`1` / warm-white `1.0,0.9,0.72`) so every other biome is
+   byte-identical; both wired three-touch (field + `computeEnv` lerp + scratch default) and exposed
+   from `environment.js` as `godrayMul()` / `godrayTint()`, folded into `setGodRaySun` +
+   `setGodRayTint` in `main.js`. Mire ships `godrayMul 0.06` + amber `godrayTint 0xc0782c` — a dim,
+   warm residue that reads as organism-lit glow-mist, not a sun. Fable's rule of thumb for the meter:
+   *"if the shafts are the first thing the eye lands on, too high; if you can point at where they come
+   FROM, the source is too celestial."* These are the reusable "meter + warm the fan" levers; future
+   night/overcast biomes get them for free.
 
 3. **The atmosphere substrate transforms 100% of pixels — prove the DARKNESS is beautiful before a
    single prop** (the Lost Lagoon PR-1 lesson, re-confirmed). PR-1 touched only data + material
