@@ -41,6 +41,46 @@ before doing anything else.
 
 ---
 
+## 📸 CAPTURE & ASSESS DISCIPLINE — how you render work FOR the gate (pairs with the contract above)
+
+Recurring failures this kills: chats claiming "I can't render headlessly" (false); judging a biome
+from a ~1000m vanity frame where the sun + water carry it and the actual props are specks you can't
+even see; and screenshots that catch a game-over screen, a fade, or an obstacle across the view.
+
+**1. YES — you can render the game headlessly. Full stop.** The harness is `tests/browser.mjs`
+(Playwright + the preinstalled Chromium). Every `tools/*shot.mjs` and `tools/*studio.*` is living
+proof. If you think you can't, you are WRONG — open an existing shot tool and copy it. Never report
+"headless rendering isn't possible"; it is, and it is how the Fable gate is fed.
+
+**2. Assess UP CLOSE, on the work you actually built — never a vista.** A distant pretty frame is
+NOT an assessment: the sky/water carry it while the props (the thing being judged) are dots. Fable
+must judge the props / hazards / masses **filling the frame at the distance the player sees them.**
+- PRIMARY close-up read = the biome's STUDIO: `tools/<biome>studio.*` (e.g. `calstudio`,
+  `lagoonstudio`; clone the pattern for a new biome) renders ONE prop/mass in ISOLATION against a
+  chosen sky + angle — no obstacles, no death, no game loop. This is where you gate the FORMS close up.
+- Composition read = in-context capture (below), framed ON the props, at player-view range — not
+  1000m out.
+
+**3. Set clean capture conditions — no crashing into things, no junk frames.** Use the `__dd` seams
+(`js/main.js:362`):
+- **Pin the biome:** boot `?biome=<N>` so you're in the right place immediately (no flying there).
+- **Don't die on an obstacle:** set `__dd.game.health = 99` every frame, and `__dd.noBoss()` so no
+  boss interrupts the capture. (Obstacles still render; they just can't end your shot.)
+- **Position:** teleport `__dd.player.dist = <d>` — but in SMALL increments (~30–40m). A big jump
+  builds a huge stretch of geometry at once and crashes WebGL; use `deviceScaleFactor: 1`.
+- **Freeze then shoot:** set `__dd.game.timeScale = 0` and wait a beat before the screenshot — a
+  frozen frame is clean (no motion blur, no mid-transition, no game-over).
+
+**4. BURST — never trust one frame.** Capture SEVERAL frames across a set of distances/positions you
+**specify** (approach → close → pass overhead), freeze-and-shoot each, and pick the good ones. A
+single frame can catch a game-over, a fade, or an obstacle across the view; a burst can't.
+Reference pattern: `tools/archshot.mjs` (health-pinned teleport burst across specified dists).
+
+**THE RULE:** if Fable is being asked to judge a biome from a frame where the close prop work isn't
+even visible, the capture is INVALID — re-shoot up close. Distant + pretty is not a gate.
+
+---
+
 ## ENGINEER AUDIT — 2026-07-15 (post-handoff hardening pass; claims verified against code)
 
 **Verified against the repo (cites added inline where a builder touches the seam):**
