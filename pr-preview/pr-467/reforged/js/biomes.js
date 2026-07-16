@@ -176,23 +176,23 @@ export const BIOMES = [
     sky: { top: C(0x060309), mid: C(0x1a0e06), horizon: C(0x7a4818), sun: C(0x5a3010) },
     // Near-fog is the GLOWING GROUND-MIST — a self-luminous amber-olive haze (color above the
     // scene mean = fog that EMITS, not obscures); far pulled in so sight-lines end in glow, not void.
-    fog: { color: C(0x33230f), near: 48, far: 255 },
+    fog: { color: C(0x473217), near: 48, far: 255 },
     // Dual-fog far color (§5.2): the near air is dark humid warm-green swamp; distance
     // desaturates TOWARD amber haze (dark-scene aerial perspective fades to the dominant
     // GLOW hue, not blue-grey) — the cheapest identity move + the anti-Aurora firewall.
     fogFarColor: C(0x4a2c0e),
     // The GLOWING GROUND-MIST is the hero of the luminance pass — a visible waist-deep luminous
     // layer over the water (Fable v33: "the sky of the Mire is the waist-high mist").
-    atmos: { heightK: 0.09 },
+    atmos: { heightK: 0.12 },
     // INVERTED HEMISPHERE (Fable v33): ground brighter+warmer than sky = light rising from the
     // land (the bioluminescence signature AND the built-in anti-Aurora tell). The sun is only a
     // faint marsh-glow RIM at very low intensity — the luminance comes from mist/water/ground-up,
     // never a bright key. (The dragon's belly under-fill is the meter; raise hemiGround if it crushes.)
-    light: { sun: C(0xff9a3c), sunI: 0.2, hemiSky: C(0x12101a), hemiGround: C(0x3a2a12) },
+    light: { sun: C(0xff9a3c), sunI: 0.2, hemiSky: C(0x12101a), hemiGround: C(0x4c3818) },
     // Luminous WARM water — the biggest single win (half the portrait frame): warm shallow so wave
     // crests catch amber ACROSS the mirror (not one column); deep = a green-black LIVING dark (never
     // pure #000); +20% wave so reflections spread into a broad shimmering field. NO teal (Aurora quarantine).
-    water: { deep: C(0x0d1410), shallow: C(0x7a5a20), waveAmp: 0.24 },
+    water: { deep: C(0x0d1410), shallow: C(0x9a7228), waveAmp: 0.26 },
     // Theology firewall: "nothing shines from the sky." A night swamp has no sun-shafts —
     // meter the shared god-ray fan WAY down (default 1 = byte-identical elsewhere; ~0 like
     // Aurora would kill the faint glow-halos, so keep a dim residue) AND warm the shaft tint
