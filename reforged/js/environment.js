@@ -1261,7 +1261,7 @@ const ARCHETYPES = {
   // the "under the brim" address). Cap/stalk/court are dark foil (mat 0). Everything indexed
   // (sphere/cone/cyl) → no toNonIndexed. Registered LAST. ~131 tris.
   glowcolossus: {
-    step: 61, biomes: mireNew, matIndex: 4,
+    step: 61, biomes: mireNew, matIndex: 4, hero: true,
     build: () => {
       const parts = [];
       // main dome — squashed asymmetric sagged umbrella, offset off the stalk axis
@@ -1742,6 +1742,19 @@ function calderaComp(dist) {
   const ph = (local % seg) / seg;
   return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.20));
 }
+// THE LUMEN MIRE composition rhythm (LUMEN-MIRE-BIBLE §2 / Fable PR-3 §4) — the living-thicket
+// engine. 5 periods/biome (300m — a close, enclosed swamp; a longer breath reads too open),
+// peak at ph 0.15 so the congregation peak lands at (dist % 300) === 45 = HERO_PEAK_OFFSET (the
+// hero phase-lock reuses the shipped offset). Props gather into thickets near the peak and clear
+// to open black mirror near ph≈0.65 (the ≥45%-unbroken-mirror target). PURE (no rnd).
+const MIRE_COMP_PERIODS = 5;
+function mireComp(dist) {
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const seg = L / MIRE_COMP_PERIODS;                          // 300m
+  const ph = (local % seg) / seg;
+  return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.15));
+}
 // Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
 // slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
 function compHash(salt, side, slot) {
@@ -1845,6 +1858,41 @@ function writeMatrix(band, i, d) {
       const density = c.floor + (1 - c.floor) * g;
       if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
       else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
+  } else if (active && bi === 4) {
+    // THE LUMEN MIRE composition (LUMEN-MIRE-BIBLE §2 / Fable PR-3 §4). PURE (no rnd), after the
+    // rotY init, render-only → gold-determinism byte-identical.
+    const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+    // (a) Arrival open-mirror beat: mid/glow families off the first ~200m so the seam reads as
+    // black mirror under the drape roof, then the First Lantern resolves. Seam-relative fold
+    // (biomeIndexAt flips at the crossfade midpoint — the Caldera Codex-review gotcha).
+    const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+    if (band.def.arrivalPark && seamDelta < 200) active = false;
+    // (b) The reserved 30° THRUMSWARM easement (bible §2): local [1050,1350] stays clear of the
+    // hero + glow families (PR-6 builds the Held-Breath hush proper; PR-3 just never seats one there).
+    const inEasement = local >= 1050 && local <= 1350;
+    if (active && band.def.hero) {
+      // Hero (glowcolossus) — renders at full size (k=1) or not at all, exactly ONE per kept peak.
+      // Peaks land at local 45/345/645/945/1245. `nearest` keeps only the single step-instance
+      // closest to a peak (else the dense step clusters 4–5 heroes). Park peak 0 (arrival window /
+      // seam-ambush) + the easement peak (1245); FORCE-KEEP peak 1 (local 345) EVERY arrival = Money
+      // Shot 1 (the First Lantern resolves from the murk, deterministic); interior peaks keep on ~50%
+      // (heroHash) so the hero reads as THE landmark, not a picket.
+      const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;   // 300
+      const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / period);
+      const localPeak = ((peakIdx % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+      const nearest = Math.abs(d.dist - (peakIdx * period + HERO_PEAK_OFFSET)) < band.def.step / 2;
+      const keepPeak = !inEasement && localPeak !== 0 && (localPeak === 1 || heroHash(peakIdx) < 0.5);
+      if (!(nearest && keepPeak)) active = false;
+    } else if (active && band.def.comp) {
+      if (inEasement && band.def.comp.glow) active = false;   // glow carriers clear the easement
+      else {
+        const g = mireComp(d.dist);
+        const c = band.def.comp;
+        const density = c.floor + (1 - c.floor) * g;
+        if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
+        else k = c.sMin + (c.sMax - c.sMin) * g;
+      }
     }
   }
   // Deck-skim rule (see the window block above), inside a strait2 run window:
