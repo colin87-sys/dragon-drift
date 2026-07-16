@@ -335,14 +335,17 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
 // INSTEAD of the tide ladder is what stops the default bake painting leaves bleached-ivory (ice-floe leak).
 const _LAG_OLIVE = [0.561, 0.659, 0.290];  // 0x8fa84a sunlit olive-gold (up-facing leaf)
 const _LAG_SHADOW = [0.184, 0.353, 0.220]; // 0x2f5a38 shadow-green (rims, undersides, blades)
-function bakeLilyFoliage(geo) {
+// `upThresh` sets how flat-up a face must be to catch sun: 0.35 = leaf/pad (broad olive tops), 0.75 =
+// ROOT/branch (only true top-curves catch; leaning flanks stay shadow-green → dark roots strangling pale
+// stone, the Ta Prohm contrast — Fable rootbastion). A threshold parameter, still ONE bake system.
+function bakeLilyFoliage(geo, upThresh = 0.35) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
     ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
     e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // geometric face normal
-    const s = nr.y > 0.35 ? _LAG_OLIVE : _LAG_SHADOW;
+    const s = nr.y > upThresh ? _LAG_OLIVE : _LAG_SHADOW;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -361,17 +364,19 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], foliage = [];
+  const accent = [], ladder = [], foliage = [], root = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
-    else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → foliage
+    else if (p.bake === 'root') root.push(g);                            // tagged → dark foliage (roots/branches)
+    else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
     else ladder.push(g);                                                 // untagged → tide ladder
   }
   const stone = [];
   if (ladder.length) { const g = ladder.length > 1 ? mergeGeometries(ladder) : ladder[0]; if (!opts.foil) bakeTideLadder(g); stone.push(g); }
   if (foliage.length) { const g = foliage.length > 1 ? mergeGeometries(foliage) : foliage[0]; bakeLilyFoliage(g); stone.push(g); }
+  if (root.length) { const g = root.length > 1 ? mergeGeometries(root) : root[0]; bakeLilyFoliage(g, 0.75); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {
@@ -1293,21 +1298,21 @@ const ARCHETYPES = {
       parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.22, 0.38), { y: 0.11 }) });                              // 12 — waterline course; top edge AT y0.22 = the band boundary (dead-level jade)
       parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.40, 0.33, 0.34), { y: 0.385, ry: 0.18, rz: 0.10 }) });         // 12 — slumped upper mass (entirely in the bleach stop → free to shear)
       parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.18, 0.18, 0.18), { x: 0.12, z: 0.30, y: 0.09, ry: 0.5 }) });    // 12 — satellite chunk (the next stone the fig reaches for)
-      // FIG (tagged bake:'lily' → foliage). A SHORT trunk from the stone crown holding a broad low canopy
-      // that DRAPES over the ruin (Ta Prohm, not a tree on a pedestal); roots + canopy originate here.
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.18, 5, 1, true), { y: 0.61 }) }); // 10 — trunk (sunk into the crown at y0.52, top y0.70 into the canopy)
-      // 3 ROOT RIBS — each a chain of tapering frusta that GRIP the stone (standoff small), start inside
-      // the trunk, taper down, and FLARE at a foot entering the water (Fable GRIP law: not tentacle/pipe/LED).
-      const rib = (pts, radii) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'lily', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], 4) }); };
+      // FIG. A SHORT trunk from the stone crown holding the canopy; roots + trunk are `bake:'root'`
+      // (DARK — shadow-green flanks, olive only on top-curves) so they read strangling the PALE stone.
+      parts.push({ mat: 0, bake: 'root', geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.18, 5, 1, true), { y: 0.61 }) }); // 10 — trunk (crown y0.52 → top y0.70)
+      // 3 ROOT RIBS — chains of tapering frusta that GRIP the stone (small standoff), start inside the
+      // trunk, taper down, FLARE at a foot entering the water (Fable GRIP law: not tentacle/pipe/LED).
+      const rib = (pts, radii) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'root', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], 3) }); }; // 3-seg: thin roots, imperceptible facets, saves tris for round cones
       rib([[0.00, 0.62, 0.05], [0.05, 0.48, 0.16], [0.07, 0.24, 0.19], [0.09, 0.01, 0.25]], [0.055, 0.045, 0.040, 0.075]); // A: down the +z face → foot flares (24)
       rib([[0.02, 0.60, -0.02], [0.20, 0.46, 0.02], [0.29, 0.20, 0.05], [0.33, 0.01, 0.09]], [0.050, 0.038, 0.032, 0.062]); // B: down the +x face, thinner (24)
       rib([[0.04, 0.52, 0.14], [0.09, 0.28, 0.24], [0.12, 0.09, 0.30]], [0.042, 0.036, 0.055]);                              // C: short — grips the satellite chunk (16)
-      // PARASOL CANOPY (Fable PARASOL law: exactly 2 flat broad pads, overlapping ≥30%, both sheared the
-      // SAME way — down-lane +z — matching the rotunda wound-aim). Each pad = top + reversed underside
-      // sandwich so it reads from the worm's-eye (backlit foliage: olive top / shadow-green under).
-      const pad = (r, seg, o) => { parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(r, seg), { ...o, rx: -Math.PI / 2 }) }); parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(r, seg), { ...o, rx: Math.PI / 2, y: o.y - 0.02 }) }); };
-      pad(0.42, 7, { x: 0.02, z: 0.04, y: 0.74, sx: 1.15, sz: 0.88, rz: 0.12 }); // pad A — broad drape OVER the stone (spreads to x±0.48 > stone ±0.20), wind-sheared (14)
-      pad(0.30, 6, { x: 0.09, z: 0.16, y: 0.67, sx: 1.05, sz: 0.85, rz: 0.12 }); // pad B — overlaps A, same shear, forward + lower (12)
+      // PARASOL CANOPY — 2 SQUASHED CLOSED CONES (Fable rb3: closed cone not a circle-sandwich → no
+      // grazing slit; a 10% apex rise kills the flat-table read but stays parasol, not broccoli). SHRUNK
+      // + OFFSET +z so the plan shows STONE on the −z side (no full-disc lilyraft twinning); pad B DRAPES
+      // low onto the crown (occlusion weld → no hover); Δy + distinct tilts break the slab; pad A wind-torn.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.ConeGeometry(0.36, 0.05, 7), { x: 0.02, z: 0.30, y: 0.74, sx: 1.14, sz: 0.80, rz: 0.12, ry: 0.5 }) });  // pad A — aloft, offset down-lane (stone −z exposed in plan) (21)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.ConeGeometry(0.27, 0.045, 6), { x: 0.06, z: 0.36, y: 0.56, sx: 1.05, sz: 0.80, rz: 0.22, rx: 0.16 }) });  // pad B — −z edge sinks into the crown (y0.56≈crown top → occlusion weld, no hover) (18)
       return mergeLagoonParts(parts);
     },
     // MID mass, ~1.6–1.9:1 wide (the broad canopy drapes wider than the mass is tall): r 8–11, h 6–8.5
