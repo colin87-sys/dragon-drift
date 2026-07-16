@@ -31,7 +31,7 @@ if (err) { console.error('STUDIO ERROR:', err); await browser.close(); srv.close
 // sheet overlay can't clobber it — the old bug that made every file the archway).
 const CANDS = [
   { key: 'glowarch',   label: 'A) FLY-THROUGH ARCHWAY (hero)' },
-  { key: 'glowtree',   label: 'B) GLOWING WORLD-TREE' },
+  { key: 'glowspire',  label: 'B) LANTERN SPIRE' },
   { key: 'glowshroom', label: 'C) GLOWING MUSHROOM' },
   { key: 'glowbloom',  label: 'D) GLOWING SWAMP-BLOOMS' },
 ];
@@ -50,9 +50,9 @@ writeFileSync('/tmp/mire-hero-gallery.png', sheet);
 
 // FAR-BAND capture (Fable 60-ruling §3): glowtree is a FAR beacon — judge it at its ~150m in-game read
 // with the biome fog on (r/h ≈ place mid-values). This is the gate that predicts the in-game beacon read.
-await page.evaluate((o) => window.psRender(o), { key: 'glowtree', angle: 'gameplay', bg: 'dark', rig: 'mire', opts: { single: true }, far: { r: 46, h: 47, dist: 155 } });
+await page.evaluate((o) => window.psRender(o), { key: 'glowspire', angle: 'gameplay', bg: 'dark', rig: 'mire', opts: { single: true }, far: { r: 30, h: 67, dist: 155 } });
 const farBuf = await page.evaluate(() => window.psGrab());
-writeFileSync('/tmp/mire-glowtree-far155.png', Buffer.from(farBuf.split(',')[1], 'base64'));
+writeFileSync('/tmp/mire-glowspire-far155.png', Buffer.from(farBuf.split(',')[1], 'base64'));
 
 await browser.close(); srv.close?.();
 console.log('wrote /tmp/mire-hero-gallery.png + per-candidate /tmp/mire-cand-*.png');

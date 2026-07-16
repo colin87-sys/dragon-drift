@@ -1410,30 +1410,44 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: 0, h: 40 + rnd() * 6, r: 38 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // glowtree — THE FAR BEACON (Fable §1/§7-B, Stage 2): a colossal luminous world-tree — the horizon
-  // pull the arch frames, hanging in the aperture 150m past each gate. Dark trunk + a big GLOWING
-  // canopy that sits in a DARK CUP (under-skirt) with one DEAD DARK quarter (asymmetry, broken glow),
-  // crown-bright→rim-dim ladder, glowing roots welding it to its reflection. Deep-gold mireFarLiving
-  // @1.15 (pre-hazed far beacon). Footprint kept within unit ρ≤0.52 so the flank coupling clears the lane.
-  glowtree: {
+  // glowspire — THE LANTERN SPIRE far-beacon (Fable 62-redesign). The owner killed the world-tree:
+  // a trunk+crown can never be the hero of a swamp whose whole dark substrate IS trunks+crowns. The
+  // beacon is reborn as a shape the Mire does NOT contain — a colossal drowned ancestor-spar the
+  // swamp's life colonized into a lighthouse: a thin dark mast carrying FIVE staggered glowing
+  // shelf-conks up to a white-hot lantern bud, a splintered dark tip above it. Vertical (aspect ~1:4),
+  // tiered, brightest at the top — the ONLY vertical/tiered/tallest silhouette in the biome. Towers
+  // 1.8–2.3× over the canopywall massif. mireFarLiving @1.8 (proven), value-laddered up the mast.
+  glowspire: {
     step: 67, biomes: mireNew, matIndex: 4, hero: true, heroShift: 150, heroParity: true, heroRare: 0.4,
     build: () => {
       const parts = [];
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.12, 0.20, 0.62, 6).toNonIndexed(), { y: 0.31 }) }); // dark trunk (ρ 0.20)
-      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.42, 0), { x: 0.02, z: 0.0, y: 0.52, sy: 0.42 }) });   // dark UNDER-SKIRT cup (glow sits IN a dark bowl, not on a stick)
-      // canopy: 3 GLOWING lobes (mat 1) + 1 DEAD DARK quarter (mat 0) on the FRONT-LEFT approach shoulder
-      // (chase-cam only sees the −z face — a back-side dead quarter is invisible; Fable 57-gate §2).
-      parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(0.40, 0), { x: 0.0, z: 0.0, y: 0.80, sy: 0.9 }) });     // main crown
-      parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(0.28, 0), { x: 0.22, z: 0.08, y: 0.70, sy: 0.88 }) });  // glow lobe (right)
-      parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: -0.10, z: 0.24, y: 0.70, sy: 0.88 }) }); // glow lobe (back)
-      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.28, 0), { x: -0.22, z: -0.12, y: 0.70, sy: 0.9 }) }); // DEAD DARK quarter — front-left shoulder, notches the approach silhouette
-      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.08, 0.32, 4).toNonIndexed(), { x: s * 0.15, z: 0.06, y: 0.09, rz: s * 0.35 }) }); // glowing root flares merged into the trunk foot (the weld)
+      const ni = (g) => g.toNonIndexed(); // match the non-indexed icosa bud so mergeParts stays consistent
+      parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.10, 0.145, 0.55, 5, 1, true)), { y: 0.275, rz: 0.05 }) });  // dead spar, lower
+      parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.065, 0.10, 0.48, 5, 1, true)), { x: 0.03, y: 0.76, rz: -0.07 }) }); // spar, upper (offset-stacked/bowed — boleveil idiom)
+      parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(0.045, 0.12, 3)), { x: 0.045, y: 0.99 }) });                       // splintered dark TIP (interrupt above the bud)
+      // five glowing shelf-conks bracketing UP the mast, alternating flanks + shrinking; each of the
+      // lower three seats on a wider DARK under-saucer (the dark cup/lip beyond the glow rim).
+      const shelves = [
+        { R: 0.34, y: 0.30, x: 0.20, rz: 0.06, h: 0.055, saucer: true },
+        { R: 0.29, y: 0.45, x: -0.17, rz: -0.06, h: 0.055, saucer: true },
+        { R: 0.25, y: 0.59, x: 0.15, rz: 0.05, h: 0.055, saucer: true },
+        { R: 0.20, y: 0.72, x: -0.12, rz: -0.05, h: 0.05, saucer: false },
+        { R: 0.15, y: 0.84, x: 0.09, rz: 0.04, h: 0.05, saucer: false },
+      ];
+      for (const s of shelves) {
+        if (s.saucer) parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(s.R + 0.045, 0.06, 4, 1, true)), { x: s.x, y: s.y - 0.045, rz: s.rz }) }); // dark under-saucer (wider dark lip)
+        parts.push({ mat: 1, geo: xform(ni(new THREE.ConeGeometry(s.R, s.h, 5)), { x: s.x, y: s.y, rz: s.rz }) }); // glowing shelf-conk (flat base = the reflection glow disc)
+      }
+      parts.push({ mat: 1, geo: xform(new THREE.OctahedronGeometry(0.10, 0), { x: 0.045, y: 0.945 }) });                       // lantern BUD (the white core; non-indexed, cheap)
+      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(ni(new THREE.ConeGeometry(0.07, 0.26, 3, 1, true)), { x: s * 0.16, y: 0.08, rz: -s * 0.4 }) }); // glowing root flares (waterline weld; ladder dims them to ember)
       const merged = mergeParts(parts, 4);
-      bakeMireLadder(merged.geometry, { baseY: 0.40, apexY: 1.16, mid: [0.784, 0.565, 0.314], base: [0.62, 0.47, 0.26] }); // span the canopy: dim rim → hot-gold core; base lifted (Fable 60) so the whole dome joins the beacon, not a white pinprick
-      merged.materials[merged.materials.length - 1] = propMats.mireFarLiving; // deep-gold far beacon @1.15
+      bakeMireLadder(merged.geometry, { baseY: 0.12, apexY: 1.00, mid: [0.83, 0.60, 0.31], base: [0.42, 0.32, 0.16] }); // S1 dim-gold → S5 hot → bud near-white core (vertical ladder up the mast)
+      merged.materials[merged.materials.length - 1] = propMats.mireFarLiving; // @1.8 far beacon (hard cap 1.9)
       return merged;
     },
-    place: (side, rnd) => { const r = 40 + rnd() * 12; return { x: side * (16 + 0.58 * r + rnd() * 8), h: 42 + rnd() * 10, r, tilt: 0, rotY: 0 }; },
+    // Towers over canopywall (r 30–48 / h 26–38): tip at world y ~65–76 = 1.8–2.3× the massif. Thin
+    // footprint (r 26–34, ρ≤0.59) wins on HEIGHT + tier-rhythm, not bulk. Coupling 0.66 clears the ±16 veil.
+    place: (side, rnd) => { const r = 26 + rnd() * 8; return { x: side * (17 + 0.66 * r + rnd() * 8), h: 62 + rnd() * 10, r, tilt: 0, rotY: 0 }; },
   },
 
   // glowshroom — THE MID CARRIER (Fable §1, Stage 3; named glowshroom to avoid the legacy `glowcap`):
@@ -1498,7 +1512,7 @@ const FOAM_CFG = {
   glowcolossus: { r: 0.42 }, // retired hero (parked) — foam row kept inert
   // ensemble (Fable §2): glowarch = two legs → ELLIPTICAL waterline collar (archruin precedent);
   // parked forms carry inert rows until their stage activates + tunes them.
-  glowarch: { rx: 0.66, rz: 0.16 }, glowtree: { r: 0.24 }, glowshroom: false, glowbloom: false, // glowtree live (trunk-only collar — the reflection weld is half foam)
+  glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, glowshroom: false, glowbloom: false, // glowspire live (spar-only collar; root flares + shelf reflections do the rest of the weld)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -2092,9 +2106,9 @@ function writeMatrix(band, i, d) {
     // Gate-clearing corridor (Fable Stage-1 §2): PR-2 dark screens with a `gateClear` half-width park in
     // the corridor around a KEPT glowARCH peak (both flanks) so the gate reads + its lozenge survives.
     if (active && band.def.gateClear && Math.abs(d.x) < band.def.gateClear && !Number.isNaN(mireHeroClearPeak(d.dist, 0, 0.5))) active = false;
-    // Tree-clearing corridor (Fable 60-ruling §2): ONE-SIDED — screens with a `treeClear` half-width park
-    // ONLY on the glowTREE's parity flank around a kept trough beacon (shift 150, rare 0.4), so the lone
-    // lantern stands in its own opened water (crown + reflection twin) while the opposite flank keeps its wall.
+    // Beacon-clearing corridor (Fable 60-ruling §2 / 62-redesign): ONE-SIDED — screens with a `treeClear`
+    // half-width park ONLY on the glowSPIRE's parity flank around a kept trough beacon (shift 150, rare 0.4),
+    // so the lone lantern spire stands in its own opened water (+ reflection twin) while the far flank keeps its wall.
     if (active && band.def.treeClear && Math.abs(d.x) < band.def.treeClear) {
       const pk = mireHeroClearPeak(d.dist, 150, 0.4);
       if (!Number.isNaN(pk) && d.side === (((pk % 2) + 2) % 2 === 1 ? 1 : -1)) active = false;
