@@ -16,7 +16,7 @@ if (!globalThis.localStorage) { const s = new Map(); globalThis.localStorage = {
 if (!globalThis.location) globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 
-const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage, shardColliderSupport, wallColliderCoverage, ringClearance } = await import('../js/obstacles.js');
+const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage, shardColliderSupport, wallColliderCoverage, ringClearance, calderaBarCoverage, calderaPillarCoverage, calderaBombSupport } = await import('../js/obstacles.js');
 
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.error(`  ✗ FAIL: ${label}`); } };
@@ -63,12 +63,29 @@ for (const r of [0.7, 0.85, 1.0, 1.1]) {
   check(`overunder ice clears the ring (ceiling ${(c.worst.ceiling ?? 0).toFixed(2)}u, floor ${(c.worst.floor ?? 0).toFixed(2)}u past collider)${c.ok ? '' : ' — ' + c.issues.join('; ')}`, c.ok);
 }
 
-// 2. BUDGET — each Frozen hazard skin ≤150 triangles (mobile 60fps budget).
+// 1f. FAIRNESS — the EMBERFALL CALDERA skins (collapsed colonnade span / spatter chimney /
+//     breadcrust bomb) cover their colliders exactly like Frozen's (own coverage exports).
+for (const r of [0.7, 0.85, 1.0, 1.1]) {
+  const c = calderaBarCoverage(r);
+  check(`Caldera bar (collapsed colonnade) gap-free at r=${r} (gaps: ${c.gapCount})`, c.ok);
+}
+{
+  const c = calderaPillarCoverage();
+  check(`Caldera pillar (spatter chimney) covered to 78% height (gaps: ${c.gapCount})`, c.ok);
+}
+{
+  const s = calderaBombSupport();
+  check(`Caldera shard (breadcrust bomb) contains the collider sphere (inradius ${s.toFixed(3)} ≥ 0.70)`, s >= 0.70);
+}
+
+// 2. BUDGET — each Frozen AND Caldera hazard skin ≤150 triangles (mobile 60fps budget).
 const BUDGET = 150;
-for (const type of ['bar', 'pillar', 'shard']) {
-  const g = buildObstacleMesh(type, 2);   // Frozen
-  const t = triCount(g);
-  check(`Frozen ${type} skin ≤${BUDGET} tris (${t})`, t <= BUDGET);
+for (const bi of [2, 3]) {
+  for (const type of ['bar', 'pillar', 'shard']) {
+    const g = buildObstacleMesh(type, bi);
+    const t = triCount(g);
+    check(`${bi === 2 ? 'Frozen' : 'Caldera'} ${type} skin ≤${BUDGET} tris (${t})`, t <= BUDGET);
+  }
 }
 
 // 3. FALLBACK — a non-skinned biome bar is still the single primitive cylinder

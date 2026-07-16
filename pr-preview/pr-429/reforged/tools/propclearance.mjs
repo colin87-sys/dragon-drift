@@ -36,7 +36,7 @@ const GATE_VEIL = 16;              // the Phase Gate veil half-span
 // PR-1 SCOPE: the Frozen biome (2) is the owner's acute complaint and is enforced
 // (CI-fail). Other biomes have pre-existing stragglers (shipped) — Fable's plan says
 // REPORT them as a follow-up, don't fix them in this PR. So they warn, not fail.
-const SCOPE_BIOME = 2;
+const SCOPE_BIOME = [2, 3];   // Frozen (2) + Emberfall Caldera (3, the overhaul biome) CI-enforced
 const data = propClearanceData();
 let fails = 0, strays = 0;
 const rows = [];
@@ -54,7 +54,7 @@ for (const a of data) {
     worstTop = Math.max(worstTop, top);
   }
   const exempt = worstTop <= LANE_MIN_Y;         // too low to reach the flight band
-  const inScope = a.biomes.includes(SCOPE_BIOME);
+  const inScope = a.biomes.some((b) => SCOPE_BIOME.includes(b));
   const bad = !exempt && innerMin < FLOOR;
   if (bad && inScope) fails++;
   if (bad && !inScope) strays++;
@@ -62,7 +62,7 @@ for (const a of data) {
 }
 
 rows.sort((x, y) => Number(x.inner) - Number(y.inner));
-console.log(`Lane-clearance audit (laneHalfWidth ${LANE}, fairness floor ${FLOOR}, gate veil ±${GATE_VEIL}). Enforced biome: ${SCOPE_BIOME} (Frozen).\n`);
+console.log(`Lane-clearance audit (laneHalfWidth ${LANE}, fairness floor ${FLOOR}, gate veil ±${GATE_VEIL}). Enforced biomes: ${SCOPE_BIOME.join(',')} (Frozen + Caldera).\n`);
 console.log('  prop            biomes   facingR  innerEdge  top    note');
 for (const r of rows) {
   const note = r.exempt ? 'exempt (below lane)'
@@ -73,5 +73,5 @@ for (const r of rows) {
 }
 console.log('');
 if (strays) console.log(`\x1b[33mnote: ${strays} pre-existing straggler(s) in other biomes invade the lane — scheduled follow-up (not this PR).\x1b[0m`);
-if (fails) { console.log(`\x1b[31mpropclearance: ${fails} FROZEN prop(s) invade the ±${LANE} flight lane\x1b[0m`); if (ci) process.exit(1); }
-else console.log(`\x1b[32mpropclearance: all Frozen props clear the flight lane (inner edge ≥ ${FLOOR})\x1b[0m`);
+if (fails) { console.log(`\x1b[31mpropclearance: ${fails} enforced prop(s) invade the ±${LANE} flight lane\x1b[0m`); if (ci) process.exit(1); }
+else console.log(`\x1b[32mpropclearance: all enforced props (Frozen + Caldera) clear the flight lane (inner edge ≥ ${FLOOR})\x1b[0m`);
