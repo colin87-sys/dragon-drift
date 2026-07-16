@@ -1,21 +1,21 @@
-// rain.js — driving STORM RAIN as world-space LineSegments (Tempest Reach).
+// rain.js — premium STORM RAIN as soft, tapered, instanced STREAK QUADS (Tempest Reach).
 //
-// Approach B (Fable rain/wind pre-assess): true 3D streaks, not screen-space stickers — so they
-// rotate correctly when the camera yaws / the dragon banks, and they consume the SAME per-biome
-// WIND vector (env.windX/windZ) as the foam, so the whole storm leans one way (composition law #6).
-// LineSegments are overdraw-exempt (the lightning precedent). Gated by env.rainMix (0 everywhere
-// except Tempest → byte-identical). Render-only: no RNG on the course stream, no determinism surface.
+// Rebuilt from LineSegments (owner: "cheap, not AAA") per Fable's premium-rain ruling, Layer A:
+// axis-billboarded quads whose LONG axis is locked to the world rain-fall vector (down, leaned
+// ~14° along the shared TEMPEST_WIND — the same vector the foam combs and the cloud crawls), the
+// quad rotating only about that axis to face the camera. Softness is PROCEDURAL in-shader (no
+// texture — the repo is 100% procedural): a feathered core with a long up-tail. ±40% length
+// variance kills the debug-uniformity tell. Two depth layers (near hero / mid). Normal alpha
+// blend, depth-tested so streaks occlude behind props ("real weather"). rainMix-gated (0 elsewhere
+// = byte-identical), tier-thinned. Render-only: no course RNG, no determinism surface.
 //
-// Readability guards (baked into the shader): height-fade kills rain in the pale horizon SLOT (the
-// value hole is the composition hero); a center-screen relief halves rain where rings/telegraphs
-// live; distance shells fade the far field so rain reads as DEPTH, not noise.
+// Deferred to their own work-order steps: Layer B splash-rings on the sea (water shader), Layer C
+// distant rain-sheet in the sky-dome shader. This file is the primitive swap only.
 import * as THREE from 'three';
 
-const COUNT = 700;              // segments; halved per tier via draw range
-const R_MIN = 6, R_FAR = 60;   // cylinder radius around the camera
-const Y_LO = -26, Y_HI = 26;   // vertical span (camera-relative)
-const FALL = 34;               // m/s along the wind+down vector
-const LEAN_K = 0.32;           // wind lean → ~18° off vertical
+const NEAR = 90, MID = 260, COUNT = NEAR + MID;
+const R_FAR = 38, Y_LO = -26, Y_HI = 26;   // tighter volume → the hero streaks read DENSE near the camera (Layer C adds far density)
+const LEAN_K = 0.25;   // ~14° off vertical along the wind
 
 function mulberry32(a) {
   return function () {
@@ -26,72 +26,95 @@ function mulberry32(a) {
   };
 }
 
-let rain = null, mat = null, posAttr = null;
-let off = null, lens = null;   // camera-relative offsets + per-segment length jitter
+let rain = null, mat = null, iPosAttr = null;
+let off = null, speed = null;
 const _dir = new THREE.Vector3();
 
 export function createRain(scene) {
   const rnd = mulberry32(0x7a1f2e3d);
-  const pos = new Float32Array(COUNT * 2 * 3);
+  // Base quad: position.xy = (u,v) in [0,1]; two tris. Instanced COUNT times.
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0]), 3));
+  geo.setIndex([0, 1, 2, 2, 1, 3]);
+
+  const iPos = new Float32Array(COUNT * 3);
+  const iLen = new Float32Array(COUNT);
+  const iWidth = new Float32Array(COUNT);
+  const iAlpha = new Float32Array(COUNT);
   off = new Float32Array(COUNT * 3);
-  lens = new Float32Array(COUNT);
+  speed = new Float32Array(COUNT);
   for (let i = 0; i < COUNT; i++) {
-    const rad = R_MIN + rnd() * (R_FAR - R_MIN);
+    const near = i < NEAR;
+    const rad = 5 + rnd() * (R_FAR - 5);
     const ang = rnd() * Math.PI * 2;
     off[i * 3] = Math.cos(ang) * rad;
     off[i * 3 + 1] = Y_LO + rnd() * (Y_HI - Y_LO);
     off[i * 3 + 2] = Math.sin(ang) * rad;
-    lens[i] = 1.4 + (rnd() - 0.5) * 0.8;   // 1.4m ± 0.4 — jitter LENGTH, never angle (one wind)
+    // ±40% length variance is mandatory (uniformity is the debug tell).
+    const lv = 0.6 + rnd() * 0.8;
+    iLen[i] = (near ? 7.0 : 3.75) * lv;                     // near 5–9m, mid 2.5–5m
+    iWidth[i] = near ? 0.07 + rnd() * 0.04 : 0.045 + rnd() * 0.025;
+    iAlpha[i] = near ? 0.30 : 0.18;
+    speed[i] = (near ? 30 : 22) * (0.8 + rnd() * 0.4);      // ±20%
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  posAttr = geo.attributes.position;
+  geo.setAttribute('iPos', new THREE.InstancedBufferAttribute(iPos, 3));
+  geo.setAttribute('iLen', new THREE.InstancedBufferAttribute(iLen, 1));
+  geo.setAttribute('iWidth', new THREE.InstancedBufferAttribute(iWidth, 1));
+  geo.setAttribute('iAlpha', new THREE.InstancedBufferAttribute(iAlpha, 1));
+  geo.instanceCount = COUNT;
+  iPosAttr = geo.getAttribute('iPos');
+
   mat = new THREE.ShaderMaterial({
     uniforms: {
-      uColor: { value: new THREE.Color(0xaebcbe) },   // overcast pale slate — NEVER white (white = the star-read)
+      uColor: { value: new THREE.Color(0xc6d0d2) },   // overcast pale slate — NEVER white
       uRainMix: { value: 0 },
-      uCamY: { value: 0 },
-      uOpNear: { value: 0.32 },
+      uCamPos: { value: new THREE.Vector3() },
+      uFall: { value: new THREE.Vector3(0, -1, 0) },
     },
     vertexShader: /* glsl */`
-      uniform float uCamY;
-      varying float vAlpha;
-      varying float vScreenX;
+      attribute vec3 iPos; attribute float iLen; attribute float iWidth; attribute float iAlpha;
+      uniform vec3 uCamPos, uFall;
+      varying vec2 vUV; varying float vAlpha; varying float vScreenX; varying float vWorldY;
       void main() {
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vec4 clip = projectionMatrix * mv;
-        // Height fade: clean the pale horizon SLOT — rain across the value hole is vandalism.
-        float hf = 1.0 - smoothstep(14.0, 22.0, position.y - uCamY);
-        // Distance shell: near full, far ~0.55 → rain reads as depth planes, not a flat wall.
-        float shell = mix(1.0, 0.55, smoothstep(30.0, 46.0, length(mv.xyz)));
-        vAlpha = hf * shell;
+        vUV = position.xy; vAlpha = iAlpha; vWorldY = iPos.y;
+        // Axis-billboard: long axis = the fall vector; width axis faces the camera around it.
+        vec3 view = normalize(uCamPos - iPos);
+        vec3 wAxis = normalize(cross(uFall, view));
+        // v=0 at the leading (bottom) drop, v=1 at the trailing (up-wind) tail.
+        vec3 world = iPos - uFall * (position.y * iLen) + wAxis * ((position.x - 0.5) * iWidth);
+        vec4 clip = projectionMatrix * viewMatrix * vec4(world, 1.0);
         vScreenX = clip.x / clip.w;
         gl_Position = clip;
       }`,
     fragmentShader: /* glsl */`
-      uniform vec3 uColor; uniform float uRainMix, uOpNear;
-      varying float vAlpha; varying float vScreenX;
+      uniform vec3 uColor; uniform float uRainMix; uniform vec3 uCamPos;
+      varying vec2 vUV; varying float vAlpha; varying float vScreenX; varying float vWorldY;
       void main() {
-        // Center-screen relief: rings / gates / telegraphs live here — halve rain in the central third.
+        // Procedural SOFT STREAK: feathered across the width, a bright core band ~35–55% up the
+        // length with a long up-tail feather and a short tip feather — a rain streak, not a bar.
+        float he = pow(1.0 - abs(2.0 * vUV.x - 1.0), 1.7);
+        float ve = smoothstep(0.0, 0.35, vUV.y) * smoothstep(1.0, 0.55, vUV.y);
+        // Readability: clean the pale horizon SLOT + relieve the center third (rings/telegraphs).
+        float hf = 1.0 - smoothstep(14.0, 22.0, vWorldY - uCamPos.y);
         float cf = mix(0.5, 1.0, smoothstep(0.0, 0.5, abs(vScreenX)));
-        float a = uOpNear * vAlpha * cf * uRainMix;
+        float a = vAlpha * he * ve * hf * cf * uRainMix;
         if (a < 0.003) discard;
         gl_FragColor = vec4(uColor, a);
       }`,
-    transparent: true, depthWrite: false, blending: THREE.NormalBlending,
+    transparent: true, depthWrite: false, depthTest: true, blending: THREE.NormalBlending,
+    side: THREE.DoubleSide,
   });
-  rain = new THREE.LineSegments(geo, mat);
+  rain = new THREE.Mesh(geo, mat);
   rain.frustumCulled = false;
   rain.renderOrder = 3;
   rain.visible = false;
   scene.add(rain);
 }
 
-// Tier degrade: halve the drawn segments at tier 1, quarter at tier 2 (draw range, no rebuild).
+// Tier degrade: full / ~170 / ~90 quads (instanceCount, no rebuild).
 export function setRainTier(t) {
   if (!rain) return;
-  const n = t >= 2 ? (COUNT >> 2) : (t >= 1 ? (COUNT >> 1) : COUNT);
-  rain.geometry.setDrawRange(0, n * 2);
+  rain.geometry.instanceCount = t >= 2 ? 90 : (t >= 1 ? 170 : COUNT);
 }
 
 export function updateRain(dt, camera, env) {
@@ -101,24 +124,22 @@ export function updateRain(dt, camera, env) {
   rain.visible = mix > 0.005;
   if (!rain.visible) return;
 
-  // One wind vector (env.windX/windZ) + down → the streaks lean ~18° into the wind, all identical.
   _dir.set((env.windX || 0) * LEAN_K, -1, (env.windZ || 0) * LEAN_K).normalize();
+  mat.uniforms.uFall.value.copy(_dir);
+  mat.uniforms.uCamPos.value.copy(camera.position);
   const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-  mat.uniforms.uCamY.value = cy;
-  const step = FALL * dt, span = Y_HI - Y_LO, box = 2 * R_FAR;
-  const p = posAttr.array;
+  const span = Y_HI - Y_LO, box = 2 * R_FAR;
+  const p = iPosAttr.array;
   for (let i = 0; i < COUNT; i++) {
-    let ox = off[i * 3] + _dir.x * step;
-    let oy = off[i * 3 + 1] + _dir.y * step;
-    let oz = off[i * 3 + 2] + _dir.z * step;
-    if (oy < Y_LO) oy += span;                       // fall wrap
+    const s = speed[i] * dt;
+    let ox = off[i * 3] + _dir.x * s;
+    let oy = off[i * 3 + 1] + _dir.y * s;
+    let oz = off[i * 3 + 2] + _dir.z * s;
+    if (oy < Y_LO) oy += span;
     if (ox < -R_FAR) ox += box; else if (ox > R_FAR) ox -= box;
     if (oz < -R_FAR) oz += box; else if (oz > R_FAR) oz -= box;
     off[i * 3] = ox; off[i * 3 + 1] = oy; off[i * 3 + 2] = oz;
-    const wx = cx + ox, wy = cy + oy, wz = cz + oz, L = lens[i];
-    const j = i * 6;
-    p[j] = wx; p[j + 1] = wy; p[j + 2] = wz;                              // leading drop
-    p[j + 3] = wx - _dir.x * L; p[j + 4] = wy - _dir.y * L; p[j + 5] = wz - _dir.z * L; // trail up-wind
+    p[i * 3] = cx + ox; p[i * 3 + 1] = cy + oy; p[i * 3 + 2] = cz + oz;
   }
-  posAttr.needsUpdate = true;
+  iPosAttr.needsUpdate = true;
 }
