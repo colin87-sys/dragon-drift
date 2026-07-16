@@ -69,14 +69,35 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   const zzOf = (i) => zs[i] - zAnchor;
 
   // ── Build ONE swept tube: N rings × K radial verts, lofted + capped ──────────────────
-  const colBody = new THREE.Color(cBody), colBelly = new THREE.Color(cBelly), colShadow = new THREE.Color(cShadow);
+  // ── AAA r1 P2 — the 5-TIER value ladder + the organized KOI-SCALE LATTICE ──────────────
+  // The old body was ONE flat pale value (measured L 0.84→0.84, zero variance = DD#8 flat
+  // poverty + DD#11 featureless loft). Premium needs core→bloom→dark. Here the whole ladder
+  // is carried in VERTEX COLOR (free on tris): a dorsal-lit CROWN → mid-jade BODY → deep-jade
+  // SHADOW flank → pale-mint BELLY, spanning the approved ramp (sRGB L ~0.18→0.55), PLUS an
+  // organized koi-scale shingle lattice painted over the flanks/back so the surface reads as
+  // a scaled jade koi up close and as value-structured mass at distance. Two organized rank
+  // systems for free (longitudinal value strakes + the scale lattice); the moon-tail veil is
+  // the third (P2 wants ≥3).
+  // dorsal CROWN is a LIT mid-jade — NOT near-white (the pale scales tier read as a washed
+  // top from the planform cam). Keep it vivid so the one-word read stays GREEN from above.
+  const colCrown = new THREE.Color(cBody).lerp(new THREE.Color(def.scales ?? 0x8fe0be), 0.6);
+  const colBody = new THREE.Color(cBody);                        // mid-jade
+  const colFlankLo = new THREE.Color(cBody).lerp(new THREE.Color(cShadow), 0.55);  // lower-flank mid-dark step
+  const colShadow = new THREE.Color(cShadow);                    // deep-jade shadow floor
+  const colBelly = new THREE.Color(cBelly);                      // pale-mint belly
+  const scaleDark = new THREE.Color(cShadow).lerp(new THREE.Color(0x042e1e), 0.6);  // the overlap-shadow line under each scale (deep, so the koi scales READ up close)
+  const scaleLite = new THREE.Color(def.scales ?? 0x8fe0be);     // the exposed lit lower edge of each scale
+  const scaleAmt = model.scaleFieldAmt ?? 0.7;                  // strength of the koi scale lattice (0 = smooth)
+  const nRows = Math.max(5, Math.round(N * (model.scaleRowDensity ?? 0.5)));  // ~2 rings per scale so the lattice RESOLVES (not aliased) against the loft
+  const hash2 = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };  // deterministic per-scale jitter (never Math.random — registry #2)
   const positions = [], normals = [], colors = [], indices = [];
   const tmp = new THREE.Color();
   const ringBase = [];   // first vertex index of each ring
   for (let i = 0; i < N; i++) {
     ringBase.push(positions.length / 3);
     const r = radii[i];
-    const cy = yAt(N > 1 ? i / (N - 1) : 0);
+    const t = N > 1 ? i / (N - 1) : 0;
+    const cy = yAt(t);
     const cz = zzOf(i);
     for (let j = 0; j < K; j++) {
       const a = (j / K) * Math.PI * 2;
@@ -86,10 +107,33 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
       // radial normal (approx; the wave shears it but the rim uses the view-space normal)
       const nx = cs / OVAL_W, ny = sn / OVAL_H; const nl = Math.hypot(nx, ny) || 1;
       normals.push(nx / nl, ny / nl, 0);
-      // value ramp keyed on the vertical component (belly at the bottom of the ring)
-      if (sn >= 0.05) tmp.copy(colBody);
-      else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
-      else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
+      // ── VALUE LADDER keyed on the vertical component (sn: +1 dorsal → −1 belly) ──
+      if (sn >= 0.4)       tmp.copy(colBody).lerp(colCrown, (sn - 0.4) / 0.6);            // dorsal crown = LIT mid-jade
+      else if (sn >= 0.0)  tmp.copy(colBody);                                              // upper flank = mid-jade
+      else if (sn >= -0.4) tmp.copy(colBody).lerp(colFlankLo, (-sn) / 0.4);                // lower flank steps to mid-dark
+      else if (sn >= -0.68) tmp.copy(colFlankLo).lerp(colShadow, (-sn - 0.4) / 0.28);      // deep-jade shadow keel
+      else                  tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-sn - 0.68) / 0.32));  // pale-mint belly
+      // ── KOI SCALE LATTICE (flanks + back only; the belly stays smooth like a real koi) ──
+      // Each scale: a DARK overlap-shadow at its root (under the scale above) → a LIT exposed
+      // lower edge → dark side seams, brick-staggered per row, with deterministic nacreous
+      // jitter. Reads as an organized koi scale field up close (an organized rank system) and
+      // as value texture at distance — never Math.random (registry #2).
+      if (scaleAmt > 0 && sn > -0.6) {
+        const rowf = t * nRows;
+        const row = Math.floor(rowf);
+        const rowFrac = rowf - row;                     // 0 root (overlapped) → 1 exposed edge
+        const colOff = (row % 2) * 0.5;                 // brick-stagger alternate rows (koi pattern)
+        const colf = j + colOff;
+        const colFrac = colf - Math.floor(colf);        // 0..1 across one scale
+        const overlapShade = Math.pow(1 - rowFrac, 1.8);          // shadow line under the overlapping scale above
+        const litEdge = Math.pow(Math.max(0, rowFrac - 0.55) / 0.45, 1.5);   // the exposed lower edge catches light
+        const seamShade = Math.pow(Math.abs(colFrac - 0.5) * 2, 3.0) * 0.7;  // darker side seams
+        const jitter = (hash2(row, Math.floor(colf)) - 0.5) * 0.18;          // per-scale nacreous value jitter
+        const fieldFade = Math.min(1, (sn + 0.6) / 0.4);          // fade the lattice OUT toward the belly
+        tmp.lerp(scaleDark, Math.min(0.9, (overlapShade * 0.85 + seamShade) * scaleAmt) * fieldFade);
+        tmp.lerp(scaleLite, litEdge * 0.5 * scaleAmt * fieldFade);
+        tmp.lerp(colCrown, Math.max(0, jitter) * fieldFade * 0.5).lerp(colShadow, Math.max(0, -jitter) * fieldFade * 0.5);
+      }
       colors.push(tmp.r, tmp.g, tmp.b);
     }
   }

@@ -231,10 +231,27 @@ function buildKoiSkull(c) {
       rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]); }
   }
   rings.push(st[st.length - 1]);
-  const crownC = c.mats.bodyMat.color.clone().multiplyScalar(1.95);  // LIFT the head dorsal into mid-jade so the apex face never falls to near-black (gate rework dir 8 + CP2 polish)
-  const bodyC = c.mats.bodyMat.color.clone();
-  const snoutC = bodyC.clone().multiplyScalar(0.72);          // a darker value step over the muzzle (law 11 tier)
-  const jawC = bodyC.clone().multiplyScalar(1.25);            // jaw a LIGHT-JADE step (was the pale belly, which read slate-blue in shadow — CP2 polish); stays in the green family
+  // ── AAA r1 P1 (kill the BLUE head) — the koiSerpent torso paints its body via VERTEX
+  // COLORS, so `mats.bodyMat.color` is WHITE (0xffffff). The old head derived its whole
+  // palette from that white → the shell rendered near-white and the cool studio IBL
+  // reflected it BLUE-GREY (measured hue 205°, B>G — the single worst identity failure on
+  // the sheet). Source the head palette from the real jade ramp (`def.body`) instead, with
+  // a proper 4-tier value ladder (crown-lit → flank → shadow-snout → pale-mint jaw), so the
+  // head reads unmistakably GREEN (G>B) at every angle. Falls back to bodyMat.color for any
+  // non-vertex-color dragon (koiSkull is jade-only today, but keep it general).
+  const _isVC = c.mats.bodyMat.vertexColors && c.mats.bodyMat.color.getHex() === 0xffffff;
+  const lightJade = new THREE.Color(c.def.scales ?? 0x8fe0be);   // pale-green scale tier (the lit dorsal step)
+  const shadowJade = new THREE.Color(c.def.model?.bodyShadowColor ?? 0x0d5c3a);   // deep-jade value floor
+  const paleMint = new THREE.Color(c.def.belly ?? 0xdaf7e6);     // pale-mint belly = the jaw underside tier
+  // Lift the head base to a VIVID MID-jade (the raw def.body 0x178a54 alone measured L 0.13 —
+  // a near-forest blob; target L 0.30-0.55). Lerp toward the light-jade scale tier so the head
+  // reads as a bright green koi head, keeping the 4-tier ladder (crown-lit → mid → shadow-snout
+  // → pale-mint jaw) for craft.
+  const baseHead = new THREE.Color(_isVC ? (c.def.body ?? 0x178a54) : c.mats.bodyMat.color.getHex()).lerp(lightJade, 0.32);
+  const crownC = baseHead.clone().lerp(lightJade, 0.5);        // dorsal crown lift → lit mid-jade (never near-black, never white)
+  const bodyC = baseHead.clone();
+  const snoutC = baseHead.clone().lerp(shadowJade, 0.42);      // darker deep-jade value step over the muzzle (law 11 tier)
+  const jawC = paleMint.clone();                                // jaw underside = pale mint (the 4th tier)
   const M = seg(14), verts = [], cols = [], idx = [], col = new THREE.Color();
   for (const [z, w, h, yc] of rings) {
     for (let k = 0; k < M; k++) {

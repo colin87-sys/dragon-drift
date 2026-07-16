@@ -251,7 +251,7 @@ export const DRAGONS = {
       // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
       // stacked spheres that read as an "astral worm." The tail is the tapering rear of
       // this same tube (parts.tail:'none'), continuous by construction.
-      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 18, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // AAA r1 — 18 radial cols (was 13) so the koi-scale lattice resolves finer + the body reads rounder
       bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
       bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
@@ -274,6 +274,7 @@ export const DRAGONS = {
       finGlow: 0.6,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
       finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
       spineGlow: 0.3,
+      surgeGlowMultiplier: 18,           // AAA r1 — the withheld "Pearl-Wake" ignition, CAPPED below the Azure starter's 20 and the Eternal Vesper's 22 (Radiant < Eternal by lit AREA, not just multiplier)
       flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
     },
     // Three visible forms (starter caps at SSR / tier 2): a chubby LONG river-pup
@@ -341,6 +342,14 @@ export const DRAGONS = {
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
     eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,
+    // AAA r1 — GREEN cruise rim so the rig's fresnel edge on jade reads mint-green, never the
+    // default warm cream (which was washing the fins pale). + the WITHHELD "Pearl-Wake"
+    // signature fever palette: the fin FACES stay dark on Surge (feverWing 0x000000 firewall —
+    // only the pearl + the carrier edge ignite), the eyes stay GREEN (never the rig's default
+    // magenta), and the surge highlight is the mint-pearl. Radiant<Eternal cap: surgeGlowMultiplier
+    // 18 (below the Azure precedent's 20, well below the Eternal Vesper's 22).
+    rimCruise: 0x7fdcb0, rimCruiseBase: 0.5,
+    feverWing: 0x000000, feverEye: 0xa6f5cf, feverWash: 0x2f9e77,
   },
 
 

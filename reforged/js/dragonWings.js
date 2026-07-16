@@ -1505,13 +1505,27 @@ function buildSilkFinWings(def, model, attach, giM) {
   // place the rim lives). OPAQUE now: the translucency was depth-sorted view-dependently,
   // so the right fan read teal and the left green from the same angle (gate r3/r6 dir 7).
   // The silk read comes from the vertex gradient + the rim, not from see-through alpha.
+  // AAA r1 P4 — the rear lobe + streamers stay DIFFUSE GREEN. The old always-on fresnel
+  // mint rim washed them pale-cyan (measured sat 0.10, and it poisoned the whole rear-chase
+  // green read — the biggest silhouette element reading white). The mint-pearl carrier is now
+  // WITHHELD (the Pearl-Wake edge strip below), so the diffuse ribbon can hold its green.
   const finMatRear = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, metalness: 0.0, envMapIntensity: 0,
     side: THREE.DoubleSide, opacity: 1.0,
-    emissive: cMid, emissiveIntensity: Math.max(0.14, model.finGlow ?? 0.06),
+    emissive: cMid, emissiveIntensity: Math.max(0.1, model.finGlow ?? 0.06),
   });
-  applyFresnelRim(finMatRear, cRim);
   spineMats.push(finMat, finMatRear);
+  // AAA r1 — the WITHHELD-signature contract for the shared surge tick (dragon.js). Every
+  // spineMat that lacks userData.baseEmissive is reset to WHITE @ intensity 1 in cruise
+  // in-game (a latent white-wash the fins had) — set them explicitly. The forward lobes are
+  // FIREWALLED (low flare weights → they stay diffuse GREEN through Surge, so the fin FACES
+  // never blaze — the coal-not-torch law + the Radiant lit-area cap). The rear lobe + streamers
+  // are the mint "Pearl-Wake" CARRIER: withheld dark in cruise (base 0.05), gleaming mint on
+  // Surge (moderate flare, never a white blaze — a Radiant gleams, it does not blaze).
+  finMat.userData.baseEmissive = cMid;   finMat.userData.baseIntensity = model.finGlow ?? 0.06;
+  finMat.userData.flareColorWeight = 0.12; finMat.userData.flareIntensityWeight = 0.12;
+  finMatRear.userData.baseEmissive = cRim; finMatRear.userData.baseIntensity = 0.05;
+  finMatRear.userData.flareColorWeight = 0.7; finMatRear.userData.flareIntensityWeight = 0.5;
 
   // GLOW-UP: fin-tip DEW GEMS — one small stretched octahedron riding each lobe's tipObj,
   // a jeweled mint bead of pearl-light caught on the silk. Opaque saturated emissive (bloom-
@@ -1554,8 +1568,13 @@ function buildSilkFinWings(def, model, attach, giM) {
         // so the "darker leading ray" reads as integrated relief, not a floating rod
         // (gate r1 dir 6 — the separate ray bone is gone).
         const rib = Math.max(0, 0.5 - cf) * 2;                 // 1 at leading edge → 0 by mid-chord
-        let y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI))
-                + camber * 0.5 * rib * rib * Math.sin(u * Math.PI);
+        // AAA r1 P3 — a REAL raised RACHIS RIDGE along the leading ray so the blade reads as
+        // a WEDGE with an edge-on spine (DD#3 fix — the old crease was invisible edge-on, so
+        // the fans collapsed to slivers in the rear-chase). The ridge stands proud ~2× the
+        // camber over the leading ~third, tapering along the length so it welds into the
+        // membrane (not a floating rod, gate r1 dir 6).
+        const rachis = camber * (1.7 + 0.5 * rayRelief) * Math.pow(rib, 1.5) * Math.sin(Math.min(1, 0.12 + u) * Math.PI);
+        let y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI)) + rachis;
         // CP3 flutes: 3 koi-fin RAYS as raised crests root→tip with web troughs between
         // (ray #1 = the leading rib). Displaced along the blade normal (+y) and FADED to
         // zero at the chord edges (edgeFade) + root/tip (lenFade) so the boundary verts —
@@ -1579,16 +1598,22 @@ function buildSilkFinWings(def, model, attach, giM) {
         // value tiers along the chord (law 11): a deep-emerald leading RAY → bright mid
         // body → a darker trailing step, so each lobe reads DIMENSIONAL, not a flat
         // sticker (gate r3 dir 9), plus root→tip lightening.
-        c.copy(cM).lerp(cT, Math.pow(u, 2.6));                 // stay SATURATED mid-jade for most of the lobe; pale-jade only on the outer ~25% tip (gate r6 dir 7 — kill the gray-sage wash)
-        c.lerp(cL, Math.max(0, 1 - u * 2.8) * 0.72);          // ROOT deep-emerald tier — the 3rd value tier (root dark → mid → pale tip, gate rework r4 dir 6)
-        const lead = Math.pow(Math.max(0, 1 - cf * 2.0), 1.05); // strong wide leading-ray band → 0 by ~mid-chord
-        c.lerp(cL, lead * 0.98);                               // strong deep-emerald leading RAY at FULL contrast (gate rework r4 dir 3 — each lobe reads separately, not one leaf)
-        if (cf > 0.74) c.lerp(cL, (cf - 0.74) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
-        if (rayRelief > 0) {                                    // CP3: value-band the flutes so the rays READ at rear-chase, not just in the crop
-          c.lerp(cT, crest * rayRelief * 0.55);                // BRIGHT pale-jade highlight on the raised ray crest
-          c.lerp(cL, trough * rayRelief * 0.82);               // DEEP-emerald in the recessed web → bold alternating light/dark bands
+        // AAA r1 P3 — hold the blade SATURATED GREEN (measured old membrane was sat 0.10, a
+        // cyan-white wash; target ≥0.25). Deep-emerald leading-ray + root tier → mid-jade body
+        // → pale-jade ONLY at the extreme tip (outer ~18%), so one lobe spans ΔL≥0.45 root→tip
+        // yet stays green. The mint-pearl RIM CARRIER no longer washes the face here — it now
+        // lives as the WITHHELD edge strip (the Pearl-Wake signature), so the diffuse fin can
+        // stay richly green in cruise (registry #3: membranes stay diffuse, the frame owns light).
+        c.copy(cM);                                            // SATURATED mid-jade base for most of the lobe
+        c.lerp(cL, Math.max(0, 1 - u * 1.9) * 0.85);          // deep-emerald ROOT tier (value floor)
+        const lead = Math.pow(Math.max(0, 1 - cf * 1.9), 1.05);
+        c.lerp(cL, lead * 0.92);                               // strong deep-emerald LEADING RAY (each lobe reads separately)
+        if (cf > 0.72) c.lerp(cL, (cf - 0.72) * 1.0);         // trailing-edge dark value step (2nd tier)
+        if (u > 0.82) c.lerp(cT, ((u - 0.82) / 0.18) * 0.85); // pale-jade highlight ONLY at the extreme tip
+        if (rayRelief > 0) {                                    // value-band the flutes so the rays READ at rear-chase
+          c.lerp(cT, crest * rayRelief * 0.4);                // pale-jade highlight on the raised ray crest
+          c.lerp(cL, trough * rayRelief * 0.9);               // DEEP-emerald in the recessed web → bold light/dark bands
         }
-        if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -1666,7 +1691,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           const sl = streamerLen * (1 - s * 0.16);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
-          const strip = new THREE.Mesh(streamerGeo(sl, 0.88 * ws, side * 0.8 + s * 0.5), finMatRear);   // BROAD veil ribbon → reads as mass, not hairline wire, in the rear fill (gate rework r4 dir 1)
+          const strip = new THREE.Mesh(streamerGeo(sl, 1.25 * ws, side * 0.8 + s * 0.5), finMatRear);   // BROAD folded veil ribbon → reads as MASS, not a hairline wire, in the rear fill (AAA r1 P4)
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
@@ -1689,23 +1714,29 @@ function buildSilkFinWings(def, model, attach, giM) {
     // river-veil" reads as folded silk catching light, not flat sticker-tape. Same span
     // (w) + same spline (xw) + same length → planform/silhouette unchanged. Off the apex
     // the streamers don't exist (streamerLen 0/0/7.5), so the widen is inherently gated.
-    const nW = rayRelief > 0 ? 3 : 1;                        // 4 width-verts (folded) vs the 2-vert tape
-    const nZ = seg(11), verts = [], cols = [], idx = [];
+    // AAA r1 P4 — a FOLDED SILK RIBBON, not a wire. The old streamer tapered to a 0.004 point
+    // and washed pale-blue at the tip → measured as a <2px white wire (registry #10/#11). Now:
+    // the width holds a FLOOR (≥50% of root through ~75% of the length before easing to a
+    // rounded end), a real V-FOLD gives two faces (a lit crown vs a shadowed valley ≥0.12 L
+    // apart), and it stays GREEN (deep-jade valley → mid-jade crown → pale-mint ONLY the last
+    // ~10%). Always the 4-vert folded band (the 2-vert tape read as tape).
+    const nW = 3;                                           // 4 width-verts (folded band) always
+    const nZ = seg(13), verts = [], cols = [], idx = [];
     const cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), cLc = new THREE.Color(cLead), c = new THREE.Color();
     const bend = 0.14 + 0.05 * phase;                        // per-streamer curvature (breaks the L/R mirror without kinks)
     for (let i = 0; i <= nZ; i++) {
       const t = i / nZ;
       const z = t * L;
-      const hw = w * 0.5 * Math.pow(1 - t, 1.1) + 0.004;    // smooth monotonic taper to a fine point
+      const hw = w * 0.5 * (0.5 + 0.5 * Math.pow(Math.max(0, 1 - t * 0.9), 1.4)) + 0.02;  // WIDTH FLOOR — holds mass, eases to a rounded end (not a point)
       const xw = Math.sin(t * Math.PI * 0.9) * bend * L;    // ONE gentle hump (single inflection), no zigzag
       const yd = -Math.pow(t, 1.4) * 0.1 * L;               // very gentle droop — trails aft behind the dragon
       for (let j = 0; j <= nW; j++) {
-        const wf = nW > 0 ? j / nW - 0.5 : 0;                // -0.5..+0.5 across the band width
-        const yFold = -Math.cos(wf * Math.PI) * hw * 0.08 * (nW > 1 ? 1 : 0);  // whisper of a centre crease — enough to bend normals into a light-catch fold, small enough to leave the streamer's rear-silhouette width intact
+        const wf = j / nW - 0.5;                             // -0.5..+0.5 across the band width
+        const yFold = -Math.cos(wf * Math.PI) * hw * 0.32;   // a REAL V-fold — the ribbon creases down its centre so a lit crown + a shadow valley both read
         verts.push(xw + wf * 2 * hw, yd + yFold, z);
-        c.copy(cM).lerp(cT, t * 0.6);                        // held in the green band (mid → pale-jade)
-        if (nW > 1) c.lerp(cLc, (1 - Math.abs(wf) * 2) * 0.22 * Math.min(1, (1 - t) / 0.18));   // deeper-jade seam down the crease valley → the fold reads, faded out before the tip so it never reads as a detached blob
-        if (t > 0.85) c.lerp(cR, (t - 0.85) / 0.15);         // mint-pearl only at the last ~15% of the tip
+        c.copy(cM);                                          // SATURATED mid-jade base (green, not pale)
+        c.lerp(cLc, (1 - Math.abs(wf) * 2) * 0.5 * Math.min(1, (1 - t) / 0.14));   // deep-jade fold VALLEY → the two faces read as folded silk
+        if (t > 0.9) c.lerp(cR, (t - 0.9) / 0.1 * 0.8);      // pale-mint only the last ~10% of the tip
         cols.push(c.r, c.g, c.b);
       }
     }
