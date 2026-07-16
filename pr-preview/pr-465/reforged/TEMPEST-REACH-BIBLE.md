@@ -308,18 +308,28 @@ at the 4.2 studio floor AND in-context dead-center in the worst light.
   time-varying light (flash/sheet events); green-grey transmitted cast top-down vs Mire's
   emissive teal bottom-up; crushing low ceiling vs Astral's infinite void; saturated teal absent
   vs Aurora's curtain.
-- ☑ **NAMED GUARDED PAIR — vs the LIVE Lumen Mire** (owner-requested check, 2026-07-16; verified
-  against the shipped `BIOMES[4]` entry, which is unchanged since PR #388 — there is no Mire
-  "redo" in the repo, branches, or open PRs; the live teal-biolume night garden is the reference).
-  The shared risk is the green/teal family. Mire's greens are **saturated + emissive + bottom-up**
-  (horizon `0x3fd8b0`, mint ambient `0xaaffc0`, shallow water `0x0f6a5a`, glowing mushroom/vine
-  props), at NIGHT (`stars:0.6`), intimate (fog far 300), gentle (sway 3.4). Tempest inverts every
-  one: its green is **desaturated grey-olive + transmitted + top-down** (`sky.mid 0x4d5346`, very
-  low chroma), by DAY (`stars:0`), vast (pale-silver far fog), violent (waveAmp 0.95, wind + flash);
-  **saturated teal `#2fd8e8` is banned from the ambient palette** (override #1) and survives only in
-  momentary in-eye water glints + STORMREND's kit. Blind-screenshot verdict: "glowing teal night
-  garden" vs "grey stormy dim-daylight sea" = different games. PASS. (If a Mire redo lands later, re-run
-  this row against its actual hexes before Tempest merges.)
+- ☑ **NAMED GUARDED PAIR — vs the MERGED amber Lumen Mire** (owner-requested check, 2026-07-16;
+  re-run against PR #464 "Lumen Mire overhaul PR-1", **merged to master**, after which this branch
+  was rebased onto it). The Mire overhaul flipped Mire from teal to **AMBER** — theology *"nothing
+  shines from the sky; the drowned forest makes its own light."* So the shared risk moved from teal
+  to **warm gold** (Tempest's one expensive hue). They resolve it oppositely, on FIVE axes:
+  1. **Light logic — exact inverse.** Mire = self-emitted by organisms, no sky light (`accent[4]`
+     firefly amber `0xffc23a` is the SOLE emitter @0.9). Tempest = ALL light from the hidden sky-sun,
+     *nothing self-luminous* — gold only leaks/reflects.
+  2. **Gold's role.** Mire: amber is the **dominant field** (roof `0x171410`, far-fog `0x2b2314`,
+     motes, black-mirror water all warm) — the RULE. Tempest: gold is a **rationed ≤10% accent**
+     (`0xffd870`) on a COOL field — the EXCEPTION.
+  3. **Field hue.** Mire warm amber/black; Tempest cool blue-grey/green-grey/silver.
+  4. **Time + sky.** Mire NIGHT (`stars:0.2`), dark canopy ROOF, no horizon composed; Tempest DAY
+     (`stars:0`), pale-silver value-hole horizon, vast storm deck.
+  5. **Water.** Mire black-mirror STILL (`waveAmp 0.2`) doubling the glow; Tempest VIOLENT
+     (`waveAmp 0.95`) with foam streaks.
+  Even the gold differs: Mire's saturated firefly amber `0xffc23a` glowing in a dark field vs
+  Tempest's pale bright sunlight gold `0xffd870` as rim/shaft on a cool field. Blind-screenshot:
+  "dark warm still glowing night swamp" vs "cold vast violent day storm with a pale slot + gold
+  leaks" = different games. PASS. Guard to HOLD at build time: keep Tempest's warm strictly
+  rationed (≤10% of frame) and the FIELD aggressively cool, so the gold always reads as the
+  exception, never as a Mire-like warm wash.
 - ☑ **Theology side-by-side:** Frozen — "cool light lives IN the ice; warm light only ever comes
   FROM the sun" (visible sun, transmissive mass, warm FIELD). Tempest — "the sun is above the
   storm; every light is the storm failing to contain it" (hidden sun, occlusive mass, warm SLIVER
