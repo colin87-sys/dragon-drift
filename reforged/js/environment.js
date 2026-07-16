@@ -252,6 +252,39 @@ function frustumBetween(p0, p1, r0, r1, seg = 4) {
   return geo;
 }
 
+// A JITTERED lathe (Fable karstfang r2): a surface of revolution whose per-ring, per-sector radius is
+// nudged by a smooth PERIODIC noise (two sines in theta → wraps seamlessly at 2π) with a per-STATION
+// phase, so no silhouette edge runs straight and the overhang depth varies around the ring — a natural
+// weathered rock, not a machined goblet with a circular flange. Deterministic (fixed trig, no rnd) →
+// build() is stable and gold-determinism is untouched. Radial-only (Y is never perturbed → a tide-
+// laddered band stays dead-level). `prof` = [{ r, y }] stations; `seg` sectors; `amp` = per-station
+// jitter amplitude (0 at the foot, strongest at the mid-flank + shoulder). Cost = (stations−1)·seg·2 tris.
+function jitterLathe(prof, seg, amp) {
+  const rings = prof.map((s, i) => {
+    const ring = [];
+    const a = amp[i] ?? 0;
+    for (let j = 0; j < seg; j++) {
+      const th = (j / seg) * Math.PI * 2;
+      const f = 1 + a * (0.62 * Math.sin(3 * th + i * 1.3) + 0.38 * Math.sin(5 * th + i * 2.7 + 0.9));
+      ring.push([Math.cos(th) * s.r * f, s.y, Math.sin(th) * s.r * f]);
+    }
+    return ring;
+  });
+  const v = [];
+  for (let i = 0; i < prof.length - 1; i++) {
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      v.push(...A, ...C, ...B, ...A, ...D, ...C);   // outward winding (matches the drum lathe)
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+  return g;
+}
+
 function mergeParts(parts, biomeIdx) {
   const groups = [[], []];
   for (const p of parts) groups[p.mat].push(p.geo);
@@ -1821,15 +1854,19 @@ const ARCHETYPES = {
       // → flare steadily OUTWARD going up → MAX radius at 74% forming a hard OVERHANGING SHOULDER (the
       // station below it is smaller, so a down-facing undercut band exists — the tide bake paints it dark)
       // → short taper to the broken summit. Edge loop at y0.22 keeps the jade waterline dead-level.
+      // The flank is bowed slightly CONVEX (mid-belly r above the notch→shoulder straight line) and the
+      // whole tower is JITTERED per-sector (jitterLathe) so no silhouette edge runs straight and the
+      // shoulder is not a machined circular flange (Fable r2 — the k3 "goblet" tell). Jitter is strongest
+      // at the mid-flank + shoulder, near-zero at the foot/notch so the jade waterline ring stays clean.
       const prof = [
-        new THREE.Vector2(0.28, 0.00),   // foot (sinks below the waterline weld)
-        new THREE.Vector2(0.23, 0.12),   // NOTCH pinch — the marine undercut at the waterline (narrowest)
-        new THREE.Vector2(0.29, 0.22),   // edge loop AT the band top (jade band below is dead-level)
-        new THREE.Vector2(0.41, 0.56),   // flaring outward up the tower
-        new THREE.Vector2(0.58, 0.74),   // SHOULDER — MAX radius, hard overhang (top-heavy; underside → dark undercut band)
-        new THREE.Vector2(0.34, 0.90),   // taper in to the summit
+        { r: 0.28, y: 0.00 },   // foot (sinks below the waterline weld)
+        { r: 0.23, y: 0.12 },   // NOTCH pinch — the marine undercut at the waterline (narrowest)
+        { r: 0.29, y: 0.22 },   // edge loop AT the band top (jade band below is dead-level)
+        { r: 0.47, y: 0.54 },   // mid-belly — bowed CONVEX (above the straight line → a bulging flank, not a funnel)
+        { r: 0.58, y: 0.74 },   // SHOULDER — MAX radius, hard overhang (top-heavy; underside → dark undercut band)
+        { r: 0.34, y: 0.90 },   // taper in to the summit
       ];
-      parts.push({ mat: 0, geo: new THREE.LatheGeometry(prof, 7) });                                          // 5 gaps × 7 seg × 2 = 70
+      parts.push({ mat: 0, geo: jitterLathe(prof, 7, [0.04, 0.05, 0.05, 0.14, 0.13, 0.09]) });                // 5 gaps × 7 seg × 2 = 70
       // FOOT CAP — a down-facing disc closes the open lathe base (studio-low read; in-game the mirror
       // occludes it below the waterline). The broad top is closed by the crown domes + summit knobs.
       parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.28, 7), { y: 0.0, rx: Math.PI / 2 }) });     // 7

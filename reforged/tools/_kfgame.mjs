@@ -11,8 +11,17 @@ const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({ v:2, embe
 const tag = process.argv[2] || 'g1';
 const { page, done, errors } = await boot({ query: '?biome=0&debug&props=v3&hero=karstfang', viewport: VIEW, deviceScaleFactor: 1.5, initScript: save });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-await page.click('#btn-start').catch(() => {});
-await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.state === 'playing', { timeout: 8000 }).catch(() => {});
+// Reach the 'playing' state robustly: the FIRST tap fast-forwards the attract intro (does not launch),
+// so click/Enter several times until game.state flips to 'playing' (else the menu overlay stays up).
+await page.waitForFunction(() => window.__dd && window.__dd.game, { timeout: 15000 }).catch(() => {});
+for (let a = 0; a < 12; a++) {
+  const st = await page.evaluate(() => window.__dd && window.__dd.game && window.__dd.game.state).catch(() => null);
+  if (st === 'playing') break;
+  await page.click('#btn-start').catch(() => {});
+  await page.keyboard.press('Enter').catch(() => {});
+  await page.waitForTimeout(350);
+}
+await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.state === 'playing', { timeout: 6000 }).catch(() => {});
 await page.evaluate(() => {
   const dd = window.__dd; dd.noBoss && dd.noBoss(true); dd.clearVents && dd.clearVents();
   window.__pin = setInterval(() => { dd.game.health = 100; dd.clearVents && dd.clearVents(); }, 24);
