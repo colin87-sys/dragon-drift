@@ -298,6 +298,7 @@ export const BIOMES = [
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
+    stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.
     // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
     // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
     // sprites are the proper fix (a later ambient-profile pass) — until then, few/dim beats star-like.
@@ -382,7 +383,7 @@ const env = {
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
-  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0,
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -459,5 +460,7 @@ export function computeEnv(dist) {
   // Per-biome DECK BIAS (Tempest): pulls the sky gradient stops down so the storm ceiling owns
   // the sky (0 elsewhere = byte-identical). Mirrored in skyProbe.js skyColorAt.
   env.deckBias = lerp(a.deckBias || 0, b.deckBias || 0, ts);
+  // STORMSEA (Tempest): the violent-sea gate; 0 elsewhere = byte-identical calm water.
+  env.stormSea = lerp(a.stormSea || 0, b.stormSea || 0, ts);
   return env;
 }
