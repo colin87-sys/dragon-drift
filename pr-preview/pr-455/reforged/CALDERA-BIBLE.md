@@ -609,10 +609,19 @@ bomb ships in ice.
    variant: split the MATERIAL, never the body** — identical geometry, `calBombHot`
    pulses toward white-hot ("same bomb, it's live").
 
-The shipped GEYSER hazard (identity-locked) keeps its mechanics; its presentation
-joins the fumarole family in PR-4 so vents, cones, and bursts are one lineage — and
-its rising magenta-cored columns play against the reserved lit band (§3.7), never
-buried among competing verticals.
+The shipped GEYSER hazard (identity-locked) keeps its mechanics; its rising
+magenta-cored columns play against the reserved lit band (§3.7), never buried among
+competing verticals. Its VENT-SITE presentation is **THE SCOURMAW** (`hazards.js`,
+Fable-gated 4.3/5, behind `?props=v1`, render-only, no collider, ≤1.6 tall so it never
+enters the flight lane): a blast-scoured basalt maw the column erupts from. It works by
+NEGATIVE LIGHT — a void-black basin (matte, roughness 0.82; a dark HOLE punched in the
+bright lava mirror, the one visual word the field never uses) ringed by broken radial
+ejecta, with the untouched magenta flare/column seated inside as the "pupil": the dark
+stage makes the danger cue LOUDER, never competes with it. Fire lives ONLY as a recessed
+ember seam under a waterline undercut collar on the OUTER skirt (family kinship, never
+inside the ring); an ash-grey iris rim gives a second, non-magenta legibility channel for
+dark backgrounds. Grow the safe collar, never the kill zone — the void basin stays ≈ the
+lethal footprint. (Lessons: `leapfrog/lessons/2026-07-16-caldera-scourmaw-vent-site.md`.)
 
 ---
 
