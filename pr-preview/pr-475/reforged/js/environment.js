@@ -91,6 +91,7 @@ const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
   uniform float uAO; varying float vAO;
+  uniform float uPropAerial; uniform vec3 uPropAerialCol;   // Fable 75: per-biome aerial-perspective lever (0 = shipped)
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -101,9 +102,20 @@ const PROP_NOISE_HEAD = /* glsl */`
   }
   void main() {`;
 
+// AERIAL PERSPECTIVE (Fable 75) — a per-biome depth-ember lever on the shared prop shader:
+// distant props LIGHTEN + hue-shift toward the horizon ember (the painterly cue the flat-black
+// Mire silhouettes lacked). moteDepthFade pattern: shared uniform objects, driven per-frame from
+// the lerped env (0 for every biome that doesn't set propAerial → byte-identical). The Mire's dark
+// fogFarColor can only pull props toward a DARKER amber; this is the only mechanism that makes
+// distance lighten them. `vFogDepth` (the fog chunk's view-space depth) is the free depth signal.
+const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
+const propAerialColor   = { value: new THREE.Color(0x000000) };
+
 function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
+    shader.uniforms.uPropAerial = propAerialUniform;    // Fable 75 aerial lever (0 = shipped)
+    shader.uniforms.uPropAerialCol = propAerialColor;
     assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
@@ -125,13 +137,26 @@ function addPropDetail(mat, ladderEmissive = false) {
         // dark/bright cell contrast collapses in that zone (spots dissolve) while sunlit
         // faces keep the full weathered look. Identity-off is exact: at uAO=0 the AO term
         // is 1.0 and 0.86+0.26*_pn ≥ 0.86 > 0.62, so the floor never engages.
-        diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)`)
+        diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)
+        #ifdef USE_FOG
+        // AERIAL PERSPECTIVE (Fable 75): depth-blend the albedo toward the ember haze. <55m stays
+        // the untouched pure-black near-trunk anchor; ≥230m full. Quadratic ease → no quantized bands
+        // (hard bands pop as props approach). uPropAerial 0 ⇒ mix factor 0 ⇒ byte-identical.
+        float _aer = smoothstep(55.0, 230.0, vFogDepth); _aer *= _aer * uPropAerial;
+        diffuseColor.rgb = mix(diffuseColor.rgb, uPropAerialCol, _aer * 0.50);
+        #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
         // CALDERA self-lit floor: fold the baked value-ladder (vColor) into emissive so
         // the hot ember belly stays lit when a dark basalt mass silhouettes against the
         // bright ember horizon (vColor alone only modulates DIFFUSE → dies backlit).
-        totalEmissiveRadiance *= vColor.rgb;` : ''}`);
+        totalEmissiveRadiance *= vColor.rgb;` : ''}
+        #ifdef USE_FOG
+        // AERIAL PERSPECTIVE (Fable 75) — the term that ACTUALLY shows: these props are near-black
+        // diffuse under a 0.2-intensity sun, so a diffuse mix alone dies backlit. ADD the ember haze
+        // to emissive (air is not modulated by surface weathering → after the ladder line, not before).
+        totalEmissiveRadiance += uPropAerialCol * (_aer * 0.40);
+        #endif`);
   };
   // Own cache bucket so these never share a program with plain standard mats (the
   // ladder variant gets its own bucket — it references vColor / compiles differently).
@@ -231,6 +256,18 @@ function makeMats() {
   mats.mireEmberLiving = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffd98a, roughness: 0.4, emissive: 0xffc86a, emissiveIntensity: 0.85,
   }));
+  // THE MIRE DEPTH-VEIL material (Fable 75 lever 2b) — the aerial lever (2a) makes distance
+  // LIGHTEN; this breaks the SECOND flatness: a near/mid mass reading as one flat black shape
+  // internally. A baked canopy-light→trunk-dark value ladder (vertexColors + ladderEmissive) so
+  // every veil mass carries a top-lit crown → drowned-black waterline gradient. NOT the shared
+  // primary[4] (flipping vertexColors there would break the hero-colossus dark groups, which
+  // carry no color attribute). Own dark warm-neutral base; a faint moss-amber emissive keeps the
+  // crown's warm read when the mass silhouettes against the ember horizon. canopywall/boleveil/
+  // drape only (reedveil skipped — thin near verticals would read as glow-sticks).
+  mats.mireVeil = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0x241b10, vertexColors: true, roughness: 0.7, metalness: 0.05,
+    emissive: 0x2a1c0e, emissiveIntensity: 0.5,
+  }), true);
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -593,6 +630,13 @@ function mergeLagoonParts(parts, opts = {}) {
 const _MIRE_APEX = [1.0, 1.0, 1.0];        // 0xffffff core — the brightest pixels, up where the down-cam looks
 const _MIRE_MID = [0.847, 0.659, 0.376];   // 0xd8a860 warm gold bloom (mid height)
 const _MIRE_BASE = [0.376, 0.298, 0.157];  // 0x604c28 dark warm root (waterline — the light is drunk back)
+// Fable 75 lever-2b DEPTH-VEIL stops (the DARK screen props, not a glowing hero) — a much
+// tighter range than the glow ladder: cool moss-black root → warm-lit crown. Modulates the
+// veil's own near-black diffuse (0x241b10) so the crown catches top-light and the waterline
+// drowns; folded to emissive keeps the crown's warm read backlit.
+const _MIRE_VEIL_BASE = [0.16, 0.18, 0.16]; // cool moss-black (waterline root — the mist severs the base)
+const _MIRE_VEIL_MID = [0.45, 0.36, 0.22];  // warm umber mid
+const _MIRE_VEIL_APEX = [1.0, 0.80, 0.52];  // warm top-lit crown (the canopy catching the ember horizon)
 function bakeMireLadder(geo, { apex = _MIRE_APEX, mid = _MIRE_MID, base = _MIRE_BASE, baseY = 0.0, apexY = 1.1 } = {}) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -1647,7 +1691,12 @@ const ARCHETYPES = {
       for (const l of lobes) parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(l.s, 0), { x: l.x, z: l.z, y: l.y, sy: l.sy, sz: l.sz, ry: l.ry }) });
       parts.push({ mat: 1, geo: xform(new THREE.CircleGeometry(0.009, 4).toNonIndexed(), { x: 0.30, z: 0.05, y: 0.52, rx: -Math.PI / 2 }) });
       parts.push({ mat: 1, geo: xform(new THREE.CircleGeometry(0.008, 4).toNonIndexed(), { x: -0.28, z: 0.10, y: 0.50, rx: -Math.PI / 2 }) });
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      // Fable 75 lever-2b: bake the veil ladder (lobes light, root-stem stays black — the mist severs it)
+      // + swap mat-0 to mireVeil (mat-1 glow pinpricks keep accent[4], vertexColors off → ignore the bake).
+      bakeMireLadder(merged.geometry, { baseY: 0.25, apexY: 0.95, base: _MIRE_VEIL_BASE, mid: _MIRE_VEIL_MID, apex: _MIRE_VEIL_APEX });
+      merged.materials[0] = propMats.mireVeil;
+      return merged;
     },
     place: (side, rnd) => { const r = 30 + rnd() * 18; return { x: side * (30 + 1.0 * r + rnd() * 24), h: 26 + rnd() * 12, r, tilt: 0 }; },
   },
@@ -1694,7 +1743,11 @@ const ARCHETYPES = {
       }
       parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.02, z: 0.06, y: 0.82, sy: 0.6, sx: 1.2 }) });
       parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.28, z: -0.04, y: 0.74, sy: 0.55 }) });
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      // Fable 75 lever-2b: crown mass at 0.74–0.82 catches the apex; the drowned boles stay dark.
+      bakeMireLadder(merged.geometry, { baseY: 0.00, apexY: 0.95, base: _MIRE_VEIL_BASE, mid: _MIRE_VEIL_MID, apex: _MIRE_VEIL_APEX });
+      merged.materials[0] = propMats.mireVeil;
+      return merged;
     },
     place: (side, rnd) => ({ x: side * (36 + rnd() * 22), h: 16 + rnd() * 10, r: 8 + rnd() * 6, tilt: side * (rnd() * 0.05 - 0.02) }),
   },
@@ -1729,7 +1782,11 @@ const ARCHETYPES = {
         { x: -0.48, z: -0.16, len: 0.11 }, { x: 0.02, z: 0.46, len: 0.10 },
       ];
       for (const f of fr) parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.03, f.len, 3).toNonIndexed(), { x: f.x, z: f.z, y: 0.79 - f.len / 2, rx: Math.PI }) });
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      // Fable 75 lever-2b: lobes + frond hem warm; the sub-0.66 trunk stays black (mostly out of frame anyway).
+      bakeMireLadder(merged.geometry, { baseY: 0.55, apexY: 1.00, base: _MIRE_VEIL_BASE, mid: _MIRE_VEIL_MID, apex: _MIRE_VEIL_APEX });
+      merged.materials[0] = propMats.mireVeil;
+      return merged;
     },
     // h kept LOW (43–51) so the crown hangs at world y ≈ 28–34 — the closest legal roof, which
     // enters the top of frame at a nearer z (a denser top-band window → the Canopy Law holds
@@ -3024,6 +3081,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
+  // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
+  // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
+  propAerialUniform.value = env.propAerial ?? 0;
+  propAerialColor.value.copy(env.propAerialColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down

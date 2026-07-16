@@ -5,6 +5,7 @@ import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { setFeverWarm } from './environment.js';
+import { setWaterHeroPool } from './water.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
@@ -148,6 +149,14 @@ let eyeMat = null;
 let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
+// HERO POINT LIGHT (Fable 75) — the player's REAL light: pools specular on the water + kisses
+// the drake's underside (the premium answer to the flat additive halo). A PERSISTENT singleton
+// (created once, re-PARENTED on shop rebuild, never re-created) so NUM_POINT_LIGHTS stays 1 and
+// the lit shaders never recompile mid-flight. Hue is per-skin (pulled toward warm-neutral); only
+// intensity is driven per frame. _heroPos/heroPoolK feed the water hero-pool term.
+let heroLight = null;
+const _heroPos = new THREE.Vector3();
+let heroPoolK = 0;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
 let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
@@ -389,6 +398,18 @@ export function createDragon(scene, def, riderDef) {
 
   buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
+
+  // HERO POINT LIGHT (Fable 75): create ONCE, then re-parent to each new group on rebuild
+  // (THREE.add auto-detaches from the old, disposed group) so the scene always holds exactly
+  // one point light → no shader recompile after the first build. Parented to `group` (the
+  // auraSprite's pre-scale local space) so the offset rides the dragon's pitch/roll — the
+  // underside kiss stays under the chest as it banks. r160 physical units (decay 2).
+  if (!heroLight) heroLight = new THREE.PointLight(0xffffff, 12, 34, 2);
+  heroLight.position.set(0, -0.7, -0.35);   // under the chest, nosed toward the head
+  group.add(heroLight);
+  // Per-skin hue pulled 45% toward warm-neutral so no skin dyes the water acid (Azure's
+  // 142,213,255 → #C1DBDF, a soft ice-warm white — blue identity kept, never a blue lamp).
+  heroLight.color.set(`rgb(${def.fx.auraColor})`).lerp(new THREE.Color(0xffe2b8), 0.45);
 
   // Ponytail chain (world-space follow), length varies per rider
   const hairMat = new THREE.MeshStandardMaterial({ color: riderDef.hair, roughness: 0.9 });
@@ -1753,14 +1774,25 @@ export function updateDragon(dt, player, time) {
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = (player.feverActive
-    ? 0.30 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.10   // trimmed ~40%; feverAuraScale further shrinks the big cream disc for fire dragons (it read as a lens-flare "ring on the dragon")
+    ? 0.20 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.06   // Fable 75: base 0.30→0.20, amp 0.10→0.06 (the tamed body-glow); feverAuraScale still shrinks it further for fire dragons
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
-    + inhale01 * 0.22;   // PR-C: the halo swells with the drawn breath
+    + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
   // Tint the aura to an ember corona on Surge (default white ⇒ every other dragon unchanged).
   if (activeDef.feverAura != null) auraSprite.material.color.setHex(player.feverActive ? activeDef.feverAura : 0xffffff);
 
   group.updateMatrixWorld(true);
+
+  // HERO LIGHT + WATER POOL (Fable 75): the player's real light breathes on the idle pulse
+  // and blazes on fever; the custom water shader ignores scene lights, so the mirror is fed
+  // the light positionally (a reflection STREAK that moves with the player, never a disc).
+  if (heroLight) {
+    const heroI = 12 * (0.85 + 0.15 * Math.sin(time * 2.1)) * (player.feverActive ? 1.7 : 1.0);
+    heroLight.intensity = damp(heroLight.intensity, heroI, 4, dt);
+    group.getWorldPosition(_heroPos);
+    heroPoolK = damp(heroPoolK, player.feverActive ? 1.0 : 0.55, 4, dt);
+    setWaterHeroPool(_heroPos, heroLight.color, heroPoolK);
+  }
 
   // Wing-tip contrails — the SECONDARY boost accent, only on the elite forms
   // (spineGlow ≥ 0.5) and only while boosting, so it stays restrained. Violet

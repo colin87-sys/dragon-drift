@@ -167,7 +167,11 @@ export function ascendedDef(def, tier, radiance) {
   // becomes a permanent lamp that washes the creature (green, over water especially). Default 1 →
   // every existing dragon is arithmetically identical (the coexistence gate is this data dial).
   const auraRamp = def.fx.auraIdleRamp ?? 1;
-  d.fx.auraIdle = Math.min(0.6, (def.fx.auraIdle || 0) + (0.09 * tier + 0.012 * radiance) * auraRamp);
+  // Fable 75: the ascension ramp was the real halo culprit (Azure Drake authors auraIdle 0.0,
+  // so the tier-1 screen disc in IMG_7710 was PURE ramp). Cap 0.6→0.30, per-tier step 0.09→0.05,
+  // radiance 0.012→0.008 — the idle stays a tight body-glow at every tier; the hero PointLight
+  // now does the "premium flex" talking (pooling on water) instead of an additive billboard.
+  d.fx.auraIdle = Math.min(0.30, (def.fx.auraIdle || 0) + (0.05 * tier + 0.008 * radiance) * auraRamp);
   d.fx.sparkle = def.fx.sparkle || isFinal;
   d.fx.wingGlow = 1 + 0.18 * tier;
   if (isFinal) d.fx.bodyGlow = 1.7;
