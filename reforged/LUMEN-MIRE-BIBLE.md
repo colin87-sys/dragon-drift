@@ -339,6 +339,13 @@ next on a failed gate):**
 - **PR-2 — DEPTH + CANOPY SUBSTRATE:** the `canopywall` massif + near-black depth planes + the `drape`
   overhead layer (Canopy Law goes into force — geometry-over-lane, no altitude) + the amber down-lane
   mote current. The biome feels deep, enclosed, ALIVE with near-zero emissive props. Behind `?props=v1`.
+  **Carried forward from the PR-1 Fable SHIP (gate file 23, non-blocking):** (a) **mote variance** —
+  size/opacity jitter + firefly pulse + fog-attenuate far motes (2600 reads confetti-uniform), landed
+  with the drift-current bias; (b) **corner-streak clamp** — the faint magenta/teal upper-corner
+  fringing is the residual aurora curtain/beam layer additively catching light in biome 4 over the
+  near-black zenith (~11/255, non-blocking); zero that layer's intensity in biome 4 (per-biome uniform)
+  or clamp its color into the dome family so R≥G≥B holds. The sanctioned step-3 god-ray shaft hex is
+  `0xc0782c` (record).
 - **PR-3 — THE HERO `glowcolossus` + composition engine** (`mireComp` + `arrivalPark` + reserved
   easement, `bi===4` branch) behind `?props=v1`. Proves the whole light theology on one object
   (under-brim gills + fog halo + reflection twin). Studio contact sheet floor 4.2/5 then re-scored
