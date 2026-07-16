@@ -68,6 +68,10 @@ const sharedUniforms = {
   // Rain LAYER B — splash rings where the rain hits the sea (welds sky to sea). 0 = off
   // (byte-identical). MUST live here or it vanishes on the tier rebuild.
   uRainRipple: { value: 0 },
+  // EYE-BREACH foot (Tempest): the becalmed gold-lit patch of sea under the eye of the gale. 0 = off
+  // (byte-identical). >0 attenuates the storm violence + adds a feathered gold sun-pool on the sun
+  // azimuth near the horizon. MUST live here or it vanishes on the reflective↔cheap/swell tier rebuild.
+  uBreachMix: { value: 0 },
   // Fix C — PREMIUM HEAVEN HORIZON: weight (0 off-heaven ⇒ byte-identical) driving a graded blast-haze
   // horizon + a broad reflection column + the shared heartbeat, so the sea ANSWERS the detonation instead
   // of being two flat cardboard bands (gold sky / flat violet fogged sea) with a hard seam. MUST live here
@@ -159,6 +163,7 @@ const fragmentShader = /* glsl */`
   uniform float uAuroraGlow; // Aurora Shallows tier2 analytic-reflection sheen (0 = shipped)
   uniform float uStormSea;   // STORMSEA violence (0 = shipped calm sea)
   uniform float uRainRipple; // rain LAYER B — splash rings (0 = off)
+  uniform float uBreachMix;  // EYE-BREACH calm/gold patch at the eye's foot (0 = shipped)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
@@ -215,6 +220,16 @@ const fragmentShader = /* glsl */`
     vec2 vxz = -V.xz, sxz = normalize(sunDir.xz + vec2(1e-5, 0.0));
     float az = pow(clamp(dot(vxz * inversesqrt(max(1e-6, dot(vxz, vxz))), sxz), 0.0, 1.0), 3.0);
     float breath = 0.85 + 0.3 * sin(6.2831853 * time / 4.6 - dist * 0.004);
+
+    // EYE-BREACH FOOT (uBreachMix 0 = shipped, byte-identical): the becalmed gold-lit patch of sea
+    // directly under the eye of the gale — an elliptical pool on the SUN AZIMUTH out near the horizon
+    // (NOT a glitter lane running to the camera: gated to a far band × a tight azimuth cone). _azB = how
+    // aligned the view azimuth is with the sun az; _farB = a band near the fog wall (dissolves into fog).
+    float _azB = clamp(dot(vxz * inversesqrt(max(1e-6, dot(vxz, vxz))), sxz), 0.0, 1.0);
+    float _farB = smoothstep(fogFar * 0.34, fogFar * 0.60, dist) * (1.0 - smoothstep(fogFar * 0.82, fogFar, dist));
+    float _calmPatch = pow(_azB, 4.0) * _farB * uBreachMix;    // broad calm-attenuation region
+    float _goldPool  = pow(_azB, 11.0) * _farB * uBreachMix;   // tighter feathered gold sun-pool (~2–4% of frame)
+    float _stormCalm = 1.0 - 0.75 * _calmPatch;                // storm violence → ~0.25 inside the patch
 
     // Base water body: shallows pick up light at glancing wave faces (shipped mix).
     float tH = clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55;
@@ -297,7 +312,7 @@ const fragmentShader = /* glsl */`
       // presence) goes a touch DEEPER — the dark is half the drama.
       float trough = 1.0 - smoothstep(-0.7, 0.15, sStorm);
       vec3 dk = max(col * mix(1.0, mix(0.62, 0.70, pres), trough), vec3(0.094, 0.125, 0.149));
-      col = mix(col, dk, uStormSea);
+      col = mix(col, dk, uStormSea * _stormCalm);   // EYE-BREACH: the eye's foot is becalmed (trough darkening eased)
 
       // (b) PRIMARY combed lanes — CONTINUOUS along the wind (~55m modulation, LOW threshold so a
       // lane stays continuous 30m+), thin across (~2.5m of a 10m band), lanes ~10m apart. Each lane's
@@ -320,8 +335,14 @@ const fragmentShader = /* glsl */`
       foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
       foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
       // #c4cdce overcast foam; peak lifted now that the matte/broken field is ~⅓ darker.
-      col = mix(col, vec3(0.77, 0.80, 0.80), clamp(foamS * uStormSea, 0.0, 0.48));
+      col = mix(col, vec3(0.77, 0.80, 0.80), clamp(foamS * uStormSea * _stormCalm, 0.0, 0.48));   // EYE-BREACH: wind-combed foam eased inside the calm patch
     }
+
+    // EYE-BREACH calm/gold composite (uBreachMix 0 = shipped): a calmer, slightly-bluer body + a
+    // feathered GOLD sun-pool (#ffd870) — the becalmed sea catching the leaked sun. Applied AFTER the
+    // storm terms so it visibly settles the violence it just attenuated. Both terms × the mask → 0 off.
+    col = mix(col, col * vec3(0.90, 0.98, 1.10) + vec3(0.03, 0.05, 0.07), _calmPatch * 0.6);   // toward a calm silver-blue
+    col += vec3(1.0, 0.847, 0.439) * _goldPool * 0.5;                                          // gold sun-pool at the eye's foot
 
     // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
     // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
@@ -614,11 +635,12 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach }) {
   if (!water) return;
   const u = water.material.uniforms;
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
+  u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);
