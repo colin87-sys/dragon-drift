@@ -170,22 +170,22 @@ export const BIOMES = [
     stars: 0.2,
     // Warm-neutral dark ROOF: top nudged off blue, mid off green (Fable PR-1 gate —
     // no cool sky stop may survive from the shipped teal night), horizon amber haze.
-    sky: { top: C(0x0d0b0e), mid: C(0x171410), horizon: C(0x2b2314), sun: C(0x4a3418) },
-    fog: { color: C(0x141a14), near: 45, far: 260 },
+    sky: { top: C(0x14111a), mid: C(0x2a2218), horizon: C(0x5c4a28), sun: C(0x7a5628) },
+    fog: { color: C(0x263420), near: 50, far: 300 },
     // Dual-fog far color (§5.2): the near air is dark humid warm-green swamp; distance
     // desaturates TOWARD amber haze (dark-scene aerial perspective fades to the dominant
     // GLOW hue, not blue-grey) — the cheapest identity move + the anti-Aurora firewall.
-    fogFarColor: C(0x2b2314),
+    fogFarColor: C(0x5e4e2e),
     // Swamp air pools LOW on the water — the knee-height ground-mist sheet (dive = into
     // the mist). OPTIONAL channel (0 elsewhere).
     atmos: { heightK: 0.05 },
     // NO dominant sun (theology firewall): a low dim WARM key, dark hemiSky, and a warm
     // amber hemiGround so undersides pick up bounce from the glowing water/mist — this is
     // what SELLS "lit from below/within" (the inverse of a sky-lit night).
-    light: { sun: C(0x6a4e24), sunI: 0.85, hemiSky: C(0x141c18), hemiGround: C(0x2a1e0c) },
+    light: { sun: C(0x8a6636), sunI: 1.25, hemiSky: C(0x3a4e32), hemiGround: C(0x483212) },
     // The black mirror: near-still (waveAmp low) so it DOUBLES every glow — the reflection
     // is load-bearing (address + mirror = the biome handshake).
-    water: { deep: C(0x040914), shallow: C(0x0c1a18), waveAmp: 0.2 },
+    water: { deep: C(0x06121a), shallow: C(0x18382c), waveAmp: 0.2 },
     // Theology firewall: "nothing shines from the sky." A night swamp has no sun-shafts —
     // meter the shared god-ray fan WAY down (default 1 = byte-identical elsewhere; ~0 like
     // Aurora would kill the faint glow-halos, so keep a dim residue) AND warm the shaft tint
@@ -195,7 +195,7 @@ export const BIOMES = [
     godrayTint: C(0xc0782c),
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
-    ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.5, opacity: 0.7 },
+    ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.58, opacity: 0.9 },
     fauna: { color: C(0xffd24a), scale: 0.9, flap: 0.4 }, // drifting lantern-motes (amber)
     // Overhaul kit (LUMEN-MIRE-BIBLE.md) — the depth/canopy substrate as it lands; `?props=v1`
     // restores the legacy glowcap/spirevine. Mirror grows with each PR (hero + roster to come).
