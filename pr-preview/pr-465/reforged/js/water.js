@@ -244,25 +244,39 @@ const fragmentShader = /* glsl */`
       // (a) Trough darkening — EASED (×0.73) with a HARD FLOOR #182026 so the Thunderhead's
       // charcoal (0x232836) never melts into the sea (Law 8). Violence = white-on-dark CONTRAST,
       // kept by limiting the WHITE fraction, not by crushing the black.
+      // PRESENCE FIELD (~180m smooth value noise): windrow FIELDS come and go — clusters of lanes,
+      // then open dark water (the sea-level negative-space rhythm; Fable substrate-gate order #2).
+      vec2 pc = wf * 0.0055;
+      vec2 pci = floor(pc), pcf = fract(pc);
+      vec2 pw = pcf * pcf * (3.0 - 2.0 * pcf);
+      float pres = mix(mix(hash(pci), hash(pci + vec2(1.0, 0.0)), pw.x),
+                       mix(hash(pci + vec2(0.0, 1.0)), hash(pci + vec2(1.0, 1.0)), pw.x), pw.y);
+      pres = 0.5 + 0.5 * smoothstep(0.30, 0.72, pres);   // foam always half-present; windrow FIELDS go full, never fully bare
+
+      // (a) Trough darkening — eased average, #182026 FLOOR held (dragon guard). Open water (low
+      // presence) goes a touch DEEPER — the dark is half the drama.
       float trough = 1.0 - smoothstep(-0.7, 0.15, sStorm);
-      vec3 dk = max(col * mix(1.0, 0.68, trough), vec3(0.094, 0.125, 0.149)); // deeper between-lane AVERAGE (drama) with the #182026 FLOOR held (dragon guard) — different numbers
+      vec3 dk = max(col * mix(1.0, mix(0.62, 0.70, pres), trough), vec3(0.094, 0.125, 0.149));
       col = mix(col, dk, uStormSea);
 
-      // (b) Wind-combed foam LANES — SMOOTH value-noise along the wind (NO floor() blocks — those
-      // read as banned pack-ice), feathered across, true ~50m×~2.5m anisotropy, lanes ~10m apart.
-      float along  = wf.x * 0.02 + time * 0.5;           // 50m cells, slow downwind drift
-      float acrossI = floor(wf.y * 0.10);                // ~10m lane spacing
-      float l0 = hash(vec2(floor(along), acrossI));
-      float l1 = hash(vec2(floor(along) + 1.0, acrossI));
-      float lane = smoothstep(0.70, 1.0, mix(l0, l1, smoothstep(0.0, 1.0, fract(along)))); // fades over ~50m
-      float fAc = fract(wf.y * 0.10);                    // feathered cross-profile → no hard edge
-      lane *= smoothstep(0.06, 0.42, fAc) * smoothstep(0.94, 0.58, fAc);
-      float fleck = smoothstep(0.90, 1.0, hash(floor(vec2(wf.x * 0.6, wf.y * 1.8) + 31.0))) * 0.15; // halved cell → finer flecks, kills the last soft-rectangle ghosts
-      float foamS = lane + fleck;
-      foamS *= smoothstep(-0.05, 0.55, sStorm) * (0.6 + 0.4 * smoothstep(0.1, 0.5, h + 0.2)); // crest-biased + torn by ripple
+      // (b) PRIMARY combed lanes — CONTINUOUS along the wind (~55m modulation, LOW threshold so a
+      // lane stays continuous 30m+), thin across (~2.5m of a 10m band), lanes ~10m apart. Each lane's
+      // along-pattern is keyed to its OWN id so the lane reads as one line, not a grid of dashes.
+      float laneId = floor(wf.y * 0.10);
+      float alongA = wf.x * 0.018 + time * 0.5;
+      float lnoise = mix(hash(vec2(floor(alongA), laneId)), hash(vec2(floor(alongA) + 1.0, laneId)),
+                         smoothstep(0.0, 1.0, fract(alongA)));
+      float lane = smoothstep(0.46, 0.9, lnoise);
+      float fAc = fract(wf.y * 0.10);
+      lane *= smoothstep(0.26, 0.45, fAc) * smoothstep(0.68, 0.45, fAc);   // ~2.5–3m lane centered in the 10m band
+      lane *= smoothstep(-0.05, 0.55, sStorm) * (0.6 + 0.4 * smoothstep(0.1, 0.5, h + 0.2)); // crest-biased + torn by ripple
+      // SECONDARY flecks — spray torn OFF lanes: masked to the lane neighborhood, capped low.
+      float fleck = smoothstep(0.92, 1.0, hash(floor(vec2(wf.x * 0.6, wf.y * 1.8) + 31.0))) * 0.12;
+      fleck *= smoothstep(0.40, 0.62, lnoise);   // only near a primary lane — never free sprinkle
+      float foamS = (lane + fleck) * pres;        // clustered by the presence field
       foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
       foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
-      // #c4cdce overcast foam; peak raised for CONTRAST (not coverage) against the deeper field.
+      // #c4cdce overcast foam; peak for CONTRAST (not coverage) against the deeper field.
       col = mix(col, vec3(0.71, 0.74, 0.75), clamp(foamS * uStormSea, 0.0, 0.41));
     }
 
