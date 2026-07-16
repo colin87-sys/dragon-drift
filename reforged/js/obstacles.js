@@ -198,6 +198,41 @@ export function initObstacles(s) {
       color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.3, metalness: 0.02,
       emissive: 0xff5a47, emissiveIntensity: 0.9,
     }),
+    // EMBERFALL CALDERA hazard-skin materials (CALDERA-BIBLE.md §7) — the inverted
+    // light-from-below ladder, Caldera-OWN (never the Frozen ice hues; the Part B grep
+    // stays clean by construction). The body is dark basalt whose carved read is the
+    // per-face value ladder (baked via bakeIceLadder with EXPLICIT Caldera stops +
+    // world-DOWN axis — omitting stops would default to Frozen blue ice, the named trap);
+    // withLadderEmissive folds it into emissive so the hot belly survives the ember backlight.
+    calBasalt: withLadderEmissive(new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.44, metalness: 0.04,
+      emissive: 0xff5a20, emissiveIntensity: 0.26,   // low: the body stays dark basalt; the magma joints/throat carry the deliberate fire
+    })),
+    // Dark recess backing behind a magma joint-crack — the near-black socket that turns
+    // "strip on a face" into "fire escaping from inside the rock" (the LOW-in-cracks address).
+    calShadow: new THREE.MeshStandardMaterial({
+      color: 0x160a06, flatShading: true, roughness: 0.7, metalness: 0,
+    }),
+    // Magma glow — the joint-crack / throat accent seated in a recess (breathes in
+    // updateObstacles to keep the "live hazard" cue when the fiction can't justify a spin).
+    calMagma: new THREE.MeshStandardMaterial({
+      color: 0xff6a24, flatShading: true, roughness: 0.4, metalness: 0,
+      emissive: 0xff3808, emissiveIntensity: 1.0,
+    }),
+    // Dynamic-shard variant — the SAME laddered basalt body, but the seam network pulses
+    // toward WHITE-HOT in updateObstacles: "same bomb, it's live" (split the material,
+    // never the body — identical geometry, so the spin never reads as a hitbox glitch).
+    calBombHot: new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.4, metalness: 0.02,
+      emissive: 0xff7a2a, emissiveIntensity: 0.5,   // clamped: emissive×vColor keeps the dark plates dark and whitens only the ember FRACTURE faces (Fable: don't flood the whole body at peak)
+    }),
+    // Fissure magma with a bright-core→dark-rim GRADIENT: emissive is folded with the per-vertex
+    // colour (withLadderEmissive), so a crack whose spine verts are white-hot and whose tapering
+    // tips are near-black reads as fire deep in a fracture, not a flat-fill LED sliver (Fable bar).
+    calCrack: withLadderEmissive(new THREE.MeshStandardMaterial({
+      color: 0x2a0803, vertexColors: true, flatShading: true, roughness: 0.4, metalness: 0,
+      emissive: 0xff6a1e, emissiveIntensity: 2.5,
+    })),
     // Ancient fossil bone for the Dragon Spine Canyon — warm ivory, faceted, a
     // touch of emissive so the skeleton reads (and blooms) against any biome sky.
     bone: new THREE.MeshStandardMaterial({
@@ -849,8 +884,393 @@ export function shardColliderSupport() {
   return _bergSupport;
 }
 
+// ─── EMBERFALL CALDERA hazard skins (CALDERA-BIBLE.md §7) ────────────────────
+// Basalt answers to the three collider questions — zero calved-ice vocabulary. The
+// COLLIDERS are byte-identical engine facts (gold-determinism proves it); only the SKIN
+// is Caldera fiction. The value ladder is baked via the shipped bakeIceLadder with
+// EXPLICIT Caldera stops + a world-DOWN axis (static hazards) — omitting stops would
+// default to Frozen blue ice (the named Part B trap), so we pass them at every call.
+const _CALH_BELLY = [0.98, 0.30, 0.06];    // down-faces → hot ember belly (frost stop, world-DOWN)
+const _CALH_BASALT = [0.060, 0.044, 0.040]; // verticals → near-black basalt (mid stop)
+const _CALH_CRUST = [0.115, 0.094, 0.082];  // up-faces → WARM near-black charcoal crust (belly stop). Was a
+                                            // light purplish 0.20 that read as milky mauve under the ember rig
+                                            // (Fable hazard gate: "mass is DARK / near-black basalt, not lilac");
+                                            // dropped to a warm charcoal (R>G>B, no blue bias) so the mass reads black.
+const _CAL_STOPS = { frost: _CALH_BELLY, mid: _CALH_BASALT, belly: _CALH_CRUST };
+// DARK stop set (no ember belly) — for the horizontal BEAM, whose whole underside faces
+// down: a world-DOWN ember belly would flood it orange. Here the body stays dark basalt
+// (ash-lit tops) and the deliberate fire lives ONLY in the recessed magma joint-cracks.
+const _CAL_STOPS_DARK = { frost: _CALH_BASALT, mid: _CALH_BASALT, belly: _CALH_CRUST };
+function bakeCalLadder(geo, ax = 0, ay = -1, az = 0, frostT = 0.28, tealT = -0.30, stops = _CAL_STOPS) {
+  return bakeIceLadder(geo, { ax, ay, az, frostT, tealT, stops });
+}
+
+// BEAM — THE COLLAPSED COLONNADE SPAN. A rank of BROKEN hex basalt column-drums jammed end to
+// end across the lane (axis = X). NOT a smooth machined boom (Fable gate: "the segments meet in
+// clean stepped collars → reads as a rifle-suppressor coupling; break them into snapped drums
+// with fire in the gap"). So: openEnded hex drums (the clean caps that telescoped are gone),
+// staggered roll + height so the top edge is jagged, a DARK FRACTURE CHUNK straddling every
+// junction (the jagged sheared drum interface) and capping both exposed tips, and RECESSED
+// magma glowing UNDER the fracture chunks (fire escaping the break, occluded at grazing angles).
+// Columns are fat (R≥1.4) so each hex YZ cross-section CONTAINS the collider box (corner radius
+// ~1.21 < hex inradius 0.866·1.45=1.26) at every x → the silhouette never gaps (coverage below).
+// [len, cx, cy, cz, R, roll] — 5 overlapping drums spanning x −15.3..16.6 (covers the ±13 lane).
+// STRONG roll variance (each drum shows a different hex facet up → jagged top edge, distinct
+// drums) + mixed lengths (stubby + long, a fallen jumble). Roll is about the X/long axis, so it
+// rotates the hex WITHIN the YZ plane — coverage (an inscribed-circle test) is roll-invariant.
+// cy ZIGZAGS (high/low drums) so the TOP silhouette is a broken zigzag with a NOTCH at every
+// junction where a tall drum's end steps down to a low one — a real silhouette event, but ABOVE
+// the collider band (|y|≤0.64), so the solid collision mass stays continuous (no passable gap:
+// a fly-through gap in a solid hazard would be "looks passable but kills"). Fire lives DOWN in
+// those notch steps, overhung by the tall drum. Min R kept ≥1.49 so the staggered hex still
+// contains the collider box at cy=±0.22 (0.866·1.49=1.29 ≥ corner radius 1.25).
+// Rolls kept near ±30° (an EDGE, not a face, points up) so no large flat hex face catches the
+// key light as a bright "sticker" facet (Fable) — alternating sign keeps adjacent drums distinct.
+const CAL_BAR_COLUMNS = [
+  [7.6, -11.4, 0.21, 0.05, 1.50, 0.48],    // TALL
+  [6.0, -4.9, -0.20, -0.06, 1.49, -0.56],  // low (steps down from drum 1 → notch)
+  [6.8, 1.3, 0.22, 0.06, 1.53, 0.52],      // TALL
+  [6.0, 7.3, -0.18, -0.05, 1.50, -0.46],   // low (steps down from drum 3 → notch)
+  [7.6, 12.8, 0.13, 0.03, 1.49, 0.58],     // mid-high
+];
+// Sheared JOINT-CRACKS — recessed magma glowing DOWN in the notch step where a tall drum's end
+// overhangs a low drum (fire escaping the fracture between fallen drums), backed by a dark socket
+// and occluded at grazing angles by the tall drum's brow (the LOW-in-cracks address). Placed low
+// (below the tall drum top) so the overhang shadows them. [cx, cy, w, h].
+// Vertical magma CRACKS at the drum ends (a fracture runs UP the seam, not a horizontal LED).
+// [cx, cy, w, h] — narrow + tall.
+const CAL_BAR_JOINTS = [
+  [-7.7, 0.02, 0.62, 1.25],   // notch: drum1 (tall) → drum2 (low)
+  [-1.9, 0.06, 0.56, 1.10],   // notch: drum2 (low) → drum3 (tall)
+  [6.9, -0.02, 0.62, 1.20],   // notch: drum3 (tall) → drum4 (low)
+];
+const _CAL_BAR_HEX_INRADIUS = 0.866 * 1.49;   // worst-case column inradius (min R in the data)
+const _CALH_CRACK_HOT = [1.00, 0.90, 0.72];  // fissure spine — white-hot core
+const _CALH_CRACK_TIP = [0.14, 0.045, 0.02]; // fissure tips — cooled to near-black (the gradient)
+const _CALH_BROW_WARM = [0.40, 0.15, 0.05];  // brow underside — faint warm spill from the fire below
+
+// A gradient LENS fissure (not a flat rectangle): a tapered vertical crack, spine white-hot,
+// tips near-black, front-facing, coloured per-vertex so calCrack's emissive fold gives the
+// hot-core→dark-rim falloff Fable demanded. Slight per-crack asymmetry (seeded by cx) so no two
+// are identical machined slots. Returns position+color+normal (matches the brow for one merge).
+function calBarFissure(cx, cy, w, h, z) {
+  const g = new THREE.PlaneGeometry(w, h, 1, 2);   // 6 verts, 4 tris
+  const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+  const spine = Math.sin(cx * 3.7) * 0.22;   // per-crack SKEW of the hot spine (kills the symmetric-kite/emblem read)
+  for (let i = 0; i < n; i++) {
+    const y = p.getY(i), tipRow = Math.abs(y) > h * 0.24;
+    if (tipRow) p.setX(i, p.getX(i) * (y > 0 ? 0.10 : 0.28) + spine * 1.4);   // asymmetric taper: sharp top, blunt bottom, offset
+    else p.setX(i, p.getX(i) + spine);                                        // skew the spine sideways
+    p.setX(i, p.getX(i) + Math.sin(cx * 7.1 + i * 2.3) * 0.11);               // jagged, ragged sides
+    const c = tipRow ? _CALH_CRACK_TIP : _CALH_CRACK_HOT;
+    col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  g.translate(cx, cy, z);
+  return g;
+}
+const _fillCol = (g, rgb) => {
+  const n = g.attributes.position.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i * 3] = rgb[0]; col[i * 3 + 1] = rgb[1]; col[i * 3 + 2] = rgb[2]; }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  if (!g.attributes.normal) g.computeVertexNormals();
+  return g;
+};
+
+function buildCalderaBar() {
+  const body = [], glow = [], shadow = [];
+  const rng = mulberry32(0xba54a17);
+  // Coherent OUTWARD-only facet jitter (crust value-noise so the drums aren't smooth single-tone
+  // prisms — Fable). Outward-only so the jittered hex never shrinks below the collider (the
+  // coverage test is on ideal R; growing the mesh only ever covers MORE). Axial jitter is free.
+  const jitterDrum = (g) => {
+    const p = g.attributes.position, jm = new Map();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);   // cylinder is along Y here (pre-rotate); radial = XZ
+      const k = `${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)}`;
+      let j = jm.get(k); if (!j) { j = [1 + Math.abs(rng() - 0.5) * 0.16, (rng() - 0.5) * 0.22]; jm.set(k, j); }
+      p.setXYZ(i, x * j[0], y + j[1], z * j[0]);           // radial grow (≥1), axial nudge
+    }
+  };
+  for (const [len, cx, cy, cz, R, roll] of CAL_BAR_COLUMNS) {
+    const c = new THREE.CylinderGeometry(R, R, len, 6);   // capped hex drum — the hexagonal cross-section IS the columnar-basalt identity
+    jitterDrum(c);
+    c.rotateZ(Math.PI / 2);                               // lay it along X (axis = lane span)
+    if (roll) c.rotateX(roll);
+    c.translate(cx, cy, cz);
+    body.push(c);
+  }
+  for (const [cx, cy, w, h] of CAL_BAR_JOINTS) {
+    // "Crack with light inside it": a dark SOCKET framing a gradient fissure (bright spine, dark
+    // tips), overhung by a BROW LIP whose underside is tinted faint-warm (the fire's spill). The
+    // drum-height stagger puts each at a real notch step; the brow occludes it at grazing angles.
+    shadow.push(xf(new THREE.PlaneGeometry(w + 0.7, h + 0.5), { x: cx, y: cy, z: 1.27 }));   // dark socket, a visible dark halo around the fire
+    glow.push(calBarFissure(cx, cy, w, h, 1.33));                                             // gradient magma fissure
+    glow.push(_fillCol(xf(new THREE.PlaneGeometry(w + 0.5, 0.5), { x: cx, y: cy + h / 2 + 0.12, z: 1.34, rx: -1.15 }), _CALH_BROW_WARM)); // proud brow, warm underside
+  }
+  const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
+  // DARK stops (no ember belly) — the fallen colonnade is dark basalt; fire only in the breaks.
+  const bodyGeo = bakeCalLadder(mergeGeometries(norm(body), false), 0, -1, 0, 0.28, -0.30, _CAL_STOPS_DARK); bodyGeo.userData.shared = true;
+  const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
+  const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
+  return { parts: [
+    { geo: bodyGeo, mat: mats.calBasalt },
+    { geo: shadowGeo, mat: mats.calShadow },
+    { geo: glowGeo, mat: mats.calCrack },   // gradient fissures + warm brow (vertex-coloured emissive fold)
+  ], ref: BAR_REF };
+}
+// Numeric fairness: every collider-box corner (|z|≤0.85, |y|≤0.64, full lane x) must sit
+// inside SOME column's hex cross-section. Because each column's inradius (≥1.21) exceeds
+// the box corner-radius including the column's own (cy,cz) offset, coverage reduces to an
+// x-continuity check + a per-column radius margin. Scale-invariant (x unscaled, y/z track r).
+export function calderaBarCoverage(r = BAR_REF) {
+  const s = r / BAR_REF;
+  const halfY = 0.64, halfZ = 0.85;   // collider half-extents in unit space
+  const LANE = CONFIG.laneHalfWidth;
+  const gaps = [];
+  for (let ix = -LANE; ix <= LANE; ix += 0.25) {
+    for (const yy of [-halfY, 0, halfY]) for (const zz of [-halfZ, 0, halfZ]) {
+      // find a column whose x-span contains ix and whose hex (centre cy,cz) contains (yy,zz)
+      const covered = CAL_BAR_COLUMNS.some(([len, cx, cy, cz, R]) => {
+        if (Math.abs(ix - cx) > len / 2 + 1e-4) return false;
+        const dy = yy - cy, dz = zz - cz;
+        return Math.hypot(dy, dz) <= 0.866 * R + 1e-4;   // inside the hex inscribed circle → inside the hex
+      });
+      if (!covered) gaps.push([+ix.toFixed(2), yy.toFixed(2), zz.toFixed(2)]);
+    }
+  }
+  return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length, s };
+}
+
+// COLUMN — THE SPATTER CHIMNEY. NOT a box (Fable r4: an axis-aligned box read BLOCKS —
+// "break the box: non-axis-aligned facets, chamfered overlapping lumps, squat taper").
+// So the neck is a stack of welded FACETED LUMPS (jittered icosahedra) — chamfered blobs,
+// each freely yawed so no two facets align, plus off-axis SPATTER octa welded onto the
+// flanks to break the silhouette. The r·0.65 collider is carried ONLY by the on-axis CORE
+// lumps (Rx=Rz circular in plan → the collider circle sits inside their inscribed ellipsoid
+// regardless of yaw; coverage stays a sound concentric-radius test). Off-axis spatter and
+// the sheared crown are decorative (not counted). Authored in UNIT space (Rx/Rz in r,
+// cy/Rv in h) so independent r/h scaling stays coherent.
+// CORE lumps [cy, Rc, Rv, yaw] — on-axis, coverage-bearing, jittered faceted balls.
+const CAL_PILLAR_LUMPS = [
+  [0.04, 1.08, 0.44, 0.20],   // rooted spatter base (broadest)
+  [0.30, 1.12, 0.46, 1.15],   // welded re-flare blob (overhang → ember belly)
+  [0.55, 1.03, 0.44, 2.10],   // mid neck
+  [0.76, 0.94, 0.42, 3.00],   // upper neck (still covers to 0.78)
+];
+const CAL_PILLAR_COVER_TO = 0.78;
+const _ICO_INR = 0.79465;   // inscribed-sphere radius of a unit icosahedron(1,0)
+// SPATTER lumps [cx, cy, cz, Rx, Ry, Rz, yaw, tilt] — off-axis welded blobs (decorative,
+// break the silhouette) + a broad flattened sheared CROWN (never a point).
+const CAL_PILLAR_SPATTER = [
+  [0.58, 0.20, 0.34, 0.54, 0.44, 0.50, 0.60, 0.30],    // low flank bulge
+  [-0.62, 0.44, -0.26, 0.50, 0.46, 0.48, 1.80, -0.28], // mid back bulge
+  [0.52, 0.66, -0.42, 0.46, 0.40, 0.48, 2.60, 0.22],   // upper flank bulge
+  [0.10, 0.94, 0.06, 0.66, 0.30, 0.58, 2.90, 0.24],    // sheared broad crown (flattened, tilted)
+];
+// Sunken THROAT vent — a recessed magma pool in the neck's front face (below the crown),
+// occluded at grazing angles by the surrounding spatter. [cy, wide, high, tilt]
+const CAL_PILLAR_THROAT = [0.62, 0.30, 0.34, 0.20];
+// Tucked TIGHT to the foot (dist ≤ 0.92, seated up into the base lump) so the debris reads
+// as welded to the root, not disconnected chips floating off the base (Fable: clean the chips).
+const CAL_PILLAR_RUBBLE = [
+  [-0.5, 0.86, 0.34], [-0.1, 0.92, 0.26], [0.3, 0.84, 0.30], [0.7, 0.90, 0.24],
+];
+
+function buildCalderaPillar() {
+  const tower = [], glow = [], shadow = [], rubble = [];
+  const rng = mulberry32(0x5a77e12 >>> 0);
+  const jitter = (g, amt) => {
+    const p = g.attributes.position, jm = new Map();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = `${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)}`;
+      let j = jm.get(k); if (!j) { j = [(rng() - 0.5) * amt, (rng() - 0.5) * amt, (rng() - 0.5) * amt]; jm.set(k, j); }
+      p.setXYZ(i, x * (1 + j[0]), y * (1 + j[1]), z * (1 + j[2]));
+    }
+  };
+  // CORE lumps — on-axis chamfered faceted balls (carry the collider). Rx=Rz so the
+  // collider circle stays inside regardless of yaw; yaw only breaks facet alignment.
+  for (const [cy, Rc, Rv, yaw] of CAL_PILLAR_LUMPS) {
+    let g = new THREE.IcosahedronGeometry(1, 0); if (g.index) g = g.toNonIndexed();
+    jitter(g, 0.13);
+    g.scale(Rc, Rv, Rc);
+    g.rotateY(yaw);
+    g.translate(0, cy - 0.5, 0);
+    tower.push(g);
+  }
+  // SPATTER lumps — off-axis welded octa bulges + the sheared broad crown (decorative).
+  for (const [cx, cy, cz, Rx, Ry, Rz, yaw, tilt] of CAL_PILLAR_SPATTER) {
+    let g = new THREE.OctahedronGeometry(1, 0); if (g.index) g = g.toNonIndexed();
+    jitter(g, 0.16);
+    g.scale(Rx, Ry, Rz);
+    g.rotateZ(tilt); g.rotateY(yaw);
+    g.translate(cx, cy - 0.5, cz);
+    tower.push(g);
+  }
+  {
+    const [cy, wide, high, tilt] = CAL_PILLAR_THROAT;
+    // Throat faces the LANE (+z, the approach direction): occluded from the side, revealed
+    // on approach (Fable). Recessed magma pool set into the front flank of the neck.
+    const front = 0.80;
+    const mk = (geo, z) => { geo.rotateZ(tilt); geo.translate(0.04, cy - 0.5, z); return geo; };
+    shadow.push(mk(new THREE.PlaneGeometry(wide + 0.18, high + 0.12), front));       // deep dark socket (the recess)
+    glow.push(mk(new THREE.PlaneGeometry(wide, high), front + 0.035));               // magma core, set in the socket
+  }
+  for (const [ang, dist, size] of CAL_PILLAR_RUBBLE) {
+    const t = new THREE.TetrahedronGeometry(size);
+    t.scale(1, 0.6, 1);
+    t.rotateY(ang * 1.7);
+    xf(t, { x: Math.cos(ang) * dist, y: -size * 0.2, z: Math.sin(ang) * dist });
+    rubble.push(t);
+  }
+  const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
+  // High frostT: the body stays dark basalt; ember only rim-lights the STRONGEST overhang
+  // undersides + the molten root — the fire is the recessed THROAT, not flooded mid-facets
+  // (Fable: "reserve full-flood orange for the root only, dark dominates the body").
+  const towerGeo = bakeCalLadder(mergeGeometries(norm(tower), false), 0, -1, 0, 0.74, -0.30); towerGeo.userData.shared = true;
+  const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
+  const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
+  const rubbleGeo = bakeCalLadder(mergeGeometries(norm(rubble), false), 0, -1, 0, 0.55, -0.30); rubbleGeo.userData.shared = true;
+  return {
+    tower: [
+      { geo: towerGeo, mat: mats.calBasalt },
+      { geo: shadowGeo, mat: mats.calShadow },
+      { geo: glowGeo, mat: mats.calMagma },
+    ],
+    rubble: [{ geo: rubbleGeo, mat: mats.calBasalt }],
+  };
+}
+// Numeric fairness (mirrors pillarColliderCoverage): the r·0.65 collider circle sits inside
+// some CORE lump's inscribed ellipsoid up to CAL_PILLAR_COVER_TO. On-axis + Rx=Rz means the
+// collider ring (all at radius R) is inside iff the inscribed-circle radius ≥ R (jitter only
+// pushes verts OUTWARD, so the un-jittered inscribed sphere is a conservative floor).
+export function calderaPillarCoverage() {
+  const R = 0.65;
+  const gaps = [];
+  for (let yf = 0; yf <= CAL_PILLAR_COVER_TO; yf += 0.04) {
+    const covered = CAL_PILLAR_LUMPS.some(([cy, Rc, Rv]) => {
+      const ry = _ICO_INR * Rv;                 // inscribed y half-extent
+      const dy = Math.abs(yf - cy);
+      if (dy >= ry) return false;
+      const rad = _ICO_INR * Rc * Math.sqrt(1 - (dy / ry) * (dy / ry));   // inscribed circle radius at yf
+      return rad >= R + 1e-4;
+    });
+    if (!covered) gaps.push(+yf.toFixed(2));
+  }
+  return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length };
+}
+
+// TUMBLING MASS — THE COOLING LAVA BOMB. A near-black basalt rock whose crust has cracked
+// over a molten interior: one dark shrunk-and-proud PLATE per core face seats over an ember
+// CORE, so the fire shows ONLY in the channels the shrink leaves along every edge = a recessed
+// CRACK NETWORK. Crucially the network has HIERARCHY (Fable gate: "kill 60–70% of the edge
+// glow to near-dead ember, keep 3–4 genuinely HOT wide fissures"): a deterministic per-face
+// hash marks ~1/4 of faces HOT (bright ember core + a WIDER channel) and the rest DIM (dying
+// ember + a TIGHT channel), so it reads as a real cooling crust, not uniform orange piping.
+// Oblate ~1.25:1 wider than tall (lateral-dodge telegraph) inside the equidimensional bound so
+// the spin never reads as a hitbox glitch. Single merged geo, one material (vColours + hot-swap).
+const CAL_BOMB_SCALE = [1.22, 0.90, 1.04];
+const CAL_BOMB_HOT = [1.00, 0.34, 0.07];   // hot fissure — bright molten core
+const CAL_BOMB_DIM = [0.28, 0.070, 0.02];  // cooled seam — near-dead ember
+const CAL_BOMB_SILENT = [0.075, 0.05, 0.04]; // fully-cooled — crust meets crust, no visible line
+const CAL_BOMB_K_HOT = 0.70;    // hot-face plate shrink → WIDE channel (a real fissure)
+const CAL_BOMB_K_DIM = 0.85;    // dim-face plate shrink → TIGHT channel (a hairline seam)
+const CAL_BOMB_K_SILENT = 0.99; // silent-face plate → touches its neighbour, the seam disappears
+const CAL_BOMB_PLATE_PROUD = 0.055;   // outward push so plates seat proud of the ember core
+let _calBombSupport = 0;
+
+function buildCalderaBomb() {
+  const rng = mulberry32(0xca1de7a);
+  const parts = [];
+  const jitter = (g, amt) => {
+    const p = g.attributes.position, jm = new Map();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = `${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)}`;
+      let j = jm.get(k); if (!j) { j = [(rng() - 0.5) * amt, (rng() - 0.5) * amt, (rng() - 0.5) * amt]; jm.set(k, j); }
+      p.setXYZ(i, x * (1 + j[0]), y * (1 + j[1]), z * (1 + j[2]));
+    }
+  };
+  // Per-face TIER from a SMOOTH spatial field (low-frequency sines of the centroid) — smooth so
+  // neighbouring faces tend to agree, i.e. HOT faces CLUSTER into a connected branching crack
+  // path instead of scattering into a uniform edge-graph (Fable: "one connected crack path, not
+  // the whole icosahedron traced"). hot → wide bright fissure; dim → tight rust seam; silent →
+  // plate touches its neighbour so that seam dies completely (crust meets crust).
+  const faceTier = (cx, cy, cz) => {
+    const f = Math.sin(2.1 * cx + 0.3) + Math.sin(1.9 * cy + 1.7) + Math.sin(2.3 * cz + 3.1);
+    return f > 1.0 ? 'hot' : f > 0.0 ? 'dim' : 'silent';
+  };
+  const [SX, SY, SZ] = CAL_BOMB_SCALE;
+  // EMBER CORE — the molten interior; carries the r·0.70 collider (measured inradius AFTER the
+  // non-uniform scale). vColor pinned ember; it shows ONLY in the channels the crust leaves open.
+  let core = new THREE.IcosahedronGeometry(1.14, 0);
+  if (core.index) core = core.toNonIndexed();
+  jitter(core, 0.30);   // hard jitter so the silhouette stops reading as a platonic icosahedron
+  core.scale(SX, SY, SZ);
+  {
+    const p = core.attributes.position; let mind = Infinity;
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+    for (let i = 0; i < p.count; i += 3) {
+      a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2);
+      e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+      mind = Math.min(mind, Math.abs(nr.dot(a)));
+    }
+    _calBombSupport = mind;
+  }
+  core.deleteAttribute('uv');   // align attrs with the hand-built crust (position/normal/color)
+  // EMBER CORE colours — per-face HOT (bright molten) vs DIM (dying), so the channels that
+  // border a hot face read as live fissures and the rest as cooled hairline seams.
+  const cp0 = core.attributes.position, ccol = new Float32Array(cp0.count * 3);
+  const cc = new THREE.Vector3();
+  for (let i = 0; i < cp0.count; i += 3) {
+    cc.set((cp0.getX(i) + cp0.getX(i + 1) + cp0.getX(i + 2)) / 3,
+           (cp0.getY(i) + cp0.getY(i + 1) + cp0.getY(i + 2)) / 3,
+           (cp0.getZ(i) + cp0.getZ(i + 1) + cp0.getZ(i + 2)) / 3);
+    const tier = faceTier(cc.x, cc.y, cc.z);
+    const rgb = tier === 'hot' ? CAL_BOMB_HOT : tier === 'dim' ? CAL_BOMB_DIM : CAL_BOMB_SILENT;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; ccol[o] = rgb[0]; ccol[o + 1] = rgb[1]; ccol[o + 2] = rgb[2]; }
+  }
+  core.setAttribute('color', new THREE.Float32BufferAttribute(ccol, 3));
+  parts.push(core);
+  // DARK CRUST — one shrunk-and-proud plate per core FACE (the true breadcrust: dark plates
+  // over the molten core, the ember showing ONLY in the thin channels the shrink leaves along
+  // every edge = a recessed CRACK NETWORK that wraps the whole rock, never a painted panel).
+  // Each plate is pulled toward its centroid by a per-face SHRINK (hot faces shrink MORE → a
+  // wide fissure; dim faces shrink LESS → a tight seam) and pushed out along the face normal.
+  const cp = core.attributes.position, crust = new Float32Array(cp.count * 3);
+  const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3();
+  const cen = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  const D = CAL_BOMB_PLATE_PROUD;
+  for (let i = 0; i < cp.count; i += 3) {
+    va.fromBufferAttribute(cp, i); vb.fromBufferAttribute(cp, i + 1); vc.fromBufferAttribute(cp, i + 2);
+    cen.copy(va).add(vb).add(vc).multiplyScalar(1 / 3);
+    e1.subVectors(vb, va); e2.subVectors(vc, va); nr.crossVectors(e1, e2).normalize();
+    const tier = faceTier(cen.x, cen.y, cen.z);
+    const K = tier === 'hot' ? CAL_BOMB_K_HOT : tier === 'dim' ? CAL_BOMB_K_DIM : CAL_BOMB_K_SILENT;
+    for (let k = 0; k < 3; k++) {
+      const v = k === 0 ? va : k === 1 ? vb : vc;
+      const px = cen.x + (v.x - cen.x) * K + nr.x * D;
+      const py = cen.y + (v.y - cen.y) * K + nr.y * D;
+      const pz = cen.z + (v.z - cen.z) * K + nr.z * D;
+      crust[(i + k) * 3] = px; crust[(i + k) * 3 + 1] = py; crust[(i + k) * 3 + 2] = pz;
+    }
+  }
+  const crustGeo = new THREE.BufferGeometry();
+  crustGeo.setAttribute('position', new THREE.Float32BufferAttribute(crust, 3));
+  crustGeo.computeVertexNormals();   // match the core's position/normal/color attribute set
+  bakeCalLadder(crustGeo, 0, -1, 0, 0.40, -0.30, _CAL_STOPS_DARK);
+  parts.push(crustGeo);
+  const geo = mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false);
+  geo.userData.shared = true;
+  return { geo };
+}
+export function calderaBombSupport() { obstacleSkin(3, 'shard'); return _calBombSupport; }
+
 const SKIN_BUILDERS = {
   2: { bar: buildFrozenBar, pillar: buildFrozenPillar, shard: buildFrozenShard },   // Frozen
+  3: { bar: buildCalderaBar, pillar: buildCalderaPillar, shard: buildCalderaBomb }, // Emberfall Caldera
 };
 const _skinCache = {};
 function obstacleSkin(bi, type) {
@@ -895,7 +1315,12 @@ function hazardMesh(type, bi, p) {
   // shard
   const skin = obstacleSkin(bi, 'shard');
   if (skin) {
-    const m = new THREE.Mesh(skin.geo, p.dynamic ? mats.moverIce : mats.frostIce);
+    // Per-biome shard materials (CALDERA-BIBLE.md §7 seam fix): the skinned-shard branch
+    // used to HARDCODE Frozen's frostIce/moverIce, which would ship the breadcrust bomb in
+    // blue ice. Route each skinned biome to its own still/dynamic pair.
+    const still = bi === 3 ? mats.calBasalt : mats.frostIce;
+    const hot = bi === 3 ? mats.calBombHot : mats.moverIce;
+    const m = new THREE.Mesh(skin.geo, p.dynamic ? hot : still);
     m.scale.setScalar(p.r);
     return m;
   }
