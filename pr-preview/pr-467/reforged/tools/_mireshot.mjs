@@ -3,7 +3,8 @@
 import { writeFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
 
-const VIEW = { width: 1120, height: 700 };
+const VIEW = { width: 640, height: 1386 };   // PORTRAIT — match the phone (1320x2868 ≈ 0.46); the
+                                             // vertical FOV shows the overhead canopy the landscape crop hid
 const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   v: 2, embers: 50, stats: { runs: 5 },
   skins: { owned: ['azure'], equipped: 'azure' },
