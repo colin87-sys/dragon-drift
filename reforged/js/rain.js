@@ -75,12 +75,8 @@ export function setRainTier(t) {
   if (rain) rain.geometry.setDrawRange(0, drawCount * 2);
 }
 
-// TEMP bisect kill-switch (black-screen hunt): ?norain hides the rain entirely.
-const RAIN_OFF = (typeof location !== 'undefined') && new URLSearchParams(location.search).has('norain');
-
 export function updateRain(dt, camera, env) {
   if (!rain) return;
-  if (RAIN_OFF) { rain.visible = false; return; }
   const mix = env.rainMix || 0;
   mat.opacity = mix;
   rain.visible = mix > 0.005;

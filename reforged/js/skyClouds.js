@@ -107,8 +107,6 @@ export function setSkyCloudQuality(t) {
 export function applySkyClouds(env, playerDist, time) {
   // A biome may FORCE clouds on even when the global toggle is off (a storm's deck is its identity);
   // still tier-gated (clouds are expensive fill — off on tier 2 like all clouds).
-  // TEMP bisect kill-switch (black-screen hunt): ?noclouds disables the forced storm deck.
-  if ((typeof location !== 'undefined') && new URLSearchParams(location.search).has('noclouds')) { cloudUniforms.uCloudAmount.value = 0; return; }
   if ((!enabled && !env.cloudForce) || tier >= 2) { cloudUniforms.uCloudAmount.value = 0; return; }
   cloudUniforms.uCloudAmount.value = env.cloudAmount || 0;
   cloudUniforms.uCloudLit.value.copy(env.cloudLit);
