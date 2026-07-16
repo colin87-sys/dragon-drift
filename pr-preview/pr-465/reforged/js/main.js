@@ -66,11 +66,14 @@ import { BUILD, BUILT } from './buildId.js';
 // worker cache). The id is the SW content hash, so it changes whenever any asset
 // changes; if the number on screen matches the latest deploy, you're current.
 // U1 (UI-PREMIUM-OVERHAUL): dev chrome never ships to players — the on-screen
-// stamp only renders under ?debug; the console line stays for everyone.
+// stamp only renders under ?debug OR when a ?biome= pin is present (both are
+// testing contexts, never a real player's URL), so the owner's `?biome=N`
+// preview links show which build actually loaded; the console line stays for everyone.
 (function showBuildStamp() {
   try {
     console.log(`[Dragon Drift] build ${BUILD} · built ${BUILT}`);
-    if (!new URLSearchParams(location.search).has('debug')) return;
+    const q = new URLSearchParams(location.search);
+    if (!q.has('debug') && !q.has('biome')) return;
     const el = document.createElement('div');
     el.id = 'build-stamp';
     el.textContent = 'build ' + BUILD;
