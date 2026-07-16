@@ -225,17 +225,25 @@ const fragmentShader = /* glsl */`
       refl += vec3(0.33, 1.0, 0.52) * 0.4 * pow(1.0 - clamp(R.y, 0.0, 1.0), 3.0) * uAuroraGlow;
     #endif
 
-    // STORMSEA — MATTE IT DOWN: an overcast storm sea is dull, not chrome. Dim the reflected sample
-    // and cap the mirror at ~55% even at grazing angles so the dark water body always owns ≥45%.
-    refl *= mix(1.0, 0.62, uStormSea);
+    // STORMSEA — READABILITY: no reflection may be brighter than its source. A COMPRESSIVE luminance
+    // cap (~0.85, hue preserved) so bloom-hot objects (rings/gates/pickups) can't STROBE when the
+    // broken chop decorrelates their reflection frame-to-frame — they become glints, not flicker.
+    float _rl = dot(refl, vec3(0.2126, 0.7152, 0.0722));
+    refl *= mix(1.0, 0.85 / max(0.85, _rl), uStormSea);   // cap only under storm; byte-identical elsewhere
+    // MATTE IT DOWN: an overcast storm sea is dull, not chrome — dim the reflected sample + cap the
+    // mirror at ~55% even at grazing angles so the dark water body always owns ≥45%.
+    refl *= mix(1.0, 0.55, uStormSea);
     vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0) * (1.0 - 0.45 * uStormSea));
 
     // Golden sun streak: compress the normal's x so the highlight stretches
     // toward the camera (classic low-sun water glitter lane).
-    vec3 Ns = normalize(vec3(N.x * 0.30, N.y, N.z));
+    // STORMSEA: the sun is HIDDEN behind the deck — there is no coherent specular PATH to the viewer.
+    // Relax the toward-camera stretch (rounder/shorter lobe) so the glitter confines to a DISTANT
+    // horizon band instead of a calm "moonlit lane" running to the foreground; and dim the gain.
+    vec3 Ns = normalize(vec3(N.x * mix(0.30, 0.70, uStormSea), N.y, N.z));
     vec3 H = normalize(normalize(sunDir) + V);
     float spec = pow(max(dot(Ns, H), 0.0), 240.0);
-    col += sunColor * spec * 2.6;
+    col += sunColor * spec * 2.6 * (1.0 - 0.45 * uStormSea);
     // HEAVEN reflection COLUMN: a broad soft gold lobe under the detonation — the sea-scale answer to the
     // sky-scale blast (the thin pow-240 glitter alone was nowhere near the scale of the fire). Breathes.
     col += sunColor * pow(max(dot(Ns, H), 0.0), 18.0) * 0.35 * uHeavenGlow * breath;   // 0.35 (not 0.5): the column sits in the parry corridor — keep fairness headroom under the p90 cap
