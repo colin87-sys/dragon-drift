@@ -312,9 +312,22 @@ const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below
 function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
+  const s = [0, 0, 0];
   for (let i = 0; i < n; i += 3) {
     const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;   // face-centroid height (unit space, pre-scale)
-    const s = yc > waterY + bandH ? _LAG_BLEACH : yc < waterY ? _LAG_DROWN : _LAG_JADE;
+    if (yc > waterY + bandH) {
+      // BLEACH crown — VALUE STRUCTURE (Fable r1 / AAA-PIPELINE core→bloom→dark): brighten toward the
+      // top so a ruin reads dark-waterline → bright sunlit crown instead of one flat pale value. Unit-Y
+      // maps to world height (rotY is about Y, tilt tiny), so the gradient stays vertical under instancing.
+      const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);   // 0 just above the tide → 1 at a tall crown
+      s[0] = _LAG_BLEACH[0] * (1 + 0.10 * t); s[1] = _LAG_BLEACH[1] * (1 + 0.09 * t); s[2] = _LAG_BLEACH[2] * (1 + 0.06 * t);
+    } else if (yc < waterY) {
+      const t = Math.min(1, (waterY - yc) / 0.4);             // darken into the wet shadow core at the base
+      const f = 1 - 0.30 * t;
+      s[0] = _LAG_DROWN[0] * f; s[1] = _LAG_DROWN[1] * f; s[2] = _LAG_DROWN[2] * f;
+    } else {
+      s[0] = _LAG_JADE[0]; s[1] = _LAG_JADE[1]; s[2] = _LAG_JADE[2];
+    }
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -1271,7 +1284,7 @@ const ARCHETYPES = {
       // Half-drum CLOSED (both hex ends capped): the +z end sinks into the full drum (occluded), the −z
       // end is a clean break face. No separate CircleGeometry cap → no edge-on sliver fin (Fable w2).
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 6), { x: 0.34, z: -0.10, y: 0.13, rx: Math.PI / 2, ry: 0.35 }) }); // 24
-      return mergeLagoonParts(parts, { foil: true });
+      return mergeLagoonParts(parts);   // tide-laddered dressed stone (Fable r1: the dark foil read as floating garbage at gameplay distance — pale bleached crowns + jade waterline convert it to ruin; distinctness is the tumbled silhouette, not the value)
     },
     // MID foil scatter, ~2:1 WIDE (Fable w1): normalized crest ~0.60, so h 3.5–5 world → the capital-
     // stump reads proud over a low wide rubble field, never a tower. Draw r first, couple x → inner ≥16
