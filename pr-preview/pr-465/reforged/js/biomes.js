@@ -269,14 +269,14 @@ export const BIOMES = [
     keyShift: -3,
     stars: 0,
     sky: {
-      top: C(0x232a33),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
-      mid: C(0x525f4e),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
-      horizon: C(0xb4bab6),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
+      top: C(0x1f242c),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
+      mid: C(0x4a5348),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
+      horizon: C(0xaab1ad),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
       sun: C(0x8f948c),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
       // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed near-black (the dark
       // underside is what makes the cloud read as SOLID storm mass), lit tops held BELOW the horizon
       // slot's value so the slot stays the frame's brightest hole.
-      cloud: { amount: 0.97, lit: C(0xb9c0bb), shadow: C(0x1d242c), force: true }, // force: the storm deck is the biome's identity, on even without the global sky-cloud toggle (tier-gated for perf)
+      cloud: { amount: 0.80, lit: C(0xaeb6b0), shadow: C(0x161c24), force: true }, // force: the storm deck is the biome's identity, on even without the global sky-cloud toggle (tier-gated for perf)
     },
     fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
     // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
@@ -284,7 +284,7 @@ export const BIOMES = [
     // forms dissolve into the veil: free depth + cycle-unique distinctness.
     fogFarColor: C(0xa7b2b0),
     // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
-    atmos: { heightK: 0.04 },
+    atmos: { heightK: 0.03 },
     // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
     // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
