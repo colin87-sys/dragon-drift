@@ -86,6 +86,27 @@ export function makeAuraTexture(rgb = '160,220,255') {
   return new THREE.CanvasTexture(c);
 }
 
+// Tight speed-trail falloff (Fable 79): core-hot with NO held shoulder — the shipped
+// makeGlowTexture holds 0.8 alpha out to r=0.3, and a frozen puff-stack (timeScale 0)
+// reads as balloons piled under the hero in stills. Dead by r=0.7, ~¼ the glow energy
+// (opacity-compensated at the call sites so the in-motion ribbon keeps its centreline
+// luminance). Keeps the two-stop (rgb, coreRgb) contract so fire dragons keep their warm
+// cream core (additive stacks must never sum to white). Own function — makeGlowTexture's
+// 30+ callers keep their broad glow.
+export function makeTrailTexture(rgb = '160,220,255', coreRgb = '255,255,255') {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0.00, `rgba(${coreRgb},1)`);
+  grad.addColorStop(0.18, `rgba(${rgb},0.55)`);
+  grad.addColorStop(0.45, `rgba(${rgb},0.12)`);
+  grad.addColorStop(0.70, `rgba(${rgb},0)`);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
 // Circle-outline shockwave texture (white; tint via material color).
 export function makeRingTexture() {
   const c = document.createElement('canvas');

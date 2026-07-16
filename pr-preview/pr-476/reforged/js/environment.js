@@ -111,6 +111,14 @@ const PROP_NOISE_HEAD = /* glsl */`
 const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
 const propAerialColor   = { value: new THREE.Color(0x000000) };
 
+// Fable 79 HERO BACKLIT-RIM lever — a per-biome optional channel (0 everywhere but the Mire) that
+// dragon.js reads each frame to backlight the drake's silhouette in the biome's horizon colour. Not a
+// shader uniform (the rim GLSL is untouched); a plain JS signal on the same optional-channel pattern.
+let heroRimK = 0;
+const heroRimCol = new THREE.Color();
+const _heroRim = { k: 0, color: heroRimCol };
+export function getHeroRim() { _heroRim.k = heroRimK; return _heroRim; }
+
 function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
@@ -299,6 +307,14 @@ function makeMats() {
     // silhouettes survive the pale-slot backlight instead of collapsing to flat-black (the ladder vColor
     // folds INTO this via ladderEmissive, so SOAKED belly stays dark and SCOUR tops read the lift).
   }), true);
+  // (The atmospheric CLOUD-WALL `arcuswall` and its tempestCloud/lip materials are DEFERRED to a future
+  //  sky-shader pass — see the archetype note — so no cloud materials are built here.)
+  // The virga VEIL — rainshaft ships as thin OPAQUE pale slabs the colour of the far fog (#a7b2b0), so
+  // the pale distance makes opaque geometry read as translucent falling rain for free. No accent — it IS
+  // light-through-water; a faint emissive keeps it from going muddy in the haze.
+  mats.tempestVirga = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xa7b2b0, roughness: 0.95, metalness: 0.0, emissive: 0x8f9a9a, emissiveIntensity: 0.30,
+  }));
   return mats;
 }
 let propMats = null;
@@ -467,6 +483,54 @@ function mergeTempestParts(parts) {
   bakeTempestLadder(geometry);
   bakeAO(geometry);
   return { geometry, materials: mats };
+}
+
+// THE GOLD SOCKET (bible §4 glow address) as POOLED LIGHT, not a decal (Fable gate: the first pass read
+// as "lemon slices decaled on boulders"). VALUE STRUCTURE + a tri budget: a 5-sided OPEN CONE scoop bored
+// into the face (mat 0, ~5 tris — bakeAO shades the concavity into a dark rim) with a faceted gold POOL
+// (mat 1 = accent[7] octahedron, 8 tris) set BACK inside it. ~13 tris/socket (vs ~120 for a torus rim).
+// The warm BLOOM/spill onto the surrounding rock is added by bakeSocketSpill (0 tris). Socket centres are
+// pushed to `centers` for that pass. Varied sizes double as the honeycombed tafoni. Face = +z (seaward).
+function addGoldSocket(parts, centers, x, y, z, s) {
+  parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(s * 1.25, s * 1.1, 5, 1, true), { x, y, z: z - s * 0.5, rx: -Math.PI / 2 }) });
+  // The pool is a FLAT wide lozenge sunk in the scoop (sy 0.4 / sz 0.55), NOT a point-up octahedron —
+  // that squash reads as pooled liquid AND kills the silhouette collision with the point-up collectible
+  // gold GEMS in the lane (Fable: "gold diamond = collect me"). Still 8 tris.
+  parts.push({ mat: 1, geo: xform(new THREE.OctahedronGeometry(s * 0.9, 0), { x, y, z: z - s * 0.3, sy: 0.4, sz: 0.55, sx: 1.15 }) });
+  centers.push([x, y, z]);
+}
+
+// THE BLOOM layer (Fable gate #1): after the scour ladder is baked, bleed warm #ffd870 into the mat-0
+// rock vertices immediately AROUND each socket centre (radial falloff), so the pooled gold reads as LIGHT
+// SPILLING onto the rim rock — hot core → bloom → dark surround — instead of a wax seal. Zero triangles.
+const _SOCK_GOLD = [1.0, 0.847, 0.44];   // #ffd870
+function bakeSocketSpill(geo, centers, spillR = 0.24) {
+  const pos = geo.attributes.position, col = geo.attributes.color;
+  if (!col || !centers.length) return geo;
+  for (let i = 0; i < pos.count; i++) {
+    const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
+    let best = 0;
+    for (const c of centers) {
+      const dx = px - c[0], dy = py - c[1], dz = pz - c[2];
+      const w = 1 - Math.min(1, Math.sqrt(dx * dx + dy * dy + dz * dz) / spillR);
+      if (w > best) best = w;
+    }
+    if (best <= 0) continue;
+    const t = best * best * 0.55;   // ease + cap the spill so it's a warm bleed, not a repaint
+    col.setX(i, col.getX(i) + (_SOCK_GOLD[0] - col.getX(i)) * t);
+    col.setY(i, col.getY(i) + (_SOCK_GOLD[1] - col.getY(i)) * t);
+    col.setZ(i, col.getZ(i) + (_SOCK_GOLD[2] - col.getZ(i)) * t);
+  }
+  col.needsUpdate = true;
+  return geo;
+}
+
+// Merge the virga VEIL (rainshaft): ONE pale opaque material, no ladder, no accent.
+function mergeTempestVirga(parts) {
+  const geos = parts.map(p => (p.geo.index ? p.geo.toNonIndexed() : p.geo));
+  const geometry = mergeGeometries(geos, false);
+  bakeAO(geometry);
+  return { geometry, materials: [propMats.tempestVirga] };
 }
 
 // THE LOST LAGOON value ladder (LOST-LAGOON-BIBLE.md §3) — a THIRD ladder, distinct from both the
@@ -2012,9 +2076,133 @@ const ARCHETYPES = {
   // them. step 29 is coprime with the near wall's 17 → no lattice co-beat between the ranks. rotY
   // pinned 0 = every prow leans the SAME down-wind way as the near rank. CONSTANT 3 rnd() draws.
   stormprowFar: {
-    step: 29, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.22, sMin: 0.95, sMax: 1.20 },
+    step: 36, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.22, sMin: 0.95, sMax: 1.20 },
     build: () => ARCHETYPES.stormprow.build(),
     place: (side, rnd) => { const r = 12 + rnd() * 10; return { x: side * (34 + 0.90 * r + rnd() * 10), h: 24 + rnd() * 22, r, tilt: side * -0.05, rotY: 0 }; },  // x coupled to the big footprint so the far rank sits BEHIND the near wall (inner ≥ ~34), never clipping the lane
+  },
+
+  // TEMPEST REACH — THE GLOW CARRIER (bible §4 `tafonihold`): a rounded, honeycombed tafoni block whose
+  // cavernous seaward face cradles THE GLOW ADDRESS — a low horizontal band of wave-worn SOCKETS pooled
+  // with stolen gold (#ffd870), lit only on the sea-facing (+z, toward the approaching camera) arc. This
+  // is the ONE family that carries warmth; the bare stormprow foil is what earns it. Mass ~1.3:1 (broad,
+  // weather-rounded — icosahedral lumps, not stacked boxes, so it reads DIFFERENT from the angular prows).
+  // The three storm-tells still read: recessed waterline belly (undercut), a scour ledge (stratification),
+  // slight lean. mat 0 = tempestStone (wind-scour ladder), mat 1 = accent[7] gold pools. rotY 0 so the
+  // socket face always turns toward the camera on approach.
+  tafonihold: {
+    step: 30, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.12, sMin: 0.88, sMax: 1.12, glow: true },
+    build: () => {
+      const parts = [], centers = [];
+      // Rounded core mass — two interpenetrating icosahedral lumps (weather-rounded boulder, top ~1.05),
+      // one broad + one shouldered so the silhouette is irregular without a third lump's tri cost.
+      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.54, 0), { y: 0.56, sy: 0.95, sx: 1.12 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.38, 0), { x: -0.32, y: 0.40, z: 0.10, sy: 0.90 }) });
+      // Recessed waterline belly (undercut storm-tell) — a narrow dark base the rounded mass overhangs.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.72, 0.18, 0.62), { y: 0.09 }) });
+      // THE GLOW ADDRESS — a low band of gold sockets pooled in wave-worn hollows on the seaward (+z)
+      // face. VARIED sizes + IRREGULAR clustering (not an even row) so no boulder reads as a stamped
+      // pattern; the recessed scoops double as the honeycombed tafoni weathering. [x, y, z, radius].
+      const sockets = [[-0.30, 0.36, 0.47, 0.10], [-0.13, 0.30, 0.52, 0.13], [0.03, 0.41, 0.50, 0.075], [0.27, 0.34, 0.47, 0.11], [0.43, 0.29, 0.37, 0.065]];
+      for (const [sx, sy, sz, ss] of sockets) addGoldSocket(parts, centers, sx, sy, sz, ss);
+      const m = mergeTempestParts(parts);
+      bakeSocketSpill(m.geometry, centers);   // warm gold bloom bleeds onto the rim rock (0 tris)
+      return m;
+    },
+    // NEAR glow carrier — broad+low so the socket band sits at eye height on approach. r 8–12, h 9–12
+    // world. x coupled to the ~0.6 footprint (·sMax 1.12) so the inner edge clears the 14.5 floor.
+    place: (side, rnd) => { const r = 8 + rnd() * 4; return { x: side * (16 + 0.84 * r + rnd() * 4), h: 9 + rnd() * 3, r, tilt: side * -0.04, rotY: 0 }; },
+  },
+
+  // TEMPEST REACH — THE HERO / PUNCTUATION (bible §4 `stormstack`): a lone wave-cut sea-stack, the ONE
+  // TALL archetype (~1:2.2), rarest step. A pinched waterline NOTCH (the undercut, where the sea gnawed
+  // the waist), a scoured shaft stepping up in offset bands (stratification + lean), crowned by a wider
+  // weather-hardened MUSHROOM CAP (the wave-cut signature). 2–3 gold sockets pooled AT the notch, sun-side.
+  // `hero: true` phase-locks it to the congregation peak so it lands as deliberate punctuation, not scatter.
+  stormstack: {
+    step: 43, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.06, sMin: 0.90, sMax: 1.15, glow: true },
+    build: () => {
+      const parts = [], centers = [];
+      // Wave-cut foot (below the notch) — the broad platform the stack rises from.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.46, 0.18, 5), { y: 0.09 }) });
+      // THE PINCH — a DEEP narrow notched waist just above the waterline. This is the wave-cut signature;
+      // it has to survive to silhouette (Fable: "if the notch doesn't read, it doesn't exist"), so the
+      // waist is much thinner than the foot AND the cap it carries — a real hourglass undercut.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.15, 0.24, 0.20, 5), { y: 0.27 }) });
+      // The shaft — one tall tapering band, slightly offset (a downwind lean).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.21, 0.24, 0.52, 5), { y: 0.60, x: 0.04 }) });
+      // THE MUSHROOM CAP — a WIDE hardened overhang (~1.5× the shaft), flared shadowed underside (the
+      // down-facing lip AO-darkens into the wave-cut hollow) so it reads as a real overhang. Pushed OFF-AXIS
+      // and made slightly ELLIPTICAL (sx 1.18) so it isn't a rotationally-clean "water tower" (Fable r2).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.56, 0.06, 5), { y: 0.855, x: 0.10, sx: 1.18 }) }); // flared shadowed underside
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.56, 0.40, 0.14, 5), { y: 0.94, x: 0.10, sx: 1.18 }) });  // cap crown
+      // A broken crown CHIP knocked off one side of the rim — breaks the tidy cap silhouette (sea stacks
+      // are shattered on top), and its underside AO-darkens for a shadowed fracture.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.16, 0.20), { x: -0.34, y: 0.99, z: 0.06, rz: 0.5, ry: 0.4 }) });
+      // Gold sockets pooled AT the notch (low, sea-facing), varied sizes — the stolen-gold address.
+      const sockets = [[0.02, 0.27, 0.20, 0.075], [0.15, 0.30, 0.12, 0.055]];
+      for (const [sx, sy, sz, ss] of sockets) addGoldSocket(parts, centers, sx, sy, sz, ss);
+      const m = mergeTempestParts(parts);
+      bakeSocketSpill(m.geometry, centers);
+      return m;
+    },
+    // TALL rare punctuation — r 5–8 thin footprint, h 24–40 world (~1:2.2+). NOT hero-phase-locked (that
+    // twinned the L/R ranks at matched depth — the metronome tell); rareness comes from the big step 43 +
+    // low comp floor, and L/R now draw independent jitter. x coupled to the ~0.56 cap footprint (·sMax
+    // 1.15) so even the mushroom overhang clears the lane. Per-instance lean jitter so no two match.
+    place: (side, rnd) => { const r = 4 + rnd() * 5; return { x: side * (19.5 + 0.68 * r + rnd() * 6), h: 22 + rnd() * 18, r, tilt: side * (rnd() * 0.05 - 0.02), rotY: (rnd() - 0.5) * 0.3 }; },
+  },
+
+  // TEMPEST REACH — THE LOW REST (bible §4 `stackgrave`): a scatter of stubby BROKEN stumps over a
+  // wave-cut platform — the ~3:1 broad, low family that writes the negative space between the tall
+  // punctuation. BARE (no gold): the silence that makes the glow carriers count. Snapped stump crowns
+  // (tilted caps) read as storm-shattered. step 13 (densest) so it fills the rest-beats along the wall.
+  stackgrave: {
+    step: 32, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.20, sMin: 0.90, sMax: 1.08 },
+    build: () => {
+      const parts = [];
+      // Wave-cut platform + an offset shelf slab — the broad low base (undercut reads at the platform lip).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.14, 6), { y: 0.07 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.07, 0.95), { y: 0.11, z: 0.08 }) });
+      // Broken stumps — short tapered cylinders that LEAN at varied angles (storm-snapped, not tidy
+      // pillars); the tilt + varied height + AO shading reads as a shattered field. 5-sided, cap-less.
+      const stumps = [[-0.32, 0.62, 0.10, 0.17, 0.22], [0.06, 1.00, -0.16, 0.20, -0.14], [0.36, 0.50, 0.22, 0.15, 0.26], [-0.12, 0.42, -0.30, 0.13, -0.28], [0.24, 0.74, -0.06, 0.16, 0.16]];
+      for (const [sx, top, sz, rad, lean] of stumps) {
+        const h = top - 0.12;
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(rad * 0.78, rad, h, 5), { x: sx, y: 0.12 + h / 2, z: sz, rz: lean, rx: lean * 0.5 }) });
+      }
+      return mergeTempestParts(parts);
+    },
+    // BROAD + LOW rest — r 9–13, h 3–5 world. x coupled to the ~0.66 platform footprint (·sMax 1.08).
+    place: (side, rnd) => { const r = 9 + rnd() * 4; return { x: side * (15 + 0.74 * r + rnd() * 5), h: 3 + rnd() * 2, r, tilt: 0, rotY: 0 }; },
+  },
+
+  // TEMPEST REACH — THE DISTANT MASSIF (bible §4 `arcuswall`): DEFERRED to a future sky-shader pass.
+  // Built + tried as a floating `overhead` prop (a shelf-cloud reaching over the lane); it fought the
+  // engine on every axis — the gold "leading lip" scaled into a flat yellow caution-tape plank, and the
+  // hard-faceted silhouette read as floating obsidian slabs, not billowing thunderhead (Fable: a block-on
+  // cheap-tell). It was also the worst triangle-budget offender. The bible itself flagged this risk ("if
+  // the prop trick fails, demote to a sky-shader streak") — a soft billow + curling gold lip is a job for
+  // the dome fragment shader (GRAPHICS-OVERHAUL), not instanced geometry. Left OUT of the roster for now.
+
+  // TEMPEST REACH — THE BACKDROP VEIL (bible §4 `rainshaft`): a tall pale VIRGA column — a shaft of
+  // falling rain caught as light, far off in the storm. Thin overlapping vertical slabs with soft tapered
+  // tops so it reads as a rain-smudge, not a pillar. Ships as OPAQUE pale geometry the colour of the far
+  // fog (#a7b2b0) so the distance makes it read translucent for FREE (zero transparency cost). No accent,
+  // no ladder — it IS light through water. Far-field only; narrow footprint clears the lane trivially.
+  rainshaft: {
+    step: 29, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.40, sMin: 0.95, sMax: 1.05 },
+    build: () => {
+      const parts = [];
+      const cols = [[0.0, 1.0, 0.16], [0.12, 0.82, 0.11], [-0.14, 0.90, 0.12], [0.05, 0.70, 0.09]];
+      for (const [cx, top, w] of cols) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, top, w * 0.7), { x: cx, y: top / 2, z: cx * 0.3 }) });
+        parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(w * 0.5, top * 0.3, 4), { x: cx, y: top * 1.12, z: cx * 0.3 }) }); // soft tapered top
+      }
+      return mergeTempestVirga(parts);
+    },
+    // FAR backdrop, tall + thin (~1:4). Narrow footprint → clears easily; rotY jitter so the slabs don't
+    // all face the same way. foam:false (a collar under a distant rain-smudge would be a bright artifact).
+    place: (side, rnd) => { const r = 4 + rnd() * 3; return { x: side * (40 + rnd() * 22), h: 30 + rnd() * 18, r, tilt: 0, rotY: (rnd() - 0.5) * 0.5 }; },
   },
 };
 
@@ -2057,6 +2245,10 @@ const FOAM_CFG = {
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
   stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
   stormprowFar: false,   // distant back-rank on the fog line — a collar 30+ off-lane is a bright artifact
+  tafonihold: { r: 0.62 },   // broad rounded boulder — round collar hugs the footprint
+  stormstack: { r: 0.40 },   // thin pillar — narrow collar at the pinched foot
+  stackgrave: { rx: 0.66, rz: 0.56 },   // broad low platform — wide near-round collar
+  rainshaft: false,   // distant rain-smudge — a collar under it would be a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -3000,6 +3192,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
   propAerialUniform.value = env.propAerial ?? 0;
   propAerialColor.value.copy(env.propAerialColor);
+  // Fable 79 hero backlit-rim lever: mirror the lerped env for dragon.js to consume via getHeroRim()
+  // (0 everywhere but the Mire → the rim boost is a byte-identical no-op elsewhere).
+  heroRimK = env.heroRim ?? 0;
+  heroRimCol.copy(env.heroRimColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
