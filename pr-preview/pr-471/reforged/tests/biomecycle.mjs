@@ -25,7 +25,12 @@ const check = (label, ok) => { if (ok) { pass++; } else { fail++; console.error(
 // because course gen is biome-blind (a separate test proves the fixtures still match).
 check('CYCLE is [0,1,2,3,4,6,5] (Aurora slotted between Mire and Astral)',
   Array.isArray(CYCLE) && CYCLE.length === 7 && [0, 1, 2, 3, 4, 6, 5].every((v, i) => CYCLE[i] === v));
-check('BIOMES[6] (Aurora Shallows) is now IN the cycle', BIOMES.length === 7 && CYCLE.includes(6));
+check('BIOMES[6] (Aurora Shallows) is now IN the cycle', BIOMES.length === 8 && CYCLE.includes(6));
+// Tempest Reach (BIOMES[7]) is APPENDED but NOT yet cycled — the coexistence contract: reachable
+// only via ?biome=7 until its CYCLE flip lands (coordinated with the Lost Lagoon arc). Adding it must
+// not change the shipped world, so CYCLE must still exclude 7 and stay length 7.
+check('BIOMES[7] (Tempest Reach) is appended but NOT yet in the cycle',
+  BIOMES.length === 8 && BIOMES[7].name === 'TEMPEST REACH' && !CYCLE.includes(7) && CYCLE.length === 7);
 check('the shipped prefix survives: blocks 0-4 are still biomes 0,1,2,3,4', [0, 1, 2, 3, 4].every((b, i) => CYCLE[i] === b));
 check('Aurora sits between Mire(4) and Astral(5): ...,4,6,5', CYCLE[4] === 4 && CYCLE[5] === 6 && CYCLE[6] === 5);
 
