@@ -1976,6 +1976,55 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // mangrovehold — LOW COMMONS / nature (§7.3.4): a red-mangrove islet — a woody trunk + broad canopy
+  // SUSPENDED ABOVE THE WATER on a crinoline of arcing STILT ROOTS. The signature is the AIRGAP: water +
+  // the mirror double show THROUGH the cage of legs under the trunk — "a tree standing on legs over its
+  // reflection" says tropical lagoon and nothing else, and it's the scale cue (a low 4–7m islet beside a
+  // 40m karst). All bake:'wood' (bark) + bake:'lily' (canopy); no stone, no gilt (a nature commons).
+  // SPIDER-KILL (§7.5.4): legs arc DOWN-AND-OUT at UNEVEN azimuths, taper, FLARE at the foot; the broad
+  // canopy VISUAL mass outweighs the thin legs (a tree, not a spider); a world-radius floor on the legs
+  // keeps them from vanishing at chase distance.
+  mangrovehold: {
+    step: 29, biomes: lagoonV3, matIndex: 0, sizeClass: true, comp: { floor: 0.15, sMin: 0.8, sMax: 1.05 }, // low commons: scatters around the island heroes, 3 size classes, near-empty in the open-water breaths
+    build: () => {
+      const parts = [];
+      // TRUNK — a short woody column SUSPENDED above the water (base at y0.40 → the airgap is below it),
+      // holding the canopy. bake:'wood' (dark bark).
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([0.0, 0.40, 0.0], [0.02, 0.74, 0.0], 0.14, 0.11, 6) });   // trunk (12)
+      // STILT ROOTS — a crinoline of arcing prop-roots from the trunk base DOWN-AND-OUT to feet at the
+      // water (y0), splayed at UNEVEN azimuths (no radial-clone spider). Each: start near the trunk (high,
+      // central) → arc out+down → splayed FLARED foot. bake:'wood'. World-radius floor via a fat foot.
+      const leg = (az, reach, y0, footR, seg) => {
+        const c = Math.cos(az), s = Math.sin(az);
+        const p0 = [0.07 * c, 0.46, 0.07 * s], p1 = [reach * 0.6 * c, y0 + 0.20, reach * 0.6 * s], p2 = [reach * c, y0, reach * s];
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.055, 0.045, seg) });
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.045, footR, seg) });   // flared foot
+      };
+      // uneven azimuths + varied reach/foot so the crinoline reads organic, not a clock face
+      leg(0.35, 0.50, 0.0, 0.085, 3);   // (12) — all 3-seg → triangular prism (round root), never a flat strap
+      leg(1.30, 0.44, 0.0, 0.075, 3);   // (12)
+      leg(2.30, 0.52, 0.0, 0.085, 3);   // (12)
+      leg(3.15, 0.40, 0.0, 0.070, 3);   // (12)
+      leg(4.20, 0.48, 0.0, 0.080, 3);   // (12)
+      leg(5.25, 0.42, 0.0, 0.072, 3);   // (12)
+      // CANOPY — a BROAD sheared green crown (bake:'lily'), the visual mass that outweighs the legs so it
+      // reads TREE not spider. Two overlapping squashed lobes (the figgate/karstfang law: rounded blobs +
+      // overlap, never a flat pad or one convex boulder), seated low so they weld to the trunk top.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.52, 0), { x: -0.02, z: 0.0, y: 0.86, sx: 1.22, sy: 0.62, sz: 1.14 }) });  // main broad canopy (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.24, z: 0.14, y: 0.94, sx: 1.06, sy: 0.66, sz: 0.96 }) });  // overlapping lobe (20)
+      return mergeLagoonParts(parts);
+    },
+    // LOW islet, ~1:1 (broad canopy + splayed legs ≈ as wide as tall): r 4.5–7, h 4–7 (never crowds the
+    // horizon — a commons). tilt 0 EXPLICIT (the airgap reads best level; a tilt floats the islet + a
+    // missing tilt is a NaN quaternion). Draw r first, couple x so the inner edge clears ±16 at worst scale.
+    place: (side, rnd) => {
+      const r = 4.5 + rnd() * 2.5;
+      const p = { x: side * (16 + 0.75 * r + rnd() * 4), h: 4 + rnd() * 3, r, tilt: 0 };
+      if (HERO_SET.has('mangrovehold')) p.rotY = 0;
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2003,6 +2052,7 @@ const FOAM_CFG = {
   arcade: false,          // Lost Lagoon backdrop massif — no collar (a bright ring 75+ off-lane is an artifact)
   karstfang: { r: 0.45 }, // Lost Lagoon v3 sea-stack — a thin jade tide collar where the notched foot meets the mirror
   figgate: { rx: 0.62, rz: 0.30 },   // Lost Lagoon v3 gateway — elliptical collar wraps the wide thin footprint (roots + jambs enter the water)
+  mangrovehold: { r: 0.55 },         // Lost Lagoon v3 mangrove islet — a round jade tide collar where the crinoline of stilt-root feet meets the mirror (the jade anklet)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
