@@ -25,6 +25,7 @@ import './dragonPhoenixReforged.js'; // Phoenix Ascendant REFORGED ("Sunhawk"): 
 import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): knappedTorso + scallopCrescentWings + vesperCatHead + splitFanTail (FLAT-FACET night drake; NOT the retired organism/one-skin family)
 import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
 import './dragonTempest.js';        // Thunderhead Tempest (billowed charcoal cloud + the STORMFORK bolt-frame wing): cumulonimbusTorso + stormforkWings + stormbrowHead + virgaTail (living-thundercloud storm drake; the near-white STORM CIRCUIT flickers on the pulseTimer clock — I0 stub, TEMPEST-THUNDERHEAD §B/§D)
+import './dragonAzure.js';          // Azure Drake (falcon-fused sky courier, AAA revision): falconKeelTorso + falconCombWings (+ shared draconic head / clean tail); wedge-thick primary comb, 4-tier value-ladder hull, withheld SLIPSTREAM signature — Radiant-capped (never out-blazes Eternal)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';

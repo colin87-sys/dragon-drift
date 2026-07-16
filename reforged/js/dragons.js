@@ -22,85 +22,120 @@ export const DRAGONS = {
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 0,
     accentHue: 0xd9b36a,   // §5d law-9 carrier: DIFFUSE gold tip-paint only, zero wing emissive
-    // AZURE Drake — the falcon-winged sky courier (§5d slot A). A compact avian
-    // glider (deep-keel arrow read) whose HERO is a swept blade-feather comb: 5
-    // stiff falcon primaries marching a swept leading arm, true gaps + z-stagger,
-    // painted value tiers + gold diffuse tips. Draconic head with a brow-crest
-    // motif; a clean tail forking into a swallow-banner at the apex.
+    // AZURE Drake — the falcon-fused sky courier, AAA revision (bespoke dragonAzure.js).
+    // HERO: a wedge-thick falcon PRIMARY comb (a lens cross-section with a raised rachis
+    // ridge → real edge-on thickness) in a dominant+decay fan [1,.82,.66,.52,.40] over a
+    // connected inner WEB + two covert ranks, on a real wingParts-3 wrist-fold beat. Body:
+    // a 4-tier value-ladder falcon-keel hull with a cool identity rim. Signature: THE
+    // SLIPSTREAM — a recessed ion filament (nape→tail) that idles DARK (eyes + one terminus
+    // stud are the only live points) and ignites on Surge, capped at ~45% of the Eternal
+    // ceiling (Radiant never out-blazes Eternal). Draconic head with a keen brow-crest.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
-    parts: { torso: 'sweptLoft', wings: 'bladeFeatherWings', head: 'draconic', tail: 'clean' },
+    parts: { torso: 'falconKeelTorso', wings: 'falconCombWings', head: 'draconic', tail: 'clean' },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 6, neckSegments: 5,
       headArchetype: 'softStealth',   // round friendly base, tuned keen per form via eyeShape/brow
       headScale: 1.0, snoutScale: 0.86, browIntensity: 1.15,
-      // Azure's ONLY head accent is its brow-crest motif (gate r1 dir 7): no ear-fin
-      // horns, no rear-crest, no rear glow — the sunburst nape corona is deleted.
       hornType: 'noHorn', rearCrestType: 'noRearCrest', rearGlowIntensity: 0,
       snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8, keenEye: true,
-      neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
-      // blade-feather comb shared dials (per-form span/count/etc. accrete below)
-      bladeCount: 5, bladeSweep: 0.34, bladeStagger: 0.28,   // slightly less back-sweep so the wing is more LATERAL → smaller side-view footprint (gate r9 dir 2); deep z-stagger keeps the planform slits
-      bladeCamber: 0.16, bladeDihedral: 0.26, bladeChord: 0.133,   // dihedral 15° gull; slimmer chord (side-facing area, NOT span) shrinks the side-view footprint toward body 55-65% (gate r10 dir 3)
-      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x264460,   // dorsal scutes: low leaf-scutes tinted to the body value so the back reads as one sleek mass (gate r8 dir 9), not pale beads
-      wingRootOffset: { z: -0.4 },   // shoulder forward toward the nose (−z) so the comb roots on the shoulder, not the mid-back (was reading too far aft)
-      flapBias: 1.0, flapAmp: 0.9,    // light courier beat
+      neckBlend: 1.6,  // FUSE the neck — a dense chain kills the ring-banded hose read (AAA §4 fix / DD §2.11)
+      hullLadder: true,   // paint the 4-tier strake value ladder on the loft (falconKeelTorso)
+      slipstream: false,  // the withheld signature ignites at the Radiant apex only (per-form)
+      // falcon comb shared dials (per-form span/count/fan/thickness accrete below)
+      bladeCount: 5, bladeSweep: 0.34, bladeStagger: 0.15,
+      bladeCamber: 0.14, bladeDihedral: 0.26, bladeChord: 0.24, bladeRidge: 0.06,   // rachis ridge = edge-on thickness (kills the plank, DD §2.3)
+      wingWristT: 0.45,   // MEDIAL wrist → short arm, long hand (the falcon proportion + the fold joint)
+      ridgeCount: 8, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x4f759c,   // dorsal scutes re-tinted UP to the highlight tier = the Slipstream channel walls (dorsal relief AND signature architecture)
+      wingRootOffset: { z: -0.3 },
+      shoulderWidthScale: 1.15,   // a real scapular shoulder the wing grows from (kills the bolted-on read, DD §2.5)
+      // WING MOTION — a courier that commands the air: shoulder-led beat with a real forearm/wrist
+      // trail (wingParts-3), tighter + quicker than the Tempest's rolling front, a firm glide-hold.
+      wingParts: 3, rootAmp: 0.55, midAmp: 0.20, tipAmp: 0.34, midLag: 0.55, tipLag: 1.15,
+      glidePow: 1.7, restLift: 0.02, apexRoot: 0.07, apexMid: 0.04, apexTip: 0.08, tipApexSweep: 0.16,   // a BROAD held glide (not a raised fairy-wing V)
+      combShoulderFold: true,   // the blade-comb folds at the shoulder (wingDebugPose fold tuck) — azure-only gate so other wingParts dragons keep their fold pose
+      covertRanks: 0,   // laddered per form (0 whelp → 2 apex)
+      // TAIL MOTION — a light courier's trailing drift with a LIVE vertical wave (the rear-chase axis).
+      tailWhip: true, tailLagScale: 0.14, tailUndulateX: 0.24, tailRudderScale: 0.5, tailGirth: 1.2,
+      surgeGlowMultiplier: 20,   // the Slipstream IGNITION must READ on Surge (gate: 10 gave a ~0.4 product ACES ate).
+      // Radiant<Eternal is honored by AREA not intensity — a thin bright filament LINE, never a blaze/wash
+      // (feverWing black firewalls the wings; the lit-cyan AREA stays a fraction of an Eternal's surge).
+      flapBias: 1.1, flapAmp: 0.9,
     },
-    // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
-    // glider with a stub comb + crest nub + forked tail-hint → adolescent, blades
-    // lengthen + crest fans → the 2.8–3.2× apex with a full high-aspect comb, a
-    // 3-blade crest, and a gold-tipped swallow-banner tail. Restraint IS the read —
-    // spineGlow ≤0.3, gold stays DIFFUSE.
+    // Three FLEDGING rungs (the falcon molt: down → pin feathers → full primaries). Each rung
+    // accretes CRUISE-VISIBLE hardware (DD §7.1): T0 welded mitten paddle → T1 blades separate +
+    // greater coverts + carved channel → T2 full fanned comb + marginal coverts + the LIVE
+    // Slipstream + gold swallow-banner. Body value DEEPENS pale→navy; motion + dominance ladder up.
     forms: [
-      // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
-      // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 3.0, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // FALCON-COMPACT (owner CP3): whole span ladder rescaled ×0.56 (5.4→3.0) to hold the growth arc while the apex lands at Phoenix parity. CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
-        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
-        keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
-        crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
-        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.12,   // CP2 dir 5: only a faint amber hint at the baby — the full gold banner is an earned adult signature
-        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4, tailPlates: false,   // smooth baby tail — the dorsal-cone row read as a drill-bit from rear-chase (fable gate)
-        ridgeCount: 0, spineGlow: 0,
-        colors: { body: 0x6f8fb2, belly: 0xe2f0fb, wingInner: 0xc8ddee, wingOuter: 0x86a3c0,   // CP2 dir 4: PALE powder-blue baby (was dark navy 0x2a4058, as dark as the teen) — value now clearly lightens toward the hatchling
+      // Hatchling (form 0) — round downy fluffball: curled posture, big round eyes, a WELDED
+      // mitten paddle (dominance 0), NO barring, a soft crest nub, smooth tail. Palest sky value.
+      { wingScale: 0.72, bladeSpan: 3.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.22, bladeStagger: 0.12,
+        bladeDominance: 0.0, bladeBarring: 0, bladeRidge: 0.05, covertRanks: 0,   // welded soft paddle, no coverts (no fence, no sawtooth)
+        wingParts: 1, midAmp: 0.0, tipAmp: 0.0, glidePow: 0.9,   // frantic whelp beat (shoulder only)
+        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,
+        keenEye: false, cuteEye: true,
+        crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.12,
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4, tailPlates: false, tailGirth: 1.15,
+        ridgeCount: 0, spineGlow: 0, slipstream: false,
+        // 4-tier value ladder (pale whelp): shadow / base / facet / dorsal + pale belly
+        bodyShadow: 0x577697, bodyFacet: 0x8fadcc, bodyDorsal: 0xa9c4de,
+        wingCovert: 0x3a5372,
+        colors: { body: 0x6f8fb2, belly: 0xe2f0fb, wingInner: 0x86a3c0, wingOuter: 0xc8ddee,
           wingEmissive: 0x6f8ca6, scales: 0xbcd2e4, horn: 0xc2d6e6,
           apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
-      // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
-      // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92, bladeBarring: 0.5,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56); bladeBarring 0.5 = the barring begins (gated: none at f0 → half at f1 → full at apex)
-        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
-        keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
-        crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
-        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,   // CP2 dir 5: PARTIAL gold at the adolescent
-        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
-        ridgeCount: 8, spineGlow: 0,
-        colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0xc6dff0, wingOuter: 0x6f90b4,   // CP2 r2 dir 4: a true MID value (was 0x33517a, near-apex-deep) — the ramp now reads pale f0 → mid f1 → deep f2
+      // Adolescent (form 1) — straightening posture, keener eyes, the blades SEPARATE into pin
+      // feathers (dominance 0.5), barring begins, greater coverts appear, the dorsal channel is
+      // carved (unlit hardware). Mid sky value; the forearm joins the beat (wingParts 2).
+      { wingScale: 0.9, bladeSpan: 4.6, bladeCount: 5, bladeDetail: 0.85, bladeBarring: 0.5,
+        bladeDominance: 0.5, bladeRidge: 0.06, covertRanks: 1,   // pin feathers separate + greater coverts appear
+        wingParts: 2, midAmp: 0.12, tipAmp: 0.18, glidePow: 1.25,
+        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,
+        keenEye: false, cuteEye: true,
+        crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5, tailGirth: 1.18,
+        ridgeCount: 8, spineGlow: 0, slipstream: false,
+        bodyShadow: 0x374f73, bodyFacet: 0x6289b5, bodyDorsal: 0x7fa3c8,
+        wingCovert: 0x2f4a68,
+        colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0x6f90b4, wingOuter: 0xc6dff0,
           wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
           apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
-      // Radiant apex (form 2) — proud upright S, keen almond eyes, high-aspect
-      // comb, 3-blade crest fan, dorsal sail, gold-tipped swallow
-      // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.0, bladeBarring: 1.0, neckBlend: 1.45,   // OPTIMIZE+PIZZAZZ (owner): bladeDetail 1.45→1.0 reclaims ~1024 tris (the compacted blades were over-tessellated for their new size, ~sub-8px), and bladeBarring 1.0 paints FREE falcon cross-bars on the primaries (the headline identity gain). FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
-        spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
-        // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
-        // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
-        // the approved apex. These pin the exact approved apex values.
-        keenEye: false, cuteEye: true,   // the apex joins the UNIFIED socketed-eye system — eyeShape 1.0 hoods it into a keen slanted almond. (The old keenEye decal was dark-on-dark: it read as NO eyes at gameplay value — the unresolved wall since CP1)
-        bladeChord: 0.133, bladeStagger: 0.28, bladeRake: -1,   // approved apex chord + deep stagger + the FANNED per-blade rake formula (sentinel -1) for the hero planform slits (f0 welded them at 0.28/0.14/0.015)
-        crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
-        wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
-        crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
-        tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
-        bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailTerminus: true, tailSeam: true, tailPlates: false,   // REAR-CHASE SPECTACLE (owner S3 + critic addition): amplify the gold swallow-banner ~25% + a gold fork-root covert pair; carry the dorsal ice seam over the TAIL-CONE ridge (tailSeam — the strip that dominates the chase frame; replaces the drill-bit cones tailPlates drew) and cap it with a cyan TERMINUS STUD at the fork — the night read becomes "cyan spine → cyan tail-light → gold swallow". Apex-only
-        ridgeCount: 7, spineGlow: 0.2, dorsal: true, scuteSeam: true, facetShoulders: true,   // REAR-CHASE SPECTACLE (owner S2+S6): one continuous ice seam down the keel (replaces the sub-8px cone zipper) — the apex's earned "spine of light", dead-centre of the play view; + faceted gold-tipped scapular coverts replacing the smooth shoulder balls at the wing roots. Apex-only (f0/f1 stay dark/round)
-        colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0xb0cbe6, wingOuter: 0x466685,   // body lifted 0x1c3048→0x27435f (fable gate: the apex crushed to a black silhouette in dark skies); still clearly the deepest of the ladder
-          wingEmissive: 0x466685, scales: 0x9db8d4, horn: 0xbcd9f0,
+      // Radiant apex (form 2) — proud upright S, keen almond eyes, the FULL fanned comb + planform
+      // slits (dominance 1), marginal coverts + scapular cowl, full barring, a gold swallow-banner
+      // tail, and the LIVE Slipstream (terminus stud lit; ignites on Surge). Deepest navy value.
+      { wingScale: 1.0, bladeSpan: 7.0, bladeCount: 5, bladeDetail: 1.0, bladeBarring: 1.0, neckBlend: 1.8,
+        bladeDominance: 1.0, bladeChord: 0.26, bladeStagger: 0.15, bladeRidge: 0.07, covertRanks: 2,   // full comb + marginal coverts + secondaries
+        wingParts: 3, midAmp: 0.20, tipAmp: 0.34, glidePow: 1.7,
+        spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,
+        keenEye: false, cuteEye: true,
+        crestGoldAmount: 1, crestSeat: 0,
+        wingTipGoldAmount: 1,
+        crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,
+        tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5, tailGirth: 1.2,
+        bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailPlates: false,
+        // the withheld SLIPSTREAM (dragonAzure.js) is the ONLY cyan glow — NO always-on emissive rails:
+        // scuteSeam/tailSeam/tailTerminus/spineGlow all draw shared LED strips (§6.1) that inverted the
+        // withheld contract (a lit L≈203 rail in cruise). The matte dorsal scutes stay as the channel WALLS.
+        ridgeCount: 7, spineGlow: 0, dorsal: true, facetShoulders: true, slipstream: true,
+        bodyShadow: 0x1b3049, bodyFacet: 0x3d5f83, bodyDorsal: 0x4f759c,
+        wingCovert: 0x35547a,
+        colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0x5a7ba0, wingOuter: 0xb0cbe6,
+          wingEmissive: 0x2a4562, scales: 0x9db8d4, horn: 0xbcd9f0,
           apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
     ],
     fx: { auraColor: '142,213,255', auraIdle: 0.0, sparkle: false },
     // Matte navy hide (gate r1 dir 10) — not a gloss boat hull.
     bodyRoughness: 0.62, bodyMetalness: 0.05, bodyEnvIntensity: 0.5,
-    body: 0x1c3048, belly: 0xcfe6ff, scales: 0x9db8d4, horn: 0xbcd9f0,
-    wingInner: 0xa8c6e2, wingOuter: 0x3d5a78, wingEmissive: 0x3d5a78,
+    body: 0x27435f, belly: 0xcfe6ff, scales: 0x9db8d4, horn: 0xbcd9f0,
+    bodyShadow: 0x1b3049, bodyFacet: 0x3d5f83, bodyDorsal: 0x4f759c,
+    wingInner: 0x5a7ba0, wingOuter: 0xb0cbe6, wingCovert: 0x35547a, wingEmissive: 0x2a4562,
     apexEye: 0xcfe8ff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
+    // COOL identity rim (the Tempest pattern, one notch below the Eternal): the sky-blue edge
+    // clears bright backlit water without out-edging the Eternal (AAA §1.3 / tell 4).
+    rimCruise: 0x9ccfff, rimCruiseBase: 0.85, rimPowerMul: 1.4, rimWingMul: 0.25,
+    // Slipstream Surge palette (COOL cyan; wings stay a silhouette, §4.4). feverWing black = the
+    // kill switch; the ignition budget lives in the keel filament + eyes, never a screen-wide blaze.
+    hasStyle: true, feverWing: 0x000000, feverEye: 0xd9f2ff, feverWash: [0.03, 0.06, 0.10], hideRiderGlow: true,
     eye: 0x8ed5ff, trail: 0x8ed5ff, boostTrail: 0x67b7ff,
   },
 
