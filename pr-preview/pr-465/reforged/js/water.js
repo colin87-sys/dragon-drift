@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Reflector } from '../lib/objects/Reflector.js';
-import { SUN_DIR } from './biomes.js';
+import { SUN_DIR, TEMPEST_WIND } from './biomes.js';
 import { atmosUniforms } from './atmosphere.js';
 
 // Endless water plane that replaces the snow floor. One GLSL source, two
@@ -65,6 +65,9 @@ const sharedUniforms = {
   // (2nd swell + fragment trough-darkening + wind-combed foam streaks). MUST live here or
   // it vanishes on the reflective↔cheap/swell tier rebuild.
   uStormSea: { value: 0 },
+  // Rain LAYER B — splash rings where the rain hits the sea (welds sky to sea). 0 = off
+  // (byte-identical). MUST live here or it vanishes on the tier rebuild.
+  uRainRipple: { value: 0 },
   // Fix C — PREMIUM HEAVEN HORIZON: weight (0 off-heaven ⇒ byte-identical) driving a graded blast-haze
   // horizon + a broad reflection column + the shared heartbeat, so the sea ANSWERS the detonation instead
   // of being two flat cardboard bands (gold sky / flat violet fogged sea) with a hard seam. MUST live here
@@ -104,7 +107,8 @@ export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.
 // darkening + wind-combed foam streaks) that carry the violence with the swell OFF / on
 // tier 2. Gated by uStormSea (0 everywhere else = byte-identical). λ≈55m (shorter/steeper
 // than the global 105m swell). All values FRACTIONAL (the GLSL int/float trap).
-export const TEMPEST_WIND = { x: 0.851, z: 0.525 };   // oblique to the lane → diagonal foam grain
+// TEMPEST_WIND now lives in biomes.js (the single wind source, imported above) so foam + rain +
+// cloud-crawl can't diverge. STORM_SWELL reuses the same axis (kept as literals for the GLSL template).
 export const STORM_SWELL = { dirx: 0.851, dirz: 0.525, freq: 0.115, amp: 1.45, speed: 0.55 };
 
 // A/B pin: ?stormsea=0 forces the shipped calm sea, ?stormsea=1 forces the storm sea (any biome),
@@ -154,6 +158,7 @@ const fragmentShader = /* glsl */`
   uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
   uniform float uAuroraGlow; // Aurora Shallows tier2 analytic-reflection sheen (0 = shipped)
   uniform float uStormSea;   // STORMSEA violence (0 = shipped calm sea)
+  uniform float uRainRipple; // rain LAYER B — splash rings (0 = off)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
@@ -171,6 +176,18 @@ const fragmentShader = /* glsl */`
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  // Rain LAYER B splash ring: one expanding ring per live hashed cell — radius 0→0.45m over ~0.4s
+  // at a random per-cell phase; ~1/3 of cells live. The ring FRONT lifts brightness (rain landing).
+  float _rainRing(vec2 pw, float cell, float salt, float t) {
+    vec2 gi = floor(pw / cell);
+    if (hash(gi + vec2(salt, salt * 1.7)) > 0.34) return 0.0;
+    float ph = hash(gi + vec2(salt + 7.3, salt + 2.1));
+    float tt = fract(t * 2.5 + ph);
+    vec2 c = (gi + 0.5) * cell;
+    float r = tt * 0.45;
+    return smoothstep(0.06, 0.0, abs(length(pw - c) - r)) * (1.0 - tt);
   }
 
   void main() {
@@ -304,6 +321,14 @@ const fragmentShader = /* glsl */`
       foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
       // #c4cdce overcast foam; peak lifted now that the matte/broken field is ~⅓ darker.
       col = mix(col, vec3(0.77, 0.80, 0.80), clamp(foamS * uStormSea, 0.0, 0.48));
+    }
+
+    // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
+    // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
+    if (uRainRipple > 0.001) {
+      float ring = _rainRing(p, 1.1, 0.0, time) + _rainRing(p, 1.7, 5.0, time);
+      ring *= smoothstep(58.0, 24.0, dist) * uRainRipple;
+      col += vec3(0.80, 0.82, 0.82) * ring * 0.16;
     }
 
     // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
@@ -589,10 +614,11 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple }) {
   if (!water) return;
   const u = water.material.uniforms;
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
+  u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);

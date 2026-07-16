@@ -39,6 +39,13 @@ const C = (hex) => new THREE.Color(hex);
 // in water.js + environment.js.)
 export const SUN_DIR = new THREE.Vector3(-0.22, 0.1, -1).normalize();
 
+// The SINGLE source of truth for a biome's WIND direction (xz, normalized-ish). Foam (water.js),
+// the rain-streak layer (rain.js), and the cloud wind-crawl (skyClouds) all READ this — nobody
+// re-declares it, so the storm can't show two winds (composition law #6). Oblique to the lane so
+// the grain reads diagonal. The vector NEVER lerps across a seam (a rotating wind = a spinning
+// compass); only intensity (rainMix / foam strength) crossfades.
+export const TEMPEST_WIND = { x: 0.851, z: 0.525 };
+
 export const BIOMES = [
   {
     // THE LOST LAGOON (LOST-LAGOON-BIBLE.md): a lost, hidden watery paradise of drowned
@@ -170,34 +177,43 @@ export const BIOMES = [
     stars: 0.2,
     // Warm-neutral dark ROOF: top nudged off blue, mid off green (Fable PR-1 gate —
     // no cool sky stop may survive from the shipped teal night), horizon amber haze.
-    sky: { top: C(0x0d0b0e), mid: C(0x171410), horizon: C(0x2b2314), sun: C(0x4a3418) },
-    fog: { color: C(0x141a14), near: 45, far: 260 },
+    // Fable v33: light comes from BELOW (mist/water/ground-up), never a lit sky. Sky stays
+    // night-dark with the amber biolume band compressed to the bottom ~25% (behind the trunks —
+    // light rising from the land); top third ≤8% luma (kills dusk-drift; anti-Aurora sky-ceiling).
+    sky: { top: C(0x060309), mid: C(0x1a0e06), horizon: C(0x7a4818), sun: C(0x5a3010) },
+    // Near-fog is the GLOWING GROUND-MIST — a self-luminous amber-olive haze (color above the
+    // scene mean = fog that EMITS, not obscures); far pulled in so sight-lines end in glow, not void.
+    fog: { color: C(0x473217), near: 48, far: 255 },
     // Dual-fog far color (§5.2): the near air is dark humid warm-green swamp; distance
     // desaturates TOWARD amber haze (dark-scene aerial perspective fades to the dominant
     // GLOW hue, not blue-grey) — the cheapest identity move + the anti-Aurora firewall.
-    fogFarColor: C(0x2b2314),
-    // Swamp air pools LOW on the water — the knee-height ground-mist sheet (dive = into
-    // the mist). OPTIONAL channel (0 elsewhere).
-    atmos: { heightK: 0.05 },
-    // NO dominant sun (theology firewall): a low dim WARM key, dark hemiSky, and a warm
-    // amber hemiGround so undersides pick up bounce from the glowing water/mist — this is
-    // what SELLS "lit from below/within" (the inverse of a sky-lit night).
-    light: { sun: C(0x6a4e24), sunI: 0.85, hemiSky: C(0x141c18), hemiGround: C(0x2a1e0c) },
-    // The black mirror: near-still (waveAmp low) so it DOUBLES every glow — the reflection
-    // is load-bearing (address + mirror = the biome handshake).
-    water: { deep: C(0x040914), shallow: C(0x0c1a18), waveAmp: 0.2 },
+    fogFarColor: C(0x4a2c0e),
+    // The GLOWING GROUND-MIST is the hero of the luminance pass — a visible waist-deep luminous
+    // layer over the water (Fable v33: "the sky of the Mire is the waist-high mist").
+    atmos: { heightK: 0.12 },
+    // INVERTED HEMISPHERE (Fable v33): ground brighter+warmer than sky = light rising from the
+    // land (the bioluminescence signature AND the built-in anti-Aurora tell). The sun is only a
+    // faint marsh-glow RIM at very low intensity — the luminance comes from mist/water/ground-up,
+    // never a bright key. (The dragon's belly under-fill is the meter; raise hemiGround if it crushes.)
+    light: { sun: C(0xff9a3c), sunI: 0.2, hemiSky: C(0x12101a), hemiGround: C(0x4c3818) },
+    // Luminous WARM water — the biggest single win (half the portrait frame): warm shallow so wave
+    // crests catch amber ACROSS the mirror (not one column); deep = a green-black LIVING dark (never
+    // pure #000); +20% wave so reflections spread into a broad shimmering field. NO teal (Aurora quarantine).
+    water: { deep: C(0x0d1410), shallow: C(0x9a7228), waveAmp: 0.26 },
     // Theology firewall: "nothing shines from the sky." A night swamp has no sun-shafts —
     // meter the shared god-ray fan WAY down (default 1 = byte-identical elsewhere; ~0 like
     // Aurora would kill the faint glow-halos, so keep a dim residue) AND warm the shaft tint
     // to the amber glow-haze family so any residual reads as organism-lit mist, not a sun
     // (Fable PR-1 gate: grey-white point-source fan = a theology breach). See main.js god-ray gate.
-    godrayMul: 0.06,
-    godrayTint: C(0xc0782c),
+    godrayMul: 0.075,
+    godrayTint: C(0xff9d45),
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
-    ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.5, opacity: 0.7 },
+    ambient: { color: C(0xffc266), fall: 0.05, sway: 2.5, size: 0.82, opacity: 0.85 }, // fireflies — bigger soft halos (surge lesson), warmer
     fauna: { color: C(0xffd24a), scale: 0.9, flap: 0.4 }, // drifting lantern-motes (amber)
-    props: ['glowcap', 'glowcapSmall', 'spirevine'],
+    // Overhaul kit (LUMEN-MIRE-BIBLE.md) — the depth/canopy substrate as it lands; `?props=v1`
+    // restores the legacy glowcap/spirevine. Mirror grows with each PR (hero + roster to come).
+    props: ['canopywall', 'reedveil', 'boleveil', 'drape'],
     matIndex: 4, // Mire: dead wet matter + living amber glow
     // Contrast gate: danger magenta vs this biome's dark humid fog — re-verified by
     // bulletcontrast on the new palette.
@@ -298,11 +314,14 @@ export const BIOMES = [
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
+    wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
+    rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
     stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.
     // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
     // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
-    // sprites are the proper fix (a later ambient-profile pass) — until then, few/dim beats star-like.
-    ambient: { color: C(0x879497), fall: 6.5, sway: 2.4, size: 0.2, opacity: 0.24 },
+    // These Points are now near-water SPUME (torn spray), NOT the rain — the rain is the rain.js
+    // LineSegments streak layer (rainMix-gated). Small, dim, low-falling froth over the sea.
+    ambient: { color: C(0x9fb0b4), fall: 1.5, sway: 2.0, size: 0.18, opacity: 0.35 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
     props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
     matIndex: 7, // storm slate
@@ -383,7 +402,7 @@ const env = {
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
-  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0,
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -462,5 +481,9 @@ export function computeEnv(dist) {
   env.deckBias = lerp(a.deckBias || 0, b.deckBias || 0, ts);
   // STORMSEA (Tempest): the violent-sea gate; 0 elsewhere = byte-identical calm water.
   env.stormSea = lerp(a.stormSea || 0, b.stormSea || 0, ts);
+  // Wind DIRECTION never lerps (a spinning vector reads as a compass); pick whichever adjacent biome
+  // declares one. rainMix (intensity) DOES crossfade the seam for free (the xMix pattern).
+  const _w = a.wind || b.wind; env.windX = _w ? _w.x : 0; env.windZ = _w ? _w.z : 0;
+  env.rainMix = lerp(a.rain || 0, b.rain || 0, ts);
   return env;
 }

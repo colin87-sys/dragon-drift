@@ -22,6 +22,7 @@ export const CLOUD_HEAD = /* glsl */`
   uniform float uCloudAmount;                 // 0 = no clouds (biome x toggle x tier)
   uniform vec3  uCloudLit, uCloudShadow;      // two-tone body
   uniform float uCloudDrift;                  // wrapped playerDist parallax (JS-modulo'd)
+  uniform float uCloudWindCrawl;              // storm: time-based azimuth crawl along the wind (0 = shipped)
   uniform int   uCloudOctaves;                // 3 tier0 / 2 tier1
   uniform float uCloudWarp;                   // 1 tier0 / 0 tier1 (domain warp on/off)
   float _cHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -49,7 +50,10 @@ export const CLOUD_BODY = /* glsl */`
           // time + world parallax (dome is camera-locked, so motion is authored).
           // NOTE: atan(d.z,d.x) is NOT periodic → a hard FBM seam at azimuth ±X,
           // ~90 deg off the flight axis (outside normal framing). Gate-3: wrap it.
-          vec2 cuv = vec2(atan(d.z, d.x) * 0.6, d.y * 2.1) + vec2(time * 0.006 + uCloudDrift, 0.0);
+          // uCloudWindCrawl adds a small time crawl along the azimuth so the deck KEEPS MOVING when the
+          // player slows/hovers (a still storm sky is a dead tell — "nothing here ever lands"), aligned
+          // to the same wind that combs the foam. 0 in every non-storm biome → byte-identical.
+          vec2 cuv = vec2(atan(d.z, d.x) * 0.6, d.y * 2.1) + vec2(time * 0.006 + uCloudDrift + time * uCloudWindCrawl, 0.0);
           vec2 warp = uCloudWarp * 0.35 * vec2(_cFbm(cuv * 1.3 + 11.3), _cFbm(cuv * 1.3 + 47.7));
           float n = _cFbm(cuv * 1.7 + warp);          // [0,1] normalized density
           // Band-shape: clouds live in a mid-sky band, faded to 0 by h~0.7 so the
@@ -76,6 +80,7 @@ export const cloudUniforms = {
   uCloudLit:     { value: new THREE.Color(0xffffff) },
   uCloudShadow:  { value: new THREE.Color(0x8a93a8) },
   uCloudDrift:   { value: 0 },
+  uCloudWindCrawl: { value: 0 },
   uCloudOctaves: { value: 3 },
   uCloudWarp:    { value: 1 },
 };
@@ -109,6 +114,9 @@ export function applySkyClouds(env, playerDist, time) {
   // Wrap the parallax in JS so it never hits float32 precision on endless runs
   // (a one-frame lattice snap every ~51 km is invisible; float shimmer is not).
   cloudUniforms.uCloudDrift.value = (playerDist * CLOUD_PARALLAX) % 1024;
+  // Storm wind-crawl: the deck keeps moving when the player hovers, along the wind. ~0.010 rad/s, gated
+  // by rainMix so it is Tempest-only and crossfades the seam (0 elsewhere = byte-identical).
+  cloudUniforms.uCloudWindCrawl.value = 0.010 * (env.rainMix || 0);
 }
 
 // --- JS FBM port (god-ray coupling only; NOT the probe) ----------------------
