@@ -172,6 +172,13 @@ function makeMats() {
   mats.calderaAccent = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xff6a24, roughness: 0.4, metalness: 0.05, emissive: 0xff3808, emissiveIntensity: 1.0,
   }));
+  // The FOIL material (CALDERA-BIBLE.md §4.4) — desaturated warm-dark basalt, NO ladder and
+  // NO glow: the bare dark mass whose whole job is to make the lit archetypes feel earned.
+  // flatShading facets + weathering noise carry the form; a low emissive floor keeps it from
+  // crushing to pure void without ever reading as a light source. (Used by clinker.)
+  mats.calderaFoil = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0x2b1d18, roughness: 0.72, metalness: 0.04, emissive: 0x160a06, emissiveIntensity: 0.14,
+  }));
   return mats;
 }
 let propMats = null;
@@ -244,7 +251,7 @@ function bakeCalderaLadder(geo) {
 // accent group = magma (vertexColors off, ignores the bake on the shared geometry).
 // Coexistence: ONLY the new Caldera archetypes call this; every other biome's mergeParts
 // path is byte-identical (props are render-only, so determinism is untouched regardless).
-function mergeCalderaParts(parts) {
+function mergeCalderaParts(parts, opts = {}) {
   const groups = [[], []];
   for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
   const geos = [];
@@ -252,10 +259,11 @@ function mergeCalderaParts(parts) {
   for (let m = 0; m < 2; m++) {
     if (!groups[m].length) continue;
     geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
-    mats.push(m === 0 ? propMats.calderaPrimary : propMats.calderaAccent);
+    // opts.foil → the dark no-glow foil material for the mass (clinker); else the ladder primary.
+    mats.push(m === 0 ? (opts.foil ? propMats.calderaFoil : propMats.calderaPrimary) : propMats.calderaAccent);
   }
   const geometry = mergeGeometries(geos, true);
-  bakeCalderaLadder(geometry);   // per-face ladder BEFORE AO (both are per-vertex attrs; order independent)
+  if (!opts.foil) bakeCalderaLadder(geometry);   // the foil carries NO ladder (stays uniformly dark)
   bakeAO(geometry);
   return { geometry, materials: mats };
 }
@@ -614,6 +622,54 @@ const ARCHETYPES = {
     // the lean lives in the geometry.
     place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (15 + 0.72 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },
   },
+  // EMBERFALL CALDERA — THE LOW REST + glow carrier 1 (CALDERA-BIBLE.md §4.2): a pahoehoe
+  // lava-flow tongue — a low, WIDE, ropey crust of offset-stacked plates with rounded lobed
+  // fronts, an ember-crack network glowing recessed in the plate seams. The horizontal that
+  // makes the verticals read colossal (terrace's role, worn as a lobed tongue not a stepped
+  // shelf). Primary read is TOP-DOWN: a dark tongue veined with fire. Lowest form → carries
+  // the most fire (the glow-altitude rule). ~5:1 wide. Glow = magma accent recessed BELOW
+  // the plate tops (the LOW-in-cracks address), not a strip on a face.
+  flowlobe: {
+    step: 23, biomes: calderaNew, matIndex: 3,
+    build: () => mergeCalderaParts([
+      // THREE crust plates set with VISIBLE seams between them (the veins show through the
+      // gaps), each plate proud enough (h~0.16) that its edges WALL the recessed magma.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.50, 0.17, 6), { x: -0.02, z: -0.30, y: 0.085, ry: 1.4, sx: 1.22, sz: 1.05 }) },   // rear plate
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.52, 0.18, 6), { x: 0.02, z: 0.18, y: 0.09, ry: 0.20, sx: 1.28, sz: 1.15 }) },    // mid body plate
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.40, 0.15, 6), { x: 0.00, z: 0.60, y: 0.075, ry: 0.8, sx: 1.12, sz: 1.05 }) },    // front advancing lobe
+      // two rounded lobe NOSES at the front — the staggered ropey advance (broken front edge)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.27, 0.12, 5), { x: -0.26, z: 0.60, y: 0.06, ry: 0.5, sx: 1.1 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.21, 0.24, 0.11, 5), { x: 0.30, z: 0.56, y: 0.055, ry: 1.2 }) },
+      // EMBER-VEIN network — magma accent (mat 1) as a thin branching fissure network sitting
+      // on the EXPOSED crust top (the big mid plate), tops just proud of the plate surface so
+      // it reads from above as glowing lava cracks (the flying game's primary view: a dark
+      // tongue veined with fire). Thin (≤0.06) so it reads as a fissure, never an LED panel.
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.15, 0.78), { x: -0.07, z: 0.10, y: 0.12, ry: 0.16 }) },     // main vein — offset + angled (not a centred axis), tops just proud so it reads from above
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.30, 0.14, 0.042), { x: 0.10, z: 0.30, y: 0.115, ry: -0.78 }) },   // offshoot forks off HIGH (z 0.30), steep angle
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.24, 0.14, 0.038), { x: -0.20, z: -0.15, y: 0.115, ry: 0.55 }) },  // offshoot forks off LOW (z −0.15), different angle → irregular delta, not a glyph
+    ]),
+    // LOW horizontal REST: normalized yMax ~0.28 → world height h·0.28. r 10–20 WIDE, h 8–14
+    // small → world ~18–34 wide × ~2.5–4.5 tall ≈ 5:1. ρ≈0.9 (wide plates); inner edge
+    // |x|−ρ·r ≥ 14.5 → couple x = 14.5 + 0.92·r. Explicit tilt (hugs the route, slight roll).
+    place: (side, rnd) => { const r = 10 + rnd() * 10; return { x: side * (14.5 + 0.92 * r + rnd() * 5), h: 8 + rnd() * 6, r, tilt: side * (rnd() * 0.06 - 0.02) }; },
+  },
+  // EMBERFALL CALDERA — THE BARE FOIL (CALDERA-BIBLE.md §4.4): an aa-clinker / breadcrust
+  // rubble mound — chaotic angular jumble, NO glow, one material. The silence that makes
+  // flowlobe's veins and fumarole's throat feel earned; dark punctuation across the lava.
+  // Icosahedra read as angular crust chunks (not the smooth boulders the Frozen serac gate
+  // rejected — here the chaotic pile IS the identity). ~1.6:1.
+  clinker: {
+    step: 29, biomes: calderaNew, matIndex: 3,
+    build: () => mergeCalderaParts([
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.42, 0), { y: 0.30, sx: 1.5, sy: 0.85, sz: 1.2, ry: 0.4 }) },       // main mound
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.36, z: 0.10, y: 0.22, sx: 1.2, sy: 0.8, ry: 1.1 }) }, // flank chunk
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: -0.32, z: -0.12, y: 0.20, sy: 0.9, ry: 2.0 }) },       // other flank
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: 0.08, z: 0.28, y: 0.42, sx: 1.3, sy: 0.7, ry: 0.7 }) }, // upper overhang chunk (off-centre high point)
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: -0.10, z: 0.30, y: 0.14, ry: 1.6 }) },                 // foot rubble, half-buried
+    ], { foil: true }),
+    // FOIL rubble mound: broad, ~1.6:1. ρ≈0.75. r 5–11, h 5–9 → wider than tall.
+    place: (side, rnd) => { const r = 5 + rnd() * 6; return { x: side * (14.5 + 0.78 * r + rnd() * 6), h: 5 + rnd() * 4, r, tilt: side * (rnd() * 0.14 - 0.05) }; },
+  },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
     step: 26, biomes: [4], matIndex: 4,
@@ -799,6 +855,8 @@ const FOAM_CFG = {
   bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false, sungate: { r: 0.8 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   colonnata: { r: 0.86 },   // Caldera hero — broad plinth waterline weld; reads as glowing lava shoreline
+  flowlobe: { rx: 0.52, rz: 0.72 },   // low tongue — elliptical collar wraps the elongated footprint
+  clinker: { r: 0.6 },                // foil rubble mound — round glowing-shoreline collar
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
