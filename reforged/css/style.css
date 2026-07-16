@@ -1621,6 +1621,10 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 /* ============ SHOP ============ */
 /* Sticky topbar: wallet + exit stay visible while scrolling the grid. */
 .screen-topbar { position: sticky; top: 0; z-index: 5; width: 100%;
+  /* Never shrink: on a plain (non-scroll) screen like SETTINGS the flex column
+     used to compress this sticky header — the title + ✕ got squished to ~21px
+     when the content ran long. A header holds its height. */
+  flex: 0 0 auto;
   display: flex; align-items: center; gap: 10px; padding: 10px 16px;
   padding-top: calc(10px + env(safe-area-inset-top, 0px));
   /* U4/U6: warm scrim ink, softened tail (the old 80%-solid stop cut a hard
