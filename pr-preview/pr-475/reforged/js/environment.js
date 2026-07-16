@@ -2124,15 +2124,17 @@ const ARCHETYPES = {
       // near-vertical to a FLARED buttress foot. bake:'wood' bark; UNEVEN azimuths (a crinoline, not a clock).
       const leg = (az, R) => {
         const c = Math.cos(az), s = Math.sin(az);
-        const p0 = [0.09 * c, 0.48, 0.09 * s];          // trunk attach (high, central, thick)
-        const p1 = [R * 1.16 * c, 0.27, R * 1.16 * s];  // KNEE — bows OUT past the foot (convex-outward arc)
-        const p2 = [R * 1.02 * c, 0.11, R * 1.02 * s];  // curling back in + down
-        const p3 = [R * 0.94 * c, 0.0, R * 0.94 * s];   // foot at the waterline (knee R > foot R = the bow)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.062, 0.046, 3) }); // thick base → taper (6)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.046, 0.038, 2) }); // short knee (4)
-        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p2, p3, 0.038, 0.072, 3) }); // taper → FLARED buttress foot (6)
+        // A SHALLOW PLANTED BOW (Fable r2: m3's hard elbow read as an arthropod leg; roots are a smooth
+        // convex curve you cannot name a knee on, and every foot is PLANTED on one plane, not mid-stride).
+        const p0 = [0.10 * c, 0.50, 0.10 * s];          // trunk attach (high, central, thick)
+        const p1 = [R * 0.60 * c, 0.33, R * 0.60 * s];  // gently out+down (~45°, no near-horizontal reach)
+        const p2 = [R * 0.98 * c, 0.14, R * 0.98 * s];  // knee only SLIGHTLY outside the foot (a shallow bow, no nameable joint)
+        const p3 = [R * 0.92 * c, 0.0, R * 0.92 * s];   // foot — near-VERTICAL shin to a foot PLANTED at y0 (all six coplanar)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.062, 0.052, 3) }); // thick base (6)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.052, 0.046, 2) }); // gentle mid bend (4)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p2, p3, 0.046, 0.075, 3) }); // THICK shin (no float) → flared planted foot (6)
       };
-      leg(0.30, 0.48); leg(1.15, 0.42); leg(2.25, 0.50); leg(3.10, 0.40); leg(4.15, 0.47); leg(5.20, 0.44); // 6 × 16 = 96
+      leg(0.30, 0.48); leg(1.15, 0.42); leg(2.25, 0.50); leg(3.10, 0.40); leg(4.15, 0.47); leg(5.20, 0.44); // 6 × 16 = 96, all feet coplanar at y0
       // CANOPY — a BROAD sheared green crown (bake:'lily'), the visual mass that outweighs the legs so it
       // reads TREE not spider. Two overlapping squashed lobes (the figgate/karstfang law: rounded blobs +
       // overlap, never a flat pad or one convex boulder), seated low so they weld to the trunk top.
