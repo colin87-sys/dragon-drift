@@ -39,20 +39,18 @@ const cp1 = process.argv.includes('--cp1');
 // ── per-dragon SHEET spec (§3 col + §5d + §4) — bands per reachable form ─────────
 const SPECS = {
   azure: {
-    architecture: 'blade-feather comb',
-    wingElements: 5,                            // §3: 5 feather-blades every form
-    triTargets: [2400, 3800, 5200],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
+    architecture: 'falcon primary comb',        // AAA revision (dragonAzure.js): wedge-thick primaries
+    combProfile: 'falcon-leading',              // DD §2.4: finger 0 is the DOMINANT leading primary + IS
+                                                //   the wingtip (dominance ≥2.2:1 decay aft), NOT a mid-fan swell
+    wingElements: 5,                            // §3: 5 falcon primaries every form
+    triTargets: [3000, 3600, 4300],             // AAA revision measured (wedge blades + laddered coverts; well under the 6000 ceiling)
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.8, 6.0]],   // §4 head:body (1:X)
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.14, 0.32]], // §4 eye diameter : head length. f2 ceiling RECONCILED 0.185→0.32: the honest gate read the apex "blind head-on" at the smaller sizes; eyeScale 0.95 (~0.29) keeps the keen eye the ladder's smallest but readable at the confrontation angle (L147: reconcile the proxy to what the eye measures)
     // wingspan : body — measured against the VISUAL nose-to-tail reference (see measure()'s
-    // visualBodyLen), matching what the §8 gate measures off the top-planform.
-    // OWNER-DIRECTED COMPACTION (CP3): the apex read "way too long" in-flight next to Phoenix
-    // Ascendant, so the whole bladeSpan ladder was rescaled ×0.56 (11.6→6.5 at the apex) until
-    // the apex chase-cam width sits at Phoenix parity. That drops the apex span:body from the old
-    // 1.6+ "falcon floor" to ~1.16 — the owner overriding that §5d floor as a doctrine guess; the
-    // swept blade-comb identity is kept, just at falcon-stoop reach. Bands retuned to the compact
-    // ladder (still monotonic-increasing across forms; the §7 monotonic assert below still guards it).
-    spanBody: [[0.35, 0.62], [0.6, 0.95], [0.95, 1.45]],
+    // visualBodyLen), matching what the §8 gate measures off the top-planform. AAA revision: the
+    // primaries now cluster on the HAND with finger 0 pinning the envelope at `reach` (DD §4.4), so
+    // the bands are reconciled to the built falcon-hand geometry (still monotonic-increasing).
+    spanBody: [[0.35, 0.70], [0.55, 1.0], [0.88, 1.45]],
     accentHue: 39,                              // gold ~39°
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
@@ -183,7 +181,15 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const maxLen = Math.max(...lens), minLen = Math.min(...lens);
     ok(maxLen - minLen > 0.05 * maxLen, `${key} f${f}: blade lengths vary (progression, not sawtooth)`);
     const peakIdx = lens.indexOf(maxLen);
-    ok(peakIdx > 0 && peakIdx < lens.length - 1, `${key} f${f}: longest blade is mid-fan (swell-then-taper)`);
+    if (spec.combProfile === 'falcon-leading') {
+      // FALCON planform (DD §2.4): finger 0 is the DOMINANT leading primary and IS the wingtip,
+      // with a steep decay aft (dominance ≥2.2:1 — kills the picket fence). NOT the old mid-fan swell.
+      ok(peakIdx === 0, `${key} f${f}: dominant is the leading primary (falcon planform, peakIdx ${peakIdx})`);
+      const dom = maxLen / (Math.min(...lens) || 1);
+      ok(dom >= 2.2, `${key} f${f}: blade dominance ≥2.2:1 (${dom.toFixed(2)})`);
+    } else {
+      ok(peakIdx > 0 && peakIdx < lens.length - 1, `${key} f${f}: longest blade is mid-fan (swell-then-taper)`);
+    }
     // separation per the sheet's metric. azure/ember: planform root gaps > 0 (roots march
     // + z-stagger). jade: overlap is PERMITTED — the tip NOTCHES separate the outer 40% of
     // each lobe (depth ≥0.3× lobe length), read from the published notchDepth.
@@ -253,6 +259,44 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const emisI = wm.emissiveIntensity;
     ok(emisI < 0.2 || hueDist(emisHue, spec.accentHue) > 20,
       `${key}: no gold emissive on the wing (carrier=diffuse; emisI ${emisI}, hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
+  }
+  // AZURE cruise-emissive = eyes + ONE terminus stud BY CONTRIBUTION (DD §6.6/§9): the withheld
+  // SLIPSTREAM must never idle as an LED rail. Sum emissive contribution (the Surge tick's driving
+  // `baseIntensity` × emissive luminance) over the flare mats (spineMats). The terminus stud (base
+  // 0.30 · lum ≈ 0.18) and the dark filament (0.04) sit well under 0.45; a shared always-on seam/rail
+  // (scuteSeam/tailSeam ~1.9 · lum ≈ 1.1) would spike it. This is the machine guard that catches the
+  // LED-strip regression the gate flagged (the wrong-userData-key + leftover tailSeam dials).
+  if (key === 'azure') {
+    // Count only RENDERED emissive (a material on an actual mesh) that also rides the Surge flare loop
+    // (spineMats), so a bright orphan mat pushed to spineMats but attached to no mesh (e.g. the draconic
+    // head's disabled rear-glow) doesn't false-positive. `baseIntensity` is what the cruise tick idles at.
+    const built = buildDragonModel(per[2].def, {});
+    const spine = new Set(built.materials.spineMats || []);
+    const lumOf = (m) => 0.2126 * m.emissive.r + 0.7152 * m.emissive.g + 0.0722 * m.emissive.b;
+    let railCount = 0, worst = 0;
+    built.group.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.emissive || !spine.has(o.material)) return;
+      const c = (o.material.userData.baseIntensity ?? o.material.emissiveIntensity ?? 0) * lumOf(o.material);
+      if (c > 0.45) { railCount++; worst = Math.max(worst, c); }
+    });
+    ok(railCount === 0, `azure: no rendered always-on emissive rail in cruise (Slipstream withheld; ${railCount} bright, worst ${worst.toFixed(2)})`);
+    // The withheld signature must PAY OFF (AAA §1 / tell #3 "brightening is an event"): the filament (the
+    // dimmest-idle cyan rendered spineMat) idles imperceptible but its Surge product (baseIntensity ×
+    // (1 + 0.9·surgeGlowMultiplier) × luminance) must READ — and stay capped (a bright thin LINE, not an
+    // Eternal blaze). The machine round the gate asked for, so a magnitude regression can't ship silently.
+    const sgm = per[2].def.model.surgeGlowMultiplier ?? 1;
+    let fil = null, filC = Infinity;
+    built.group.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.emissive || !spine.has(o.material)) return;
+      if (lumOf(o.material) < 0.3) return;                       // cyan filament/stud only
+      const bc = (o.material.userData.baseIntensity ?? 0) * lumOf(o.material);
+      if (bc < filC) { filC = bc; fil = o.material; }            // filament = the dimmest-idle cyan point
+    });
+    if (fil) {
+      const surge = (fil.userData.baseIntensity ?? 0) * (1 + 0.9 * sgm) * lumOf(fil);
+      ok(filC <= 0.06, `azure: Slipstream filament withheld in cruise (contribution ${filC.toFixed(3)} ≤ 0.06)`);
+      ok(surge >= 0.5 && surge <= 1.3, `azure: Slipstream IGNITES on Surge (product ${surge.toFixed(2)} in [0.5,1.3] — reads, capped sub-Eternal)`);
+    }
   }
   if (spec.carrier === 'emissive') {
     // ember [ICONIC FLAME]: the BODY is bold warm flame, but the wing MEMBRANE diffuse

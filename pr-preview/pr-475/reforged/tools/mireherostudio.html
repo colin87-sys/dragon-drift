@@ -38,11 +38,15 @@
     // self-lights regardless — the dim rig just keeps the dark cap reading as dark matter.
     const rigs = {};
     function makeRig(name, fn) { const g = new THREE.Group(); fn(g); g.visible = false; scene.add(g); rigs[name] = g; }
+    // THE MIRE RIG = THE BIOME'S ACTUAL LIGHT (Fable 60-ruling §3). The old rig (hemi 0.9 + 3 dirs at
+    // 0.45/0.4/0.35 ≈ 4× the biome's incident light) FLATTERED low-emissive props — a tree that gated
+    // 4.4 here vanished in-game. These are the biomes.js biome-4 values verbatim so a studio pass now
+    // PREDICTS the in-game read. Rule of record: the 'mire' rig is the biome's light or it is nothing.
     makeRig('mire', (g) => {
-      g.add(new THREE.HemisphereLight(0x14140f, 0x3a2a12, 0.9));           // dark sky / warm amber ground-up
-      const key = new THREE.DirectionalLight(0xff9a3c, 0.45); key.position.set(-2.4, 2.2, 3.0); g.add(key); // dim marsh key
-      const floor = new THREE.DirectionalLight(0xf79a2e, 0.4); floor.position.set(0.4, -2.2, 1.2); g.add(floor); // ground up-light
-      const rim = new THREE.DirectionalLight(0xffc266, 0.35); rim.position.set(2.6, 1.4, -2.2); g.add(rim);   // warm back-rim
+      g.add(new THREE.HemisphereLight(0x12101a, 0x4c3818, 1.0));           // biome-4 hemi (dark sky / warm amber ground)
+      const key = new THREE.DirectionalLight(0xff9a3c, 0.2); key.position.set(-2.4, 2.2, 3.0); g.add(key);  // sun at sunI 0.2 (there IS no key light in the swamp)
+      const floor = new THREE.DirectionalLight(0xf79a2e, 0.15); floor.position.set(0.4, -2.2, 1.2); g.add(floor); // faint amber mirror-bounce
+      const rim = new THREE.DirectionalLight(0xffc266, 0.1); rim.position.set(2.6, 1.4, -2.2); g.add(rim);   // token back-rim (no real rim in a fog-roofed night)
     });
     makeRig('neutral', (g) => {
       g.add(new THREE.HemisphereLight(0xcfd8e6, 0x3a3d47, 1.1));
@@ -85,7 +89,27 @@
     function render() { renderer.render(scene, camera); }
     function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
 
-    window.psRender = (o) => { build(o.key, o.opts || { single: true }); setBg(o.bg || 'dark'); setRig(o.rig || 'mire'); const a = ANGLES[o.angle] || ANGLES.gameplay; fit(a.dir, a.up, o.fill); render(); return true; };
+    // FAR-BAND capture (Fable 60-ruling §3): scale the prop to its real place-size + dolly the camera to
+    // a world distance with the biome fog on, so a FAR beacon (glowtree) is judged WITH the ~50% fog tax it
+    // pays in-game — not at flattering portrait distance. `far = { r, h, dist }` (place r/h + camera metres).
+    function fitFar(built, dir, up, far) {
+      built.scale.set(far.r, far.h, far.r); built.updateMatrixWorld(true);
+      _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      camera.up.set(up[0], up[1], up[2]);
+      const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      camera.position.copy(_c).addScaledVector(d, far.dist);
+      // telephoto: frame the distant prop to ~70% without moving the camera (so the FOG at far.dist is intact)
+      camera.fov = 2 * Math.atan(radius / (far.dist * 0.52)) * 180 / Math.PI;
+      camera.near = 0.1; camera.far = far.dist * 20; camera.updateProjectionMatrix(); camera.lookAt(_c);
+    }
+    window.psRender = (o) => {
+      build(o.key, o.opts || { single: true }); setBg(o.bg || 'dark'); setRig(o.rig || 'mire');
+      const a = ANGLES[o.angle] || ANGLES.gameplay;
+      if (o.far) { scene.fog = new THREE.Fog(0x473217, 48, 255); fitFar(built, a.dir, a.up, o.far); }
+      else { scene.fog = null; camera.fov = 42; camera.updateProjectionMatrix(); fit(a.dir, a.up, o.fill); }
+      render(); return true;
+    };
     // grab the ACTUAL gl canvas (preserveDrawingBuffer) — the sheet overlay can't corrupt this.
     window.psGrab = () => gl.toDataURL('image/png');
     window.psReframe = (o) => { if (o.bg) setBg(o.bg); if (o.rig) setRig(o.rig); const a = ANGLES[o.angle] || ANGLES.gameplay; fit(a.dir, a.up, o.fill); render(); return true; };
