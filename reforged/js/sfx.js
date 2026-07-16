@@ -487,6 +487,41 @@ export function bellToll(k = 1, vol = 1) {
   src.start(t0);
 }
 
+// STORM THUNDER — the Thunderhead Tempest's Surge signature made audible (build-sheet §Open-call #4;
+// owner: "during surge it should be rhythmically thundering like real thunder"). Fully synthesized, no
+// asset files: a bright CRACK transient (the strike), a delayed low-passed brown-noise ROLL that swells
+// then decays over ~2 s (the thunder rolling away), and a SUB boom for chest weight. Randomized per call
+// (pitch/timbre/roll length) so no two beats sound identical. Routed to sfxBus → respects the SFX mute +
+// volume. `intensity` (0..1) scales level so a distant foreshadow can be quiet and the Surge break loud.
+export function stormThunder(intensity = 1) {
+  const a = getCtx();
+  if (!a || !sfxBus || sfxMuted) return;
+  const t0 = a.currentTime;
+  const out = a.createGain();
+  out.gain.value = 0.44 * Math.max(0, Math.min(1.2, intensity));
+  out.connect(sfxBus);
+  // 1) the CRACK — a short band-passed noise transient (the leader stroke). A hair of pitch scatter.
+  { const nLen = 0.11, buf = a.createBuffer(1, Math.ceil(a.sampleRate * nLen), a.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / ch.length, 1.6);
+    const src = a.createBufferSource(); src.buffer = buf;
+    const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 780 + Math.random() * 520; bp.Q.value = 0.7;
+    const g = a.createGain(); g.gain.value = 0.5; src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); }
+  // 2) the ROLLING RUMBLE — brown noise (integrated white → deep) low-passed, delayed a touch after the
+  //    crack, swelling then rolling off over ~1.9 s. This is what makes it read THUNDER, not just a hit.
+  { const nLen = 2.3, buf = a.createBuffer(1, Math.ceil(a.sampleRate * nLen), a.sampleRate), ch = buf.getChannelData(0);
+    let last = 0; for (let i = 0; i < ch.length; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; ch[i] = last * 3.2; }
+    const src = a.createBufferSource(); src.buffer = buf;
+    const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 200 + Math.random() * 90; lp.Q.value = 0.5;
+    const g = a.createGain(); const d = 0.04 + Math.random() * 0.05, dec = 1.7 + Math.random() * 0.5;
+    g.gain.setValueAtTime(0, t0 + d); g.gain.linearRampToValueAtTime(0.95, t0 + d + 0.16 + Math.random() * 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0004, t0 + d + dec);
+    src.connect(lp); lp.connect(g); g.connect(out); src.start(t0 + d); src.stop(t0 + d + dec + 0.1); }
+  // 3) the SUB boom — a low sine thump swept down, for the chest-thump weight under the crack.
+  { const o = a.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(60, t0); o.frequency.exponentialRampToValueAtTime(36, t0 + 0.55);
+    const g = a.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.72, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0004, t0 + 0.75);
+    o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.8); }
+}
+
 export function toggleMusicMute() {
   musicMuted = !musicMuted;
   saveData.audio.musicMuted = musicMuted;
@@ -2779,6 +2814,7 @@ function clearBossMusic() {
   bossSemitones = 0;
   bossBright = 1;
 }
+on('stormThunder', (e) => stormThunder((e && e.intensity) || 1));   // Tempest Surge → procedural thunder
 on('bossStart', () => setBossPhase(0));
 on('bossPhase', (e) => setBossPhase(((e && e.phase) || 1) - 1));  // event phase is 1-based
 on('bossDefeated', clearBossMusic);
