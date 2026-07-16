@@ -360,6 +360,10 @@ function crevasseCore({ x = 0, y = 0.45, z = 0.0, h = 0.5, w = 0.07, seg = 3, ga
 const _envParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const PROPS_V1 = _envParams.get('props') === 'v1';
+// DEBUG-ONLY (default off): `?hero=<archetype>` pins that archetype's yaw so its designed
+// front faces down-lane for the in-context bar-setting render. Skips the rnd() rotY init, so it is
+// determinism-UNSAFE and must never be set in shipping — the gate is that the param is absent by default.
+const HERO_POSE = _envParams.get('hero');
 // Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
 const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier (no-spike glacier ice): bergwall/serac/terrace/icetower/glacierwall/sungate(hero)
@@ -753,7 +757,14 @@ const ARCHETYPES = {
     },
     // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than
     // tall (dome). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion).
-    place: (side, rnd) => { const r = 17 + rnd() * 9; return { x: side * (16 + 0.72 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 }; },
+    place: (side, rnd) => {
+      const r = 17 + rnd() * 9;
+      // ρ 0.70·sMax 1.10 → 0.77; couple x at 0.80·r so the inner edge = 16 + 0.03·r ≥ 16 clears the ±16
+      // gate veil at every size (colonnata precedent), not just the 14.5 fairness floor.
+      const p = { x: side * (16 + 0.80 * r + rnd() * 6), h: 8 + rnd() * 4, r, tilt: 0 };
+      if (HERO_POSE === 'rotunda') p.rotY = 0;   // debug: wound (local +z) faces down-lane toward the camera
+      return p;
+    },
   },
   colonnata: {
     step: 53, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 }, // hero: clusters hard → one colossus per archipelago, off open mirror at the seam
@@ -1135,6 +1146,9 @@ const FOAM_CFG = {
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
+// DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
+// posed hero stands alone in the real biome for the bar-setting render (legacy placeholder clutter off).
+if (HERO_POSE) for (const [name, d] of Object.entries(ARCHETYPES)) { if (name !== HERO_POSE && Array.isArray(d.biomes)) d.biomes = d.biomes.filter((b) => b !== 0); }
 
 // --- Diagnostic export (tools/envcount.mjs) — BEHAVIOR-INERT -----------------
 // Builds every archetype headlessly and reports its geometry/material/instance
