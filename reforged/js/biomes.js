@@ -313,7 +313,8 @@ export const BIOMES = [
     godrayTint: C(0x9fb0bc),   // cool steel — any residual haze glow stays cold, never gold
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
-    water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
+    water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
+
     wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
     rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
     stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.

@@ -222,6 +222,12 @@ if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(t
 // so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
 // then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
+// A storm biome FORCES the rolling swell geometry ON (like it force-enables the cloud deck) so the
+// violent sea rolls for every capable device, not only where the player toggled water-swell. Weak
+// tier-2 devices auto-stay flat (buildGeometry returns the flat plane at geomTier>=2), so the
+// 60fps-on-weak-mobile budget holds. Tempest is currently pin-only (not yet cycled) → read the pin;
+// when it joins CYCLE the runtime transition gets wired in the CYCLE-insertion PR.
+if (urlParams.has('biome') && BIOMES[parseInt(urlParams.get('biome'), 10)]?.water?.swellForce) setWaterSwell(true);
 // N10b water depth: apply the saved toggle; ?depth forces on (live uniform, no rebuild).
 if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
 // N10c foam collars: apply the saved toggle; ?foam forces on (visibility flip).
