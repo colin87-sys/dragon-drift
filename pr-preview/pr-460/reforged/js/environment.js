@@ -671,12 +671,14 @@ const ARCHETYPES = {
         const v = [];
         for (let s = 0; s < nSeg; s++) {
           if (open.has(s)) {
-            if (arched.has(s)) {   // pointed-arch lintel: apex hangs into the top of the opening
-              const a0 = s * dth, a1 = (s + 1) * dth, am = (a0 + a1) / 2;
-              const rT = 0.50, rA = 0.52, yT = 0.60, yA = 0.44;
-              const TL = [Math.cos(a0) * rT, yT, Math.sin(a0) * rT], TR = [Math.cos(a1) * rT, yT, Math.sin(a1) * rT];
-              const TM = [Math.cos(am) * rT, yT, Math.sin(am) * rT], A = [Math.cos(am) * rA, yA, Math.sin(am) * rA];
-              v.push(...TL, ...TM, ...A, ...TM, ...TR, ...A);   // outward winding (flipped from r6), apex low → pointed soffit
+            if (arched.has(s)) {   // POINTED-ARCH window: two spandrel fills in the top corners leave a
+              // central void that PEAKS UP to the wall top (a lancet), not a downward apex (Fable r7 —
+              // the peak must point into the mass, never stick up as a fin above the parapet). rArc≈wall.
+              const a0 = s * dth, a1 = (s + 1) * dth, am = (a0 + a1) / 2, rArc = 0.52, yS = 0.40, yTop = 0.60;
+              const SL = [Math.cos(a0) * rArc, yS, Math.sin(a0) * rArc], SR = [Math.cos(a1) * rArc, yS, Math.sin(a1) * rArc];
+              const TLc = [Math.cos(a0) * rArc, yTop, Math.sin(a0) * rArc], TRc = [Math.cos(a1) * rArc, yTop, Math.sin(a1) * rArc];
+              const Ap = [Math.cos(am) * rArc, yTop, Math.sin(am) * rArc];   // apex at the wall top centre
+              v.push(...SL, ...TLc, ...Ap, ...SR, ...Ap, ...TRc);   // outward spandrels; void below peaks up to Ap
             }
             continue;
           }
@@ -720,8 +722,11 @@ const ARCHETYPES = {
         parts.push({ mat: 0, geo: corn });
       }
       // DOME — a broad hemisphere with a TRUE quarter collapsed toward the drum gap (both wounds ~+z →
-      // the collapse reads coherently at elevation). Rim sinks into the cornice; OCULUS at the apex.
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: 0.60 }) });
+      // the collapse reads coherently at elevation). Seated at domeY=0.56 so the rim (y0.56, r0.46) sinks
+      // 0.04 BELOW the drum top (y0.60, r0.50) at EVERY sector — the drum edge occludes the junction, so
+      // there's no full-width air-gap slit where the cornice is absent (Fable r7 root cause). OCULUS at apex.
+      const domeY = 0.56;
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: domeY }) });
       // INNER LINING (Fable D3) — a concentric shell at 0.43 with REVERSED winding (faces inward) over
       // the same arc: looking into the collapse shows a solid stone bowl + a 0.03 rim LIP at every
       // broken edge → no zero-thickness paper arc from any yaw. The gate condition.
@@ -731,7 +736,7 @@ const ARCHETYPES = {
         for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
         inner.index.needsUpdate = true;
         inner.computeVertexNormals();
-        parts.push({ mat: 0, geo: xform(inner, { y: 0.60 }) });
+        parts.push({ mat: 0, geo: xform(inner, { y: domeY }) });
       }
       // BROKEN PIER STUMP (Fable r6) — the surviving dome quarter overhangs the gap; at side elevation
       // that read as a HOVERING dome over a void. A broken pier stump stands UNDER the overhanging rim
@@ -743,7 +748,7 @@ const ARCHETYPES = {
       // OCULUS gilt reveal — an INWARD-facing frustum recessed at the apex, extended DOWN into the interior
       // (Fable D2) so the withheld gold catches from the worm's-eye low-oblique through the collapse. Never
       // an exterior face — the gold is only sunset trapped inside the hole (r0.12 < oculus rim 0.136).
-      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 6, 1, true), { y: 0.95 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 6, 1, true), { y: domeY + 0.35 }) });   // rides down with the dome (apex now ≈domeY+0.44) so the gilt stays recessed below the lip
       return mergeLagoonParts(parts);
     },
     // Fairness + composition (§9): draw r FIRST, couple x to it. Inner edge |x|−ρ·r ≥ 14.5. Wider than

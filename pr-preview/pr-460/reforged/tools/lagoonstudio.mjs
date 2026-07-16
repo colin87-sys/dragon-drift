@@ -37,7 +37,7 @@ async function propSheet(key) {
     { angle: 'low',     bg: 'dusk', rig: 'sunset',  fill: 0.84, label: 'worm’s-eye · colossal' },
     { angle: 'top',     bg: 'pale', rig: 'neutral', fill: 0.84, label: 'top plan · oculus + windows' },
     { angle: 'front3q', bg: 'pale', rig: 'neutral', fill: 0.80, label: 'front-¾ · form' },
-    { angle: 'side',    bg: 'pale', rig: 'neutral', fill: 0.94, label: 'window · arch close (form)' },
+    { angle: 'side',    bg: 'dark', rig: 'sunset',  fill: 0.80, label: 'window {0} · pointed arch (+x)' },
   ];
   for (let i = 0; i < tiles.length; i++) {
     const t = tiles[i];
