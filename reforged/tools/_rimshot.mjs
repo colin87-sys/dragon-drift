@@ -13,9 +13,9 @@ await page.click('#gx-skip').catch(() => {});
 await page.evaluate(() => { document.getElementById('gx-skip')?.click(); if (window.__dd?.save?.flags) window.__dd.save.flags.hintsSeen = 195; }).catch(() => {});
 await page.waitForTimeout(2000);
 const CLIP = { x: 250, y: 200, width: 600, height: 430 };
-for (let i = 0; i < 8; i++) {
+for (let i = 0; i < 6; i++) {
   await page.evaluate(() => { if (window.__dd?.game) { window.__dd.game.feverActive = false; window.__dd.game.feverTimer = 0; } globalThis.__ddArcForce = false; });
-  await page.screenshot({ path: `/tmp/rim-${String(i).padStart(2, '0')}.png`, clip: { ...CLIP } });
+  await page.screenshot({ path: `/tmp/rim-${String(i).padStart(2, '0')}.png`, clip: { ...CLIP }, timeout: 120000 });   // heavy glow-up geometry renders slow under swiftshader
   await page.waitForTimeout(150);
 }
 console.log('wrote rim frames');

@@ -303,7 +303,10 @@ export function createDragon(scene, def, riderDef) {
   // edge clears bright water instead of collapsing to a silhouette (glow-up P1b).
   const rpm = def.rimPowerMul ?? 1;
   applyRim(bodyMat, { strength: 0.0, power: 3.2 * rpm, mul: def.rimBodyMul ?? 1 });
-  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm });
+  // rimWingMul tames the wing rim per-dragon: flat faceted wings catch far more grazing-angle rim than the
+  // rounded body, so a body-tuned cruise rim washes the whole wing in a cheap chrome outline the body
+  // lacks. The Tempest (hot P1b rim + flat storm panels) drops it hard so the wing matches the body.
+  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm, mul: def.rimWingMul ?? 1 });
   for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 * rpm });
   surgeMix = 0;
   surgeAnimT = 0;
