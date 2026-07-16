@@ -638,10 +638,10 @@ function buildGossamerDoubletWings(def, model, attach, _giM) {
 registerWings('gossamerDoubletWings', buildGossamerDoubletWings);
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// HEAD — 'stilettoMaskHead' (I0 PLACEHOLDER): a draconic muzzle-wedge skull-mask read
-// (no separate horns — the antennae ARE the horn slot). I0 roughs the wedge + venom-lit
-// eyes + stub horn-gauge antennae; the brow ridge, mandible cheek-blades, and the
-// compound-cut eye bevels land at I4.
+// HEAD — 'stilettoMaskHead' (I4): a draconic chitin MUZZLE-WEDGE skull-mask — a brow
+// ridge + mandible cheek-blades read DRAGON at 250px; NO separate horns (the horn-gauge
+// ANTENNAE are the horn slot). Huge almond eye-shells (faceted socket bevel + venom-lit
+// octahedron core) are the brightest facial points but stay under the venom still.
 // ═══════════════════════════════════════════════════════════════════════════════
 function buildStilettoMaskHead(def, model, mats) {
   const group = new THREE.Group();
@@ -649,41 +649,73 @@ function buildStilettoMaskHead(def, model, mats) {
   const hs = model.headScale ?? 1;
   const eyeMat = mats.eyeMat;
   const bm = bandMat(M);
-  // Muzzle-wedge skull (~12 facets): occiput → brow → cheek → muzzle wedge, −Z.
+  // Muzzle-wedge skull: occiput → BROW (widest, proud) → cheek → muzzle wedge → tip, −Z.
   const skull = [
-    { z: 0.30 * hs, rx: 0.24 * hs, ry: 0.26 * hs, cy: 0.02 },
-    { z: -0.02 * hs, rx: 0.30 * hs, ry: 0.28 * hs, cy: 0.04 },   // brow (widest)
-    { z: -0.38 * hs, rx: 0.22 * hs, ry: 0.20 * hs, cy: -0.02 },
-    { z: -0.72 * hs, rx: 0.11 * hs, ry: 0.11 * hs, cy: -0.06 },
-    { z: -0.92 * hs, rx: 0.05 * hs, ry: 0.05 * hs, cy: -0.08 },
+    { z: 0.32 * hs, rx: 0.24 * hs, ry: 0.24 * hs, cy: 0.02 },
+    { z: 0.08 * hs, rx: 0.31 * hs, ry: 0.30 * hs, cy: 0.05 },    // brow ridge (widest + proud)
+    { z: -0.20 * hs, rx: 0.26 * hs, ry: 0.22 * hs, cy: 0.00 },   // cheek
+    { z: -0.54 * hs, rx: 0.15 * hs, ry: 0.14 * hs, cy: -0.05 },  // muzzle
+    { z: -0.82 * hs, rx: 0.08 * hs, ry: 0.08 * hs, cy: -0.08 },  // muzzle wedge
+    { z: -0.98 * hs, rx: 0.03 * hs, ry: 0.03 * hs, cy: -0.09 },  // tip
   ];
   group.add(knapLoft(skull, CHITIN_PROFILE, bm, true));
-  const headLength = 1.24 * hs;
+  const headLength = 1.30 * hs;
 
-  // Horn-gauge antennae (the horn slot) — 1 pair, base ≥0.12× head width, swept back
-  // 30–40°, canted ±12°, tapering to ≤0.15× base. 2-face tents (I0 stub).
-  const aLen = (model.antennaeLen ?? 1) * 0.6 * hs;
-  const baseW = 0.10 * hs;   // ≥0.12× head width (~0.6)
+  // BROW RIDGE — a raised dorsal crest tent over the brow (the draconic scowl).
+  group.add(flatTriMesh([
+    [[-0.10 * hs, 0.28 * hs, 0.12 * hs], [0.10 * hs, 0.28 * hs, 0.12 * hs], [0, 0.36 * hs, -0.04 * hs]],
+    [[-0.10 * hs, 0.28 * hs, 0.12 * hs], [0, 0.36 * hs, -0.04 * hs], [0, 0.30 * hs, -0.16 * hs]],
+    [[0.10 * hs, 0.28 * hs, 0.12 * hs], [0, 0.30 * hs, -0.16 * hs], [0, 0.36 * hs, -0.04 * hs]],
+  ], M.chitinDorsal));
+  // MANDIBLE CHEEK-BLADES — 2 swept faceted blades off the cheeks (the "draconic skull"
+  // read; curve-vs-straight against the almond eye-shells), raked back + down.
   for (const side of [1, -1]) {
-    const bx = side * 0.12 * hs, by = 0.22 * hs, bz = 0.20 * hs;
-    const tip = [bx + side * 0.10 * hs, by + aLen * 0.7, bz + aLen];   // swept back + up
-    const bL = [bx - side * baseW, by, bz], bR = [bx + side * baseW, by, bz];
-    group.add(flatTriMesh([[bL, tip, bR], [bR, tip, [bx, by + 0.02, bz - baseW]]], M.chitinDorsal));
+    const cx = side * 0.24 * hs, cy = -0.04 * hs, cz = -0.24 * hs;
+    const tip = [side * 0.30 * hs, cy - 0.12 * hs, cz - 0.30 * hs];
+    group.add(flatTriMesh([
+      [[cx, cy + 0.06 * hs, cz + 0.08 * hs], tip, [cx, cy - 0.08 * hs, cz]],
+      [[cx, cy + 0.06 * hs, cz + 0.08 * hs], [cx - side * 0.05 * hs, cy, cz + 0.02 * hs], tip],
+    ], M.chitinFlank));
   }
 
-  // Venom-lit almond eyes — bright facial points, but NOT the hero: the VENOM STILL owns the
-  // glow hierarchy (the eyes are demoted from the I0 placeholder so they don't out-glow the
-  // filling sacs — the real almond ladder + compound-cut bevels land at I4).
-  const es = model.eyeScale ?? 1;
-  eyeMat.emissiveIntensity = 0.45 + 0.55 * (model.glowLevel ?? 1);
+  // HORN-GAUGE ANTENNAE (the horn slot) — 1 pair, base thickness ≥0.12× head width, swept
+  // back 30–40°, canted ±12° so they read from behind, 2-SEGMENT ridge tents tapering to
+  // ≤0.15× base (the taper law); `antennaeLen` ladder 0.4→1.0. They do the horn job.
+  const aLen = (model.antennaeLen ?? 1) * 0.85 * hs;
+  const baseW = 0.085 * hs;   // ≥0.12× head width (head width ≈0.62× hs)
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.11 * hs * es, 0), eyeMat);
-    eye.position.set(side * 0.17 * hs, 0.09 * hs, -0.14 * hs);
-    eye.scale.set(1.5, 0.72, 1);
-    eye.rotation.y = side * 0.26;
+    const b0 = [side * 0.13 * hs, 0.24 * hs, 0.16 * hs];
+    const mid = [side * (0.17 + 0.03) * hs, 0.24 * hs + aLen * 0.5, 0.16 * hs + aLen * 0.55];   // canted out + swept back-up
+    const tip = [side * 0.19 * hs, 0.24 * hs + aLen * 0.78, 0.16 * hs + aLen * 1.1];
+    const vT = [], vC = [];
+    vein(vT, vC, b0, mid, baseW, baseW * 0.5, 0.05 * hs);
+    vein(vT, vC, mid, tip, baseW * 0.5, baseW * 0.15, 0.035 * hs);   // taper to ≤0.15× base
+    group.add(flatTriMesh(vT, M.chitinDorsal));
+    group.add(flatTriMesh(vC, M.veinCap));
+  }
+
+  // Almond EYE-SHELLS — a faceted compound-cut socket bevel (dark chitin frame) + a
+  // venom-lit octahedron core: reads as a crafted EYE, not a floating glow diamond. Eye
+  // narrows + the light GROWS up the ladder (light growing is the grind reward); the still
+  // stays the brightest venom mass, so the eyes ride a moderate intensity.
+  const es = model.eyeScale ?? 1;
+  eyeMat.emissiveIntensity = 0.6 + 0.9 * (model.glowLevel ?? 1);
+  for (const side of [1, -1]) {
+    const ex = side * 0.20 * hs, ey = 0.10 * hs, ez = -0.10 * hs;
+    // socket bevel — a dark faceted almond frame around the eye (the compound-cut rim).
+    const r = 0.15 * hs * es, sx = 1.5, sy = 0.72;
+    group.add(flatTriMesh([
+      [[ex - r * sx, ey, ez], [ex, ey + r * sy, ez - r * 0.3], [ex + r * sx, ey, ez]],
+      [[ex - r * sx, ey, ez], [ex + r * sx, ey, ez], [ex, ey - r * sy, ez - r * 0.3]],
+    ], M.venter));
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.115 * hs * es, 0), eyeMat);
+    eye.position.set(ex, ey, ez - 0.01 * hs);
+    eye.scale.set(sx, sy, 1);
+    eye.rotation.y = side * 0.28;
+    eye.rotation.z = -side * 0.16;   // almond tilt (outer corner lifts)
     group.add(eye);
   }
-  const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.28 * hs); group.add(motifAnchor);
+  const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.30 * hs); group.add(motifAnchor);
   return { group, spineMats: [], motifAnchor, headLength };
 }
 registerHead('stilettoMaskHead', buildStilettoMaskHead);
@@ -723,18 +755,48 @@ function buildStingerLanceTail(def, model, mats, anchor) {
   const chainAdd = (z, mesh) => { let j = nChain - 1; for (; j >= 0; j--) if (z >= jAnchor(j).z - 1e-6) break; const an = jAnchor(Math.max(0, j)); mesh.position.set(-an.x, -an.y, -an.z); joints[Math.max(0, j)].add(mesh); return mesh; };
   for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, knapLoft(stem.slice(i0, i1 + 1), NEEDLE_PROFILE, M.chitinFlank, false)); }
 
-  // THE DRIP BEAD — a small faceted octahedron at the needle tip (opaque emissive),
-  // driven by the deterministic swell-and-cull cycle from f2 (the tick lands I4). Rides
-  // the last chain joint so it whips with the tip.
+  // 2 LANCET BARBS — a ×0.8 pair of short faceted blades breaking the mid-length, raked
+  // back (the needle survives edge-on + reads as a barbed stiletto, not a smooth spike).
+  { const mi = Math.round(nSeg * 0.5), ms = stem[mi], br = ms.rx;
+    for (const side of [1, -1]) {
+      const bx = side * br, by = ms.cy, bz = ms.z;
+      const tip2 = [side * br * 2.0, by - br * 0.4, bz + T * 0.10];
+      chainAdd(bz, flatTriMesh([
+        [[bx, by + br * 0.4, bz - br * 0.4], tip2, [bx, by - br * 0.4, bz]],
+        [[bx, by + br * 0.4, bz - br * 0.4], [bx - side * br * 0.3, by, bz - br * 0.2], tip2],
+      ], M.chitinFlank));
+    }
+  }
+
+  // THE VENOM CHANNEL — an inset seam running base→tip along the needle's dorsal ridge (a
+  // thin emissive strip, DoubleSide, DARK until f3 then venom-lit — the culled-ignition
+  // gotcha means DoubleSide so it never reads as a no-op). In flareMats.
+  const chanT = [];
+  for (let i = 0; i < nSeg; i++) {
+    const a = stem[i], b = stem[i + 1], w = 0.02;
+    const AT = [0, a.cy + a.ry * 0.6, a.z], BT = [0, b.cy + b.ry * 0.6, b.z];
+    chanT.push([[AT[0] - w, AT[1], AT[2]], [BT[0] + w, BT[1], BT[2]], [BT[0] - w, BT[1], BT[2]]],
+               [[AT[0] - w, AT[1], AT[2]], [AT[0] + w, AT[1], AT[2]], [BT[0] + w, BT[1], BT[2]]]);
+  }
+  chainAdd(stem[0].z, flatTriMesh(chanT, M.channel));
+
+  // THE DRIP BEAD — a small faceted octahedron at the needle tip (opaque emissive), driven
+  // by the deterministic swell-and-cull cycle from f2 (the drip tick, dragon.js). Rides the
+  // last chain joint so it whips with the tip. Published so the rig can tick it.
   const tip = stem[nSeg];
   const dripStage = Math.round(model.dripStage ?? 0);
   let dripBead = null;
   if (dripStage >= 1) {
-    dripBead = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), M.bead);
-    dripBead.position.set(0, 0, 0.06);
-    chainAdd(tip.z + 0.06, dripBead);
+    dripBead = new THREE.Mesh(new THREE.OctahedronGeometry(0.055, 0), M.bead);
+    // Place in the LAST joint's frame at the needle tip (−anchor by the joint's world pos).
+    const lastJ = joints[nChain - 1], an = jAnchor(nChain - 1);
+    dripBead.position.set(0, tip.cy - an.y, tip.z + 0.06 - an.z);
+    dripBead.userData.dripBase = M.bead.userData.baseIntensity ?? 0.6;
+    lastJ.add(dripBead);
   }
 
-  return { group, segs: joints, accentMats: [], flareMats: dripBead ? [M.bead] : [], parts: { dripBead } };
+  const flareMats = [M.channel];
+  if (dripBead) flareMats.push(M.bead);
+  return { group, segs: joints, accentMats: [], flareMats, parts: { dripBead } };
 }
 registerTail('stingerLanceTail', buildStingerLanceTail);

@@ -307,6 +307,8 @@ export function buildDragonModel(def, opts = {}) {
   // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
   const tailOrbiters = tailResult.orbiters ?? null;
   const pyreTrain = tailResult.pyreTrain ?? null;
+  // Stiletto venom drip bead (nullable): the rig runs a guarded swell-and-cull tick on it.
+  const dripBead = (tailResult.parts && tailResult.parts.dripBead) || null;
 
   // --- Wings -------------------------------------------------------------
   // The wing system (membrane / none) comes from the recipe's WINGS module
@@ -448,7 +450,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, auxWingPivots: wingsResult.parts.auxWingPivots || null, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
+      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, auxWingPivots: wingsResult.parts.auxWingPivots || null, dripBead, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
       materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
       auraSprite,
     };
@@ -468,6 +470,7 @@ export function buildDragonModel(def, opts = {}) {
       coreGlow,
       wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR,
       auxWingPivots: wingsResult.parts.auxWingPivots || null,   // Stiletto hind-wing pair (nullable; null for every shipped dragon)
+      dripBead,   // Stiletto venom drip bead (nullable; null for every shipped dragon)
       wingElements, spinePoints, motifAnchor, headLength,
       stormArcMats: stormArcMats.length ? stormArcMats : null,
     },

@@ -865,6 +865,7 @@ export const DRAGONS = {
     surgeHi: 0xef8aff,            // every flared venom mat lerps toward the drip-hi, never white-gold
     feverWash: [0.07, 0.02, 0.10],  // blacklight wash (proposed; owner call #4)
     surgeGlowMultiplier: 4,       // the fill emissive scaling on Venom Overdrive (volume is the read; a modest lift)
+    surgeMotes: true,             // Venom Overdrive: streams venom-family motes on Surge (census: 1 mote default; the lock's 2nd behind perf-HUD proof — owner call #5b)
     hideRiderGlow: true,          // the gaster owns the rear frame
     // Cool venom-identity cruise rim (the anti-flat-black lever): a cold steel-violet edge so the
     // near-black chitin reads OUTLINED, not a silhouette. Wings are flat panels → drop their rim.
