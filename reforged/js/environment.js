@@ -1350,6 +1350,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       feverWarm: { value: 0 },   // 0 = magenta Surge palette; 1 = FIERY (fire dragons) → the rebirth sky/aurora go warm ember instead of magenta
       dimMix: { value: 0 },
       starMix: { value: 0 },
+      // Per-biome DECK BIAS (Tempest): 0 = shipped gradient (byte-identical). >0 pulls the
+      // mid→top transition DOWN so the dark storm ceiling owns most of the sky and the belt
+      // compresses to a thin band above the horizon slot. Mirrored in skyProbe.js skyColorAt.
+      uDeckBias: { value: 0 },
       // Dual-fog (BIOME-DESIGN.md §5.2): the far-field fog COLOR + its 0→1
       // gate. fogFarMix is 0 wherever no biome declares fogFarColor, so the
       // blend below is a branchless no-op there (the starMix pattern).
@@ -1368,7 +1372,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
     fragmentShader: `
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
-      uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix;
+      uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
       void main() {
@@ -1382,8 +1386,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // stay the spectacle during a boost (0 in every other biome → byte-identical).
         vec3 hor = mix(horizonColor, horF, feverMix * 0.8 * (1.0 - uAuroraMix));
         vec3 mid = mix(midColor, midF, feverMix * 0.7 * (1.0 - uAuroraMix));
-        vec3 col = mix(hor, mid, smoothstep(0.0, 0.25, h));
-        col = mix(col, topColor, smoothstep(0.2, 0.7, h));
+        // uDeckBias pulls the belt + deck transitions DOWN (0 = shipped): the storm ceiling owns
+        // the sky, the belt compresses to a thin strip. Edges stay ordered for all bias in [0,1].
+        vec3 col = mix(hor, mid, smoothstep(0.0, 0.25 - 0.12 * uDeckBias, h));
+        col = mix(col, topColor, smoothstep(0.2 - 0.13 * uDeckBias, 0.7 - 0.34 * uDeckBias, h));
         // Dual-fog far color (§5.2): the sky's lowest band IS the far field —
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
@@ -1865,6 +1871,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
   sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;
+  su.uDeckBias.value = env.deckBias || 0;
   su.time.value = time;
 
   // Boss-time mote budget: own eased copy of the same signal postfx grades
