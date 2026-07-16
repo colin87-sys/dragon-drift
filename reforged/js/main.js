@@ -23,6 +23,7 @@ import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
+import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
@@ -128,6 +129,11 @@ let previewLaunchPending = !!PREVIEW_CANYON;
 const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
+// U12b — the menu mood-dim multiplies the CURRENT tonemap mode's base exposure;
+// the base is re-captured on every tonemap change so the dim can never bake
+// itself into the base. menuDimW is the eased 0..1 dim weight.
+let exposureBase = renderer.toneMappingExposure;
+let menuDimW = 0;
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
 // Aurora Shallows PR-1 hero read: ?aurora=1 forces the authentic aurora curtain on in
 // ANY biome (the biome that declares it doesn't exist yet) so the owner can judge it on
@@ -808,7 +814,7 @@ ui.init({
   // recompiles on toneMapping change); particle-batch needs a re-init so Settings
   // reloads for that one (like DEV mode).
   onGraphicsChange: (kind, value) => {
-    if (kind === 'toneMap') setToneMap(renderer, value);
+    if (kind === 'toneMap') { setToneMap(renderer, value); exposureBase = renderer.toneMappingExposure; }   // U12b: re-capture the dim's base
     else if (kind === 'dither') setDither(value);
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
@@ -1249,6 +1255,7 @@ function resumeFromPause() {
   discardNextDelta = true;
   game.pauseReason = '';
   game.state = 'playing';
+  uiSound.back();   // U11: the pause panel closes (Esc / outside tap / RESUME)
   ui.hideScreen();
   music.start();
 }
@@ -1296,6 +1303,7 @@ let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
 const _sunProj = new THREE.Vector3();   // sun world dir → screen NDC (god-rays)
 const _camFwd = new THREE.Vector3();      // camera forward, for the sun-facing gate
+const _dragonProj = new THREE.Vector3();  // dragon world pos → screen X (gauntlet follow)
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -1577,6 +1585,17 @@ function tick() {
   setRingsVisible(!hideShopFx && !cleanShot);   // cleanshot: no course rings in a capture frame
   if (hideShopFx || cleanShot) setDragonFxVisible(false);   // …and no trail scribbles over the dragon
 
+  // U12b — menu-as-camera-shot, the mood half: a small IN-ENGINE exposure dim
+  // while a dense reading panel (settings/pilot/quests/daily/rush/pause) covers
+  // the live world — "defocus via render, not DOM blur" — eased over
+  // ~--t-screen and RELEASED when the panel closes. COLOUR ONLY, per the menu
+  // law: no world prop, obstacle or player state is touched, and any 'playing'
+  // frame HARD-SNAPS the dim to zero (same gate class as hideShopFx above), so
+  // a live run can never inherit a menu grade. Shop + hub keep full exposure.
+  if (game.state === 'playing') menuDimW = 0;
+  else menuDimW += ((ui.atDimScreen() ? 1 : 0) - menuDimW) * (1 - Math.exp(-10 * rawDt));
+  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW);
+
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
     game.slowMoTimer -= rawDt;
@@ -1847,6 +1866,14 @@ function tick() {
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    // GAUNTLET FOLLOW (owner ruling 2026-07-16): project the dragon and let the
+    // vitals cluster ride under it — ui.js damps/clamps/writes (transform-only,
+    // strictly visual; the world is never touched). Holds pose outside play.
+    if (game.state === 'playing') {
+      _dragonProj.set(player.position.x, player.position.y, -player.dist).project(camera);
+      ui.gauntletFollow(_dragonProj.z > 1 ? null
+        : (_dragonProj.x * 0.5 + 0.5) * window.innerWidth, dt);
+    }
     updateBossBar();   // EMBERSIGHT H5 — drain-lag ease + off-screen threat chevrons
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's
