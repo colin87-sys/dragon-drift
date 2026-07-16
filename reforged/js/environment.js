@@ -6,7 +6,7 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
-import { createRain, updateRain, setRainTier } from './rain.js';
+import { createRain, updateRain, setRainTier, rainGustAt } from './rain.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
@@ -1699,6 +1699,12 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       fogFarColor: { value: new THREE.Color(0x57221a) },
       fogFarMix: { value: 0 },
       time: { value: 0 },
+      // Rain FAR VEIL (Tempest, layer F): soft rain-veil curtains hanging from the deck
+      // underside into the horizon slot. 0 = off (byte-identical). Scroll is a JS-wrapped
+      // wind drift; Flash rides the lightning (0 until the lightning hazard lands).
+      uRainVeil: { value: 0 },
+      uRainVeilScroll: { value: 0 },
+      uRainVeilFlash: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -1712,8 +1718,12 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
+      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
+      // Rain-veil 1D value noise (layer F) — pure ALU, no texture.
+      float _rvHash(float n) { return fract(sin(n) * 43758.5453); }
+      float _rvN(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(_rvHash(i), _rvHash(i + 1.0), f); }
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
@@ -1739,6 +1749,26 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         col = mix(col, vec3(0.020, 0.030, 0.075), uAurNight);
         ${AURORA_BODY}
         ${CLOUD_BODY}
+        // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
+        // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
+        // wind azimuth. Discrete shafts (gapped), faint vertical interior grain, THINNED toward the
+        // sun/breach azimuth (composition law 6 — the focal hole stays clear). Pinned to fogFarColor
+        // so the curtains and the pale far fog are one substance; brightens with the lightning flash.
+        if (uRainVeil > 0.001) {
+          float _az = atan(d.z, d.x);
+          float _sc = _az * 2.3 + uRainVeilScroll;
+          float _curt = _rvN(_sc) * 0.62 + _rvN(_sc * 2.7 + 5.1) * 0.38;
+          _curt = smoothstep(0.30, 0.82, _curt);                                  // gap into discrete shafts, not a wash
+          float _grain = 0.72 + 0.28 * _rvN(_sc * 9.0 + d.y * 2.5);               // faint vertical interior grain
+          float _band = smoothstep(0.05, 0.15, h) * smoothstep(0.42, 0.20, h);    // deck underside → belt (fades before the horizon slot)
+          float _sunAz = atan(sunDir.z, sunDir.x);
+          float _dAz = abs(atan(sin(_az - _sunAz), cos(_az - _sunAz)));           // wrapped angular distance to the breach azimuth
+          float _breachClear = mix(0.4, 1.0, smoothstep(0.32, 0.9, _dAz));        // <=40% within ~18deg of the breach
+          float _veil = clamp(_curt * _grain * _band * _breachClear * uRainVeil, 0.0, 1.0);
+          vec3 _veilCol = fogFarColor * (1.0 + 1.1 * uRainVeilFlash);             // the lightning flash lights the veil
+          col = mix(col, _veilCol, _veil * 0.20);                                 // <=20% mix (curt/band keep the real modulation to a squint-read 4-8%)
+          col *= 1.0 - _veil * 0.05;                                              // a dense shaft reads a touch darker than the haze
+        }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
         // blowing out the centre of the screen and washing out contrast.
@@ -2267,7 +2297,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     zenith: env.skyTop,
     waveAmp: env.waveAmp,
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
-    rainRipple: env.rainMix, // rain Layer B: splash rings where the rain hits the sea (rides rainMix)
+    rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
@@ -2291,6 +2321,14 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.starMix.value = env.starMix;
   su.uDeckBias.value = env.deckBias || 0;
   su.time.value = time;
+  // RAIN FAR VEIL (layer F): density + wind-scroll ride the shared gust clock (layer G), so the
+  // curtains thicken and sweep with the same gust that bends the streaks and swells the sea rings.
+  // 0 outside Tempest (rainMix 0) → byte-identical. Flash stays 0 until the lightning hazard lands.
+  const _veilMix = env.rainMix || 0;
+  const _veilGust = _veilMix > 0.005 ? rainGustAt(time) : 0;
+  su.uRainVeil.value = _veilMix * (0.82 + 0.4 * _veilGust);
+  su.uRainVeilScroll.value = (time * (0.020 + 0.030 * _veilGust)) % 1024;
+  su.uRainVeilFlash.value = 0;
 
   // Boss-time mote budget: own eased copy of the same signal postfx grades
   // with (same ~1s damp idiom as feverMix above) — decays unconditionally so
@@ -2298,5 +2336,5 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   bossMix = damp(bossMix, bossTarget, 4, dt);
 
   updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
-  updateRain(dt, camera, env);   // storm rain streaks — reads env.rainMix + the shared wind vector
+  updateRain(dt, camera, env, time);   // storm rain streaks — reads env.rainMix + the shared wind vector + gust clock
 }
