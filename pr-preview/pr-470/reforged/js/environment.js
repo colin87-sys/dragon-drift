@@ -1357,15 +1357,17 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 22 + rnd() * 8, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // C) candCap — the mushroom DONE RIGHT: a tall elegant stalk + a cap whose WHOLE underside glows
-  // brightly (obvious, not subtle) + a glowing rim.
+  // C) candCap — the mushroom DONE RIGHT for OBVIOUS glow: the CAP itself glows (a bright amber
+  // dome you read as lit from any angle, incl. the top-down chase cam) with a dark rim band + dark
+  // stalk for definition. No hidden under-glow the camera occludes.
   candCap: {
     step: 200, biomes: [], matIndex: 4,
     build: () => {
       const parts = [];
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.07, 0.14, 0.72, 6), { y: 0.36 }) }); // tall dark stalk
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.44, 9, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.72, sy: 0.5 }) }); // dark cap top
-      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.42, 0.16, 9, 1, true), { y: 0.66 }) }); // BIG glowing under-cap (obvious)
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.42, 9, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.7, sy: 0.62 }) }); // GLOWING cap dome (obvious from above)
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.42, 0.06, 9, 1, true), { y: 0.7 }) }); // dark rim band for definition
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 6, 3), { y: 0.98 }) }); // bright crown boss on top
       return mergeParts(parts, 4);
     },
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (16 + rnd() * 6)), h: 20 + rnd() * 6, r: 16 + rnd() * 6, tilt: 0, rotY: 0 }),
