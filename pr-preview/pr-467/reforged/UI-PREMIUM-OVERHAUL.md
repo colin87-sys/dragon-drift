@@ -322,7 +322,13 @@ boss.js:2160/3973) — the bar must re-fill on form swap, not read as healing mi
   divs projected per frame with `will-change: transform` (`lockLayer.js` — already right).
 - Two-part reticle (near cursor + flight-vector lead) is a stretch goal behind a flag.
 
-### U11 — Procedural WebAudio UI soundboard — **S / low / none**
+### U11 — Procedural WebAudio UI soundboard — **S / low / none** — ✅ BUILT (Phase 1 voices → Phase 4 full wiring, 2026-07-16)
+> **Built:** all 9 voices live (`tick/confirm/back/whoosh/ping/search/lock/bell` + the new
+> `arm` armed-danger cue) and every interactive surface audited: delegated tick on press,
+> confirm on every commit (start/fly/equip/revive — purchases keep the celebrate fanfare),
+> back on every close (BACK/blank-tap/pause-resume/celebrate dismissal/revive decline),
+> whoosh central on every fresh screen open incl. pause, `arm()` on the RESET/ABANDON
+> two-step. No per-stagger-item or per-slider sounds.
 **Payoff:** research calls audio "half the premium feel" and the single highest-ROI
 polish after motion; we're procedural-audio-native so it costs nothing.
 New `js/uiSound.js`: runtime-synthesized 30–80ms blips — hover/move tick (filtered noise
@@ -330,7 +336,16 @@ New `js/uiSound.js`: runtime-synthesized 30–80ms blips — hover/move tick (fi
 lock tick→tone, armed-danger. Attention hierarchy: critical > confirm > hover > ambient.
 Rides the existing SFX bus + mute. First four sounds prove on the hero in Phase 1.
 
-### U12 — Menu-as-camera-shot transitions — **L / HIGH risk / U4; last major initiative**
+### U12 — Menu-as-camera-shot transitions — **L / HIGH risk / U4; last major initiative** — ✅ BUILT, deliberately-scoped (Phase 4, 2026-07-16)
+> **Built (the SAFE scope; no per-screen shot table):** (a) the hub-orbit ↔ shop-static
+> framing swap is a damp-eased DOLLY over ~`--t-screen` (`cameraController.js` `shopW`;
+> endpoints byte-identical to the shipped poses; non-showcase entries still snap);
+> (b) an in-engine exposure mood-dim (×0.84, eased, colour-only) while a dense reading
+> panel (settings/pilot/quests/daily/rush/pause) covers the world — released on close,
+> HARD-SNAPPED to base on any `'playing'` frame; (c) DOM panels ride `--t-screen`/`--t-exit`
+> in step. **Descoped on purpose:** the full named-shot table (hub→settings drift etc.) —
+> a smaller correct U12 beats a broken one; the `hideShopFx` seatbelt is untouched and the
+> menu law held (proved by the Phase-4 wall-hold gate, 23/23).
 **Payoff:** screens stop being pages and become shots — the camera does the
 expensive-feeling work for free.
 **The law governs everything here** (LEAPFROG HANDOFF, ~20 rounds of scar tissue):
@@ -346,7 +361,13 @@ ZZZ budget rule: theater on rare screens (shop entry, ascension); high-frequency
 (pause, settings) snap. Files: `cameraController.js` (shot table), `ui.js`, `main.js`
 hooks — land `main.js` edits early and tight (the GRAPHICS conflict lesson).
 
-### U13 — Entry ritual + motion finish — **M / low / U2**
+### U13 — Entry ritual + motion finish — **M / low / U2** — ✅ BUILT (hero ritual Phase 1 → full finish Phase 4, 2026-07-16)
+> **Built:** staggered reveal on every dense meta screen (`.stagger` + the `.stagger-kids`
+> container pattern, 12-item cap then a wave); exits at `--t-exit`/`--ease-in` via
+> `.screen-leaving` (semantics drop same-frame — see the lesson); `util.tweenNum()` count-ups
+> on shop/pilot wallets + quest progress (HUD numbers untouched); idle 1px topbar hairline
+> sweep ~11s; `.shine-once` equip garnish (~90ms trailing). All collapse under
+> `prefers-reduced-motion`.
 **Payoff:** the "crafted, not just designed" layer — pure theater, near-zero cost.
 - Two-step title: wordmark + pulsing "TAP TO BEGIN" (opacity 0.5↔1.0, ~1.8s) → on input,
   wordmark rises, menu items stagger in at `--t-stagger` (cap ~12 individually staggered).
@@ -419,7 +440,7 @@ to be a good first proof.
 | **1 — Hero: splash + start hub** | U3 (splash/hub slice), U4 (hub slice incl. `.screen` blur kill), U13 entry ritual on hero, U11 first 4 sounds, U7 hub call-sites | Both orientations premium: title theater, staggered reveal, sharp live scene behind an asymmetric scrim, no rail collision; sound feel; motion feel | `uishots --diff`: only splash/hub frames changed; uitokens allowlist shrinks (splash/hub files enforced); run-all green |
 | **2 — Meta migration wave** | U3 + U4 remainder (shop, settings, pause, quests, daily, boss-rush, pilot, recap, celebrate, inspect, revive offer, load screen), U5, U6, U7 complete, U14 (minus immersive-HUD toggle → Phase 3) | Every meta screen reads as one hand; settings navigable; shop landscape composes; pause EXIT reachable in landscape | uitokens: **navy-literal eviction assert green**, allowlist ≈ empty for meta files; `uishots --diff` all meta states reviewed; run-all + shop/splash tests green |
 | **3 — Flight HUD + boss** | U8, U9, U10 — **executed as [`HUD-REDESIGN.md`](./HUD-REDESIGN.md) increments H1–H6** (EMBERSIGHT; the flagged dragon-vitals increments H7–H9 may trail the phase boundary without blocking it) | Vitals legible over Frozen Reach / bright sky at arm's length; relevance fades feel right at speed; boss bar chrome + drain-lag lands the fight; reticle reads as one instrument | `uishots` HUD/boss states over a bright seeded biome; `tricount` + `tiershots` when WebGL is touched (ring retirement); no layout-prop transitions on HUD selectors (uitokens rule d); 60fps via `?debug=perf` on-device; plus the per-increment gates in HUD-REDESIGN §D |
-| **4 — Theater finish** | U12, U13 complete, U11 full soundboard | Transitions travel through the world; high-frequency screens still snap; idle life invisible-but-alive; full-run feel check | Full `uishots` montage vs banked baseline; run-all green; Gate 3 Fable review scores the compound result vs the 9–10 bar |
+| **4 — Theater finish** — ✅ BUILT (2026-07-16) | U12 (safe scope: eased hub↔shop dolly + exposure mood-dim; shot table descoped), U13 complete, U11 full soundboard | Transitions travel through the world; high-frequency screens still snap; idle life invisible-but-alive; full-run feel check **(pending on the PR preview — motion/sound feel is the human's)** | Headless: uitokens/smoke/appshell/shop/splash green (recap.mjs has a pre-existing env failure, reproduced on a clean tree); the wall-hold menu-law gate 23/23; `uishots --static` subset (hub/shop/settings/recap ×2 orientations) reviewed vs baseline — no composition change. Full montage + Gate 3 Fable review = the parent/human step |
 
 ### Verification plan
 
@@ -500,6 +521,12 @@ WebGL only to retire chrome, behind flags, with `tricount`/`tiershots` gates.
 | **5.5 → 7** | Phases 0–1: credibility floor (stamp, +0 XP, trash-run chips, emoji in the CTA), the token constitution, the hero pair premium in **both orientations** | The amateur *tells* are gone and the first impression is genuinely premium; the rest of the game is merely "inconsistent," no longer "broken" |
 | **7 → 8.5** | Phases 2–3: one hand everywhere (palette/panel/type unified, navy evicted), settings + shop redesigned, landscape whole, HUD legible + relevance-driven, boss bar chrome | Every screen and the moment-to-moment game read as one system; this is Hoyoverse-mobile territory and most players' ceiling of perception |
 | **8.5 → 10** | Phase 4: camera-shot transitions through the live world, the procedural soundboard, motion finish (stagger/count-up/secondary motion/idle life), accessibility package | The layer nobody can name but everyone feels — theater, sound, and craft; this is what separates "very good web game" from "how is this a browser game" |
+
+> **Score-ladder note (2026-07-16):** the 8.5→10 rung's build work is DONE (U11 full, U13
+> full, U12 in its safe scope — the eased hub↔shop dolly + the exposure mood-dim; the full
+> per-screen shot table was deliberately descoped under the menu law). What remains for the
+> rung is judgment, not code: the human feel-check on the PR preview (camera-ease timing,
+> voice levels, whether the idle hairline stays invisible) and the Gate 3 Fable review.
 
 ---
 
