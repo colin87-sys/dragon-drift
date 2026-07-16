@@ -2058,7 +2058,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           // the rim (sharp onset at 1.0R, back to deck value by ~1.6R) → the darkest sky FRAMES the hole
           // (core→bloom→DARK). This is what makes it a breach in a wall, not a moon in the clouds.
           float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.35, 1.65, _rr)) * uBreachMix;
-          col = mix(col, vec3(0.137, 0.165, 0.200), _bDark * 0.92);
+          // Arc-bias (Fable r2 de-donut insurance): weak at the gold lip (bottom ~0.15×), strong at the
+          // top (1.0×) so the dark frame CONNECTS UPWARD into the deck — a socket in the storm's wall, not
+          // a floating dark ring/eclipse. _ny/_rr = sine of the ring arc angle (−1 bottom → +1 top).
+          float _arcW = mix(0.15, 1.0, smoothstep(-1.0, 1.0, _ny / max(_rr, 0.001)));
+          col = mix(col, vec3(0.137, 0.165, 0.200), _bDark * 0.92 * _arcW);
         }
         // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
         // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
