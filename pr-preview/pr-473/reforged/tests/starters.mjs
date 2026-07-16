@@ -260,6 +260,27 @@ for (const [key, spec] of Object.entries(SPECS)) {
     ok(emisI < 0.2 || hueDist(emisHue, spec.accentHue) > 20,
       `${key}: no gold emissive on the wing (carrier=diffuse; emisI ${emisI}, hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
   }
+  // AZURE cruise-emissive = eyes + ONE terminus stud BY CONTRIBUTION (DD §6.6/§9): the withheld
+  // SLIPSTREAM must never idle as an LED rail. Sum emissive contribution (the Surge tick's driving
+  // `baseIntensity` × emissive luminance) over the flare mats (spineMats). The terminus stud (base
+  // 0.30 · lum ≈ 0.18) and the dark filament (0.04) sit well under 0.45; a shared always-on seam/rail
+  // (scuteSeam/tailSeam ~1.9 · lum ≈ 1.1) would spike it. This is the machine guard that catches the
+  // LED-strip regression the gate flagged (the wrong-userData-key + leftover tailSeam dials).
+  if (key === 'azure') {
+    // Count only RENDERED emissive (a material on an actual mesh) that also rides the Surge flare loop
+    // (spineMats), so a bright orphan mat pushed to spineMats but attached to no mesh (e.g. the draconic
+    // head's disabled rear-glow) doesn't false-positive. `baseIntensity` is what the cruise tick idles at.
+    const built = buildDragonModel(per[2].def, {});
+    const spine = new Set(built.materials.spineMats || []);
+    const lumOf = (m) => 0.2126 * m.emissive.r + 0.7152 * m.emissive.g + 0.0722 * m.emissive.b;
+    let railCount = 0, worst = 0;
+    built.group.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.emissive || !spine.has(o.material)) return;
+      const c = (o.material.userData.baseIntensity ?? o.material.emissiveIntensity ?? 0) * lumOf(o.material);
+      if (c > 0.45) { railCount++; worst = Math.max(worst, c); }
+    });
+    ok(railCount === 0, `azure: no rendered always-on emissive rail in cruise (Slipstream withheld; ${railCount} bright, worst ${worst.toFixed(2)})`);
+  }
   if (spec.carrier === 'emissive') {
     // ember [ICONIC FLAME]: the BODY is bold warm flame, but the wing MEMBRANE diffuse
     // is held dark-warm so the glowing rays carry the fire (not a toy-bright sheet).
