@@ -217,6 +217,13 @@ function makeMats() {
   mats.mireFarLiving = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xf7b048, vertexColors: true, roughness: 0.4, emissive: 0xf08c28, emissiveIntensity: 1.8,
   }), true);
+  // THE MIRE CARRIER-LADDER material (Fable 65-gate R1) — tier-3 stock mireLiving values (0xffc23a /
+  // 0xf79a2e @1.6, UNCHANGED intensity so the carrier stays a carrier) but vertexColors + ladderEmissive,
+  // so the glowshroom cap reads core (crown boss → white) → bloom (dome → gold) → dark (rim) instead of a
+  // flat blown dome. NOT mireHeroLadder (2.3) / mireFarLiving (1.8) — reusing those would promote the tier.
+  mats.mireCarrierLadder = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffc23a, vertexColors: true, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6,
+  }), true);
   // THE MIRE EMBER material (Fable ensemble §3 tier 4) — the glowbloom near-scatter breadcrumbs: the
   // PALE afterglow hue, dimmest tier (the lane written in embers, never lanterns competing with the hero).
   // Blooms are NEAR (low fog tax) so @0.85 still reads. Own material so the pale hue never touches a hero.
@@ -1730,27 +1737,34 @@ const ARCHETYPES = {
   // the CAP itself glows on top (obvious to the down-cam) + a bright crown boss; dark rim + stalk.
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
-    step: 200, biomes: [], matIndex: 4,
+    step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.15, glow: true },
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
-      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.42, 9, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.7, sy: 0.62 }) }); // GLOWING cap dome (obvious from above)
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.42, 7, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.7, sy: 0.62 }) }); // GLOWING cap dome (obvious from above)
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.42, 0.06, 9, 1, true), { y: 0.7 }) }); // dark rim band for definition
-      // 3 DARK MOTTLE patches on the cap shoulder (Fable §7-C): break the single blown dome into
-      // core (crown boss) → bloom (dome) → dark (rim + mottles); flattened low spheres seated ~0.02 into the dome.
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.13, 5, 2), { x: 0.24, z: 0.10, y: 0.80, sy: 0.4 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.11, 5, 2), { x: -0.19, z: 0.16, y: 0.82, sy: 0.4 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.10, 5, 2), { x: 0.03, z: -0.27, y: 0.83, sy: 0.4 }) });
-      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 6, 3), { y: 0.98 }) }); // bright crown boss on top (the core)
-      return mergeParts(parts, 4);
+      // 3 DARK MOTTLE patches (Fable 65-gate R2): re-seated ON the dome shell (y from the shell equation
+      // y=0.70+0.62·√(0.42²−d²), minus 0.02) + enlarged + tilted to hug the shoulder normal (~0.5 rad
+      // outward) so the whole patch lies on the dome — the old y0.80/0.82/0.83 buried them under the shell.
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.15, 5, 2), { x: 0.241, z: 0.097, y: 0.885, sy: 0.4, rz: -0.463, rx: 0.187 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.13, 5, 2), { x: -0.191, z: 0.161, y: 0.89, sy: 0.4, rz: 0.383, rx: 0.321 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.12, 5, 2), { x: -0.028, z: -0.269, y: 0.875, sy: 0.4, rz: 0.052, rx: -0.498 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 5, 2), { y: 0.98 }) }); // crown boss = the bright CORE (ladder makes it near-white)
+      const merged = mergeParts(parts, 4);
+      // R1: bake the cap ladder (0 tris) keyed to the CAP span → dome-edge dark → dome gold → crown white,
+      // so the carrier gets a real core→bloom→dark without a flat blown dome (mat-0 stalk/rim/mottles ignore it).
+      bakeMireLadder(merged.geometry, { baseY: 0.66, apexY: 1.10, base: [0.42, 0.32, 0.16], mid: [0.847, 0.659, 0.376] });
+      merged.materials[merged.materials.length - 1] = propMats.mireCarrierLadder; // tier-3 @1.6, vertexColors
+      return merged;
     },
-    place: (side, rnd) => ({ x: side * (16 + 0.7 * (16 + rnd() * 6)), h: 20 + rnd() * 6, r: 16 + rnd() * 6, tilt: 0, rotY: 0 }),
+    // MID carrier (Fable §2): r 12–18 / h 14–20, congregates into flank thickets off the lane.
+    place: (side, rnd) => { const r = 12 + rnd() * 6; return { x: side * (26 + 0.6 * r + rnd() * 12), h: 14 + rnd() * 6, r, tilt: 0, rotY: 0 }; },
   },
 
   // glowbloom — THE NEAR SCATTER (Fable §1, Stage 4): a cluster of GLOWING pods on dark stalks at
-  // staggered heights — the breadcrumb lanterns that write the safe lane. Parked until Stage 4.
+  // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
-    step: 200, biomes: [], matIndex: 4,
+    step: 36, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true },
     build: () => {
       const parts = [];
       const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
@@ -1758,14 +1772,15 @@ const ARCHETYPES = {
       const pods = [{ x: 0.02, z: 0.0, h: 0.95, s: 0.17 }, { x: 0.31, z: 0.13, h: 0.72, s: 0.13 }, { x: -0.27, z: 0.19, h: 0.58, s: 0.14 }, { x: 0.13, z: -0.31, h: 0.50, s: 0.12 }];
       for (const p of pods) {
         parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.028, 0.045, p.h, 3)), { x: p.x, z: p.z, y: p.h / 2, rz: p.x * 0.3 }) }); // dark stalk (3-seg, Fable §7-D)
-        parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(p.s + 0.03, p.s * 0.55, 5, 1, true)), { x: p.x, z: p.z, y: p.h - p.s * 0.5 }) }); // dark CALYX cup — the bulb sits in a dark husk
+        parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(p.s + 0.03, p.s * 0.55, 4, 1, true)), { x: p.x, z: p.z, y: p.h - p.s * 0.5 }) }); // dark CALYX cup — the bulb sits in a dark husk
         parts.push({ mat: 1, geo: xform(new THREE.OctahedronGeometry(p.s, 0), { x: p.x, z: p.z, y: p.h }) }); // glowing bulb (faceted lantern-gem)
       }
       const merged = mergeParts(parts, 4);
       merged.materials[merged.materials.length - 1] = propMats.mireEmberLiving; // pale afterglow tier-4 @0.85
       return merged;
     },
-    place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 16 + rnd() * 6, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
+    // NEAR scatter (Fable §2): small + low, r 6–10 / h 10–14, near the lane (the breadcrumb lantern line).
+    place: (side, rnd) => { const r = 6 + rnd() * 4; return { x: side * (20 + rnd() * 10), h: 10 + rnd() * 4, r, tilt: 0, rotY: 0 }; },
   },
 };
 
@@ -1802,7 +1817,8 @@ const FOAM_CFG = {
   glowcolossus: { r: 0.42 }, // retired hero (parked) — foam row kept inert
   // ensemble (Fable §2): glowarch = two legs → ELLIPTICAL waterline collar (archruin precedent);
   // parked forms carry inert rows until their stage activates + tunes them.
-  glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, glowshroom: false, glowbloom: false, // glowspire live (spar-only collar; root flares + shelf reflections do the rest of the weld)
+  glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, // arch elliptical collar; spire spar-only collar
+  glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -2345,6 +2361,21 @@ function mireHeroClearPeak(dist, shift, rare) {
   return NaN;
 }
 
+// GLOW-CARRIER arch-gate clear (Fable 51 §5 rule 2): the cap/bloom glow families are the arch's
+// supporting CHORUS on approach, but park in the immediate ±40m of a kept arch peak so the gate stands
+// ALONE in its own glow-water (a tighter window than the dark-screen corridor). PURE — the SAME arch
+// keep test as mireHeroClearPeak(dist,0,0.5), so chorus + gate + clearing all agree.
+function nearArchGate(dist) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;
+  const pk = Math.round((dist - HERO_PEAK_OFFSET) / period);
+  const Pd = pk * period + HERO_PEAK_OFFSET;
+  if (Math.abs(dist - Pd) > 40) return false;
+  const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+  const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+  const peakEase = pLocal >= 1050 && pLocal <= 1350;
+  return localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5);
+}
+
 // --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
 // Inside a strait2 rock run the camera deck-skims (rings clamped y5–7) and the
 // composition law is WIDE+LOW: nothing may run off the top of the frame. The
@@ -2513,7 +2544,9 @@ function writeMatrix(band, i, d) {
       const parityOk = !band.def.heroParity || d.side === (((peakIdx % 2) + 2) % 2 === 1 ? 1 : -1);
       if (!(nearest && keepPeak && parityOk)) active = false;
     } else if (active && band.def.comp) {
-      if (inEasement && band.def.comp.glow) active = false;   // glow carriers clear the easement
+      // glow carriers (glowshroom/glowbloom) clear the easement AND the immediate arch-gate water (§5 rule 2)
+      // so the gate stands alone — they're the arch's chorus on approach, never inside its glow-water.
+      if (band.def.comp.glow && (inEasement || nearArchGate(d.dist))) active = false;
       else {
         const g = mireComp(d.dist);
         const c = band.def.comp;
