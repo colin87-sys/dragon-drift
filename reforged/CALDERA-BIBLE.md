@@ -567,31 +567,47 @@ Each answers "what, in a VOLCANIC world, is this collider?" with zero Frozen
 vocabulary (Frozen answered with calved ice). All obey A4: silhouette contains the
 collider everywhere (numeric coverage exports + `tests/hazardskin.mjs` entries —
 Caldera authors its own, Frozen's are Frozen-specific), unit-space authoring, magenta
-telegraph wins, wider-than-tall wherever the collider allows. ⚠ Engine seam: the
-skinned-shard branch of `hazardMesh` hardcodes `mats.frostIce`/`mats.moverIce` —
-extend it to per-biome materials in the skins PR or the bomb ships in ice.
+telegraph wins, wider-than-tall wherever the collider allows. ⚠ Engine seam (now
+routed): the skinned-shard branch of `hazardMesh` used to hardcode
+`mats.frostIce`/`mats.moverIce` — it now routes per-biome (`bi===3 →
+calBasalt/calBombHot`); every new biome's shard skin must extend that seam or its
+bomb ships in ice.
 
-1. **BEAM (full-lane horizontal) — THE COLLAPSED COLONNADE SPAN.** A fallen rank of
-   hexagonal basalt columns lying across the lane — the hero archetype's dead
-   sibling, so the world explains it. Column ends fractured at staggered lengths
-   (broken profile, no machined line); glow recessed in the sheared JOINT-CRACKS
-   between column faces (the Caldera address, horizontal edition). Wider than tall by
-   nature. NO spin — a fallen colonnade cannot roll (kill any animation the fiction
-   can't justify). Coverage: data-authored hex sections, continuity across ±16
-   asserted numerically after every transform.
-2. **COLUMN (vertical) — THE SPATTER CHIMNEY.** A squat welded-spatter neck: stacked
-   blob strata, girth held ~78% of height (broad-based, never a picket), broken
-   asymmetric crown, ONE sunken throat pool recessed inside the crown — below the
-   rim, invisible from the side (the address again; not a stripe, not a band).
-   Kinship with `fumarole`/`riftfang` silhouette language, distinct outline (blobby
-   strata vs clean cones vs tapered monolith). Unit-space; ring-sampled coverage.
-3. **TUMBLING MASS — THE BREADCRUST BOMB.** A lava bomb: dark crust plates over a
-   glowing fracture network, value-laddered on the fixed per-chunk weathering axis
-   (rind / fresh black fracture / ember seam — §5). Oblate ~1.2–1.25:1 wider than
-   tall — lateral mass telegraphs the sideways dodge while staying inside the
-   ≤1.25:1 equidimensional bound so the spin never reads as a hitbox glitch.
-   **Dynamic variant: split the MATERIAL, never the body** — identical geometry, the
-   seam network pulses toward white-hot ("same bomb, it's live").
+1. **BEAM (full-lane horizontal) — THE COLLAPSED COLONNADE SPAN.** A rank of BROKEN
+   hexagonal basalt DRUMS jammed end to end across the lane — the hero archetype's
+   dead sibling, so the world explains it. Drums are CAPPED hexes (the hex
+   cross-section IS the columnar-basalt identity) of mixed length, each rolled to
+   ~±30° (an EDGE up, never a face flat to the key → no bright "sticker" facet), and
+   they ZIGZAG in height so the top silhouette breaks at each junction with a notch
+   step. ⚠ The notch is a silhouette event ABOVE the collider band only — NEVER a
+   fly-through gap in the solid collision mass (a visible gap in a solid hazard reads
+   as passable but still kills: the exact fairness failure the coverage exports guard).
+   Fire is a gradient LENS FISSURE (spine white-hot → tips near-black, jagged/skewed,
+   `calCrack` vertex-emissive fold) nestled in a dark SOCKET at the drum end and
+   overhung by a BROW LIP whose underside is tinted faint-warm (the spill that makes
+   the glow ILLUMINATE, not decorate). Broken rhythm (not every junction lit). Drums
+   carry OUTWARD-only facet jitter for crust value-noise (outward so the hex never
+   shrinks below the collider). NO spin. Coverage: data-authored hex sections,
+   continuity asserted numerically after every transform.
+2. **COLUMN (vertical) — THE SPATTER CHIMNEY.** A squat welded-spatter neck built from
+   overlapping FACETED ICOSAHEDRON LUMPS (chamfered blobs, freely yawed so no two
+   facets align — NOT axis-aligned boxes, which read as a machined box), on-axis core
+   lumps carrying the collider to ~78% height, off-axis octa lumps + a sheared crown
+   breaking the silhouette. Body stays dark basalt (high ember threshold); the fire is
+   ONE sunken THROAT pool recessed in the neck front + a molten ROOT flooding only the
+   base (where doctrine allows). Distinct outline (blobby strata vs clean cones vs
+   tapered monolith). Unit-space; ring-sampled coverage.
+3. **TUMBLING MASS — THE BREADCRUST BOMB.** A cooling lava bomb: one dark shrunk-and-
+   proud PLATE per core face seats over an ember CORE, so fire shows ONLY in the
+   channels the shrink leaves along every edge = a recessed CRACK NETWORK. The network
+   has HIERARCHY — a smooth spatial field marks ~¼ of faces HOT (bright core + WIDE
+   fissure) so they CLUSTER into one connected branching crack PATH; ~half go SILENT
+   (plate touches plate, seam dies completely, crust-on-crust); the rest are tight rust
+   hairlines. Vertices jittered hard so the silhouette is not a platonic icosahedron.
+   Oblate ~1.2–1.25:1 wider than tall — lateral mass telegraphs the sideways dodge
+   inside the ≤1.25:1 bound so the spin never reads as a hitbox glitch. **Dynamic
+   variant: split the MATERIAL, never the body** — identical geometry, `calBombHot`
+   pulses toward white-hot ("same bomb, it's live").
 
 The shipped GEYSER hazard (identity-locked) keeps its mechanics; its presentation
 joins the fumarole family in PR-4 so vents, cones, and bursts are one lineage — and
