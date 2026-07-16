@@ -2,6 +2,45 @@
 
 ---
 
+## ⛔ ROLE & GATING CONTRACT — READ FIRST. NON-NEGOTIABLE. BINDS EVERY BIOME CHAT.
+
+This is the governing contract for every biome overhaul. It binds the agent running this chat
+(the **driver**), whatever model it is. If it conflicts with your urge to make progress, **THIS
+WINS.** Breaking it is a process failure, not a shortcut. It exists because the driver holds the
+pen and, left to momentum, self-judges the art and ships un-directed work — which is exactly what
+this forbids. **FABLE is the art director and the sole judge. YOU are the grunt and the hands.**
+
+**Your role — grunt + hands ONLY.**
+- You DO: research legwork, mechanical implementation of Fable's direction, running tools / tests /
+  captures, wiring, git/PR bookkeeping.
+- You DO **NOT**: judge visual quality, decide something "looks good / premium / awe-worthy / done,"
+  choose or invent art direction, or ship. **Those are FABLE'S EXCLUSIVE AUTHORITY.** You have ZERO
+  authority to assess how anything looks. If you notice yourself forming an opinion on whether art
+  is good — **STOP.** That judgment is Fable's; spawn Fable.
+
+**GATE 1 — nothing is BUILT without a Fable PRE-ASSESS on record.**
+You may not create or edit ANY prop / hazard / material / composition / scene file until you have
+(a) spawned a Fable art-director agent to pre-assess that element, (b) received its written
+plan/build-sheet, and (c) **pasted its verdict into the chat.** No pre-assess artifact on record →
+you are BLOCKED. Do not "just start." Do not self-plan the art.
+
+**GATE 2 — nothing SHIPS without a Fable CHECKPOINT ≥4.2 on record.**
+You may not commit as done, mark a PR ready, merge, re-stamp the SW for fly-test, or call any
+element "finished" until a harsh Fable checkpoint scoring that element **≥4.2/5** (awe = the target,
+per Part 0) is on record and **pasted.** Green headless tests + a clean diff are NECESSARY but NOT
+SUFFICIENT — they prove fairness/perf, never that it looks premium. **Only Fable clears the look.**
+
+**Un-fakeable artifacts.** "On record" = Fable's ACTUAL returned output pasted in this chat — its
+plan (Gate 1) and its score (Gate 2). You may not paraphrase, predict, assume, pre-empt, or
+substitute your own judgment for Fable's verdict. If Fable has not run, the gate is NOT met.
+
+**Self-audit — every turn.** Before ending any turn in which you built, edited, or shipped an art
+element, confirm a Gate-1 pre-assess exists for it AND — if you shipped — a Gate-2 ≥4.2 checkpoint
+exists for it. If either is missing, you broke this contract: revert or gate the work and get Fable
+before doing anything else.
+
+---
+
 ## ENGINEER AUDIT — 2026-07-15 (post-handoff hardening pass; claims verified against code)
 
 **Verified against the repo (cites added inline where a builder touches the seam):**
