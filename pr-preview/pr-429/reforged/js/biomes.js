@@ -211,9 +211,10 @@ export const BIOMES = [
     // (Fable PR-1 gate: grey-white point-source fan = a theology breach). See main.js god-ray gate.
     godrayMul: 0.075,
     godrayTint: C(0xff9d45),
+    moteDepthFade: 0.85, // Fable 70: far motes DIM as they shrink (quadratic 20→110m) — kills the depth-flat "screen confetti" that ate the black mirror. Near firefly halos untouched.
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
-    ambient: { color: C(0xffc266), fall: 0.05, sway: 2.5, size: 0.82, opacity: 0.85 }, // fireflies — bigger soft halos (surge lesson), warmer
+    ambient: { color: C(0xffb75c), fall: 0.05, sway: 1.1, size: 0.72, opacity: 0.70 }, // fireflies — big near halos KEPT; hot-cored, calmer sway (was metronome), depth-faded far (moteDepthFade)
     fauna: { color: C(0xffd24a), scale: 0.9, flap: 0.4 }, // drifting lantern-motes (amber)
     // Overhaul kit (LUMEN-MIRE-BIBLE.md) — the depth/canopy substrate as it lands; `?props=v1`
     // restores the legacy glowcap/spirevine. Mirror grows with each PR (hero + roster to come).
@@ -311,10 +312,17 @@ export const BIOMES = [
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
     // rationed cloud-rim/socket gold, never as the field light.
     light: { sun: C(0xaebac2), sunI: 0.82, hemiSky: C(0x5a6a72), hemiGround: C(0x2c3a3c) },
-    // Meter the shared god-ray fan WAY down (the Mire precedent): a storm has NO sun shafts — the
-    // default godrayMul:1 + warm tint was the giant gold glitter-column washing every frame warm.
-    godrayMul: 0.05,
-    godrayTint: C(0x9fb0bc),   // cool steel — any residual haze glow stays cold, never gold
+    // EYE-BREACH godray meter (TEMPEST-REACH-BIBLE.md — the eye of the gale): the biome's ONE sun-shaft
+    // event. The storm has no field-wide shafts, but where the deck BREAKS on the sun azimuth the light
+    // pours through — so ramp the shared fan UP (0.05 → 0.42) and the bright almond interior (below)
+    // auto-becomes the occlusion-mask source. v1 = a fixed prominent value (the progress-arc growth is a
+    // follow-on). Byte-identical elsewhere (godrayMul only lerps at biome 7's seams).
+    godrayMul: 0.42,
+    godrayTint: C(0xffd28a),   // warm sun-gold — the shafts falling from the breach are the leaked sun, not cold haze
+    // EYE-BREACH gate (the still axle): a fixed prominent 1.0 in Tempest, 0 elsewhere = byte-identical.
+    // Drives env.breachMix → the sky-shader almond window + the water calm/gold patch. World-locked to
+    // the sun azimuth (atan2(sunDir.z, sunDir.x)); the sun DISC is never shown (a centerless brightness).
+    breach: 1.0,
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
@@ -322,6 +330,10 @@ export const BIOMES = [
     wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
     rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
     stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.
+    // The signature hazard: a telegraphed lethal lightning strike (hazards.js type 'lightning' →
+    // a two-stage magenta telegraph, then a white/violet bolt from stormLightning.js + the full flash).
+    // Dodge-only (cylinder radius 3.2, lethal ≤0.35s). Rarer than geysers; determinism via hazardRnd.
+    hazard: { type: 'lightning', every: [240, 460], warn: 1.2, radius: 3.2 },
     // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
     // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
     // These Points are now near-water SPUME (torn spray), NOT the rain — the rain is the rain.js
@@ -399,6 +411,10 @@ const env = {
   // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
   // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
   atmosHeightK: 0, atmosInscatter: 0,
+  // Mote depth-fade (OPTIONAL; 0 everywhere by default → byte-identical motes). A biome may fade
+  // its far motes' alpha by camera distance so the field recedes instead of reading as a flat
+  // screen overlay. Consumed by ambient.js. (Fable 70.)
+  moteDepthFade: 0,
   // God-ray fan scale (OPTIONAL; 1 everywhere by default → byte-identical shafts).
   // A night biome (Lumen Mire) meters it down; consumed by main.js's god-ray gate.
   godrayMul: 1,
@@ -408,6 +424,10 @@ const env = {
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
   cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
+  // EYE-BREACH (Tempest): the eye-of-the-gale breach gate. 0 in every biome that doesn't declare
+  // `breach` (optional-channel pattern) → the sky-shader almond window + water calm/gold patch are a
+  // byte-identical no-op. Consumed by environment.js (su.uBreachMix) + skyProbe.js (ambient mirror).
+  breachMix: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -470,6 +490,7 @@ export function computeEnv(dist) {
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
+  env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
   env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
   env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
@@ -490,5 +511,8 @@ export function computeEnv(dist) {
   // declares one. rainMix (intensity) DOES crossfade the seam for free (the xMix pattern).
   const _w = a.wind || b.wind; env.windX = _w ? _w.x : 0; env.windZ = _w ? _w.z : 0;
   env.rainMix = lerp(a.rain || 0, b.rain || 0, ts);
+  // EYE-BREACH (Tempest): the eye-of-the-gale gate. 0 elsewhere = byte-identical; crossfades the
+  // seam for free (the xMix pattern). Consumed by environment.js + skyProbe.js.
+  env.breachMix = lerp(a.breach || 0, b.breach || 0, ts);
   return env;
 }

@@ -187,8 +187,8 @@ export function updateRain(dt, camera, env, time = 0) {
   if (!rain.visible) { mat.opacity = 0; return; }
   const gust = rainGustAt(time);
   // Flash lifts opacity + cools the colour (layer X); base opacity = rainMix.
-  mat.opacity = Math.min(1, mix * (1 + 0.5 * flashV));
-  mat.color.setRGB(1, 1, 1).lerp(new THREE.Color(0xdfe7f2), flashV);
+  mat.opacity = Math.min(1, mix * (1 + 0.9 * flashV));                 // ≥+40% streak luminance at peak (Fable r1)
+  mat.color.setRGB(1, 1, 1).lerp(new THREE.Color(0xeaf2ff), flashV);   // flash-cooled toward #eaf2ff
   mmat.opacity = mix * (0.5 + 0.5 * gust) * (1 - 0.5 * flashV * 0);
   mmat.color.setHex(0xc2ccce);
 

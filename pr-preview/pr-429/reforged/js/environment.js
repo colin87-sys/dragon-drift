@@ -6,7 +6,8 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
-import { createRain, updateRain, setRainTier, rainGustAt } from './rain.js';
+import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
+import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
@@ -205,6 +206,31 @@ function makeMats() {
   mats.mireHeroLadder = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffc23a, vertexColors: true, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 2.3,
   }), true);
+  // THE MIRE FAR-BEACON material (Fable ensemble §3 tier 2) — the world-tree's DEEPER GOLD glow at a
+  // LOWER intensity (1.15 vs the hero arch's 2.3): distance desaturates toward gold, so the far beacon
+  // is pre-hazed by design and never competes with the near arch as a second bright white. Also
+  // ladder-reading (vertexColors + ladderEmissive) so the tree's crown reads core→bloom→dark.
+  // @1.8 (Fable 60-ruling): the Mire is self-lit (sun 0.2) and the beacon is judged at ~150m where
+  // linear fog eats ~50% of even emissive output — @1.15 vanished in-game. 1.8 sits between the arch's
+  // 2.3 (tier 1) and the cap's 1.6 (tier 3); after the fog haircut the tree's perceived crown is ~0.9,
+  // so the eye still reads arch(near) > tree(far). HARD CAP OF RECORD: never exceed 1.9 (dial the ladder/
+  // clearing past this, never the constant).
+  mats.mireFarLiving = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xf7b048, vertexColors: true, roughness: 0.4, emissive: 0xf08c28, emissiveIntensity: 1.8,
+  }), true);
+  // THE MIRE CARRIER-LADDER material (Fable 65-gate R1) — tier-3 stock mireLiving values (0xffc23a /
+  // 0xf79a2e @1.6, UNCHANGED intensity so the carrier stays a carrier) but vertexColors + ladderEmissive,
+  // so the glowshroom cap reads core (crown boss → white) → bloom (dome → gold) → dark (rim) instead of a
+  // flat blown dome. NOT mireHeroLadder (2.3) / mireFarLiving (1.8) — reusing those would promote the tier.
+  mats.mireCarrierLadder = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffc23a, vertexColors: true, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6,
+  }), true);
+  // THE MIRE EMBER material (Fable ensemble §3 tier 4) — the glowbloom near-scatter breadcrumbs: the
+  // PALE afterglow hue, dimmest tier (the lane written in embers, never lanterns competing with the hero).
+  // Blooms are NEAR (low fog tax) so @0.85 still reads. Own material so the pale hue never touches a hero.
+  mats.mireEmberLiving = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffd98a, roughness: 0.4, emissive: 0xffc86a, emissiveIntensity: 0.85,
+  }));
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -1489,7 +1515,7 @@ const ARCHETYPES = {
   // cones — the sanctioned "sparse feathered reeds" exception to no-sharp-verticals) at
   // varied heights + 1 leaning bare snag. Sweeps past fast; sells speed. All near-black.
   reedveil: {
-    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34,   // park ALL (x 22–34) inside a gate corridor — reeds+reflections would break the lozenge mirror
+    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror
     build: () => {
       const parts = [];
       const tufts = [
@@ -1513,7 +1539,7 @@ const ARCHETYPES = {
   // knuckled — never straight cylinders) sharing one blobby crown mass at the top third.
   // The mid-ground black shape the drape fringe + future glow-carriers read AGAINST.
   boleveil: {
-    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48,   // park INNER HALF (x 36–48) inside a gate corridor; outer boles (x≥48) stay as framing mid-walls
+    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep)
     build: () => {
       const parts = [];
       const boles = [
@@ -1659,7 +1685,7 @@ const ARCHETYPES = {
       }
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.13, 5), { y: 1.06 }) }); // dark crown binding — the apex notch (silhouette signature at distance)
       const merged = mergeParts(parts, 4);
-      bakeMireLadder(merged.geometry, { apexY: 1.14, mid: [0.72, 0.53, 0.28] }); // core→bloom→dark; darker mid (Fable §1 rider) concentrates the white core in the top ~20%
+      bakeMireLadder(merged.geometry, { apexY: 1.14, mid: [0.62, 0.45, 0.24] }); // core→bloom→dark; deeper mid (Fable 68 §4) so the apex-white core survives at gameplay distance (legs don't wash to uniform gold)
       merged.materials[merged.materials.length - 1] = propMats.mireHeroLadder; // mat-1 group reads the ladder + hero glow
       return merged;
     },
@@ -1668,51 +1694,94 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: 0, h: 40 + rnd() * 6, r: 38 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
 
-  // glowtree — THE FAR BEACON (Fable §1, Stage 2): dark trunk, big GLOWING canopy, glowing roots.
-  // Parked until Stage 2 (its §7-B value-structure revision + heroShift/parity engine lines land then).
-  glowtree: {
-    step: 200, biomes: [], matIndex: 4,
+  // glowspire — THE LANTERN SPIRE far-beacon (Fable 62-redesign). The owner killed the world-tree:
+  // a trunk+crown can never be the hero of a swamp whose whole dark substrate IS trunks+crowns. The
+  // beacon is reborn as a shape the Mire does NOT contain — a colossal drowned ancestor-spar the
+  // swamp's life colonized into a lighthouse: a thin dark mast carrying FIVE staggered glowing
+  // shelf-conks up to a white-hot lantern bud, a splintered dark tip above it. Vertical (aspect ~1:4),
+  // tiered, brightest at the top — the ONLY vertical/tiered/tallest silhouette in the biome. Towers
+  // 1.8–2.3× over the canopywall massif. mireFarLiving @1.8 (proven), value-laddered up the mast.
+  glowspire: {
+    step: 67, biomes: mireNew, matIndex: 4, hero: true, heroShift: 150, heroParity: true, heroRare: 0.4,
     build: () => {
       const parts = [];
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.20, 0.68, 6).toNonIndexed(), { y: 0.34 }) }); // dark trunk
-      const domes = [{ x: 0, z: 0, y: 0.82, s: 0.42 }, { x: 0.26, z: 0.10, y: 0.72, s: 0.28 }, { x: -0.24, z: -0.10, y: 0.74, s: 0.30 }, { x: 0.06, z: 0.28, y: 0.70, s: 0.26 }];
-      for (const d of domes) parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(d.s, 0), { x: d.x, z: d.z, y: d.y, sy: 0.82 }) }); // glowing canopy
-      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.03, 0.06, 0.3, 4).toNonIndexed(), { x: s * 0.22, y: 0.09, rz: s * 0.6 }) }); // glowing roots
-      return mergeParts(parts, 4);
+      const ni = (g) => g.toNonIndexed(); // match the non-indexed icosa bud so mergeParts stays consistent
+      parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.10, 0.145, 0.55, 5, 1, true)), { y: 0.275, rz: 0.05 }) });  // dead spar, lower
+      parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.065, 0.10, 0.48, 5, 1, true)), { x: 0.03, y: 0.76, rz: -0.07 }) }); // spar, upper (offset-stacked/bowed — boleveil idiom)
+      parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(0.045, 0.12, 3)), { x: 0.045, y: 0.99 }) });                       // splintered dark TIP (interrupt above the bud)
+      // five glowing shelf-conks bracketing UP the mast, alternating flanks + shrinking; each of the
+      // lower three seats on a wider DARK under-saucer (the dark cup/lip beyond the glow rim).
+      const shelves = [
+        { R: 0.34, y: 0.30, x: 0.20, rz: 0.06, h: 0.055, saucer: true },
+        { R: 0.29, y: 0.45, x: -0.17, rz: -0.06, h: 0.055, saucer: true },
+        { R: 0.25, y: 0.59, x: 0.15, rz: 0.05, h: 0.055, saucer: true },
+        { R: 0.20, y: 0.72, x: -0.12, rz: -0.05, h: 0.05, saucer: false },
+        { R: 0.15, y: 0.84, x: 0.09, rz: 0.04, h: 0.05, saucer: false },
+      ];
+      for (const s of shelves) {
+        if (s.saucer) parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(s.R + 0.045, 0.06, 4, 1, true)), { x: s.x, y: s.y - 0.045, rz: s.rz }) }); // dark under-saucer (wider dark lip)
+        parts.push({ mat: 1, geo: xform(ni(new THREE.ConeGeometry(s.R, s.h, 5)), { x: s.x, y: s.y, rz: s.rz }) }); // glowing shelf-conk (flat base = the reflection glow disc)
+      }
+      parts.push({ mat: 1, geo: xform(new THREE.OctahedronGeometry(0.10, 0), { x: 0.045, y: 0.945 }) });                       // lantern BUD (the white core; non-indexed, cheap)
+      for (const s of [-1, 1]) parts.push({ mat: 1, geo: xform(ni(new THREE.ConeGeometry(0.07, 0.26, 3, 1, true)), { x: s * 0.16, y: 0.08, rz: -s * 0.4 }) }); // glowing root flares (waterline weld; ladder dims them to ember)
+      const merged = mergeParts(parts, 4);
+      bakeMireLadder(merged.geometry, { baseY: 0.12, apexY: 1.00, mid: [0.83, 0.60, 0.31], base: [0.42, 0.32, 0.16] }); // S1 dim-gold → S5 hot → bud near-white core (vertical ladder up the mast)
+      merged.materials[merged.materials.length - 1] = propMats.mireFarLiving; // @1.8 far beacon (hard cap 1.9)
+      return merged;
     },
-    place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 22 + rnd() * 8, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
+    // Towers over canopywall (r 30–48 / h 26–38): tip at world y ~65–76 = 1.8–2.3× the massif. Thin
+    // footprint (r 26–34, ρ≤0.59) wins on HEIGHT + tier-rhythm, not bulk. Coupling 0.66 clears the ±16 veil.
+    place: (side, rnd) => { const r = 26 + rnd() * 8; return { x: side * (17 + 0.66 * r + rnd() * 8), h: 62 + rnd() * 10, r, tilt: 0, rotY: 0 }; },
   },
 
   // glowshroom — THE MID CARRIER (Fable §1, Stage 3; named glowshroom to avoid the legacy `glowcap`):
   // the CAP itself glows on top (obvious to the down-cam) + a bright crown boss; dark rim + stalk.
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
-    step: 200, biomes: [], matIndex: 4,
+    step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.25, glow: true }, // sMax 1.25 (Fable 68): peak survivors SWELL into a thicket-event instead of the grove reading flat
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
-      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.42, 9, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.7, sy: 0.62 }) }); // GLOWING cap dome (obvious from above)
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.42, 7, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), { y: 0.7, sy: 0.62 }) }); // GLOWING cap dome (obvious from above)
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.42, 0.06, 9, 1, true), { y: 0.7 }) }); // dark rim band for definition
-      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 6, 3), { y: 0.98 }) }); // bright crown boss on top
-      return mergeParts(parts, 4);
+      // 3 DARK MOTTLE patches (Fable 65-gate R2): re-seated ON the dome shell (y from the shell equation
+      // y=0.70+0.62·√(0.42²−d²), minus 0.02) + enlarged + tilted to hug the shoulder normal (~0.5 rad
+      // outward) so the whole patch lies on the dome — the old y0.80/0.82/0.83 buried them under the shell.
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.15, 5, 2), { x: 0.241, z: 0.097, y: 0.885, sy: 0.4, rz: -0.463, rx: 0.187 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.13, 5, 2), { x: -0.191, z: 0.161, y: 0.89, sy: 0.4, rz: 0.383, rx: 0.321 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.12, 5, 2), { x: -0.028, z: -0.269, y: 0.875, sy: 0.4, rz: 0.052, rx: -0.498 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.SphereGeometry(0.15, 5, 2), { y: 0.98 }) }); // crown boss = the bright CORE (ladder makes it near-white)
+      const merged = mergeParts(parts, 4);
+      // R1: bake the cap ladder (0 tris) keyed to the CAP span → dome-edge dark → dome gold → crown white,
+      // so the carrier gets a real core→bloom→dark without a flat blown dome (mat-0 stalk/rim/mottles ignore it).
+      bakeMireLadder(merged.geometry, { baseY: 0.66, apexY: 1.10, base: [0.42, 0.32, 0.16], mid: [0.847, 0.659, 0.376] });
+      merged.materials[merged.materials.length - 1] = propMats.mireCarrierLadder; // tier-3 @1.6, vertexColors
+      return merged;
     },
-    place: (side, rnd) => ({ x: side * (16 + 0.7 * (16 + rnd() * 6)), h: 20 + rnd() * 6, r: 16 + rnd() * 6, tilt: 0, rotY: 0 }),
+    // MID carrier (Fable §2): r 12–18 / h 14–20, congregates into flank thickets off the lane.
+    place: (side, rnd) => { const r = 12 + rnd() * 6; return { x: side * (26 + 0.6 * r + rnd() * 12), h: 14 + rnd() * 6, r, tilt: 0, rotY: 0 }; },
   },
 
   // glowbloom — THE NEAR SCATTER (Fable §1, Stage 4): a cluster of GLOWING pods on dark stalks at
-  // staggered heights — the breadcrumb lanterns that write the safe lane. Parked until Stage 4.
+  // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
-    step: 200, biomes: [], matIndex: 4,
+    step: 37, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true }, // step 37 prime (Fable 68): coprime with shroom 45 + all Mire steps, kills the gcd-9 lattice co-beat
     build: () => {
       const parts = [];
-      const pods = [{ x: 0, z: 0, h: 0.92, s: 0.17 }, { x: 0.28, z: 0.10, h: 0.7, s: 0.12 }, { x: -0.24, z: 0.14, h: 0.78, s: 0.13 }, { x: 0.1, z: -0.26, h: 0.6, s: 0.11 }];
+      const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
+      // Wide height stagger (Fable §7-D: 0.50–0.95 so it doesn't read as one row from the chase cam) + jittered XZ.
+      const pods = [{ x: 0.02, z: 0.0, h: 0.95, s: 0.17 }, { x: 0.31, z: 0.13, h: 0.72, s: 0.13 }, { x: -0.27, z: 0.19, h: 0.58, s: 0.14 }, { x: 0.13, z: -0.31, h: 0.50, s: 0.12 }];
       for (const p of pods) {
-        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.03, 0.05, p.h, 4).toNonIndexed(), { x: p.x, z: p.z, y: p.h / 2, rz: p.x * 0.3 }) }); // dark stalk
-        parts.push({ mat: 1, geo: xform(new THREE.IcosahedronGeometry(p.s, 0), { x: p.x, z: p.z, y: p.h }) }); // glowing bulb
+        parts.push({ mat: 0, geo: xform(ni(new THREE.CylinderGeometry(0.028, 0.045, p.h, 3)), { x: p.x, z: p.z, y: p.h / 2, rz: p.x * 0.3 }) }); // dark stalk (3-seg, Fable §7-D)
+        parts.push({ mat: 0, geo: xform(ni(new THREE.ConeGeometry(p.s + 0.03, p.s * 0.55, 4, 1, true)), { x: p.x, z: p.z, y: p.h - p.s * 0.5 }) }); // dark CALYX cup — the bulb sits in a dark husk
+        parts.push({ mat: 1, geo: xform(new THREE.OctahedronGeometry(p.s, 0), { x: p.x, z: p.z, y: p.h }) }); // glowing bulb (faceted lantern-gem)
       }
-      return mergeParts(parts, 4);
+      const merged = mergeParts(parts, 4);
+      merged.materials[merged.materials.length - 1] = propMats.mireEmberLiving; // pale afterglow tier-4 @0.85
+      return merged;
     },
-    place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 16 + rnd() * 6, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
+    // NEAR scatter (Fable §2): small + low, r 6–10 / h 10–14, near the lane (the breadcrumb lantern line).
+    place: (side, rnd) => { const r = 6 + rnd() * 4; return { x: side * (20 + rnd() * 10), h: 10 + rnd() * 4, r, tilt: 0, rotY: 0 }; },
   },
 };
 
@@ -1749,7 +1818,8 @@ const FOAM_CFG = {
   glowcolossus: { r: 0.42 }, // retired hero (parked) — foam row kept inert
   // ensemble (Fable §2): glowarch = two legs → ELLIPTICAL waterline collar (archruin precedent);
   // parked forms carry inert rows until their stage activates + tunes them.
-  glowarch: { rx: 0.66, rz: 0.16 }, glowtree: false, glowshroom: false, glowbloom: false,
+  glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, // arch elliptical collar; spire spar-only collar
+  glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -1979,6 +2049,14 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uRainVeil: { value: 0 },
       uRainVeilScroll: { value: 0 },
       uRainVeilFlash: { value: 0 },
+      // Storm LIGHTNING FLASH (0 = off): a global desaturated lift, directional toward the strike,
+      // held OFF the cloud undersides so the deck silhouettes against the flash. 0 outside Tempest.
+      uStormFlash: { value: 0 },
+      uStormFlashDir: { value: new THREE.Vector2(0, -1) },
+      // EYE-BREACH (Tempest): the eye-of-the-gale window gate. 0 = off (byte-identical). >0 punches a
+      // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
+      // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
+      uBreachMix: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -1992,7 +2070,8 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
-      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash;
+      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
+      uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
       // Rain-veil 1D value noise (layer F) — pure ALU, no texture.
@@ -2023,6 +2102,42 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         col = mix(col, vec3(0.020, 0.030, 0.075), uAurNight);
         ${AURORA_BODY}
         ${CLOUD_BODY}
+        // EYE-BREACH (Tempest, uBreachMix 0 = off → byte-identical): a raked almond HOLE in the storm
+        // deck on the SUN AZIMUTH — the eye of the gale, where the sun (hidden ABOVE the storm) leaks
+        // through. Runs AFTER the cloud body so the window OVERWRITES the deck (a real hole, not a tint).
+        // Order: (1) deepen the deck in a ring around the rim — the darkest sky frames the brightest hole,
+        // THAT contrast is the landmark; (2) blend the interior gradient (warm-white low, silver-blue high)
+        // + a thin gold lower lip. The sun DISC is never drawn — the core is a centerless brightness.
+        if (uBreachMix > 0.001) {
+          float _bAz = atan(d.z, d.x);                                            // fragment azimuth
+          float _bSunAz = atan(sunDir.z, sunDir.x);                               // the world-locked breach azimuth
+          float _dAz = atan(sin(_bAz - _bSunAz), cos(_bAz - _bSunAz));            // wrapped Δaz (−π..π)
+          float _elC = 0.035;                                                     // KISS THE SLOT: the lip meets the horizon band (a mid-deck hole reads as a moon)
+          // Raked almond (~4:1 wide:tall) — a SUBTLE eye low on the horizon. az half-width 0.20rad,
+          // el half-width 0.042 (crisper 4:1); _rr is the elliptical radius so both the hole and its
+          // frame are ALMOND, never a disc.
+          float _nx = _dAz / 0.20;
+          float _ny = (d.y - _elC - 0.14 * _dAz) / 0.042;                         // −0.14·Δaz = the rake
+          float _rr = sqrt(_nx * _nx + _ny * _ny);
+          // (1) THE HOLE FIRST — interior gradient, tight feather (fully faded by _rr 1.0).
+          float _win = (1.0 - smoothstep(0.74, 1.0, _rr)) * uBreachMix;
+          float _bT = clamp((d.y - (_elC - 0.042)) / 0.084, 0.0, 1.0);            // 0 at the bottom lip → 1 at the top
+          vec3 _bLow = vec3(0.83, 0.80, 0.72);                                    // warm-white #f2e8d0-class, L≈0.80 (the brightest thing the biome shows)
+          vec3 _bHigh = vec3(0.74, 0.77, 0.81);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
+          vec3 _interior = mix(_bLow, _bHigh, _bT);
+          float _lip = smoothstep(0.16, 0.02, _bT);                              // thin GOLD lower lip (#ffd870), sun-facing, peaks at the bottom
+          _interior = mix(_interior, vec3(1.0, 0.847, 0.439), _lip * 0.60);
+          col = mix(col, _interior, _win);
+          // (2) THE DARK MOVE, OVER the bloom (Fable r1: the ring must WIN): a tight ALMOND ring hugging
+          // the rim (sharp onset at 1.0R, back to deck value by ~1.6R) → the darkest sky FRAMES the hole
+          // (core→bloom→DARK). This is what makes it a breach in a wall, not a moon in the clouds.
+          float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.35, 1.65, _rr)) * uBreachMix;
+          // Arc-bias (Fable r2 de-donut insurance): weak at the gold lip (bottom ~0.15×), strong at the
+          // top (1.0×) so the dark frame CONNECTS UPWARD into the deck — a socket in the storm's wall, not
+          // a floating dark ring/eclipse. _ny/_rr = sine of the ring arc angle (−1 bottom → +1 top).
+          float _arcW = mix(0.15, 1.0, smoothstep(-1.0, 1.0, _ny / max(_rr, 0.001)));
+          col = mix(col, vec3(0.137, 0.165, 0.200), _bDark * 0.92 * _arcW);
+        }
         // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
         // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
         // wind azimuth. Discrete shafts (gapped), faint vertical interior grain, THINNED toward the
@@ -2039,9 +2154,23 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _dAz = abs(atan(sin(_az - _sunAz), cos(_az - _sunAz)));           // wrapped angular distance to the breach azimuth
           float _breachClear = mix(0.4, 1.0, smoothstep(0.32, 0.9, _dAz));        // <=40% within ~18deg of the breach
           float _veil = clamp(_curt * _grain * _band * _breachClear * uRainVeil, 0.0, 1.0);
-          vec3 _veilCol = fogFarColor * (1.0 + 1.1 * uRainVeilFlash);             // the lightning flash lights the veil
+          vec3 _veilCol = fogFarColor * (1.0 + 1.6 * uRainVeilFlash);             // the lightning flash lights the far curtains → veil reads as stacked sheets in depth
           col = mix(col, _veilCol, _veil * 0.34);                                 // push to a 6-9% squint-read (Fable r1 — software-GL eats a third)
           col *= 1.0 - _veil * 0.09;                                              // a dense shaft reads darker than the haze
+        }
+        // STORM LIGHTNING FLASH: a desaturated global lift, DIRECTIONAL toward the strike (something over
+        // THERE detonated, not a brightness knob), strongest in the upper sky, HELD DOWN where clouds cover
+        // (cCov) so the deck silhouettes against the flash. Hard white-out cap. 0 outside Tempest.
+        if (uStormFlash > 0.001) {
+          vec2 _faz = normalize(d.xz + vec2(1e-4));
+          float _fdw = 0.4 + 0.6 * max(0.0, dot(_faz, uStormFlashDir));           // 40/60 dark/bright hemisphere
+          float _fband = 0.32 + 0.36 * smoothstep(0.0, 0.32, h) - 0.42 * smoothstep(0.08, 0.40, h); // strongest near the horizon; the deck/upper sky lifts LEAST (stays a ceiling)
+          float _fl = uStormFlash * _fdw * _fband * (1.0 - 0.9 * cCov);           // clouds stay dark (harder hold)
+          col = mix(col, vec3(0.76, 0.79, 0.86), clamp(_fl, 0.0, 0.38));          // desaturated #c7cfe0, gentler peak
+          // Cap by VIEW HEIGHT, not cloud coverage (Fable r2: partial cCov relaxed the cap to ~0.60). The
+          // storm ceiling owns the upper sky, so cap the whole upper band at L≈0.46 so it silhouettes
+          // against the flash; the pale horizon SLOT (low h) keeps the white-out cap 0.82 and stays bright.
+          col = min(col, vec3(mix(0.82, 0.46, smoothstep(0.02, 0.12, h))));
         }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
@@ -2120,6 +2249,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   // --- Ambient particles + birds.
   createAmbient(scene);
   createRain(scene);   // storm rain-streak layer (rainMix-gated; Tempest only)
+  initStormLightning(scene); setStormLightningEnabled(true);   // storm lightning + flash (rainMix-gated; 0 elsewhere = byte-identical)
 }
 
 function makeBand(scene, def) {
@@ -2269,25 +2399,42 @@ function heroHash(n) {
 }
 const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
 
-// THE GATE-CLEARING CORRIDOR resolver (Fable Stage-1 gate §2) — around each KEPT glowarch peak the
-// swamp OPENS so the hero reads: the PR-2 dark screens (reedveil/boleveil) park inside a corridor.
-// Returns the kept-peak dist covering `dist` (park iff finite), or NaN. PURE (no rnd/state): recomputes
-// the arch's OWN keep from the peak index via the SAME hashes/easement, so the clearing and the gate can
-// never disagree. Window `dist − P ∈ [−170, +40]` (covers the 150m read-in; re-closes just past the gate
-// so the trees frame it from behind). Reused by Stage-3's cap/bloom gate-clear.
-function mireGateClearPeak(dist) {
+// THE HERO-CLEARING CORRIDOR resolver (Fable Stage-1 §2 / 60-ruling §2) — around each KEPT Mire hero peak
+// the swamp OPENS so the landmark reads: the PR-2 dark screens (reedveil/boleveil) park inside a corridor.
+// Generalized over (shift, rare) so BOTH heroes reuse it: the glowARCH corridor calls (dist,0,0.5) around
+// its peaks (local 45/345/…); the glowTREE corridor calls (dist,150,0.4) around its trough beacons (local
+// 195/495/…). Returns the kept peak INDEX `pk` covering `dist` (park iff finite), or NaN. PURE (no rnd):
+// recomputes the hero's OWN keep from the peak index via the SAME hashes/easement, so clearing + beacon
+// can never disagree. Window `dist − P ∈ [−170, +40]`; on paired peaks the arch + tree corridors overlap
+// into one continuous open sightline (viewer → gate → beacon). Caller applies parity (one-sided tree clear).
+function mireHeroClearPeak(dist, shift, rare) {
   const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;              // 300
-  const pk0 = Math.round((dist - HERO_PEAK_OFFSET) / period);
+  const pk0 = Math.round((dist - HERO_PEAK_OFFSET - shift) / period);
   for (let pk = pk0 - 1; pk <= pk0 + 1; pk++) {
-    const Pd = pk * period + HERO_PEAK_OFFSET;
+    const Pd = pk * period + HERO_PEAK_OFFSET + shift;
     const rel = dist - Pd;
     if (rel < -170 || rel > 40) continue;                            // outside the corridor window
     const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
     const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
     const peakEase = pLocal >= 1050 && pLocal <= 1350;               // easement at the PEAK (self-consistent)
-    if (localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5)) return Pd; // = the arch's keep test
+    if (localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < rare)) return pk; // = the hero's keep test
   }
   return NaN;
+}
+
+// GLOW-CARRIER arch-gate clear (Fable 51 §5 rule 2): the cap/bloom glow families are the arch's
+// supporting CHORUS on approach, but park in the immediate ±40m of a kept arch peak so the gate stands
+// ALONE in its own glow-water (a tighter window than the dark-screen corridor). PURE — the SAME arch
+// keep test as mireHeroClearPeak(dist,0,0.5), so chorus + gate + clearing all agree.
+function nearArchGate(dist) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;
+  const pk = Math.round((dist - HERO_PEAK_OFFSET) / period);
+  const Pd = pk * period + HERO_PEAK_OFFSET;
+  if (Math.abs(dist - Pd) > 40) return false;
+  const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+  const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+  const peakEase = pLocal >= 1050 && pLocal <= 1350;
+  return localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5);
 }
 
 // --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
@@ -2422,28 +2569,45 @@ function writeMatrix(band, i, d) {
     // (b) The reserved 30° THRUMSWARM easement (bible §2): local [1050,1350] stays clear of the
     // hero + glow families (PR-6 builds the Held-Breath hush proper; PR-3 just never seats one there).
     const inEasement = local >= 1050 && local <= 1350;
-    // Gate-clearing corridor (Fable Stage-1 gate §2): the PR-2 dark screens (reedveil/boleveil) with
-    // a `gateClear` half-width park inside the corridor around a KEPT glowarch peak so the hero reads
-    // and its reflection lozenge survives. Render-only + PURE (mireGateClearPeak reuses the arch hashes).
-    if (active && band.def.gateClear && Math.abs(d.x) < band.def.gateClear && !Number.isNaN(mireGateClearPeak(d.dist))) active = false;
+    // Gate-clearing corridor (Fable Stage-1 §2): PR-2 dark screens with a `gateClear` half-width park in
+    // the corridor around a KEPT glowARCH peak (both flanks) so the gate reads + its lozenge survives.
+    if (active && band.def.gateClear && Math.abs(d.x) < band.def.gateClear && !Number.isNaN(mireHeroClearPeak(d.dist, 0, 0.5))) active = false;
+    // Beacon-clearing corridor (Fable 60-ruling §2 / 62-redesign): ONE-SIDED — screens with a `treeClear`
+    // half-width park ONLY on the glowSPIRE's parity flank around a kept trough beacon (shift 150, rare 0.4),
+    // so the lone lantern spire stands in its own opened water (+ reflection twin) while the far flank keeps its wall.
+    if (active && band.def.treeClear && Math.abs(d.x) < band.def.treeClear) {
+      const pk = mireHeroClearPeak(d.dist, 150, 0.4);
+      if (!Number.isNaN(pk) && d.side === (((pk % 2) + 2) % 2 === 1 ? 1 : -1)) active = false;
+    }
     if (active && band.def.hero) {
       // heroSolo (Fable ensemble §2): an ON-LANE hero (glowarch, place x:0) exists on BOTH sides'
       // slot streams — park the -side twin so a single gate straddles x0 (else two arches z-fight).
       if (band.def.heroSolo && d.side < 0) active = false;
-      // Hero — renders at full size (k=1) or not at all, exactly ONE per kept peak.
-      // Peaks land at local 45/345/645/945/1245. `nearest` keeps only the single step-instance
-      // closest to a peak (else the dense step clusters 4–5 heroes). Park peak 0 (arrival window /
-      // seam-ambush) + the easement peak (1245); FORCE-KEEP peak 1 (local 345) EVERY arrival = Money
-      // Shot 1 (the First Lantern resolves from the murk, deterministic); interior peaks keep on ~50%
-      // (heroHash) so the hero reads as THE landmark, not a picket.
+      // Hero — renders at full size (k=1) or not at all, exactly ONE per kept peak. `nearest` keeps only
+      // the single step-instance closest to the lock target (else the dense step clusters 4–5 heroes).
+      // Generalized (Fable ensemble §2): `heroShift` offsets the lock target — glowARCH shift 0 → the
+      // congregation PEAKS (local 45/345/645/945/1245); glowTREE shift +150 → the ph≈0.65 TROUGHS (local
+      // 195/495/…), the lone lantern in the breath, 150m past each gate (the MS-1 framed pair). Both:
+      // park localPeak 0 (arrival) + the easement peak; FORCE-KEEP localPeak 1 EVERY arrival = the money
+      // shot; interior peaks keep on `heroRare` (~50% arch / ~40% tree). `heroParity` keeps ONE per peak
+      // on ALTERNATING flanks (the tree — "one hero-class mass per flank, alternating"); the arch uses
+      // heroSolo instead. PURE (same hashes as mireGateClearPeak, so gate + clearing + beacon agree).
       const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;   // 300
-      const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / period);
+      const shift = band.def.heroShift || 0;
+      const rare = band.def.heroRare || 0.5;
+      const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET - shift) / period);
+      const peakDist = peakIdx * period + HERO_PEAK_OFFSET + shift;
       const localPeak = ((peakIdx % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
-      const nearest = Math.abs(d.dist - (peakIdx * period + HERO_PEAK_OFFSET)) < band.def.step / 2;
-      const keepPeak = !inEasement && localPeak !== 0 && (localPeak === 1 || heroHash(peakIdx) < 0.5);
-      if (!(nearest && keepPeak)) active = false;
+      const nearest = Math.abs(d.dist - peakDist) < band.def.step / 2;
+      const pLocal = ((peakDist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const peakEase = pLocal >= 1050 && pLocal <= 1350;      // easement at the PEAK's own local (shifted-safe)
+      const keepPeak = !peakEase && localPeak !== 0 && (localPeak === 1 || heroHash(peakIdx) < rare);
+      const parityOk = !band.def.heroParity || d.side === (((peakIdx % 2) + 2) % 2 === 1 ? 1 : -1);
+      if (!(nearest && keepPeak && parityOk)) active = false;
     } else if (active && band.def.comp) {
-      if (inEasement && band.def.comp.glow) active = false;   // glow carriers clear the easement
+      // glow carriers (glowshroom/glowbloom) clear the easement AND the immediate arch-gate water (§5 rule 2)
+      // so the gate stands alone — they're the arch's chorus on approach, never inside its glow-water.
+      if (band.def.comp.glow && (inEasement || nearArchGate(d.dist))) active = false;
       else {
         const g = mireComp(d.dist);
         const c = band.def.comp;
@@ -2626,6 +2790,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     waveAmp: env.waveAmp,
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
     rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
+    breach: env.breachMix || 0, // EYE-BREACH: the becalmed gold-lit patch of sea under the eye of the gale; 0 elsewhere = byte-identical
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
@@ -2656,7 +2821,12 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   const _veilGust = _veilMix > 0.005 ? rainGustAt(time) : 0;
   su.uRainVeil.value = _veilMix * (0.82 + 0.4 * _veilGust);
   su.uRainVeilScroll.value = (time * (0.020 + 0.030 * _veilGust)) % 1024;
-  su.uRainVeilFlash.value = 0;
+  su.uRainVeilFlash.value = getStormFlashRain();     // the flash brightens the far curtains → veil reads as stacked sheets
+  su.uStormFlash.value = getStormFlashSky();
+  su.uStormFlashDir.value.copy(getStormFlashDir());
+  // EYE-BREACH (the still axle): world-locked to the sun azimuth, no scroll/gust. 0 outside Tempest
+  // (breachMix 0) → byte-identical. v1 = a fixed prominent state (the progress-arc growth is a follow-on).
+  su.uBreachMix.value = env.breachMix || 0;
 
   // Boss-time mote budget: own eased copy of the same signal postfx grades
   // with (same ~1s damp idiom as feverMix above) — decays unconditionally so
@@ -2664,5 +2834,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   bossMix = damp(bossMix, bossTarget, 4, dt);
 
   updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
+  updateStormLightning(dt, camera, env, time);   // lightning bolts + the flash envelopes (rainMix-gated)
+  setRainFlash(getStormFlashRain());              // Layer X: the flash reveals the rain volume (rain lingers longer than the sky)
   updateRain(dt, camera, env, time);   // storm rain streaks — reads env.rainMix + the shared wind vector + gust clock
 }

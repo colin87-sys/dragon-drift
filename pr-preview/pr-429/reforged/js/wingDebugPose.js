@@ -131,6 +131,21 @@ export function setFlapDebugPose(parts, model, state) {
     };
     poseWing(parts.wingPivotR, parts.wingMidR, parts.wingTipR, bank);
     poseWing(parts.wingPivotL, parts.wingMidL, parts.wingTipL, -bank);
+    // FOLD (debug/studio): a wingParts blade-comb (azure) folds at the SHOULDER — swing the whole
+    // comb hard back along the flank + roll it DOWN so the span contracts past 0.7× (§7 fold assert)
+    // and the folded silhouette sits low (not a raised V). The per-blade lag groups cancel their rest
+    // rake so the primaries stack parallel. Written wrapper-CONSISTENT (identical L/R — the outer
+    // scale.x=-1 mirror flips the L side; NEVER the per-side-sign poseBladePivots path, which would
+    // double-flip and desync). Gated to a blade-comb rig → other wingParts dragons are untouched.
+    if (dive > 0 && model.combShoulderFold && (parts.wingBladePivotsR || parts.wingBladePivotsL)) {
+      for (const pv of [parts.wingPivotR, parts.wingPivotL]) if (pv) pv.rotation.set(0.16, 1.32, -0.46);
+      for (const md of [parts.wingMidR, parts.wingMidL]) if (md) md.rotation.set(0, 0.30, 0);
+      for (const tp of [parts.wingTipR, parts.wingTipL]) if (tp) tp.rotation.set(0, 0.18, -0.10);
+      for (const arr of [parts.wingBladePivotsR, parts.wingBladePivotsL]) {
+        if (!arr) continue;
+        for (const b of arr) { const t = b.pivot; if (t) t.rotation.set(0, -(b.restY ?? 0), -(b.restZ ?? 0)); }
+      }
+    }
     return r;
   }
 
