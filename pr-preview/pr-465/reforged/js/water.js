@@ -105,7 +105,14 @@ export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.
 // tier 2. Gated by uStormSea (0 everywhere else = byte-identical). λ≈55m (shorter/steeper
 // than the global 105m swell). All values FRACTIONAL (the GLSL int/float trap).
 export const TEMPEST_WIND = { x: 0.851, z: 0.525 };   // oblique to the lane → diagonal foam grain
-export const STORM_SWELL = { dirx: 0.851, dirz: 0.525, freq: 0.115, amp: 0.95, speed: 0.55 };
+export const STORM_SWELL = { dirx: 0.851, dirz: 0.525, freq: 0.115, amp: 1.45, speed: 0.55 };
+
+// A/B pin: ?stormsea=0 forces the shipped calm sea, ?stormsea=1 forces the storm sea (any biome),
+// so the owner can flip the fix live in one flight. null = per-biome env value (normal play).
+const _stormSeaForce = (() => {
+  try { const v = new URLSearchParams(location.search).get('stormsea'); return v == null ? null : (v === '0' ? 0 : 1); }
+  catch { return null; }
+})();
 
 const vertexShader = /* glsl */`
   uniform float time, waveAmp, uSwellAmp, uStormSea;
@@ -173,6 +180,11 @@ const fragmentShader = /* glsl */`
     wave(p, normalize(vec2( 0.8,  0.6)), 0.50, 0.16 * waveAmp, 1.10, h, grad);
     wave(p, normalize(vec2(-0.6,  0.8)), 0.90, 0.08 * waveAmp, 1.70, h, grad);
     wave(p, normalize(vec2( 0.2, -1.0)), 1.70, 0.045 * waveAmp, 2.40, h, grad);
+    // STORMSEA — two wind-aligned CHOP octaves that SHATTER the mirror (0 = shipped, byte-identical).
+    // The shipped normal field tops out ~0.2 slope; these add ~0.6 so fresnel + the reflection angle
+    // vary per-pixel and the clean sky-double breaks into storm chop (the owner's real-device tell).
+    wave(p, normalize(vec2(0.851, 0.525)), 1.30, 0.22 * waveAmp * uStormSea, 2.10, h, grad);
+    wave(p, normalize(vec2(0.60, -0.80)), 2.90, 0.11 * waveAmp * uStormSea, 3.30, h, grad);
     vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
 
     vec3 V = normalize(cameraPosition - vWorldPos);
@@ -198,7 +210,7 @@ const fragmentShader = /* glsl */`
 
     vec3 refl;
     #ifdef USE_REFLECTION
-      vec2 distort = N.xz * 0.42;
+      vec2 distort = N.xz * (0.42 + 1.1 * uStormSea);   // STORMSEA: scatter the mirror sample → the clean reflection lane shatters into broken speckle
       vec4 proj = vUvProj;
       proj.xy += distort * proj.w;
       refl = texture2DProj(tDiffuse, proj).rgb;
@@ -213,7 +225,10 @@ const fragmentShader = /* glsl */`
       refl += vec3(0.33, 1.0, 0.52) * 0.4 * pow(1.0 - clamp(R.y, 0.0, 1.0), 3.0) * uAuroraGlow;
     #endif
 
-    vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0));
+    // STORMSEA — MATTE IT DOWN: an overcast storm sea is dull, not chrome. Dim the reflected sample
+    // and cap the mirror at ~55% even at grazing angles so the dark water body always owns ≥45%.
+    refl *= mix(1.0, 0.62, uStormSea);
+    vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0) * (1.0 - 0.45 * uStormSea));
 
     // Golden sun streak: compress the normal's x so the highlight stretches
     // toward the camera (classic low-sun water glitter lane).
@@ -279,8 +294,8 @@ const fragmentShader = /* glsl */`
       float foamS = (lane + fleck) * pres;        // clustered by the presence field
       foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
       foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
-      // #c4cdce overcast foam; peak for CONTRAST (not coverage) against the deeper field.
-      col = mix(col, vec3(0.71, 0.74, 0.75), clamp(foamS * uStormSea, 0.0, 0.41));
+      // #c4cdce overcast foam; peak lifted now that the matte/broken field is ~⅓ darker.
+      col = mix(col, vec3(0.77, 0.80, 0.80), clamp(foamS * uStormSea, 0.0, 0.48));
     }
 
     // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
@@ -569,7 +584,7 @@ export function waterSurfaceHeight(x, z) {
 export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea }) {
   if (!water) return;
   const u = water.material.uniforms;
-  u.uStormSea.value = stormSea || 0; // 0 in every biome that doesn't pass it → byte-identical calm sea
+  u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);
