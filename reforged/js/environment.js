@@ -572,7 +572,7 @@ const ARCHETYPES = {
   // instance scale shears internal tilts flat. rotY re-randomises on recycle, so features
   // spread in x AND z → broad from every yaw. flatShading hex facets give the vertical rib.
   colonnata: {
-    step: 53, biomes: calderaNew, matIndex: 3,
+    step: 53, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 }, // hero: clusters hard → one colossus per archipelago, off open mirror at the seam
     // A PACKED PALISADE of SLENDER pentagonal basalt columns (Giant's Causeway) at a
     // BROKEN, non-monotonic crest — organ pipes snapped mid-song, one toppled where it
     // fell, an overhanging capstone. Columns are open-bottomed (buried in the plinth) +
@@ -630,7 +630,7 @@ const ARCHETYPES = {
   // the most fire (the glow-altitude rule). ~5:1 wide. Glow = magma accent recessed BELOW
   // the plate tops (the LOW-in-cracks address), not a strip on a face.
   flowlobe: {
-    step: 23, biomes: calderaNew, matIndex: 3,
+    step: 23, biomes: calderaNew, matIndex: 3, comp: { floor: 0.50, sMin: 0.92, sMax: 1.06 }, // low rest: breathes mildly (stays the floor baseline, incl. at the seam)
     build: () => mergeCalderaParts([
       // THE MAGMA CORE (mat 1) — a wide low glowing interior plate, stretched along the flow
       // axis (z). The dark crust islands above cover most of it; it shows ONLY through the
@@ -659,7 +659,7 @@ const ARCHETYPES = {
   // Icosahedra read as angular crust chunks (not the smooth boulders the Frozen serac gate
   // rejected — here the chaotic pile IS the identity). ~1.6:1.
   clinker: {
-    step: 29, biomes: calderaNew, matIndex: 3,
+    step: 29, biomes: calderaNew, matIndex: 3, comp: { floor: 0.55, sMin: 0.90, sMax: 1.08 }, // foil: mild breathing dark punctuation (stays at the seam)
     build: () => mergeCalderaParts([
       { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.42, 0), { y: 0.30, sx: 1.5, sy: 0.85, sz: 1.2, ry: 0.4 }) },       // main mound
       { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.36, z: 0.10, y: 0.22, sx: 1.2, sy: 0.8, ry: 1.1 }) }, // flank chunk
@@ -676,7 +676,7 @@ const ARCHETYPES = {
   // above and on approach (the purest expression of the LOW-in-cracks/throats glow address).
   // Kin to the geyser vent sites — the world explains its own hazard. ~2:1 wide.
   fumarole: {
-    step: 47, biomes: calderaNew, matIndex: 3,
+    step: 47, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.15, sMin: 0.90, sMax: 1.10 }, // mid: clusters into the archipelagos, off the seam
     build: () => mergeCalderaParts([
       // main cinder cone — an OPEN-TOPPED frustum (openEnded → you see DOWN into the crater to
       // the glowing throat; a closed cap would hide it), never a traffic-cone point
@@ -704,7 +704,7 @@ const ARCHETYPES = {
   // VERTICAL ribs by axis), sinking into the scorched-dark far fog. No glow (the rim is the
   // oldest, coldest crust). The amphitheatre wall that makes the caldera a PLACE. 5–7:1 wide.
   riftwall: {
-    step: 89, biomes: calderaNew, matIndex: 3,
+    step: 89, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.25, sMin: 0.95, sMax: 1.05 }, // massif: mostly-continuous enclosure, thins at the breaths + seam
     build: () => mergeCalderaParts([
       // stacked HORIZONTAL strata — each course sinks ≥20% into the one below (NO daylight
       // through the massif, Fable r13 D1), varied lengths + broken end-steps so the wall
@@ -731,7 +731,7 @@ const ARCHETYPES = {
   // a broken asymmetric multi-jag crown. The ONE tall form (landmark). No glow (tallest =
   // darkest). Lean built by OFFSET-stacking, never internal tilt (the (r,h,r) shear rule).
   riftfang: {
-    step: 149, biomes: calderaNew, matIndex: 3,
+    step: 149, biomes: calderaNew, matIndex: 3, arrivalPark: true, comp: { floor: 0.06, sMin: 0.95, sMax: 1.05 }, // rare tall punctuation: at most one per frame, off the seam
     build: () => mergeCalderaParts([
       // A CHUNKY volcanic PLUG (~2.5–3:1, not a needle — Fable r13 rebuild): a broad FLARED
       // skirt (the mountain eroded away from around the neck) + a half-sunk collar chunk, then
@@ -1278,6 +1278,19 @@ function frozenComp(dist) {
   // raised cosine so slots fade in/out along the ramp — a spatial fade, no pops.
   return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.15));
 }
+// EMBERFALL CALDERA composition rhythm (CALDERA-BIBLE.md §3.5) — the negative-space engine.
+// A raised-cosine congregation weight over 4 periods/biome (~375m): props gather into loose
+// archipelagos near ph≈0.2 and clear to open mirror near ph≈0.7, so a few colossal forms read
+// against unbroken burning water (the awe grammar) instead of an even picket field. PURE (no
+// rnd), so gold-determinism is untouched.
+const CALDERA_COMP_PERIODS = 4;
+function calderaComp(dist) {
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const seg = L / CALDERA_COMP_PERIODS;                       // 375m
+  const ph = (local % seg) / seg;
+  return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.20));
+}
 // Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
 // slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
 function compHash(salt, side, slot) {
@@ -1327,6 +1340,29 @@ function writeMatrix(band, i, d) {
     // hero. Renders at full size (k=1) or not at all — never the comp scale lottery.
     const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / (CONFIG.biomeLength / FROZEN_COMP_PERIODS));
     if (heroHash(peakIdx) >= 0.4) active = false;
+  } else if (active && bi === 3) {
+    // EMBERFALL CALDERA composition (CALDERA-BIBLE.md §3). PURE (no rnd) — evaluated after the
+    // rotY init so no rnd() call order changes; props are render-only so the fixture is untouched.
+    // (a) The ARRIVAL open-mirror beat (§3.2): tall/mid families stay OFF the first ~220m of the
+    // biome so the Frozen→Caldera seam reads as burning water + a single first-chord colossus.
+    // SEAM-RELATIVE (Codex review): biomeIndexAt flips to Caldera at the crossfade midpoint,
+    // ~biomeTransition/2 BEFORE the block boundary, so the naive `local < 220` misses the incoming
+    // tail — fold that tail in as a negative seamDelta. Low forms (flowlobe/clinker) stay: the seam
+    // keeps a black floor baseline on the mirror.
+    if (band.def.arrivalPark) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+      if (seamDelta < 220) active = false;
+    }
+    // (b) The negative-space rhythm (§3.5): a raised-cosine congregation weight parks off-beat
+    // instances into archipelagos + open mirror and scales the survivors (bigger in congregations).
+    if (active && band.def.comp) {
+      const g = calderaComp(d.dist);
+      const c = band.def.comp;
+      const density = c.floor + (1 - c.floor) * g;
+      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
+      else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
   }
   if (active) {
     m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k, d.r * k));
