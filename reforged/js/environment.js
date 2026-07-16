@@ -1984,6 +1984,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // held OFF the cloud undersides so the deck silhouettes against the flash. 0 outside Tempest.
       uStormFlash: { value: 0 },
       uStormFlashDir: { value: new THREE.Vector2(0, -1) },
+      // EYE-BREACH (Tempest): the eye-of-the-gale window gate. 0 = off (byte-identical). >0 punches a
+      // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
+      // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
+      uBreachMix: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -1997,7 +2001,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
-      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash;
+      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -2029,6 +2033,42 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         col = mix(col, vec3(0.020, 0.030, 0.075), uAurNight);
         ${AURORA_BODY}
         ${CLOUD_BODY}
+        // EYE-BREACH (Tempest, uBreachMix 0 = off → byte-identical): a raked almond HOLE in the storm
+        // deck on the SUN AZIMUTH — the eye of the gale, where the sun (hidden ABOVE the storm) leaks
+        // through. Runs AFTER the cloud body so the window OVERWRITES the deck (a real hole, not a tint).
+        // Order: (1) deepen the deck in a ring around the rim — the darkest sky frames the brightest hole,
+        // THAT contrast is the landmark; (2) blend the interior gradient (warm-white low, silver-blue high)
+        // + a thin gold lower lip. The sun DISC is never drawn — the core is a centerless brightness.
+        if (uBreachMix > 0.001) {
+          float _bAz = atan(d.z, d.x);                                            // fragment azimuth
+          float _bSunAz = atan(sunDir.z, sunDir.x);                               // the world-locked breach azimuth
+          float _dAz = atan(sin(_bAz - _bSunAz), cos(_bAz - _bSunAz));            // wrapped Δaz (−π..π)
+          float _elC = 0.035;                                                     // KISS THE SLOT: the lip meets the horizon band (a mid-deck hole reads as a moon)
+          // Raked almond (~4:1 wide:tall) — a SUBTLE eye low on the horizon. az half-width 0.20rad,
+          // el half-width 0.042 (crisper 4:1); _rr is the elliptical radius so both the hole and its
+          // frame are ALMOND, never a disc.
+          float _nx = _dAz / 0.20;
+          float _ny = (d.y - _elC - 0.14 * _dAz) / 0.042;                         // −0.14·Δaz = the rake
+          float _rr = sqrt(_nx * _nx + _ny * _ny);
+          // (1) THE HOLE FIRST — interior gradient, tight feather (fully faded by _rr 1.0).
+          float _win = (1.0 - smoothstep(0.74, 1.0, _rr)) * uBreachMix;
+          float _bT = clamp((d.y - (_elC - 0.042)) / 0.084, 0.0, 1.0);            // 0 at the bottom lip → 1 at the top
+          vec3 _bLow = vec3(0.83, 0.80, 0.72);                                    // warm-white #f2e8d0-class, L≈0.80 (the brightest thing the biome shows)
+          vec3 _bHigh = vec3(0.74, 0.77, 0.81);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
+          vec3 _interior = mix(_bLow, _bHigh, _bT);
+          float _lip = smoothstep(0.16, 0.02, _bT);                              // thin GOLD lower lip (#ffd870), sun-facing, peaks at the bottom
+          _interior = mix(_interior, vec3(1.0, 0.847, 0.439), _lip * 0.60);
+          col = mix(col, _interior, _win);
+          // (2) THE DARK MOVE, OVER the bloom (Fable r1: the ring must WIN): a tight ALMOND ring hugging
+          // the rim (sharp onset at 1.0R, back to deck value by ~1.6R) → the darkest sky FRAMES the hole
+          // (core→bloom→DARK). This is what makes it a breach in a wall, not a moon in the clouds.
+          float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.35, 1.65, _rr)) * uBreachMix;
+          // Arc-bias (Fable r2 de-donut insurance): weak at the gold lip (bottom ~0.15×), strong at the
+          // top (1.0×) so the dark frame CONNECTS UPWARD into the deck — a socket in the storm's wall, not
+          // a floating dark ring/eclipse. _ny/_rr = sine of the ring arc angle (−1 bottom → +1 top).
+          float _arcW = mix(0.15, 1.0, smoothstep(-1.0, 1.0, _ny / max(_rr, 0.001)));
+          col = mix(col, vec3(0.137, 0.165, 0.200), _bDark * 0.92 * _arcW);
+        }
         // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
         // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
         // wind azimuth. Discrete shafts (gapped), faint vertical interior grain, THINNED toward the
@@ -2647,6 +2687,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     waveAmp: env.waveAmp,
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
     rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
+    breach: env.breachMix || 0, // EYE-BREACH: the becalmed gold-lit patch of sea under the eye of the gale; 0 elsewhere = byte-identical
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
@@ -2680,6 +2721,9 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.uRainVeilFlash.value = getStormFlashRain();     // the flash brightens the far curtains → veil reads as stacked sheets
   su.uStormFlash.value = getStormFlashSky();
   su.uStormFlashDir.value.copy(getStormFlashDir());
+  // EYE-BREACH (the still axle): world-locked to the sun azimuth, no scroll/gust. 0 outside Tempest
+  // (breachMix 0) → byte-identical. v1 = a fixed prominent state (the progress-arc growth is a follow-on).
+  su.uBreachMix.value = env.breachMix || 0;
 
   // Boss-time mote budget: own eased copy of the same signal postfx grades
   // with (same ~1s damp idiom as feverMix above) — decays unconditionally so
