@@ -186,6 +186,14 @@ function makeMats() {
   mats.calderaFoil = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0x2b1d18, roughness: 0.72, metalness: 0.04, emissive: 0x160a06, emissiveIntensity: 0.14,
   }));
+  // THE LUMEN MIRE hero escalator (Fable v42) — a hero-ONLY brighter living-amber instance
+  // (intensity 2.3 vs the standard accent[4]'s 1.6) for the glowcolossus's crown colonies +
+  // gill fold, so the landmark's glow reads from the game's top-down camera (the under-brim
+  // address is invisible to a down-looking cam; the crown colonies are the granted exception).
+  // Same firefly-amber family (off the 490–510nm teal band). ONLY glowcolossus uses this.
+  mats.mireHeroLiving = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 2.3,
+  }));
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -1265,34 +1273,53 @@ const ARCHETYPES = {
     build: () => {
       const parts = [];
       // main dome — squashed asymmetric sagged umbrella, offset off the stalk axis
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.56, 8, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.05, y: 0.5, sy: 0.62, sz: 0.88 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.56, 7, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.05, y: 0.5, sy: 0.62, sz: 0.88 }) });
       // collapsed sag-lobe on one flank (asymmetry + the "torn" beat), interpenetrating ≥25%
-      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.36, 6, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.30, z: 0.05, y: 0.44, sy: 0.5, sz: 0.8 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.SphereGeometry(0.36, 5, 2, 0, Math.PI * 2, 0, Math.PI * 0.5), { x: 0.30, z: 0.05, y: 0.44, sy: 0.5, sz: 0.8 }) });
       // GILL DISH root (Fable v41) — the below/reflection read: shallow down-facing cone, apex up.
       // The BLACK MIRROR is the ¾-from-below vantage inverted, so the reflection twin views this.
-      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.44, 0.12, 8, 1, true), { x: 0.05, y: 0.45 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.44, 0.12, 6, 1, true), { x: 0.05, y: 0.45 }) });
       // THE GILL-MARGIN FOLD (Fable v41) — the CHASE-CAM read. A frustum folding DOWN-AND-OUT
       // (rTop 0.44 high → rBottom 0.52 low ≈ 33° below horizontal, normal outward) so the game's
       // near-horizontal camera ray catches a warm underline. Stays INSIDE the dome silhouette
       // (rim ~0.56 → a dark lip always crowns it: on-contour glow = flush LED, banned) and dips
       // just below the skirt so the horizontal ray reaches it. Same mireLiving material.
-      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.44, 0.52, 0.09, 8, 1, true), { x: 0.05, y: 0.41 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.44, 0.52, 0.09, 6, 1, true), { x: 0.05, y: 0.41 }) });
       // fat tapering stalk (wider at the waterline), off-center under the dome
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.22, 0.52, 7, 1, true), { y: 0.26 }) });
       // one bulging buttress swelling interpenetrating the stalk base
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.14, 0.34, 5, 1, true), { x: 0.14, z: -0.04, y: 0.17, rz: 0.12 }) });
-      // fairy-ring court — 1 glowing mini (dark cap + under-glow) + 1 dark mini + 1 toppled dead
-      // (irregular; cut one glowing mini to pay the gill-fold tri bill, Fable v41)
-      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.12, 5, 1, true), { x: 0.42, z: 0.2, y: 0.07 }) });
-      parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(0.10, 0.07, 5, 1, true), { x: 0.42, z: 0.2, y: 0.05 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.13, 0.11, 5, 1, true), { x: -0.38, z: -0.26, y: 0.06 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.36, 5, 1, true), { x: -0.44, z: 0.3, y: 0.06, rz: 1.35, ry: 0.5 }) });
-      return mergeParts(parts, 4);
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.14, 0.34, 4, 1, true), { x: 0.14, z: -0.04, y: 0.17, rz: 0.12 }) });
+      // fairy-ring court — 3 DARK members (the court died, the colossus endures — a better broken
+      // beat than its old under-glow the camera never saw, Fable v42): ex-glow cap + mini + toppled
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.12, 4, 1, true), { x: 0.42, z: 0.2, y: 0.07 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.13, 0.11, 4, 1, true), { x: -0.38, z: -0.26, y: 0.06 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.36, 4, 1, true), { x: -0.44, z: 0.3, y: 0.06, rz: 1.35, ry: 0.5 }) });
+      // THE CROWN COLONY (Fable v42) — 7 bioluminescent spore-growths in one broken arc across the
+      // cap's lane-facing (+z) shoulder, spilling over the torn rim + onto the sag-lobe wound. These
+      // are the CAMERA-FACING glow the top-down chase-cam can actually see (the granted exception:
+      // "the cap stays dark matter; life colonizes it"). Up-facing open cones (no pitch — shear law),
+      // seated ~0.02 below the dome surface (interpenetration). Apex stays dark (nearest ≥0.36R from top).
+      const colony = [
+        { x: 0.18, z: 0.38, y: 0.70, r: 0.11, h: 0.045 },
+        { x: 0.32, z: 0.28, y: 0.66, r: 0.07, h: 0.035 },
+        { x: 0.05, z: 0.46, y: 0.62, r: 0.08, h: 0.050 },
+        { x: -0.12, z: 0.34, y: 0.70, r: 0.055, h: 0.030 },
+        { x: 0.44, z: 0.12, y: 0.58, r: 0.09, h: 0.040 },
+        { x: 0.52, z: -0.02, y: 0.52, r: 0.05, h: 0.045 },
+        { x: -0.30, z: 0.10, y: 0.72, r: 0.045, h: 0.025 },
+      ];
+      for (const c of colony) parts.push({ mat: 1, geo: xform(new THREE.ConeGeometry(c.r, c.h, 3, 1, true), { x: c.x, z: c.z, y: c.y }) });
+      // Route the hero's mat-1 glow through the brighter hero-only escalator (intensity 2.3) so the
+      // crown colonies + gill fold read from the top-down camera. Only glowcolossus does this.
+      const merged = mergeParts(parts, 4);
+      merged.materials[merged.materials.length - 1] = propMats.mireHeroLiving;
+      return merged;
     },
-    // Colossal: r 26–36, h 16–22 → cap diameter ~35–50m vs a ~3m dragon. Heroes stand PLUMB
-    // (tilt 0 explicit — a missing tilt is a NaN quaternion); all lean is offset geometry. Draw r
-    // first, couple x to it (colonnata law); propclearance (biome-4 CI) verifies the inner edge.
-    place: (side, rnd) => { const r = 26 + rnd() * 10; return { x: side * (18 + 0.80 * r + rnd() * 5), h: 16 + rnd() * 6, r, tilt: 0 }; },
+    // Colossal: r 26–36, h 18–24 → cap diameter ~35–50m vs a ~3m dragon. Pulled ~8–11m closer
+    // (Fable v42 D-lever) so the camera looks more level at it; rim y 9–12 = the camera band.
+    // AUTHORED rotY (heroes keep it) so the +z colony shoulder greets the approaching camera up-lane.
+    // Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion); lean is offset geometry.
+    place: (side, rnd) => { const r = 26 + rnd() * 10; return { x: side * (14.5 + 0.72 * r + rnd() * 4), h: 18 + rnd() * 6, r, tilt: 0, rotY: Math.PI }; },
   },
 };
 
