@@ -322,6 +322,10 @@ export const BIOMES = [
     wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
     rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
     stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.
+    // The signature hazard: a telegraphed lethal lightning strike (hazards.js type 'lightning' →
+    // a two-stage magenta telegraph, then a white/violet bolt from stormLightning.js + the full flash).
+    // Dodge-only (cylinder radius 3.2, lethal ≤0.35s). Rarer than geysers; determinism via hazardRnd.
+    hazard: { type: 'lightning', every: [240, 460], warn: 1.2, radius: 3.2 },
     // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
     // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
     // These Points are now near-water SPUME (torn spray), NOT the rain — the rain is the rain.js
