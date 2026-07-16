@@ -270,9 +270,12 @@ const fragmentShader = /* glsl */`
       float fAc = fract(wf.y * 0.10);
       lane *= smoothstep(0.26, 0.45, fAc) * smoothstep(0.68, 0.45, fAc);   // ~2.5–3m lane centered in the 10m band
       lane *= smoothstep(-0.05, 0.55, sStorm) * (0.6 + 0.4 * smoothstep(0.1, 0.5, h + 0.2)); // crest-biased + torn by ripple
-      // SECONDARY flecks — spray torn OFF lanes: masked to the lane neighborhood, capped low.
-      float fleck = smoothstep(0.92, 1.0, hash(floor(vec2(wf.x * 0.6, wf.y * 1.8) + 31.0))) * 0.12;
-      fleck *= smoothstep(0.40, 0.62, lnoise);   // only near a primary lane — never free sprinkle
+      // SECONDARY flecks — spray torn OFF lanes: ELONGATED along the wind (≈7:1 smears, not chips),
+      // SOFT-edged (no rectilinear border), masked to the lane neighborhood, near-field contrast damped.
+      float fleckN = hash(floor(vec2(wf.x * 0.22, wf.y * 1.7) + 31.0));   // ~4.5m along × ~0.6m across
+      float fleck = smoothstep(0.72, 1.0, fleckN) * 0.12;                 // wide soft edge → smear, not tile
+      fleck *= smoothstep(0.40, 0.62, lnoise);                           // only near a primary lane — never free sprinkle
+      fleck *= mix(0.5, 1.0, smoothstep(0.0, 35.0, dist));               // damp fleck CONTRAST directly under the camera (primary lanes stay full)
       float foamS = (lane + fleck) * pres;        // clustered by the presence field
       foamS *= mix(0.6, 1.0, smoothstep(30.0, 150.0, dist));            // ease the near field (gameplay lives here)
       foamS *= 1.0 - smoothstep(fogFar * 0.7, fogFar, dist);           // dissolve clean into the pale far fog (bible law)
