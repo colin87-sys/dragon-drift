@@ -6,7 +6,8 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
-import { createRain, updateRain, setRainTier, rainGustAt } from './rain.js';
+import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
+import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
@@ -2048,6 +2049,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uRainVeil: { value: 0 },
       uRainVeilScroll: { value: 0 },
       uRainVeilFlash: { value: 0 },
+      // Storm LIGHTNING FLASH (0 = off): a global desaturated lift, directional toward the strike,
+      // held OFF the cloud undersides so the deck silhouettes against the flash. 0 outside Tempest.
+      uStormFlash: { value: 0 },
+      uStormFlashDir: { value: new THREE.Vector2(0, -1) },
       // EYE-BREACH (Tempest): the eye-of-the-gale window gate. 0 = off (byte-identical). >0 punches a
       // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
       // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
@@ -2065,8 +2070,8 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
-      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash;
-      uniform float uBreachMix;
+      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
+      uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
       // Rain-veil 1D value noise (layer F) — pure ALU, no texture.
@@ -2149,9 +2154,23 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _dAz = abs(atan(sin(_az - _sunAz), cos(_az - _sunAz)));           // wrapped angular distance to the breach azimuth
           float _breachClear = mix(0.4, 1.0, smoothstep(0.32, 0.9, _dAz));        // <=40% within ~18deg of the breach
           float _veil = clamp(_curt * _grain * _band * _breachClear * uRainVeil, 0.0, 1.0);
-          vec3 _veilCol = fogFarColor * (1.0 + 1.1 * uRainVeilFlash);             // the lightning flash lights the veil
+          vec3 _veilCol = fogFarColor * (1.0 + 1.6 * uRainVeilFlash);             // the lightning flash lights the far curtains → veil reads as stacked sheets in depth
           col = mix(col, _veilCol, _veil * 0.34);                                 // push to a 6-9% squint-read (Fable r1 — software-GL eats a third)
           col *= 1.0 - _veil * 0.09;                                              // a dense shaft reads darker than the haze
+        }
+        // STORM LIGHTNING FLASH: a desaturated global lift, DIRECTIONAL toward the strike (something over
+        // THERE detonated, not a brightness knob), strongest in the upper sky, HELD DOWN where clouds cover
+        // (cCov) so the deck silhouettes against the flash. Hard white-out cap. 0 outside Tempest.
+        if (uStormFlash > 0.001) {
+          vec2 _faz = normalize(d.xz + vec2(1e-4));
+          float _fdw = 0.4 + 0.6 * max(0.0, dot(_faz, uStormFlashDir));           // 40/60 dark/bright hemisphere
+          float _fband = 0.32 + 0.36 * smoothstep(0.0, 0.32, h) - 0.42 * smoothstep(0.08, 0.40, h); // strongest near the horizon; the deck/upper sky lifts LEAST (stays a ceiling)
+          float _fl = uStormFlash * _fdw * _fband * (1.0 - 0.9 * cCov);           // clouds stay dark (harder hold)
+          col = mix(col, vec3(0.76, 0.79, 0.86), clamp(_fl, 0.0, 0.38));          // desaturated #c7cfe0, gentler peak
+          // Cap by VIEW HEIGHT, not cloud coverage (Fable r2: partial cCov relaxed the cap to ~0.60). The
+          // storm ceiling owns the upper sky, so cap the whole upper band at L≈0.46 so it silhouettes
+          // against the flash; the pale horizon SLOT (low h) keeps the white-out cap 0.82 and stays bright.
+          col = min(col, vec3(mix(0.82, 0.46, smoothstep(0.02, 0.12, h))));
         }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
@@ -2230,6 +2249,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   // --- Ambient particles + birds.
   createAmbient(scene);
   createRain(scene);   // storm rain-streak layer (rainMix-gated; Tempest only)
+  initStormLightning(scene); setStormLightningEnabled(true);   // storm lightning + flash (rainMix-gated; 0 elsewhere = byte-identical)
 }
 
 function makeBand(scene, def) {
@@ -2801,7 +2821,9 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   const _veilGust = _veilMix > 0.005 ? rainGustAt(time) : 0;
   su.uRainVeil.value = _veilMix * (0.82 + 0.4 * _veilGust);
   su.uRainVeilScroll.value = (time * (0.020 + 0.030 * _veilGust)) % 1024;
-  su.uRainVeilFlash.value = 0;
+  su.uRainVeilFlash.value = getStormFlashRain();     // the flash brightens the far curtains → veil reads as stacked sheets
+  su.uStormFlash.value = getStormFlashSky();
+  su.uStormFlashDir.value.copy(getStormFlashDir());
   // EYE-BREACH (the still axle): world-locked to the sun azimuth, no scroll/gust. 0 outside Tempest
   // (breachMix 0) → byte-identical. v1 = a fixed prominent state (the progress-arc growth is a follow-on).
   su.uBreachMix.value = env.breachMix || 0;
@@ -2812,5 +2834,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   bossMix = damp(bossMix, bossTarget, 4, dt);
 
   updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
+  updateStormLightning(dt, camera, env, time);   // lightning bolts + the flash envelopes (rainMix-gated)
+  setRainFlash(getStormFlashRain());              // Layer X: the flash reveals the rain volume (rain lingers longer than the sky)
   updateRain(dt, camera, env, time);   // storm rain streaks — reads env.rainMix + the shared wind vector + gust clock
 }
