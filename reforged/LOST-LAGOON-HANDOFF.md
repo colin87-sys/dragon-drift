@@ -226,7 +226,65 @@ Smithsonian NMAA (naga balustrade), Smithsonian Ocean / USGS (mangrove stilt roo
 
 ---
 
-## 8. Suggested first moves for the new session
+## 8. Capture & verification harness — the two-stage gate
+
+The game renders **headlessly**. `tests/browser.mjs` exports `boot({query, viewport, deviceScaleFactor, initScript})`
+— it launches the game in headless Chromium and returns a Playwright `page` you screenshot. Every `tools/*.mjs`
+capture script uses it. Chromium is pre-installed (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`) — **never run
+`playwright install`**. Bash cwd resets to the repo root between calls, so every command must start
+`cd /home/user/dragon-drift/reforged`. Boot with `?biome=0&debug` to expose the `window.__dd` debug object —
+everything below hangs off it.
+
+### 8.1 The process law: STUDIO first, then IN-GAME — in that order, always
+**Stage 1 — STUDIO (form gate).** Build the prop and render it in an isolated fit-to-bbox studio: neutral framing,
+multiple yaws, no water/atmosphere, seconds per iteration. Harnesses exist — `tools/propstudio.mjs` /
+`tools/propstudio.html` (generic) and `tools/lagoonstudio.mjs` (lagoon-specific); copy the pattern, don't rewrite it.
+Get Fable to **≥4.2/5 on FORM here first**: silhouette, THE NAME TEST, value structure, yaw-robustness — i.e. gates
+1 / 2(partial) / 4 of §7.4. Never burn expensive in-context renders on a broken silhouette. **Hard caveat:** the
+studio shows unit proportions, not the real `(r,h,r)` world anisotropy, and not the golden-hour palette — a studio
+pass is *necessary, not sufficient*.
+
+**Stage 2 — IN-GAME (the real gate).** Only after Stage 1 passes, render the prop in the real biome: water, fog,
+reflection, golden light, real `(r,h,r)` instance scale, the mirror double, cruise distance, and the natural dragon
+flythrough. Get Fable to **≥4.2/5 AGAIN in-context** — this covers §7.4's palette, mirror/value-in-light,
+distinctness-at-cruise, and world-aspect machine numbers. This is the frame the owner judges. **A prop is done only
+when BOTH stages pass.** One revise round per stage per §7.4; a third attempt means change technique.
+
+### 8.2 Screenshot-at-a-position mechanics (all via `window.__dd` under `?debug`)
+- **Jump, don't fly:** `dd.player.dist = <meters>` teleports the camera to the spawn distance. Props sit off-lane at
+  deterministic distances — sweep `dist` to find one, or boot `?hero=<archetype>` to pin ONLY that archetype in biome
+  0 (`?hero=a,b,c` stages a hero+mid+commons scale trio). Read a real active instance out of the InstancedMesh
+  matrices to aim at it.
+- **Hold still:** `dd.game.timeScale = 0` — but it auto-ramps back to 1, so re-set it, or set `dd.player.speed = 0`
+  to stop forward motion.
+- **Disable deaths** — a teleport can drop the dragon into a gate/hazard and a game-over overlay ("CLIPPED THE
+  CRYSTAL WINDOW") ruins the frame. Pin every frame in the page:
+  ```js
+  setInterval(() => { dd.game.health = 100; dd.clearVents(); }, 24);
+  ```
+  plus `dd.noBoss(true)` so no boss clears the scenery. Side effect: with the pin interval live, the script's
+  `done()`/teardown may hang — the frames are already on disk, just read them.
+- **THE CAMERA SEAM (the one non-obvious trap — cost a full debugging session):** to frame a prop from an arbitrary
+  pose in the real biome, override **`dd.cameraCtl.update`** (runs at the TOP of each frame), **not**
+  `dd.renderer.render`. The sky dome follows the camera, and the god-ray sun projection + water reflection are
+  computed from the camera position BEFORE the frame draws — a `renderer.render` override moves the camera too late
+  and the frame renders BLACK. Working implementation: `tools/_lagoonclose.mjs`; lesson:
+  `leapfrog/lessons/2026-07-16-graphics-in-context-closeup-camera-seam.md`.
+
+### 8.3 Existing tools — copy, don't rewrite
+| Tool | What it gives you |
+|---|---|
+| `tools/propstudio.mjs` / `.html` | Stage-1 generic fit-to-bbox studio, multi-yaw |
+| `tools/lagoonstudio.mjs` | Stage-1 lagoon-specific studio |
+| `tools/_lagoon.mjs` | Stage-2 distance sweep, health-pinned |
+| `tools/_lagoonclose.mjs` | Stage-2 up-close arbitrary pose via the cameraCtl seam |
+| `tools/_lagooncomp.mjs` | Stage-2 natural real-time flythrough (the owner's frame) |
+
+**Run capture sweeps SEQUENTIALLY** — 4 parallel headless Chromium boots time out the screenshot on the weak runner.
+
+---
+
+## 9. Suggested first moves for the new session
 1. Read §0 docs + skim the failed props' `build()` to learn the primitive/bake vocabulary.
 2. Confirm/extend Fable's plan (§7) with your own reference research; lock the palette + roster.
 3. Build the vertical NATURAL landmark first (the karst spire, per plan) — it's the highest-leverage change and
