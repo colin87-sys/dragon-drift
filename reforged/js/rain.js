@@ -24,7 +24,7 @@ import { SUN_DIR } from './biomes.js';
 
 const NEAR = 140, MID = 340, COUNT = NEAR + MID;   // ~480 streaks
 const NEAR_THICK = 72;                              // the closest streaks get flanking lines (real thickness)
-const MIST = 150;                                   // suspended spray points (layer P)
+const MIST = 120;                                   // suspended spray points (layer P)
 const R_FAR = 38, Y_LO = -26, Y_HI = 26;
 const LEAN_K = 0.25;                                // ~14° base lean; gusts push it to ~24°
 
@@ -55,7 +55,7 @@ export function rainGustAt(t) {
 
 // ---- palette (layer V) ------------------------------------------------------
 const C_DECK = new THREE.Color(0xc6d0d2);   // pale slate — streak against the dark storm deck (light over dark)
-const C_SLOT = new THREE.Color(0x77828a);   // dark slate — streak against the pale horizon slot (dark over light)
+const C_SLOT = new THREE.Color(0x626d76);   // dark slate — streak against the pale horizon slot (dark over light; Fable r1 darker)
 const C_SEA  = new THREE.Color(0xa9b3b5);   // pale-dim — streak against the mid-dark sea
 const C_LEAK = new THREE.Color(0xe6cfa2);   // warm — backlit rain in the sun quadrant (the LEAK)
 
@@ -66,22 +66,24 @@ let flashV = 0;
 const _dir = new THREE.Vector3(), _perp = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const _sunAz = Math.atan2(SUN_DIR.z, SUN_DIR.x);
 
+// Returns [r, g, b, amul] — amul is the value-flip alpha multiplier (dark-on-pale needs more
+// alpha than pale-on-dark to survive a 1px line). Elevation windows widened ~20% (Fable r1).
 function _streakColor(ox, oy, oz, near) {
   const hyp = Math.hypot(ox, oz) + 1e-4;
   const elev = Math.atan2(oy, hyp);                 // elevation of this drop from the camera
-  let c;
-  if (elev > 0.14) c = C_DECK;                       // high → against the deck: pale (light/dark)
-  else if (elev < -0.12) c = C_SEA;                  // low → against the sea: pale-dim
-  else c = C_SLOT;                                   // horizon band → dark slate (dark/light — the flip)
+  let c, amul;
+  if (elev > 0.16) { c = C_DECK; amul = 1.0; }       // high → against the deck: pale (light/dark)
+  else if (elev < -0.15) { c = C_SEA; amul = 1.25; } // low → against the sea: pale-dim (Fable r1 ×1.25)
+  else { c = C_SLOT; amul = 1.4; }                   // horizon band → dark slate, boosted (the flip; Fable r1 ×1.4)
   let r = c.r, g = c.g, b = c.b;
   // The LEAK: streaks low in the sun quadrant catch a warm backlit tint (the storm failing to hold the sun).
   const az = Math.atan2(oz, ox);
   let dAz = Math.abs(az - _sunAz); if (dAz > Math.PI) dAz = 2 * Math.PI - dAz;
   if (dAz < 0.55 && elev < 0.12) {
-    const w = (1 - dAz / 0.55) * (near ? 0.45 : 0.28);
+    const w = (1 - dAz / 0.55) * (near ? 0.55 : 0.30);   // Fable r1: head weight 0.45→0.55 (findable in a still)
     r += (C_LEAK.r - r) * w; g += (C_LEAK.g - g) * w; b += (C_LEAK.b - b) * w;
   }
-  return [r, g, b];
+  return [r, g, b, amul];
 }
 
 export function createRain(scene) {
@@ -97,26 +99,27 @@ export function createRain(scene) {
   for (let i = 0; i < COUNT; i++) {
     const near = i < NEAR, thick = i < NEAR_THICK;
     // Tier the radius so the field reads in 3 depth planes: thick(closest) → near → mid.
-    const rad = thick ? (3 + rnd() * 6) : (near ? (9 + rnd() * 14) : (13 + rnd() * (R_FAR - 13)));
+    // Thick radius pulled in ~15% (Fable r1) so those 72 streaks subtend real pixels.
+    const rad = thick ? (2.5 + rnd() * 5) : (near ? (9 + rnd() * 14) : (13 + rnd() * (R_FAR - 13)));
     const ang = rnd() * Math.PI * 2;
     off[i * 3] = Math.cos(ang) * rad;
     off[i * 3 + 1] = Y_LO + rnd() * (Y_HI - Y_LO);
     off[i * 3 + 2] = Math.sin(ang) * rad;
     const lv = 0.6 + rnd() * 0.8;
-    len[i] = (near && rnd() < 0.1) ? (11.0 + rnd()) : (near ? 7.0 : 3.75) * lv;
+    len[i] = (near && rnd() < 0.1) ? (12.5 + rnd()) : (near ? 8.0 : 3.75) * lv;   // near length ×1.15 (Fable r1)
     spd[i] = (near ? 30 : 22) * (0.8 + rnd() * 0.4);
     jitx[i] = (rnd() - 0.5) * 0.09;                  // per-streak angle jitter (~±2.6°) — kills the comb
     jitz[i] = (rnd() - 0.5) * 0.09;
-    // Head alpha per plane; tail fades to 0 (per-vertex). Colour = value flip.
-    const aHead = thick ? 0.44 : (near ? 0.34 : 0.18);
+    // Head alpha per plane × value-flip multiplier; tail fades to 0. thick head 0.44→0.55 (Fable r1).
     const rgb = _streakColor(off[i * 3], off[i * 3 + 1], off[i * 3 + 2], near);
+    const aHead = (thick ? 0.55 : (near ? 0.36 : 0.18)) * rgb[3];
     const h = i * 8;                                  // 2 verts × 4 comps
     col[h] = rgb[0]; col[h + 1] = rgb[1]; col[h + 2] = rgb[2]; col[h + 3] = aHead;       // head
     col[h + 4] = rgb[0]; col[h + 5] = rgb[1]; col[h + 6] = rgb[2]; col[h + 7] = 0.0;     // tail
     if (thick) {
-      const fb = (vMain + i * 4) * 4;                 // flank colour base — 1/3 alpha, same hue
+      const fb = (vMain + i * 4) * 4;                 // flank colour base — 0.40 of head (Fable r1), same hue
       for (let f = 0; f < 4; f++) {                   // L head, L tail, R head, R tail
-        const fa = (f % 2 === 0) ? aHead * 0.34 : 0.0;
+        const fa = (f % 2 === 0) ? aHead * 0.40 : 0.0;
         col[fb + f * 4] = rgb[0]; col[fb + f * 4 + 1] = rgb[1]; col[fb + f * 4 + 2] = rgb[2]; col[fb + f * 4 + 3] = fa;
       }
     }
@@ -137,14 +140,16 @@ export function createRain(scene) {
   const mp = new Float32Array(MIST * 3);
   moff = new Float32Array(MIST * 3);
   for (let i = 0; i < MIST; i++) {
-    const rad = 2 + rnd() * 10, ang = rnd() * Math.PI * 2, yy = -6 + rnd() * 12;
+    // Spawn BELOW the horizon (deck-underside band and down) so spray never reads as a starfield
+    // against the dark sky (Fable r1). yy in [-9, 0].
+    const rad = 2 + rnd() * 10, ang = rnd() * Math.PI * 2, yy = -9 + rnd() * 9;
     moff[i * 3] = Math.cos(ang) * rad; moff[i * 3 + 1] = yy; moff[i * 3 + 2] = Math.sin(ang) * rad;
   }
   const mgeo = new THREE.BufferGeometry();
   mgeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
   mistPos = mgeo.attributes.position;
   mmat = new THREE.PointsMaterial({
-    size: 0.10, sizeAttenuation: true, map: _radialSprite(), color: new THREE.Color(0xc2ccce),
+    size: 0.06, sizeAttenuation: true, map: _radialSprite(), color: new THREE.Color(0xc2ccce),
     transparent: true, depthWrite: false, blending: THREE.NormalBlending, opacity: 0,
   });
   mist = new THREE.Points(mgeo, mmat);
@@ -219,13 +224,16 @@ export function updateRain(dt, camera, env, time = 0) {
     // Value flip recompute on recycle (near-free — colour is stable between recycles).
     if (recycled) {
       const rgb = _streakColor(ox, oy, oz, near);
-      const aHead = thick ? 0.44 : (near ? 0.34 : 0.18);
+      const aHead = (thick ? 0.55 : (near ? 0.36 : 0.18)) * rgb[3];
       const h = i * 8;
       c[h] = rgb[0]; c[h + 1] = rgb[1]; c[h + 2] = rgb[2]; c[h + 3] = aHead;
       c[h + 4] = rgb[0]; c[h + 5] = rgb[1]; c[h + 6] = rgb[2];
       if (thick) {
         const fb = (vMain + i * 4) * 4;
-        for (let f = 0; f < 4; f++) { c[fb + f * 4] = rgb[0]; c[fb + f * 4 + 1] = rgb[1]; c[fb + f * 4 + 2] = rgb[2]; }
+        for (let f = 0; f < 4; f++) {
+          c[fb + f * 4] = rgb[0]; c[fb + f * 4 + 1] = rgb[1]; c[fb + f * 4 + 2] = rgb[2];
+          if (f % 2 === 0) c[fb + f * 4 + 3] = aHead * 0.40;
+        }
       }
       colDirty = true;
     }
@@ -233,7 +241,7 @@ export function updateRain(dt, camera, env, time = 0) {
     // horizontal plane, ±~0.04m; two parallel dim lines flanking the bright core → 3 value zones.
     if (thick) {
       _perp.set(_dir.z, 0, -_dir.x); const pl = _perp.length(); if (pl > 1e-4) _perp.multiplyScalar(1 / pl); else _perp.set(1, 0, 0);
-      const wo = 0.045;
+      const wo = 0.08;   // flank offset (Fable r1: 0.045 was sub-pixel)
       const fb = (vMain + i * 4) * 3;
       // L segment
       p[fb] = wx - _perp.x * wo; p[fb + 1] = wy; p[fb + 2] = wz - _perp.z * wo;
@@ -251,7 +259,7 @@ export function updateRain(dt, camera, env, time = 0) {
     const mp = mistPos.array, mdrift = dt * (0.8 + 1.4 * gust);
     for (let i = 0; i < MIST; i++) {
       let ox = moff[i * 3] + windX * mdrift, oy = moff[i * 3 + 1] - 0.15 * dt, oz = moff[i * 3 + 2] + windZ * mdrift;
-      if (oy < -6) oy += 12;
+      if (oy < -9) oy += 9;
       const r2 = ox * ox + oz * oz; if (r2 > 144) { ox *= 0.3; oz *= 0.3; }   // keep it a near cloud
       moff[i * 3] = ox; moff[i * 3 + 1] = oy; moff[i * 3 + 2] = oz;
       mp[i * 3] = cx + ox; mp[i * 3 + 1] = cy + oy; mp[i * 3 + 2] = cz + oz;

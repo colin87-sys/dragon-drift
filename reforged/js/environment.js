@@ -1758,16 +1758,16 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _az = atan(d.z, d.x);
           float _sc = _az * 2.3 + uRainVeilScroll;
           float _curt = _rvN(_sc) * 0.62 + _rvN(_sc * 2.7 + 5.1) * 0.38;
-          _curt = smoothstep(0.30, 0.82, _curt);                                  // gap into discrete shafts, not a wash
-          float _grain = 0.72 + 0.28 * _rvN(_sc * 9.0 + d.y * 2.5);               // faint vertical interior grain
+          _curt = smoothstep(0.48, 0.72, _curt);                                  // tighter gap → discrete curtains, not a wash (Fable r1)
+          float _grain = 0.58 + 0.42 * _rvN(_sc * 9.0 + d.y * 2.5);               // vertical interior grain ×1.5
           float _band = smoothstep(0.05, 0.15, h) * smoothstep(0.42, 0.20, h);    // deck underside → belt (fades before the horizon slot)
           float _sunAz = atan(sunDir.z, sunDir.x);
           float _dAz = abs(atan(sin(_az - _sunAz), cos(_az - _sunAz)));           // wrapped angular distance to the breach azimuth
           float _breachClear = mix(0.4, 1.0, smoothstep(0.32, 0.9, _dAz));        // <=40% within ~18deg of the breach
           float _veil = clamp(_curt * _grain * _band * _breachClear * uRainVeil, 0.0, 1.0);
           vec3 _veilCol = fogFarColor * (1.0 + 1.1 * uRainVeilFlash);             // the lightning flash lights the veil
-          col = mix(col, _veilCol, _veil * 0.20);                                 // <=20% mix (curt/band keep the real modulation to a squint-read 4-8%)
-          col *= 1.0 - _veil * 0.05;                                              // a dense shaft reads a touch darker than the haze
+          col = mix(col, _veilCol, _veil * 0.34);                                 // push to a 6-9% squint-read (Fable r1 — software-GL eats a third)
+          col *= 1.0 - _veil * 0.09;                                              // a dense shaft reads darker than the haze
         }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
