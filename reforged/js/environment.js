@@ -6,7 +6,8 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
-import { createRain, updateRain, setRainTier, rainGustAt } from './rain.js';
+import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
+import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
@@ -1979,6 +1980,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uRainVeil: { value: 0 },
       uRainVeilScroll: { value: 0 },
       uRainVeilFlash: { value: 0 },
+      // Storm LIGHTNING FLASH (0 = off): a global desaturated lift, directional toward the strike,
+      // held OFF the cloud undersides so the deck silhouettes against the flash. 0 outside Tempest.
+      uStormFlash: { value: 0 },
+      uStormFlashDir: { value: new THREE.Vector2(0, -1) },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -1992,7 +1997,8 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
-      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash;
+      uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash;
+      uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
       // Rain-veil 1D value noise (layer F) — pure ALU, no texture.
@@ -2042,6 +2048,17 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           vec3 _veilCol = fogFarColor * (1.0 + 1.1 * uRainVeilFlash);             // the lightning flash lights the veil
           col = mix(col, _veilCol, _veil * 0.34);                                 // push to a 6-9% squint-read (Fable r1 — software-GL eats a third)
           col *= 1.0 - _veil * 0.09;                                              // a dense shaft reads darker than the haze
+        }
+        // STORM LIGHTNING FLASH: a desaturated global lift, DIRECTIONAL toward the strike (something over
+        // THERE detonated, not a brightness knob), strongest in the upper sky, HELD DOWN where clouds cover
+        // (cCov) so the deck silhouettes against the flash. Hard white-out cap. 0 outside Tempest.
+        if (uStormFlash > 0.001) {
+          vec2 _faz = normalize(d.xz + vec2(1e-4));
+          float _fdw = 0.4 + 0.6 * max(0.0, dot(_faz, uStormFlashDir));           // 40/60 dark/bright hemisphere
+          float _fband = 0.30 + 0.70 * smoothstep(0.0, 0.5, h);                   // upper sky lifts most
+          float _fl = uStormFlash * _fdw * _fband * (1.0 - 0.7 * cCov);           // clouds stay dark
+          col = mix(col, vec3(0.78, 0.81, 0.88), clamp(_fl, 0.0, 0.55));          // desaturated #c7cfe0
+          col = min(col, vec3(0.82));                                             // white-out guard (no channel > ~0.82)
         }
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
@@ -2120,6 +2137,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   // --- Ambient particles + birds.
   createAmbient(scene);
   createRain(scene);   // storm rain-streak layer (rainMix-gated; Tempest only)
+  initStormLightning(scene); setStormLightningEnabled(true);   // storm lightning + flash (rainMix-gated; 0 elsewhere = byte-identical)
 }
 
 function makeBand(scene, def) {
@@ -2656,7 +2674,9 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   const _veilGust = _veilMix > 0.005 ? rainGustAt(time) : 0;
   su.uRainVeil.value = _veilMix * (0.82 + 0.4 * _veilGust);
   su.uRainVeilScroll.value = (time * (0.020 + 0.030 * _veilGust)) % 1024;
-  su.uRainVeilFlash.value = 0;
+  su.uRainVeilFlash.value = getStormFlashRain();     // the flash brightens the far curtains → veil reads as stacked sheets
+  su.uStormFlash.value = getStormFlashSky();
+  su.uStormFlashDir.value.copy(getStormFlashDir());
 
   // Boss-time mote budget: own eased copy of the same signal postfx grades
   // with (same ~1s damp idiom as feverMix above) — decays unconditionally so
@@ -2664,5 +2684,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   bossMix = damp(bossMix, bossTarget, 4, dt);
 
   updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
+  updateStormLightning(dt, camera, env, time);   // lightning bolts + the flash envelopes (rainMix-gated)
+  setRainFlash(getStormFlashRain());              // Layer X: the flash reveals the rain volume (rain lingers longer than the sky)
   updateRain(dt, camera, env, time);   // storm rain streaks — reads env.rainMix + the shared wind vector + gust clock
 }
