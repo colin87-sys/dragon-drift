@@ -308,6 +308,27 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
   return geo;
 }
 
+// THE FOLIAGE bake (LOST-LAGOON-BIBLE.md §3) — the Lagoon's LIVING green stops, distinct from the
+// masonry tide ladder: the only vegetated biome in the cycle. Keyed to the geometric face NORMAL (not
+// height): up-facing leaf faces catch the low sun (sunlit olive-gold), everything else is shadow-green.
+// Used by lilyraft (pads + reeds) and rootbastion's canopy pads — a SYSTEM, not a one-off. Running this
+// INSTEAD of the tide ladder is what stops the default bake painting leaves bleached-ivory (ice-floe leak).
+const _LAG_OLIVE = [0.561, 0.659, 0.290];  // 0x8fa84a sunlit olive-gold (up-facing leaf)
+const _LAG_SHADOW = [0.184, 0.353, 0.220]; // 0x2f5a38 shadow-green (rims, undersides, blades)
+function bakeLilyFoliage(geo) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // geometric face normal
+    const s = nr.y > 0.35 ? _LAG_OLIVE : _LAG_SHADOW;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
 // Merge a Lost Lagoon new-kit archetype: NON-INDEXED parts → ≤2 material groups → bake the tide
 // ladder → bake AO. Primary group = lagoonStone (reads vColor); accent group = gilt (vertexColors
 // off, ignores the bake on the shared geometry). opts.foil → the no-ladder no-glow lagoonFoil mass
@@ -324,7 +345,8 @@ function mergeLagoonParts(parts, opts = {}) {
     mats.push(m === 0 ? (opts.foil ? propMats.lagoonFoil : propMats.lagoonStone) : propMats.gilt);
   }
   const geometry = mergeGeometries(geos, true);
-  if (!opts.foil) bakeTideLadder(geometry);   // the foil carries NO ladder (bare masonry)
+  if (opts.bake === 'lily') bakeLilyFoliage(geometry);   // living foliage (pads/reeds/canopy) — not the tide ladder
+  else if (!opts.foil) bakeTideLadder(geometry);          // the foil carries NO ladder (bare masonry)
   bakeAO(geometry);
   return { geometry, materials: mats };
 }
@@ -1120,6 +1142,72 @@ const ARCHETYPES = {
       return p;
     },
   },
+  // THE LOST LAGOON — THE LOW REST / COMMONS (LOST-LAGOON-BIBLE.md §4.4): living Victoria-amazonica
+  // lily-pad rafts flush with the mirror — the ONLY living green in the whole biome cycle, and the scale
+  // witness (a 2m pad beside a 40m dome). Cuts the gold reflection lane into green ellipses in the
+  // foreground. Paper-thin water-conforming discs with an upturned rim + a radial notch (NOT a thick
+  // tilted ice floe) + hair-thin reed blades. FOLIAGE bake (olive-gold up / shadow-green else) — NEVER
+  // the tide ladder (that would bleach the pads ivory = ice-floe leak). No glow (commons carry no gilt).
+  lilyraft: {
+    step: 19, biomes: lagoonNew, matIndex: 0, comp: { floor: 0.55, sMin: 0.90, sMax: 1.06 }, // low rest: survives the arrival park (the commons is always underfoot)
+    build: () => {
+      const parts = [];
+      // HERO PAD — a near-vertical upturned rim (partial cone) around a plate RECESSED to the rim base.
+      // Fable l2 D2: the recess makes the rim's inner wall (near-horizontal normals → shadow-green) show
+      // as a dark crescent inside the olive plate = the bowl read (no painted ring — the shadow is
+      // geometric). D1: the notch is cut through BOTH rim AND plate (aligned theta) so it reads in PLAN
+      // as a real dark-water wedge — the Victoria pad's primary aerial signature.
+      const rimTh = 5.0, ry = 0.6;   // ~73° notch gap; plate theta is mirrored by the rx flip → 2π−rimTh
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.30, 0.09, 7, 1, true, 0, rimTh), { y: 0.045, ry }) });                 // 14
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.29, 7, 2 * Math.PI - rimTh, rimTh), { y: 0.02, rx: -Math.PI / 2, ry }) });      // 7 (plate in the bowl, notch aligned)
+      // NOTCH CUT FACES — close the two radial ends so the split shows THICKNESS, not a paper edge (Fable
+      // build-sheet #3). At each notch-end world angle, a quad from plate-centre → plate-edge → rim crest.
+      {
+        const v = [];
+        for (const a of [ry, rimTh + ry]) {   // the two notch-end angles in world (rim present arc = [ry, rimTh+ry])
+          const C = [0, 0.02, 0], PE = [0.29 * Math.cos(a), 0.02, 0.29 * Math.sin(a)];
+          const RB = [0.30 * Math.cos(a), 0.0, 0.30 * Math.sin(a)], RC = [0.32 * Math.cos(a), 0.09, 0.32 * Math.sin(a)];
+          v.push(...C, ...PE, ...RC, ...C, ...RC, ...RB);
+        }
+        const cut = new THREE.BufferGeometry();
+        cut.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        cut.computeVertexNormals();
+        cut.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: cut }); // 4
+      }
+      // SECOND PAD — a smaller sibling, full rim, no notch (three distinct radii; no radial symmetry).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.20, 0.08, 6, 1, true), { x: 0.38, z: -0.10, y: 0.04 }) }); // 12
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.20, 6), { x: 0.38, z: -0.10, y: 0.02, rx: -Math.PI / 2 }) });       // 6 (recessed to rim base)
+      // YOUNG PAD — a flat juvenile, no rim, a breath of tilt (breaks the "product line" read).
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.13, 6), { x: -0.30, z: 0.28, y: 0.03, rx: -Math.PI / 2, rz: 0.05 }) }); // 6
+      // REED SPEARS — 3 hair-thin tapering blades rising from the raft's near edge, all within ~0.28 rad
+      // of vertical (Fable l2 D4: a reed is a spear, never a stick adrift — no near-horizontal sliver).
+      {
+        const v = [];
+        const blades = [ // [bx, bz, h, leanX, leanZ, yaw] — leans kept small so none reads horizontal
+          [-0.12, -0.20, 1.00, 0.06, 0.05, 0.4],
+          [-0.05, -0.24, 0.84, 0.10, 0.02, 1.5],
+          [-0.18, -0.18, 0.70, 0.04, 0.07, 2.6],
+        ];
+        for (const [bx, bz, h, lx, lz, yaw] of blades) {
+          const px = -Math.sin(yaw), pz = Math.cos(yaw), wb = 0.030, wt = 0.008;
+          const BL = [bx - px * wb, 0, bz - pz * wb], BR = [bx + px * wb, 0, bz + pz * wb];
+          const tx = bx + lx, tz = bz + lz;
+          const TL = [tx - px * wt, h, tz - pz * wt], TR = [tx + px * wt, h, tz + pz * wt];
+          v.push(...BL, ...BR, ...TR, ...BL, ...TR, ...TL);
+        }
+        const reeds = new THREE.BufferGeometry();
+        reeds.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        reeds.computeVertexNormals();
+        reeds.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: reeds }); // 8
+      }
+      return mergeLagoonParts(parts, { bake: 'lily' });
+    },
+    // LOW hugger: top ≤ 1.2·sMax ≈ 1.27 world < 1.5. tilt 0 EXPLICIT (a raft conforms to water — a tilted
+    // pad is a floe; and a missing tilt is a NaN quaternion). Draw r first, couple x (ρ≈0.68 footprint).
+    place: (side, rnd) => { const r = 3.5 + rnd() * 4; return { x: side * (14.5 + 0.74 * r + rnd() * 5), h: 0.9 + rnd() * 0.3, r, tilt: 0 }; },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1141,6 +1229,7 @@ const FOAM_CFG = {
   riftwall: false,                    // distant rim massif on the fog line — no collar (bright ring 30+ off-lane = artifact)
   riftfang: { r: 0.5 },               // volcanic neck — thin collar at the base
   rotunda: { r: 0.8 },   // Lost Lagoon hero — the drum waterline weld: the jade tide-band doubled in the mirror
+  lilyraft: { r: 0.5 },  // Lost Lagoon commons — a subtle pad collar; the pads ARE the waterline event (drop to false if it eats the mirror)
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
