@@ -2096,21 +2096,25 @@ const ARCHETYPES = {
       const parts = [];
       // LILY PADS — paper-thin water-conforming discs (bake:'lily' → olive top), flush with the mirror.
       // Varied sizes; the main pad gets a radial NOTCH (the Victoria-amazonica aerial signature).
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.36, 8, 0.55, 2 * Math.PI - 1.0), { y: 0.02, rx: -Math.PI / 2 }) }); // main pad, notched
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.24, 7), { x: 0.44, z: -0.16, y: 0.015, rx: -Math.PI / 2 }) });      // sibling pad
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.16, 6), { x: -0.32, z: 0.30, y: 0.02, rx: -Math.PI / 2 }) });        // young pad
-      // LOTUS BLOOMS — 4 standing blush buds/blooms on thin green stems: the vertical accent + the 2nd hue.
-      // A bud is an ogive (narrow, tall); an open bloom is wider + shallower; the last is a flat-topped SEED
-      // POD (the sharpest spear). bake:'bloom' (warm blush) / green stems. Cheap cones (a tiny cruise dot).
-      const bloom = (x, z, h, r, kind) => {   // kind: 'bud' tall / 'open' wide-shallow / 'pod' flat-topped
-        parts.push({ mat: 0, bake: 'lily', geo: frustumBetween([x, 0.0, z], [x, h, z], 0.019, 0.015, 2) });   // green stem (thin)
-        const ch = kind === 'bud' ? r * 2.4 : kind === 'open' ? r * 1.3 : r * 0.7;   // pod = flat
-        parts.push({ mat: 0, bake: 'bloom', geo: xform(new THREE.ConeGeometry(r, ch, 4), { x, z, y: h + ch * 0.5, rx: kind === 'pod' ? Math.PI : 0 }) });
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.36, 10, 0.55, 2 * Math.PI - 1.0), { y: 0.02, rx: -Math.PI / 2 }) }); // main pad, notched (rounder → organic pad, not a stone tile)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.24, 9), { x: 0.44, z: -0.16, y: 0.02, rx: -Math.PI / 2 }) });        // sibling pad (flush)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.16, 8), { x: -0.32, z: 0.30, y: 0.02, rx: -Math.PI / 2 }) });        // young pad (flush)
+      // LOTUS BLOOMS — upward-opening CUPS (Fable r1: downward cones read as toadstools; a lotus bloom is
+      // the OPPOSITE solid — petals flaring UP and OUT, widest at the top RIM, open center). Each = a thin
+      // green stem + an open petal cup (a frustum widening upward); plus one tighter closed BUD and one
+      // flat SEED POD for variety. Spread across the pad cluster (no clump). bake:'bloom' (rose-blush).
+      const bloom = (x, z, h, r, kind) => {   // 'cup' open petals / 'bud' closed pointed / 'pod' flat seed head
+        parts.push({ mat: 0, bake: 'lily', geo: frustumBetween([x, 0.0, z], [x, h, z], 0.018, 0.014, 2) });   // green stem
+        let g;
+        if (kind === 'cup') g = xform(new THREE.CylinderGeometry(r, r * 0.32, r * 1.5, 6, 1, true), { x, z, y: h + r * 0.75 });   // OPEN petal cup — wide rim UP
+        else if (kind === 'bud') g = xform(new THREE.ConeGeometry(r * 0.62, r * 2.2, 5), { x, z, y: h + r * 1.1 });                // closed pointed bud (teardrop, apex up)
+        else g = xform(new THREE.ConeGeometry(r * 1.0, r * 0.55, 6), { x, z, y: h + r * 0.28, rx: Math.PI });                      // flat seed pod (wide flat top)
+        parts.push({ mat: 0, bake: 'bloom', geo: g });
       };
-      bloom(0.05, 0.09, 0.27, 0.055, 'bud');    // tall bud
-      bloom(-0.13, -0.05, 0.20, 0.062, 'open'); // open bloom (wider)
-      bloom(0.21, 0.19, 0.16, 0.045, 'bud');    // short bud
-      bloom(-0.05, -0.24, 0.25, 0.05, 'pod');   // seed-pod spear (flat head)
+      bloom(0.04, 0.10, 0.24, 0.062, 'cup');    // open cup, main pad
+      bloom(-0.16, -0.02, 0.19, 0.055, 'cup');  // open cup, main pad (left)
+      bloom(0.42, -0.14, 0.20, 0.05, 'bud');    // closed bud — moved to the RIGHT sibling pad (Fable: fix the clump)
+      bloom(-0.06, -0.22, 0.25, 0.052, 'pod');  // seed pod, front edge
       return mergeLagoonParts(parts);
     },
     // LOW hugger, flush with the water: h ≤ ~1.3 world. tilt 0 EXPLICIT (a raft conforms to the water; a
