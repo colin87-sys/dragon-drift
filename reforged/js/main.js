@@ -15,7 +15,7 @@ import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt, flowColliderBoxes } from './obstacles.js';
-import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
+import { initHazards, addHazard, updateHazards, resetHazards, debugVentStates } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
 import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
@@ -373,6 +373,11 @@ if (urlParams.has('debug')) {
     },
     // N6 hero-shadow seams: silhouette on/off + the RT coverage (proves the pass ran).
     shadow: { on: contactShadowSilhouette, coverage: () => heroShadowCoverage(renderer), maskURL: () => heroShadowMaskURL(renderer), spriteLeak: heroShadowSpriteLeak },
+    // Capture hook: drop a Caldera geyser vent a fixed distance ahead (with an optional forced
+    // cycle phase) so a tool can frame the vent-site presentation close up in the biome lighting.
+    spawnVent: (ahead = 40, x = 0) => addHazard({ dist: player.dist + ahead, x, warn: BIOMES[3].hazard.warn, radius: BIOMES[3].hazard.radius, type: 'geyser', phase: 0 }),
+    clearVents: () => resetHazards(),   // capture hook: drop all live vents so a shot frames exactly one
+    ventStates: () => debugVentStates(),   // capture hook: read vent phase (the cycle runs on the render clock)
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Push the boss schedule out of the way (or restore it) so a stretch of
