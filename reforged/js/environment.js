@@ -2025,6 +2025,53 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // prasat — THE HERO / civilization (§7.3.2): a drowned Angkor temple-mountain — two REDENTED stepped
+  // tiers rising to an OGIVAL lotus-bud tower, one corner collapsed, a withheld gilt doorway. The mandated
+  // LANDMARK: r16–26, h26–40 → it BREAKS THE HORIZON and dwarfs the dragon (the awe the biome was missing).
+  // Cruise read = the SILHOUETTE (redented temple-mountain + lotus-bud crown = "Angkor temple" at 400m);
+  // the Bayon faces are a close-up refinement (silhouette economics — invisible at cruise). Cheap-tells
+  // killed: NOT a wedding cake (tiers redented via 2 interpenetrating 45°-offset boxes/tier + one collapsed
+  // quadrant), NOT a box stack (ogival tower + lotus-bud finial), a doorway gives it a "why". bake:'temple'
+  // sandstone (moss waterline / amber crown); gilt ONLY in the recessed doorway reveal.
+  prasat: {
+    step: 167, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0, sMin: 1.0, sMax: 1.16 }, // HERO landmark: only in congregation peaks, never in the breaths; grows large at the peak
+    build: () => {
+      const parts = [];
+      const T = (g) => parts.push({ mat: 0, bake: 'temple', geo: g });   // temple sandstone
+      // REDENTED TIERS — each = 2 interpenetrating boxes (axis-aligned + 45°) → an 8-point redented Khmer
+      // plan (never a plain wedding-cake box). Two stepped tiers narrowing up; TIER 2 shifted off-centre so
+      // one back corner leaves a COLLAPSE gap.
+      T(xform(new THREE.BoxGeometry(0.86, 0.30, 0.86), { y: 0.15 }));                                   // tier 1 base (12)
+      T(xform(new THREE.BoxGeometry(0.72, 0.30, 0.72), { y: 0.15, ry: Math.PI / 4 }));                  // tier 1 redent (12)
+      T(xform(new THREE.BoxGeometry(0.58, 0.26, 0.58), { x: 0.03, z: -0.03, y: 0.43 }));                // tier 2 (12)
+      T(xform(new THREE.BoxGeometry(0.48, 0.26, 0.48), { x: 0.03, z: -0.03, y: 0.43, ry: Math.PI / 4 })); // tier 2 redent (12)
+      // COLLAPSED QUADRANT — a fallen dressed block at the foot (the corner that gave way → ruin, not cake).
+      T(xform(new THREE.BoxGeometry(0.22, 0.16, 0.19), { x: -0.44, z: 0.34, y: 0.08, ry: 0.5, rz: 0.14 })); // (12)
+      // OGIVAL TOWER — 3 shrinking redented mini-tiers (slight yaw jitter → tumbled, not machined) rising to
+      // a lotus-bud finial. This crown is what says "prasat" on the horizon.
+      T(xform(new THREE.BoxGeometry(0.38, 0.16, 0.38), { x: 0.03, z: -0.03, y: 0.64, ry: 0.20 }));      // tower tier a (12)
+      T(xform(new THREE.BoxGeometry(0.28, 0.15, 0.28), { x: 0.03, z: -0.03, y: 0.80, ry: -0.15 }));     // tower tier b (12)
+      T(xform(new THREE.BoxGeometry(0.20, 0.13, 0.20), { x: 0.03, z: -0.03, y: 0.93, ry: 0.10 }));      // tower tier c (12)
+      // LOTUS-BUD FINIAL — a rounded ogive: a TALL bulb tapering to a SOFT point (a lotus bud, not the
+      // sharp crystal spike of p1). A big belly + a short wide cap that sits ON it so the transition curves.
+      T(xform(new THREE.IcosahedronGeometry(0.18, 0), { x: 0.03, z: -0.03, y: 1.04, sy: 1.15 }));        // bud belly — tall bulb (20)
+      T(xform(new THREE.ConeGeometry(0.14, 0.16, 6), { x: 0.03, z: -0.03, y: 1.26 }));                   // bud cap — short, wide, soft point (18)
+      // GILT DOORWAY REVEAL — a withheld gold doorway RECESSED into the base tier front face (set behind
+      // the face plane so it's the aperture address, the temple's "why", never an outer gilt panel).
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.17, 0.22, 0.10), { z: 0.40, y: 0.15 }) }); // (12)
+      return mergeLagoonParts(parts);
+    },
+    // HERO landmark, ~1.5:1 TALL (a temple-mountain towers): r 16–26, h 26–40 → world top ~40–50m BREAKS
+    // the horizon. tilt 0 EXPLICIT (PLUMB-TIDE + a hero stands plumb; a missing tilt is a NaN quaternion).
+    // Draw r first, couple x hard so even the biggest inner edge clears the ±16 gate veil.
+    place: (side, rnd) => {
+      const r = 16 + rnd() * 10;
+      const p = { x: side * (18 + 0.95 * r + rnd() * 6), h: 26 + rnd() * 14, r, tilt: 0 };
+      if (HERO_SET.has('prasat')) p.rotY = 0;   // debug: pin yaw so the doorway + collapse face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2053,6 +2100,7 @@ const FOAM_CFG = {
   karstfang: { r: 0.45 }, // Lost Lagoon v3 sea-stack — a thin jade tide collar where the notched foot meets the mirror
   figgate: { rx: 0.62, rz: 0.30 },   // Lost Lagoon v3 gateway — elliptical collar wraps the wide thin footprint (roots + jambs enter the water)
   mangrovehold: { r: 0.55 },         // Lost Lagoon v3 mangrove islet — a round jade tide collar where the crinoline of stilt-root feet meets the mirror (the jade anklet)
+  prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
