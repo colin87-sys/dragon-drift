@@ -2157,7 +2157,7 @@ const ARCHETYPES = {
       {
         const xLast = x0 + (n - 1) * w, hpLast = 0.28 + 0.08;   // the tallest coil's crest
         const B = [xLast, hpLast, 0];
-        const heads = 7, spread = 0.46, tipY = hpLast + 0.66, notchDrop = 0.12, edgeFall = 0.34;
+        const heads = 7, spread = 0.56, tipY = hpLast + 0.80, notchDrop = 0.15, edgeFall = 0.40;   // Fable r1 free polish: hood +~22% so both name-test signals hold at backdrop distance
         const rim = [];
         for (let k = 0; k < 2 * heads - 1; k++) {
           const u = k / (2 * heads - 2) - 0.5;
