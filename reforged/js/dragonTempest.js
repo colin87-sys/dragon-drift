@@ -2,6 +2,29 @@ import * as THREE from 'three';
 import { registerTorso, registerWings, registerHead, registerTail } from './dragonRecipe.js';
 import { flatTriMesh } from './mechaKit.js';
 
+// A smooth radial-glow SPRITE — the PREMIUM point-of-light glow. Stacked additive octahedra read as
+// concentric "onion rings" (each solid shell has a hard silhouette edge) and a single octa clips to a hard
+// diamond; a sprite with a radial-gradient ALPHA has a true smooth falloff to 0 at the rim → no edge, no
+// rings. The gradient lives in a DataTexture (a plain pixel array — DOM-free, so the Node geometry tests
+// still build the dragon; a CanvasTexture would throw). One shared white texture; tint/size/opacity per use.
+let _glowTex = null;
+function glowTexture() {
+  if (_glowTex) return _glowTex;
+  const S = 64, data = new Uint8Array(S * S * 4);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (x + 0.5) / S - 0.5, dy = (y + 0.5) / S - 0.5, d = Math.min(1, Math.hypot(dx, dy) * 2);
+    const a = Math.pow(Math.max(0, 1 - d), 2.4);   // smooth falloff → exactly 0 at the rim (no hard edge)
+    const i = (y * S + x) * 4; data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; data[i + 3] = Math.round(a * 255);
+  }
+  const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
+  t.minFilter = t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
+  _glowTex = t; return t;
+}
+function softGlow(color, size, opacity) {
+  const m = new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(color), transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });
+  const s = new THREE.Sprite(m); s.scale.setScalar(size); return s;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // THUNDERHEAD TEMPEST — "The gathering storm" (TEMPEST-THUNDERHEAD-BUILDSHEET.md v3).
 // A sleek dark-scaled STORM DRAKE (owner-reference-driven, NOT a cloud-mass): a charcoal
@@ -936,13 +959,10 @@ function buildStormbrowHead(def, model, mats) {
     const ep = [side * 0.155 * hs, cy, cz - 0.04 * hs];
     eye.position.set(ep[0], ep[1], ep[2]); eye.renderOrder = 3;   // PROUD of the narrow skull side, at the socket mouth
     group.add(eye);
-    // soft cool GLOW around the eye (nested additive shells) → a luminous focal point, not a flat shard.
-    // P4b: smaller/dimmer outer shell so the cool 0xcfe0ff tint survives instead of clipping to a white smear.
-    for (const [r, o] of [[0.15, 0.13], [0.18, 0.06]]) {
-      const g = new THREE.Mesh(new THREE.OctahedronGeometry(r * hs, 2),
-        new THREE.MeshBasicMaterial({ color: eyeGlowCol, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
-      g.position.set(ep[0] + side * 0.02 * hs, ep[1], ep[2]); g.renderOrder = 2; group.add(g);
-    }
+    // soft cool GLOW around the eye — ONE smooth radial sprite (same fix as the tuft: no concentric shell
+    // rings). Kept small/dim so the cool 0xcfe0ff tint survives instead of clipping to a white smear.
+    const eg = softGlow(eyeGlowCol, 0.42 * hs, 0.4);
+    eg.position.set(ep[0] + side * 0.02 * hs, ep[1], ep[2]); eg.renderOrder = 2; group.add(eg);
   }
 
   // ── RANKS: cheek/brow facet plates (angularity) + nostril pits (a second carved void).
@@ -1063,16 +1083,11 @@ function buildVirgaTail(def, model, mats, anchor) {
   const jt = jointOf(tb[2]), ja = jAnchor(jt);
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * (0.7 + 0.5 * tScale), 0), M.heartCore);
   core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
-  // soft halo — NESTED shells (P3b: a single additive octa clipped to a hard white DIAMOND). Each shell is
-  // faint; the additive accumulation is DENSE where they overlap (centre) and THIN at the outer rim (only
-  // the biggest, dimmest shell), so it reads as a soft radial glow with NO hard silhouette edge. Unticked
-  // (always-lit) so the tuft is a hero point of light in cruise; the tongues carry the Surge blaze.
-  const haloR = [0.12, 0.19, 0.27, 0.36], haloO = [0.13, 0.10, 0.075, 0.05];
-  for (let h = 0; h < haloR.length; h++) {
-    const sh = new THREE.Mesh(new THREE.OctahedronGeometry(haloR[h] * (0.7 + 0.5 * tScale), 2),
-      new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: haloO[h], blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
-    chainAdd(tb[2], sh).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
-  }
+  // soft halo — ONE smooth radial-gradient sprite (owner: the nested shells read as cheap concentric rings).
+  // A true soft falloff to nothing at the rim, always camera-facing → a premium point of light, no onion-rings.
+  // Unticked (always-lit) so the tuft is a hero point of light in cruise; the tongues carry the Surge blaze.
+  const halo = softGlow(0xe8ecff, 0.82 * (0.7 + 0.5 * tScale), 0.52);
+  chainAdd(tb[2], halo).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
 
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
   for (let j = 0; j < nChain; j++) { const m = perJ[j]; if (!m) continue; for (const [mat, tris] of m) chainAdd(jAnchor(j).z, flatTriMesh(tris, mat)); }

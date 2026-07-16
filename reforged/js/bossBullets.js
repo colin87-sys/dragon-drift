@@ -759,7 +759,7 @@ export function updateBossBullets(dt, player) {
         // Per-bullet radius so the hitbox matches the banded VISUAL size (fair).
         const hitRi = s.r + R * CONFIG.BOSS.bulletHitScale;
         const grazeRi = (s.r + R * CONFIG.BOSS.grazeScale) * grazeBonus;   // adrenaline R1 "magnet" widens the annulus (default 1)
-        if (d2 < hitRi * hitRi) { hitPlayer(player, s.dmg, 'bullet'); deactivate(i); continue; }
+        if (d2 < hitRi * hitRi) { hitPlayer(player, s.dmg, 'bullet', { x: dx, y: dy }); deactivate(i); continue; }
         if (d2 < grazeRi * grazeRi) bulletGraze(player);
       }
       // Cull off-frame bullets. The lower y-bound is WIDENED to -16 (§5e, the

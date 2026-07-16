@@ -65,6 +65,8 @@ export const BIOMES = [
     name: 'AMBER WASTES',
     keyShift: 2,
     stars: 0,
+    bright: true,   // EMBERSIGHT H6 skyLuma (§0/§B): brightest sky in the cycle → HUD keylines swap to the ember-core variant
+
     sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0),
       // N9 clouds: bright high-noon desert cumulus — the brightest sky in the cycle.
       cloud: { amount: 0.9, lit: C(0xfff6e2), shadow: C(0xbe8f5e) } },
@@ -84,6 +86,8 @@ export const BIOMES = [
     name: 'FROZEN REACH',
     keyShift: -3,
     stars: 0,
+    bright: true,   // EMBERSIGHT H6 skyLuma: molten-gold horizon (a bright veil) → ember-core keylines
+
     // THE SUNSET GLACIER: the last 10 min of a polar sunset — a frozen cathedral at
     // vespers. Cool light lives IN the ice; warm light only ever comes FROM the sun.
     sky: { top: C(0x1c2e5e), mid: C(0x9a5a8e), horizon: C(0xff9a55), sun: C(0xffd2a0) }, // sun a touch hotter for the water glitter lane
