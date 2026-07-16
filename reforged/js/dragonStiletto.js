@@ -71,8 +71,8 @@ function stilettoMats(def, glow, stage) {
   // Wing membrane — GOSSAMER pale lavender-pink translucent glass (the concept's airy wings,
   // which outrank the sheet's darker 0x2a1a38→0x6a5a88 spec — the owner's images win on taste),
   // 4 value tiers stepping ≥0.05 L smoke tip-ward → lit pale root; SHARED across all four wings.
-  const memTiers = [0x6a4a7c, 0x8c6aa2, 0xac8ac6, 0xceaee4].map((c) => {
-    const m = new THREE.MeshStandardMaterial({ color: c, emissive: 0x000000, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.56 });
+  const memTiers = [0x8a6a92, 0xaa8ab4, 0xc8acd4, 0xe6cceb].map((c) => {
+    const m = new THREE.MeshStandardMaterial({ color: c, emissive: 0x000000, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.42 });
     m.envMapIntensity = 0.25; return m;
   });
   // Vein skeleton — opaque raised ridges + a lighter PINK rim-catch (the concept's pink
@@ -96,7 +96,9 @@ function stilettoMats(def, glow, stage) {
   bead.userData.baseEmissive = BEAD; bead.userData.baseIntensity = 0.6;
   const channel = new THREE.MeshStandardMaterial({ color: lerpHex(body, ORCHID, 0.2), emissive: ORCHID, emissiveIntensity: 0.05, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
   channel.userData.baseEmissive = ORCHID; channel.userData.baseIntensity = 0.05;
-  const stigma = new THREE.MeshStandardMaterial({ color: lerpHex(body, ORCHID, 0.2), emissive: ORCHID, emissiveIntensity: 0.05, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
+  // Pterostigma — a near-black-violet OPAQUE wing-spot that reads as a dark cell on the pale
+  // gossamer membrane (diffuse dark until f3, then venom-lit — the only wing emissive).
+  const stigma = new THREE.MeshStandardMaterial({ color: 0x140a1c, emissive: ORCHID, emissiveIntensity: 0.05, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
   stigma.userData.baseEmissive = ORCHID; stigma.userData.baseIntensity = 0.05;
   return { chitinDorsal, chitinFlank, venter, sheenViolet, sheenTeal, memTiers, veinMat, veinCap, sacWall, fillLine, fillBody, bead, channel, stigma, body };
 }
@@ -479,7 +481,7 @@ function vein(veinT, capT, a, b, wB, wT, lift) {
 function buildVeinedWing(M, len, chord, cellN) {
   const arm = new THREE.Group(), hand = new THREE.Group();
   const LE = (t) => { const b = stilettoBlade(t, len, chord); return [b[0], b[1], b[2]]; };
-  const chordW = chord * len;
+  const chordW = chord * len * 0.86;   // pull the planform chord in toward the 0.26 stiletto blade (not a leaf)
   // Chord-width profile: a slim base, swelling to the max chord near t≈0.32, then tapering
   // to a POINT at the tip (a blade, never a fan). Aft direction = +z (the wing sweeps back).
   const cp = (t) => chordW * Math.pow(Math.sin(Math.PI * Math.pow(Math.min(1, Math.max(0.001, t)), 0.70)), 0.9);
@@ -505,37 +507,44 @@ function buildVeinedWing(M, len, chord, cellN) {
   // a fan of veins from K to the trailing edge (dominant + decay), and a longitudinal vein.
   { const rv = [], rc = []; vein(rv, rc, LE(0), K, 0.03 * len, 0.024 * len, 0.035 * len); arm.add(flatTriMesh(rv, M.veinMat)); arm.add(flatTriMesh(rc, M.veinCap)); }
   const cv = [], cc = [];
-  vein(cv, cc, K, LE(1), 0.024 * len, 0.005 * len, 0.03 * len);   // costa outer (dominant)
+  vein(cv, cc, K, LE(1), 0.032 * len, 0.006 * len, 0.038 * len);   // costa outer — the DOMINANT vein (bolder)
+  // fan veins from K, dominant + steep DECAY (the leading 2–3 primaries strong, the rest fade
+  // — kills the equal-rank picket read; holds venation at more angles).
   for (let i = 1; i <= cellN; i++) {
     const tv = 0.44 + 0.5 * (i / (cellN + 1));                     // fan endpoints along the trailing edge
-    vein(cv, cc, K, TE(tv), 0.013 * len * (1 - 0.05 * i), 0.003 * len, 0.02 * len);
+    const decay = Math.pow(0.72, i - 1);                           // steep decay
+    vein(cv, cc, K, TE(tv), (0.006 + 0.014 * decay) * len, 0.003 * len, (0.012 + 0.018 * decay) * len);
   }
-  // a longitudinal vein mid-chord (root→tip) — the ladder rail the fan crosses.
+  // a longitudinal vein mid-chord (root→tip) — the ladder rail the fan crosses (a primary).
   const midOf = (t) => { const a = LE(t), b = TE(t); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]; };
-  vein(cv, cc, midOf(0.42), midOf(0.92), 0.011 * len, 0.004 * len, 0.018 * len);
+  vein(cv, cc, midOf(0.42), midOf(0.92), 0.014 * len, 0.005 * len, 0.022 * len);
   hand.add(flatTriMesh(cv, M.veinMat));
   hand.add(flatTriMesh(cc, M.veinCap));
-  // ── OPAQUE KNIFE-EDGE HEM — a connected strip just inboard of the trailing edge (the sharp
-  // edge WITHOUT alpha; the census choice). Split at K so it folds with the hand.
+  // ── CRISP KNIFE-EDGE HEM — a connected DARK-violet opaque border along the trailing edge
+  // (a hard line that snaps the blade edge against the pale gossamer membrane; the sharp edge
+  // WITHOUT alpha — the census choice). Split at K so it folds with the hand.
   const hemStrip = (t0, t1, grp) => {
     const N = Math.max(2, Math.round((t1 - t0) * 11)), t = [];
     let pT = TE(t0), pL = LE(t0);
     for (let i = 1; i <= N; i++) {
       const tt = t0 + (t1 - t0) * i / N, cT = TE(tt), cL = LE(tt);
-      const pin = [pT[0] + (pL[0] - pT[0]) * 0.10, pT[1] + 0.002 * len, pT[2] + (pL[2] - pT[2]) * 0.10];
-      const cin = [cT[0] + (cL[0] - cT[0]) * 0.10, cT[1] + 0.002 * len, cT[2] + (cL[2] - cT[2]) * 0.10];
+      const pin = [pT[0] + (pL[0] - pT[0]) * 0.07, pT[1] + 0.003 * len, pT[2] + (pL[2] - pT[2]) * 0.07];
+      const cin = [cT[0] + (cL[0] - cT[0]) * 0.07, cT[1] + 0.003 * len, cT[2] + (cL[2] - cT[2]) * 0.07];
       t.push([pT, cT, cin], [pT, cin, pin]);
       pT = cT; pL = cL;
     }
-    grp.add(flatTriMesh(t, M.chitinDorsal));
+    grp.add(flatTriMesh(t, M.venter));   // dark plum → a crisp knife-edge that reads against the pale glass
   };
   hemStrip(0.38, 1, hand);
   hemStrip(0.02, 0.38, arm);
-  // ── PTEROSTIGMA — the dark wing-spot at 0.82 span on the leading costa (2-tri inset;
-  // diffuse dark until f3, then venom-lit — the ONLY wing emissive ever). Rides the hand.
-  const ps = LE(0.82), pw = 0.05 * len;
+  // ── PTEROSTIGMA — the classic dark wing-spot at 0.82 span on the leading costa: a distinct
+  // opaque near-black cell (~1 cell wide) proud of the pale membrane so it reads clearly
+  // (diffuse dark until f3, then venom-lit — the ONLY wing emissive ever). Rides the hand.
+  const ps = LE(0.80), pw = 0.055 * len, py = 0.012 * len;
+  const pc = [ps[0], ps[1] + py, ps[2] + cp(0.80) * 0.28];   // seated just aft of the costa
   hand.add(flatTriMesh([
-    [[ps[0] - pw, ps[1] + 0.005 * len, ps[2] - pw * 0.4], [ps[0] + pw, ps[1] + 0.005 * len, ps[2]], [ps[0], ps[1] + 0.005 * len, ps[2] + pw]],
+    [[pc[0] - pw, pc[1], pc[2] - pw * 0.7], [pc[0] + pw, pc[1], pc[2] - pw * 0.7], [pc[0] + pw, pc[1], pc[2] + pw * 0.7]],
+    [[pc[0] - pw, pc[1], pc[2] - pw * 0.7], [pc[0] + pw, pc[1], pc[2] + pw * 0.7], [pc[0] - pw, pc[1], pc[2] + pw * 0.7]],
   ], M.stigma));
   return { arm, hand, K };
 }
