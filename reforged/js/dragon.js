@@ -8,7 +8,7 @@ import { setFeverWarm } from './environment.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
-import { on } from './events.js';
+import { on, emit } from './events.js';
 
 // EMBERSIGHT H6 — the ember SWALLOW (§B.7): a 150ms coreGlow opacity tick on ember
 // pickup — the dragon eats the ember. One module-level subscription (events are
@@ -1322,7 +1322,8 @@ export function updateDragon(dt, player, time) {
     if (arcCrown) {
       if (fever) {
         const beat = Math.floor(tNow / 1.15), beatPh = (tNow / 1.15) - beat;
-        if (beat !== arcBeat) { arcBeat = beat; arcRestruck = false; arcCrown.fire((0x5721 ^ (beat * 2654435761)) | 0, pickStormArcRoutes((0x5721 ^ (beat * 2654435761)) | 0)); }
+        if (beat !== arcBeat) { arcBeat = beat; arcRestruck = false; arcCrown.fire((0x5721 ^ (beat * 2654435761)) | 0, pickStormArcRoutes((0x5721 ^ (beat * 2654435761)) | 0));
+          if (surgeMix > 0.3) emit('stormThunder', { intensity: 0.55 + 0.45 * surgeMix }); }   // the Surge beat SOUNDS the thunder (rhythmic, once per ~1.15s)
         else if (!arcRestruck && beatPh > 0.5) { arcRestruck = true; const s = (0x91a3 ^ (beat * 40503)) | 0; arcCrown.fire(s, pickStormArcRoutes(s)); }   // the return-stroke
         let crack = Math.min(1, Math.max(0, (thunderAt(0) - 0.6)));   // 0 in the rumble, ~1 at the crack peak
         // debug capture seam only: pin the crack to full so every headless screenshot catches a live bolt

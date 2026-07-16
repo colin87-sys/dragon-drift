@@ -183,7 +183,7 @@ function tempestMats(def, glow = 1) {
   // spineCharge — a FAINT always-on cool additive strip run along the dorsal ridge crest so the BACK reads
   // as a charged line from the rear-chase cam (glow-up #3), not a dark sawtooth — the linear analog of the
   // tuft halo. Unticked (not in stormArcMats): a persistent hint of charge, subtle so it never lanterns.
-  const spineCharge = new THREE.MeshBasicMaterial({ color: 0x9cc0ff, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });
+  const spineCharge = new THREE.MeshBasicMaterial({ color: 0x7aa6ff, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });   // cool-hue pass: a deeper storm-blue so the crest line holds its hue instead of clipping to white
   // boltTiers[4] — the OPAQUE matte cloud-membrane the bolt is sewn to (near-black faceted planes,
   // §4b-d, the reference's dark storm-cloth). A dark charcoal base lerped a little toward a muted
   // steel-slate so the inboard bays catch a flat facet-value and the outboard crotch reads darkest.
@@ -950,7 +950,7 @@ function buildStormbrowHead(def, model, mats) {
     const floor = [cx, cy, cz + r * 0.7];   // SHALLOW cup — the ember reads, never swallowed
     for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; push(M.socketFloor, [rim[k], rim[k1], floor]); push(M.dorsal, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } };
   eyeMat.emissiveIntensity = 0.7 + 1.4 * glow;   // glow-up #5: a luminous eye — hot enough to be the focal point, NOT blown to a white smear (P4b: keep the cool tint)
-  const eyeGlowCol = new THREE.Color(def.apexEye ?? 0xcfe0ff);
+  const eyeGlowCol = new THREE.Color(0x9ac2ff);   // cool-hue pass: a saturated periwinkle HALO around the white-hot eye core → a cool storm-ember, not a white smear (the core stays hot; the glow carries the blue)
   for (const side of [1, -1]) {
     const cx = side * 0.135 * hs, cy = 0.06 * hs, cz = -0.14 * hs;
     eyeSocket(cx, cy, cz, 0.06 * hs);
@@ -1086,7 +1086,7 @@ function buildVirgaTail(def, model, mats, anchor) {
   // soft halo — ONE smooth radial-gradient sprite (owner: the nested shells read as cheap concentric rings).
   // A true soft falloff to nothing at the rim, always camera-facing → a premium point of light, no onion-rings.
   // Unticked (always-lit) so the tuft is a hero point of light in cruise; the tongues carry the Surge blaze.
-  const halo = softGlow(0xe8ecff, 0.82 * (0.7 + 0.5 * tScale), 0.52);
+  const halo = softGlow(0xaac6ff, 0.82 * (0.7 + 0.5 * tScale), 0.52);   // cool-hue pass: a periwinkle HALO around the white-hot heartCore → a cool storm point of light (the glow carries the blue, the core stays hot)
   chainAdd(tb[2], halo).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
 
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
