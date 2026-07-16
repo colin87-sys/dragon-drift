@@ -342,6 +342,7 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const s = [0, 0, 0];
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
     const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;   // face-centroid height (unit space, pre-scale)
     if (yc > waterY + bandH) {
@@ -349,7 +350,16 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
       // top so a ruin reads dark-waterline → bright sunlit crown instead of one flat pale value. Unit-Y
       // maps to world height (rotY is about Y, tilt tiny), so the gradient stays vertical under instancing.
       const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);   // 0 just above the tide → 1 at a tall crown
-      s[0] = _LAG_BLEACH[0] * (1 + 0.10 * t); s[1] = _LAG_BLEACH[1] * (1 + 0.09 * t); s[2] = _LAG_BLEACH[2] * (1 + 0.06 * t);
+      // UNDERCUT SHADOW (Fable karstfang r1): AO is gated OFF by default (uAO=0), so a down-facing overhang
+      // underside — the Ha Long marine undercut, an arch soffit, a slumped-block belly — reads as flat
+      // sunlit stone with nothing to darken it. Bake the self-shadow into DIFFUSE: a crown face whose
+      // geometric normal points DOWN darkens toward ~0.58×, so an overhang reads as a dark band under a
+      // bright shoulder (the value zone the flat-cream lump lacked). Up-faces are untouched (factor 1).
+      ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+      e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+      const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 for up/side faces → 1 for straight-down overhang
+      const uf = 1 - 0.42 * u;
+      s[0] = _LAG_BLEACH[0] * (1 + 0.10 * t) * uf; s[1] = _LAG_BLEACH[1] * (1 + 0.09 * t) * uf; s[2] = _LAG_BLEACH[2] * (1 + 0.06 * t) * uf;
     } else if (yc < waterY) {
       const t = Math.min(1, (waterY - yc) / 0.4);             // darken into the wet shadow core at the base
       const f = 1 - 0.30 * t;
@@ -575,8 +585,15 @@ const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevin
 // new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
 // restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
 // (they coexist in-field; the full legacy retirement + Wastes retire-from-CYCLE is the final PR).
-const lagoonNew = PROPS_V1 ? [] : [0];   // rotunda (+ arcade/rootbastion/lilyraft/wrackstone/campanile/sentinel to come)
+// THE LOST LAGOON v3 GROUND-UP REBUILD (LOST-LAGOON-HANDOFF, "jungle drowned temple") — the v2
+// drowned-Greco ruins (rotunda/arcade/…) failed the owner NAME TEST ("generic gray lumps"), so a NEW
+// nameable roster (karstfang/prasat/figgate/mangrovehold/lotusraft/nagawall) is built beside them behind
+// a `?props=v3` seam. v2 stays DEFAULT (shipped roster never breaks) until the PR-5 migration flips it.
+// Coexist → prove a hero (karstfang) → migrate — the same A/B idiom as ?props=v1.
+const PROPS_V3 = _envParams.get('props') === 'v3';
+const lagoonNew = PROPS_V1 ? [] : (PROPS_V3 ? [] : [0]);  // v2 kit — DEFAULT; parks under ?props=v1 or ?props=v3
 const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once the kit completes)
+const lagoonV3 = PROPS_V3 ? [0] : [];    // v3 jungle-drowned-temple kit — behind ?props=v3 until the migration PR
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -1780,6 +1797,66 @@ const ARCHETYPES = {
     },
     place: (side, rnd) => ({ x: side * (16 + 0.7 * (14 + rnd() * 6)), h: 16 + rnd() * 6, r: 14 + rnd() * 6, tilt: 0, rotY: 0 }),
   },
+
+  // ===== THE LOST LAGOON v3 — "jungle drowned temple" roster (LOST-LAGOON-HANDOFF §7.3) =====
+  // Registered at the END of ARCHETYPES so no existing band's render-rnd draw order shifts (RNG-order
+  // law). All behind the `?props=v3` seam (biomes: lagoonV3 = [] by default) — v2 stays shipped until
+  // the PR-5 migration. THE NAME TEST governs every prop: a passing player names it in one word.
+
+  // karstfang — THE MID MASS / nature, BUILD FIRST (the identity prover). A Ha Long Bay fenglin
+  // limestone SEA-STACK: top-heavy honey karst, a wave-cut marine NOTCH at the tide line, a broken twin
+  // summit under a green scrub crown. Three silhouette signals = "tropical sea-rock" at 300m: (1) WIDER
+  // ABOVE the notch (shoulder overhangs → top-heavy mushroom), (2) DARK marine UNDERCUT (the steep
+  // shoulder flare's down-facing underside, AO-shadowed), (3) GREEN crown (the foliage pads). The lathe
+  // profile is a SURFACE OF REVOLUTION → yaw-INVARIANT (the name test survives every random rotY). No
+  // gilt (nature). If the tropical karst doesn't land here, the identity is wrong — stop, don't tune.
+  karstfang: {
+    step: 41, biomes: lagoonV3, matIndex: 0, arrivalPark: true, sizeClass: true, comp: { floor: 0.12, sMin: 0.88, sMax: 1.18 }, // mid mass: clusters into archipelagos, off the open-mirror seam + empty in the breaths; 3 size classes (a 1.42× mother-island breaks the horizon)
+    build: () => {
+      const parts = [];
+      // MAIN KARST TOWER — a 7-seg LATHE (surface of revolution → reads identical from any yaw). The
+      // fenglin read is TOP-HEAVY: the mass's maximum radius sits HIGH (~72% height) and OVERHANGS a
+      // pinched waterline foot (Fable karstfang r1 — the k2 build was inverted, widest in its lower third
+      // → read "urn/pawn"). Profile: pinched foot AT the waterline (the marine NOTCH, ~0.45× the shoulder)
+      // → flare steadily OUTWARD going up → MAX radius at 74% forming a hard OVERHANGING SHOULDER (the
+      // station below it is smaller, so a down-facing undercut band exists — the tide bake paints it dark)
+      // → short taper to the broken summit. Edge loop at y0.22 keeps the jade waterline dead-level.
+      const prof = [
+        new THREE.Vector2(0.28, 0.00),   // foot (sinks below the waterline weld)
+        new THREE.Vector2(0.23, 0.12),   // NOTCH pinch — the marine undercut at the waterline (narrowest)
+        new THREE.Vector2(0.29, 0.22),   // edge loop AT the band top (jade band below is dead-level)
+        new THREE.Vector2(0.41, 0.56),   // flaring outward up the tower
+        new THREE.Vector2(0.58, 0.74),   // SHOULDER — MAX radius, hard overhang (top-heavy; underside → dark undercut band)
+        new THREE.Vector2(0.34, 0.90),   // taper in to the summit
+      ];
+      parts.push({ mat: 0, geo: new THREE.LatheGeometry(prof, 7) });                                          // 5 gaps × 7 seg × 2 = 70
+      // FOOT CAP — a down-facing disc closes the open lathe base (studio-low read; in-game the mirror
+      // occludes it below the waterline). The broad top is closed by the crown domes + summit knobs.
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.28, 7), { y: 0.0, rx: Math.PI / 2 }) });     // 7
+      // BROKEN TWIN SUMMIT — two rock knobs of UNEQUAL height from the tapered top, ONE LEANING (kills the
+      // single-nub/smooth-cone read). Fat bases (r0.18+) → rock knobs, not thin fins. Tide-laddered → honey.
+      parts.push({ mat: 0, geo: frustumBetween([0.10, 0.84, 0.05], [0.015, 1.16, 0.11], 0.20, 0.06, 6) });    // taller horn, leans +z as it rises (12)
+      parts.push({ mat: 0, geo: frustumBetween([-0.15, 0.86, -0.05], [-0.17, 1.00, -0.02], 0.18, 0.12, 6) });  // broken blunt stub (12)
+      // GREEN SCRUB CROWN — 2 wind-flagged DOMED scrub pads (bake:'lily' → the 3-stop foliage), the third
+      // silhouette signal (Fable r1 killed the k2 floating frisbee). Parasol/scrub law: DOME height ≈
+      // 0.36× radius (a real bush, not a disc), seated in the shoulder/summit SADDLE with the base sunk
+      // ~20% BELOW the rock so occlusion welds it (the knobs poke through — scrub clinging to the peak).
+      // Wind-flagged: both lean rz+ toward the biome down-lane.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.ConeGeometry(0.42, 0.15, 7), { x: 0.00, z: 0.05, y: 0.90, sx: 1.12, sz: 0.84, rz: 0.12, ry: 0.4 }) });  // main scrub dome, over both knob bases (seated ~0.06 into the summit)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.ConeGeometry(0.30, 0.11, 6), { x: 0.14, z: 0.18, y: 0.74, sx: 1.10, sz: 0.82, rz: 0.20, rx: 0.10 }) }); // lower drape on the shoulder shelf, edge sunk into the stone
+      return mergeLagoonParts(parts);
+    },
+    // MID sea-stack, ~1.6:1 TALL + top-heavy (a fenglin tower rises but reads MASSIVE, not a rocket): r
+    // 7.5–11.5, h 13–19 → world ≈ 1:1.6. tilt 0 EXPLICIT (PLUMB-TIDE — the jade band is a level water
+    // stain). Draw r first, couple x so the inner edge clears the ±16 gate veil at the worst comp×sizeClass
+    // scale (the widest footprint is the 0.58 shoulder × sMax 1.18 × the 1.42 mother-island size class).
+    place: (side, rnd) => {
+      const r = 7.5 + rnd() * 4;
+      const p = { x: side * (17 + 0.95 * r + rnd() * 5), h: 13 + rnd() * 6, r, tilt: 0 };
+      if (HERO_SET.has('karstfang')) p.rotY = 0;   // debug: pin yaw so the twin summit + wound face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -1805,6 +1882,8 @@ const FOAM_CFG = {
   wrackstone: { r: 0.6 },// Lost Lagoon foil rubble — a pale tide collar where the heap meets the mirror (clinker precedent)
   rootbastion: { r: 0.7 },// Lost Lagoon mid mass — waterline weld under the slumped stone (roots enter here)
   arcade: false,          // Lost Lagoon backdrop massif — no collar (a bright ring 75+ off-lane is an artifact)
+  karstfang: { r: 0.45 }, // Lost Lagoon v3 sea-stack — a thin jade tide collar where the notched foot meets the mirror
+
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
