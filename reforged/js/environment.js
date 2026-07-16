@@ -6,6 +6,7 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
+import { createRain, updateRain, setRainTier } from './rain.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
@@ -1476,6 +1477,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 
   // --- Ambient particles + birds.
   createAmbient(scene);
+  createRain(scene);   // storm rain-streak layer (rainMix-gated; Tempest only)
 }
 
 function makeBand(scene, def) {
@@ -1881,4 +1883,5 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   bossMix = damp(bossMix, bossTarget, 4, dt);
 
   updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
+  updateRain(dt, camera, env);   // storm rain streaks — reads env.rainMix + the shared wind vector
 }

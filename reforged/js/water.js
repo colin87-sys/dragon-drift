@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Reflector } from '../lib/objects/Reflector.js';
-import { SUN_DIR } from './biomes.js';
+import { SUN_DIR, TEMPEST_WIND } from './biomes.js';
 import { atmosUniforms } from './atmosphere.js';
 
 // Endless water plane that replaces the snow floor. One GLSL source, two
@@ -104,7 +104,8 @@ export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.
 // darkening + wind-combed foam streaks) that carry the violence with the swell OFF / on
 // tier 2. Gated by uStormSea (0 everywhere else = byte-identical). λ≈55m (shorter/steeper
 // than the global 105m swell). All values FRACTIONAL (the GLSL int/float trap).
-export const TEMPEST_WIND = { x: 0.851, z: 0.525 };   // oblique to the lane → diagonal foam grain
+// TEMPEST_WIND now lives in biomes.js (the single wind source, imported above) so foam + rain +
+// cloud-crawl can't diverge. STORM_SWELL reuses the same axis (kept as literals for the GLSL template).
 export const STORM_SWELL = { dirx: 0.851, dirz: 0.525, freq: 0.115, amp: 1.45, speed: 0.55 };
 
 // A/B pin: ?stormsea=0 forces the shipped calm sea, ?stormsea=1 forces the storm sea (any biome),

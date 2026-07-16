@@ -39,6 +39,13 @@ const C = (hex) => new THREE.Color(hex);
 // in water.js + environment.js.)
 export const SUN_DIR = new THREE.Vector3(-0.22, 0.1, -1).normalize();
 
+// The SINGLE source of truth for a biome's WIND direction (xz, normalized-ish). Foam (water.js),
+// the rain-streak layer (rain.js), and the cloud wind-crawl (skyClouds) all READ this — nobody
+// re-declares it, so the storm can't show two winds (composition law #6). Oblique to the lane so
+// the grain reads diagonal. The vector NEVER lerps across a seam (a rotating wind = a spinning
+// compass); only intensity (rainMix / foam strength) crossfades.
+export const TEMPEST_WIND = { x: 0.851, z: 0.525 };
+
 export const BIOMES = [
   {
     // THE LOST LAGOON (LOST-LAGOON-BIBLE.md): a lost, hidden watery paradise of drowned
@@ -298,11 +305,14 @@ export const BIOMES = [
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
     water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95 },
+    wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
+    rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
     stormSea: 1.0,   // STORMSEA: violent storm sea — near-black troughs + one-way wind-combed foam streaks (js/water.js). waveAmp alone only makes ripples; this is what makes the sea RAGE.
     // Driving rain motes on ONE wind vector — DIMMED + de-starred (Fable gate: bright white specks on a
     // dark sky read as a STARFIELD → night collision). Darker/dimmer now; velocity-stretched streak
-    // sprites are the proper fix (a later ambient-profile pass) — until then, few/dim beats star-like.
-    ambient: { color: C(0x879497), fall: 6.5, sway: 2.4, size: 0.2, opacity: 0.24 },
+    // These Points are now near-water SPUME (torn spray), NOT the rain — the rain is the rain.js
+    // LineSegments streak layer (rainMix-gated). Small, dim, low-falling froth over the sea.
+    ambient: { color: C(0x9fb0b4), fall: 1.5, sway: 2.0, size: 0.18, opacity: 0.35 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
     props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
     matIndex: 7, // storm slate
@@ -383,7 +393,7 @@ const env = {
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
-  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0,
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -462,5 +472,9 @@ export function computeEnv(dist) {
   env.deckBias = lerp(a.deckBias || 0, b.deckBias || 0, ts);
   // STORMSEA (Tempest): the violent-sea gate; 0 elsewhere = byte-identical calm water.
   env.stormSea = lerp(a.stormSea || 0, b.stormSea || 0, ts);
+  // Wind DIRECTION never lerps (a spinning vector reads as a compass); pick whichever adjacent biome
+  // declares one. rainMix (intensity) DOES crossfade the seam for free (the xMix pattern).
+  const _w = a.wind || b.wind; env.windX = _w ? _w.x : 0; env.windZ = _w ? _w.z : 0;
+  env.rainMix = lerp(a.rain || 0, b.rain || 0, ts);
   return env;
 }

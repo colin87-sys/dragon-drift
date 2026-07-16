@@ -46,6 +46,7 @@ import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
 import { setAmbientQuality } from './ambient.js';
+import { setRainTier } from './rain.js';
 import { initRecords, settleRecords } from './records.js';
 import { initFeats, settleFeats, claimFeat } from './feats.js';
 import { settleWeekly } from './weekly.js';
@@ -1435,6 +1436,7 @@ function applyQuality(tier) {
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
   setAmbientQuality(QUALITY_SCALARS[tier]);
+  setRainTier(tier);   // storm rain: halve segments per tier
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
   setAuroraQuality(tier); // Aurora Shallows: tier0 2 layers+rays / tier1 1 layer / tier2 smooth quiet arc
