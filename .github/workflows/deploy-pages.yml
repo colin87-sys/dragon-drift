@@ -106,6 +106,15 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Auto-(re)create the Pages site if it was destroyed — e.g. a repo
+          # private↔public toggle drops the Pages site resource, after which
+          # configure-pages fails "Get Pages site failed" and the PR-preview
+          # action's get-deployed-commit step fails "Failed to get commit SHA
+          # from gh-pages". enablement:true recreates the site on deploy so the
+          # live site + PR previews self-heal instead of needing a manual
+          # Settings→Pages toggle. Harmless when the site already exists.
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
