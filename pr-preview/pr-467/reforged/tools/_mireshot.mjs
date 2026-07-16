@@ -31,9 +31,7 @@ async function shots(query, tag, dists) {
   return errors;
 }
 
-const eMire = await shots('?biome=4&debug', 'mire', [520, 640, 760, 880, 1120, 1360, 1620, 1780, 2240, 2420]);
-const eAur = await shots('?biome=6&debug', 'aurora', [1500]);
+const eMire = await shots('?biome=4&debug', 'mire', [600, 780, 960, 1140, 1650]);
 console.log('mire console errors:', eMire.length);
 if (eMire.length) console.log(eMire.slice(0, 4).join('\n'));
-console.log('aurora console errors:', eAur.length);
 console.log('wrote /tmp/mire-*.png');
