@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeGlowTexture } from './util.js';
+import { makeGlowTexture, makeAuraTexture } from './util.js';
 import { collapseStaticSiblings } from './dragonCollapse.js';
 import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder, getTailBuilder } from './dragonRecipe.js';
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' / 'avian' torsos
@@ -393,7 +393,7 @@ export function buildDragonModel(def, opts = {}) {
 
   // Aura sprite (fever glow + idle premium aura)
   const auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture(def.fx.auraColor), transparent: true, opacity: 0,
+    map: makeAuraTexture(def.fx.auraColor), transparent: true, opacity: 0,   // Fable 75: tight core-hot falloff (no onion-ring shoulder); scale stays 9×9 (shadow mask)
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
   auraSprite.scale.set(9, 9, 1);
@@ -626,7 +626,7 @@ export function makePreviewTick(def, result) {
     }
     if (auraSprite) {
       auraSprite.material.opacity = def.fx.auraIdle > 0
-        ? 0.3 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.12
+        ? 0.20 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.07   // Fable 75: lower base + shallower pulse (the tamed body-glow, not a screen disc)
         : 0;
     }
     // Core plasma breathes — a slow charge pulse so the shop dragon feels alive

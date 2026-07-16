@@ -78,6 +78,13 @@ const sharedUniforms = {
   // or it vanishes on the reflective↔cheap rebuild.
   uHeavenGlow: { value: 0 },
   uHorizonCol: { value: new THREE.Color(0x9a6242) },   // warm umber — one tier BELOW the dome's skyHorizon 0xa87838, so the far sea grades UP into the gold band under the blast
+  // HERO POOL (Fable 75): the player's PointLight answered on the mirror — the custom water
+  // ShaderMaterial has `lights` off, so a scene light can never pool here; it's fed positionally
+  // (world XZ) as an anisotropic reflection STREAK. uHeroPool 0 = byte-identical shipped water.
+  // MUST live in sharedUniforms or it vanishes on the reflective↔cheap/swell tier rebuild.
+  uHeroPos: { value: new THREE.Vector3() },
+  uHeroCol: { value: new THREE.Color(0) },
+  uHeroPool: { value: 0 },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -165,6 +172,7 @@ const fragmentShader = /* glsl */`
   uniform float uRainRipple; // rain LAYER B — splash rings (0 = off)
   uniform float uBreachMix;  // EYE-BREACH calm/gold patch at the eye's foot (0 = shipped)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
+  uniform vec3 uHeroPos, uHeroCol; uniform float uHeroPool; // Fable 75: player light-pool on the mirror (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -343,6 +351,13 @@ const fragmentShader = /* glsl */`
     // storm terms so it visibly settles the violence it just attenuated. Both terms × the mask → 0 off.
     col = mix(col, col * vec3(0.90, 0.98, 1.10) + vec3(0.03, 0.05, 0.07), _calmPatch * 0.6);   // toward a calm silver-blue
     col += vec3(1.0, 0.847, 0.439) * _goldPool * 0.5;                                          // gold sun-pool at the eye's foot
+
+    // HERO POOL (Fable 75): the player light answered on the mirror. 0 = shipped. The vec2(2.4, 0.9)
+    // anisotropy stretches the pool DOWN-lane into a vertical reflection streak (~2.7:1 on screen) —
+    // what a real light on real water does, never another disc. World XZ = the rain-ring hash space.
+    vec2 _hd = (vWorldPos.xz - uHeroPos.xz) * vec2(2.4, 0.9);
+    float _hp = exp(-dot(_hd, _hd) / 70.0);   // ~8.4m 1/e half-width
+    col += uHeroCol * (_hp * uHeroPool * 0.38);
 
     // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
     // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
@@ -653,6 +668,19 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
   // colours — the darker the deeps read relative to the shallows, the murkier the
   // water absorbs. No new biome fields; free biome-seam smoothness.
   if (deep && shallow) u.uAbsorbK.value = absorbKFromColors(deep, shallow);
+}
+
+// HERO POOL (Fable 75): feed the player light to the mirror each frame. Written through the LIVE
+// material's uniforms (NOT the sharedUniforms template — that gets UniformsUtils.clone'd per material,
+// so writing the template would never reach the drawn water; the atmosphere.js clone-trap lesson).
+// pos = dragon world position; col = the hero light's (warm-neutralised) colour; k = 0.55 idle → 1.0
+// fever. k=0 ⇒ the fragment add is exactly +0 (byte-identical), so any water-identity test still walks.
+export function setWaterHeroPool(pos, col, k) {
+  if (!water) return;
+  const u = water.material.uniforms;
+  if (pos) u.uHeroPos.value.copy(pos);
+  if (col) u.uHeroCol.value.copy(col);
+  u.uHeroPool.value = k || 0;
 }
 
 // Rec.709 relative luminance heuristic → a murkier (darker-deep) biome absorbs faster.

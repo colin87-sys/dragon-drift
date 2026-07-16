@@ -212,6 +212,12 @@ export const BIOMES = [
     godrayMul: 0.075,
     godrayTint: C(0xff9d45),
     moteDepthFade: 0.85, // Fable 70: far motes DIM as they shrink (quadratic 20→110m) — kills the depth-flat "screen confetti" that ate the black mirror. Near firefly halos untouched.
+    // Fable 75 AERIAL PERSPECTIVE: distant silhouette props LIGHTEN + hue-shift toward the horizon
+    // ember (55→230m). 0x9c5a22 sits between the horizon haze (0x7a4818) and the mote amber (0xffb75c),
+    // ≈2.1× the luma of fogFarColor 0x4a2c0e — so after the scene fog folds on top, distance still reads
+    // LIGHTER (the flat-black canopy was the frame's deepest flatness). Never brighter than the glowcap
+    // accents → the glow hierarchy holds. Other biomes leave propAerial unset → byte-identical.
+    propAerial: 0.85, propAerialColor: C(0x9c5a22),
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
     ambient: { color: C(0xffb75c), fall: 0.05, sway: 1.1, size: 0.72, opacity: 0.70 }, // fireflies — big near halos KEPT; hot-cored, calmer sway (was metronome), depth-faded far (moteDepthFade)
@@ -411,6 +417,10 @@ const env = {
   // its far motes' alpha by camera distance so the field recedes instead of reading as a flat
   // screen overlay. Consumed by ambient.js. (Fable 70.)
   moteDepthFade: 0,
+  // Aerial perspective (OPTIONAL; 0 everywhere by default → byte-identical props). A biome may
+  // lighten + hue-shift its far silhouette props toward an ember horizon by view depth. Consumed
+  // by environment.js's addPropDetail (uPropAerial/uPropAerialCol). (Fable 75.)
+  propAerial: 0, propAerialColor: new THREE.Color(),
   // God-ray fan scale (OPTIONAL; 1 everywhere by default → byte-identical shafts).
   // A night biome (Lumen Mire) meters it down; consumed by main.js's god-ray gate.
   godrayMul: 1,
@@ -487,6 +497,8 @@ export function computeEnv(dist) {
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
   env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
+  env.propAerial = lerp(a.propAerial ?? 0, b.propAerial ?? 0, ts);
+  env.propAerialColor.lerpColors(a.propAerialColor ?? a.fogFarColor ?? a.fog.color, b.propAerialColor ?? b.fogFarColor ?? b.fog.color, ts);
   env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
   env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
