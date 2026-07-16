@@ -170,32 +170,39 @@ export const BIOMES = [
     stars: 0.2,
     // Warm-neutral dark ROOF: top nudged off blue, mid off green (Fable PR-1 gate —
     // no cool sky stop may survive from the shipped teal night), horizon amber haze.
-    sky: { top: C(0x14111a), mid: C(0x2a2218), horizon: C(0x5c4a28), sun: C(0x7a5628) },
-    fog: { color: C(0x263420), near: 50, far: 300 },
+    // Fable v33: light comes from BELOW (mist/water/ground-up), never a lit sky. Sky stays
+    // night-dark with the amber biolume band compressed to the bottom ~25% (behind the trunks —
+    // light rising from the land); top third ≤8% luma (kills dusk-drift; anti-Aurora sky-ceiling).
+    sky: { top: C(0x060309), mid: C(0x1a0e06), horizon: C(0x7a4818), sun: C(0x5a3010) },
+    // Near-fog is the GLOWING GROUND-MIST — a self-luminous amber-olive haze (color above the
+    // scene mean = fog that EMITS, not obscures); far pulled in so sight-lines end in glow, not void.
+    fog: { color: C(0x33230f), near: 48, far: 255 },
     // Dual-fog far color (§5.2): the near air is dark humid warm-green swamp; distance
     // desaturates TOWARD amber haze (dark-scene aerial perspective fades to the dominant
     // GLOW hue, not blue-grey) — the cheapest identity move + the anti-Aurora firewall.
-    fogFarColor: C(0x5e4e2e),
-    // Swamp air pools LOW on the water — the knee-height ground-mist sheet (dive = into
-    // the mist). OPTIONAL channel (0 elsewhere).
-    atmos: { heightK: 0.05 },
-    // NO dominant sun (theology firewall): a low dim WARM key, dark hemiSky, and a warm
-    // amber hemiGround so undersides pick up bounce from the glowing water/mist — this is
-    // what SELLS "lit from below/within" (the inverse of a sky-lit night).
-    light: { sun: C(0x8a6636), sunI: 1.25, hemiSky: C(0x3a4e32), hemiGround: C(0x483212) },
-    // The black mirror: near-still (waveAmp low) so it DOUBLES every glow — the reflection
-    // is load-bearing (address + mirror = the biome handshake).
-    water: { deep: C(0x06121a), shallow: C(0x18382c), waveAmp: 0.2 },
+    fogFarColor: C(0x4a2c0e),
+    // The GLOWING GROUND-MIST is the hero of the luminance pass — a visible waist-deep luminous
+    // layer over the water (Fable v33: "the sky of the Mire is the waist-high mist").
+    atmos: { heightK: 0.09 },
+    // INVERTED HEMISPHERE (Fable v33): ground brighter+warmer than sky = light rising from the
+    // land (the bioluminescence signature AND the built-in anti-Aurora tell). The sun is only a
+    // faint marsh-glow RIM at very low intensity — the luminance comes from mist/water/ground-up,
+    // never a bright key. (The dragon's belly under-fill is the meter; raise hemiGround if it crushes.)
+    light: { sun: C(0xff9a3c), sunI: 0.2, hemiSky: C(0x12101a), hemiGround: C(0x3a2a12) },
+    // Luminous WARM water — the biggest single win (half the portrait frame): warm shallow so wave
+    // crests catch amber ACROSS the mirror (not one column); deep = a green-black LIVING dark (never
+    // pure #000); +20% wave so reflections spread into a broad shimmering field. NO teal (Aurora quarantine).
+    water: { deep: C(0x0d1410), shallow: C(0x7a5a20), waveAmp: 0.24 },
     // Theology firewall: "nothing shines from the sky." A night swamp has no sun-shafts —
     // meter the shared god-ray fan WAY down (default 1 = byte-identical elsewhere; ~0 like
     // Aurora would kill the faint glow-halos, so keep a dim residue) AND warm the shaft tint
     // to the amber glow-haze family so any residual reads as organism-lit mist, not a sun
     // (Fable PR-1 gate: grey-white point-source fan = a theology breach). See main.js god-ray gate.
-    godrayMul: 0.06,
-    godrayTint: C(0xc0782c),
+    godrayMul: 0.075,
+    godrayTint: C(0xff9d45),
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
-    ambient: { color: C(0xffc23a), fall: 0.05, sway: 2.5, size: 0.58, opacity: 0.9 },
+    ambient: { color: C(0xffc266), fall: 0.05, sway: 2.5, size: 0.82, opacity: 0.85 }, // fireflies — bigger soft halos (surge lesson), warmer
     fauna: { color: C(0xffd24a), scale: 0.9, flap: 0.4 }, // drifting lantern-motes (amber)
     // Overhaul kit (LUMEN-MIRE-BIBLE.md) — the depth/canopy substrate as it lands; `?props=v1`
     // restores the legacy glowcap/spirevine. Mirror grows with each PR (hero + roster to come).

@@ -31,7 +31,7 @@ async function shots(query, tag, dists) {
   return errors;
 }
 
-const eMire = await shots('?biome=4&debug', 'mire', [700, 1500, 2600]);
+const eMire = await shots('?biome=4&debug', 'mire', [430, 980, 1240, 2050]);
 const eAur = await shots('?biome=6&debug', 'aurora', [1500]);
 console.log('mire console errors:', eMire.length);
 if (eMire.length) console.log(eMire.slice(0, 4).join('\n'));
