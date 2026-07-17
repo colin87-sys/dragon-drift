@@ -37,7 +37,7 @@ const GATE_VEIL = 16;              // the Phase Gate veil half-span
 // PR-1 SCOPE: the Frozen biome (2) is the owner's acute complaint and is enforced
 // (CI-fail). Other biomes have pre-existing stragglers (shipped) — Fable's plan says
 // REPORT them as a follow-up, don't fix them in this PR. So they warn, not fail.
-const SCOPE_BIOME = [2, 3, 4];   // Frozen (2) + Caldera (3) + Lumen Mire (4, the overhaul biome) CI-enforced
+const SCOPE_BIOME = [2, 3, 4, 7];   // Frozen (2) + Caldera (3) + Lumen Mire (4) + Tempest Reach (7, the overhaul biome) CI-enforced
 const data = propClearanceData();
 let fails = 0, strays = 0;
 const rows = [];
@@ -46,8 +46,10 @@ for (const a of data) {
   let innerMin = Infinity, worstTop = 0, overheadBad = false;
   // Authored-orientation props (paired hero = sungate) always turn their small
   // gap-facing side (xMax) toward the lane, NOT the full random-rotY ρ. OVERHEAD roofs
-  // (drape) measure lane reach from the sub-unitY trunk band (rhoLane) only.
-  const facing = a.gate ? a.apertureHalf : a.paired ? a.xMax : (a.overhead ? a.rhoLane : a.rho);
+  // (drape) measure lane reach from the sub-unitY trunk band (rhoLane) only. OVERHEAD wins
+  // over PAIRED when both are set (stormarch is a paired arch WITH an overhead crown span):
+  // pairing only governs distance-alignment; the crown clearance is legitimately the trunk.
+  const facing = a.gate ? a.apertureHalf : a.overhead ? a.rhoLane : a.paired ? a.xMax : a.rho;
   for (const s of a.samples) {
     const top = s.h * a.yMax;
     // For an overhead roof, the geometry that can invade the flight band is the trunk,

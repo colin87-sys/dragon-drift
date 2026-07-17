@@ -19,18 +19,26 @@ let armed = false; // first tap "wakes" audio (browser autoplay) before takeoff
 
 const EMBER_COUNT = 16;
 
+// WELCOME+HUB §1.4 — DETERMINISTIC embers. Every param is a seeded function of the
+// index (golden-ratio hash → an even, non-clumping spread), so two renders are
+// byte-identical for the screenshot gate. R5: the per-index duration is spread across
+// 7–16s so the even distribution never phase-locks into a visible marching-band rhythm.
+const GOLDEN = 0.6180339887;
+// Fractional part of i·φ·k + offset → a well-distributed pseudo-random in [0,1), stable per index.
+function seeded(i, k, off = 0) { const v = (i + 1) * GOLDEN * k + off; return v - Math.floor(v); }
+
 function buildEmbers(layer) {
   for (let i = 0; i < EMBER_COUNT; i++) {
     const e = document.createElement('span');
     e.className = 'splash-ember';
-    const size = 2 + Math.random() * 4;
-    e.style.left = `${Math.random() * 100}%`;
+    const size = 2 + seeded(i, 3.0) * 4;                 // 2–6px
+    e.style.left = `${seeded(i, 1.0) * 100}%`;
     e.style.width = `${size}px`;
     e.style.height = `${size}px`;
-    e.style.animationDuration = `${7 + Math.random() * 9}s`;
-    e.style.animationDelay = `${-Math.random() * 12}s`;
-    e.style.setProperty('--drift', `${(Math.random() * 2 - 1) * 40}px`);
-    e.style.opacity = `${0.3 + Math.random() * 0.5}`;
+    e.style.animationDuration = `${7 + seeded(i, 7.0) * 9}s`;    // 7–16s, spread per index (R5)
+    e.style.animationDelay = `${-seeded(i, 5.0) * 12}s`;
+    e.style.setProperty('--drift', `${(seeded(i, 11.0) * 2 - 1) * 40}px`);
+    e.style.opacity = `${0.3 + seeded(i, 13.0) * 0.5}`;
     layer.appendChild(e);
   }
 }
@@ -45,6 +53,7 @@ export function initSplash(h = {}) {
   root.innerHTML = `
     <div class="splash-sky"></div>
     <div class="splash-horizon"></div>
+    <div class="splash-godray"></div>
     <div class="splash-vignette"></div>
     <div class="splash-embers"></div>
     <div class="splash-top">
@@ -91,14 +100,35 @@ export function splashArmed() {
   return armed;
 }
 
+// WELCOME+HUB §1.2a — schedule the one-shot 3D IGNITE beat (dragon downstroke + rim lift +
+// camera push) co-timed with the wordmark resolve (~1.2s after the splash appears). Fires at
+// most once per show; cancelled on takeoff (hideSplash) so it can never fire into a run.
+let igniteTimer = null;
+let igniteBeatFired = false;
+const IGNITE_BEAT_DELAY = 1200; // ms — lands on the wordmark-resolve beat
+
+function cancelIgniteBeat() {
+  if (igniteTimer) { clearTimeout(igniteTimer); igniteTimer = null; }
+}
+
 export function showSplash() {
   if (!root) return;
   root.classList.add('show');
   document.body.classList.add('splash-open');
+  // (Re)arm the ignite beat for this viewing.
+  cancelIgniteBeat();
+  igniteBeatFired = false;
+  igniteTimer = setTimeout(() => {
+    igniteTimer = null;
+    if (igniteBeatFired || !splashVisible()) return;
+    igniteBeatFired = true;
+    handlers.onIgniteBeat && handlers.onIgniteBeat();
+  }, IGNITE_BEAT_DELAY);
 }
 
 export function hideSplash() {
   if (!root) return;
+  cancelIgniteBeat();
   root.classList.remove('show');
   document.body.classList.remove('splash-open');
 }

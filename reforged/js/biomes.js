@@ -236,6 +236,14 @@ export const BIOMES = [
     // glints (0.7), and a mirror-side pull that tames the green catch-ring's reflection (0.8, the ring
     // itself untouched). Consumed by water.js via setWaterTint. 0 elsewhere → other biomes byte-identical.
     reflStretch: 0.85, reflGlint: 0.7, reflGreenPull: 0.8,
+    // Fable 94: the Mire reserves MAGENTA for danger telegraphs, so a full-sky magenta Surge wash makes the
+    // danger colour decorative — during boss fights, no less. Force the Surge sky EMBER instead (skin-agnostic)
+    // + zero the magenta sky-curtain (Canopy Law). "The mire's organisms surge WITH you." 0 elsewhere.
+    surgeWarm: 1,
+    // Fable A1 ROOF-FROM-ABOVE: at the top of the lane the drape roof exits frame → a dark amber VOID.
+    // A camera-following canopy-shelf shader quad (altitude-gated) turns it into the inverted money shot —
+    // the mire's canopy seen from above, amber welling up through the gaps. 0 elsewhere → byte-identical.
+    canopyRoof: 1,
     // Fable 90 HORIZON SHAFT: one sourceless warm glow-column off the ember horizon (light that TRAVELS,
     // not light that is placed). Metabolic, off-center, breathes — never a sun. Consumed by the sky shader
     // (su.uShaft). 0/absent elsewhere → byte-identical sky in every other biome.
@@ -325,41 +333,52 @@ export const BIOMES = [
     stars: 0,
     deckBias: 1.15,   // the storm ceiling owns the sky: pull the mid→top gradient stops DOWN so the dark deck dominates and the green belt compresses to a thin strip above the pale horizon slot
     sky: {
-      top: C(0x1f242c),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
-      mid: C(0x4a5348),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
-      horizon: C(0xaab1ad),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
-      sun: C(0x83877f),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
-      // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed near-black (the dark
-      // underside is what makes the cloud read as SOLID storm mass), lit tops held BELOW the horizon
-      // slot's value so the slot stays the frame's brightest hole.
-      cloud: { amount: 0.80, lit: C(0xaeb6b0), shadow: C(0x161c24), force: true }, // force: the storm deck is the biome's identity, on even without the global sky-cloud toggle (tier-gated for perf)
+      // BEAUTY PASS sky re-grade (Fable, "bruised storm"): the violet lives in the DARKS (deck, cloud
+      // shadow, near fog), the olive stays in the mid belt as the bruise's sickly complement, all warmth is
+      // rationed to the slot/breach/rays/gold. Converts NEUTRAL (grey/depressing) → moody-ALIVE; stays a
+      // menacing DAY storm (mids lit, slot brightest), not a purple night (that's the surge state).
+      top: C(0x2a2540),      // BRUISED indigo-violet deck (was near-black blue-grey 0x1f242c) — L≈0.15, same silhouette floor, now with HUE. The strategic pixel.
+      mid: C(0x545c46),      // the olive belt KEPT (+sat, +half-stop) — violet deck over olive belt IS the bruise (severe-storm "green sky"); NOT violet (all-violet = surge/monochrome)
+      horizon: C(0xc2b399),  // THE VALUE HOLE, now warm PAPER-GOLD (was silver 0xaab1ad) — the slot is where the stolen sun leaks (conscious theology override; field light stays cool). L≈0.70 authored (~0.87 bloomed), still the brightest hole.
+      sun: C(0x9c8f76),      // the hidden sun warmed to agree with the slot; still NO disc
+      // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed dark VIOLET (deck family; the
+      // dark underside makes the cloud read as SOLID storm mass), lit tops held BELOW the slot's value.
+      cloud: { amount: 0.80, lit: C(0x9a99a6), shadow: C(0x1d1a2e), force: true }, // Fable gate R2: lit was 0xb5ab98 (warm) × amount 0.80 = warm painted across the LARGEST sky surface → the whole cloud field fused with the slot into one warm mass (the rationing inverted). Cooled to violet-grey (same L≈0.60) → lit cloud reads as storm-cloud in weak COOL daylight; warmth snaps back to ONLY slot/breach/rays/road/gold. shadow = deck violet. force: the storm deck is the biome identity
     },
-    fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
+    fog: { color: C(0x494c60), near: 55, far: 360 },  // INDIGO-slate near haze (was grey-slate 0x44505a) — violet/teal is the bruise pairing over the teal sea; L≈0.30 unchanged so danger/bullets still clear it
     // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
     // field is LIGHTER than its near (Frozen melts to gold, Caldera/Aurora sink to black). Receding
     // forms dissolve into the veil: free depth + cycle-unique distinctness.
-    fogFarColor: C(0xa7b2b0),
+    fogFarColor: C(0xb3ac9c),   // far field still goes LIGHTER (cycle identity) but now agrees with the warm slot instead of fighting it (was cool silver 0xa7b2b0)
     // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
     atmos: { heightK: 0.03 },
     // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
     // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
     // rationed cloud-rim/socket gold, never as the field light.
-    light: { sun: C(0xaebac2), sunI: 0.82, hemiSky: C(0x5a6a72), hemiGround: C(0x2c3a3c) },
+    // Light rig (Fable regrade): sun stays COOL + dominant (day-storm; theology holds — no warm field
+    // light). hemiSky carries the deck's indigo onto prop shadow planes; hemiGround carries the sea's teal
+    // up into bellies → rock and sky agree. Warmth enters only via emissive (gold, slot-lit scour) + the sky.
+    light: { sun: C(0xb0b4c6), sunI: 0.82, hemiSky: C(0x5c5f78), hemiGround: C(0x2c3a42) },
     // EYE-BREACH godray meter (TEMPEST-REACH-BIBLE.md — the eye of the gale): the biome's ONE sun-shaft
     // event. The storm has no field-wide shafts, but where the deck BREAKS on the sun azimuth the light
     // pours through — so ramp the shared fan UP (0.05 → 0.42) and the bright almond interior (below)
     // auto-becomes the occlusion-mask source. v1 = a fixed prominent value (the progress-arc growth is a
     // follow-on). Byte-identical elsewhere (godrayMul only lerps at biome 7's seams).
-    godrayMul: 0.42,
-    godrayTint: C(0xffd28a),   // warm sun-gold — the shafts falling from the breach are the leaked sun, not cold haze
+    godrayMul: 0.22,   // Fable R3 (device): the rays are ATMOSPHERE not statement. NEGATIVE-OF-CLOUDS: the carve breaks the shafts up (less continuous light), so a hair more base intensity keeps the crepuscular pour readable
+    godrayBreak: 0.0,   // NEGATIVE-OF-CLOUDS: the CLOUD DECK is now the shaft modulation (occlusion-mask carve), so kill the artificial sine bundles entirely — no double-modulation, no countable lobes
+    godrayTint: C(0xffe6bd),   // paler, grey-broken storm-filtered sunlight (was saccharine amber 0xffd28a which pushed the wedges violet); the GOLD statement belongs to the sockets, not the sky
     // EYE-BREACH gate (the still axle): a fixed prominent 1.0 in Tempest, 0 elsewhere = byte-identical.
     // Drives env.breachMix → the sky-shader almond window + the water calm/gold patch. World-locked to
     // the sun azimuth (atan2(sunDir.z, sunDir.x)); the sun DISC is never shown (a centerless brightness).
     breach: 1.0,
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
-    water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
+    // BEAUTY PASS (Fable, sea half of the regrade): the pale grey-slate sea (deep 0x1b262c / shallow
+    // 0x54696b) read as neutral MUD — "gold on grey is mud; gold on teal-slate is fire." Deepened toward
+    // a darker teal-slate (the ROCK teal-ban doesn't apply to water) so the sun-road can actually burn and
+    // the sea stops reading depressing-neutral. Sky regrade (indigo deck) held for the full pass.
+    water: { deep: C(0x0c1a22), shallow: C(0x3c5a62), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
 
     wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
     rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
@@ -374,7 +393,7 @@ export const BIOMES = [
     // LineSegments streak layer (rainMix-gated). Small, dim, low-falling froth over the sea.
     ambient: { color: C(0x9fb0b4), fall: 1.5, sway: 2.0, size: 0.18, opacity: 0.35 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
-    props: [], // the storm-carved roster (stormprow/stackgrave/tafonihold/stormstack/arcuswall/rainshaft) lands in PR-1/PR-2
+    props: ['stormprow'], // the storm-carved roster (stormprow shipped; stackgrave/tafonihold/stormstack/arcuswall/rainshaft in later PRs). NOTE: doc-only — the archetype's `biomes: tempestNew` whitelist is the actual spawn gate
     matIndex: 7, // storm slate
     // No bullets override needed: with the fog held at L≈0.31 and the horizon under the 0.75 read
     // ceiling, all six role colours (danger + band + reflects) clear both fog and horizon on the
@@ -503,6 +522,13 @@ const env = {
   // water anisotropic reflection streaks + drifting glints + a mirror-side green-blob pull. Consumed by
   // water.js via setWaterTint. (Fable 85.)
   reflStretch: 0, reflGlint: 0, reflGreenPull: 0,
+  // Per-biome ember-Surge override (OPTIONAL; 0 = the shipped magenta Surge sky). A biome that reserves
+  // magenta for another meaning may flare its Surge horizon ember + drop the magenta curtain. (Fable 94.)
+  surgeWarm: 0,
+  // Canopy-roof-from-above (OPTIONAL; 0 = no altitude canopy shelf → byte-identical). A biome may grow a
+  // from-above canopy shelf when the camera climbs to the top of the lane. Consumed by environment.js's roof
+  // quad + ambient.js's high-altitude mote treatment. (Fable A1.)
+  canopyRoof: 0,
   // Horizon shaft (OPTIONAL; 0 everywhere by default → byte-identical sky). A biome may raise one
   // sourceless warm glow-column off its horizon. Consumed by the sky shader (su.uShaft). (Fable 90.)
   horizonShaft: 0,
@@ -516,6 +542,9 @@ const env = {
   // God-ray shaft tint (OPTIONAL; the shipped warm-white default → byte-identical).
   // A biome may warm/cool the residual shafts. Consumed by main.js's god-ray gate.
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
+  // God-ray sunburst-break strength (OPTIONAL; 0.35 default = subtle crepuscular bundles everywhere,
+  // a shared premium upgrade). A storm biome ramps it up so shafts read as broken bundles, not a fan.
+  godrayBreak: 0.35,
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
   cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
@@ -588,6 +617,8 @@ export function computeEnv(dist) {
   env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
   env.propAerial = lerp(a.propAerial ?? 0, b.propAerial ?? 0, ts);
   env.horizonShaft = lerp(a.horizonShaft ?? 0, b.horizonShaft ?? 0, ts);
+  env.surgeWarm = lerp(a.surgeWarm ?? 0, b.surgeWarm ?? 0, ts);
+  env.canopyRoof = lerp(a.canopyRoof ?? 0, b.canopyRoof ?? 0, ts);
   env.reflStretch = lerp(a.reflStretch ?? 0, b.reflStretch ?? 0, ts);
   env.reflGlint = lerp(a.reflGlint ?? 0, b.reflGlint ?? 0, ts);
   env.reflGreenPull = lerp(a.reflGreenPull ?? 0, b.reflGreenPull ?? 0, ts);
@@ -595,6 +626,7 @@ export function computeEnv(dist) {
   env.heroRim = lerp(a.heroRim ?? 0, b.heroRim ?? 0, ts);
   env.heroRimColor.lerpColors(a.heroRimColor ?? a.fogFarColor ?? a.fog.color, b.heroRimColor ?? b.fogFarColor ?? b.fog.color, ts);
   env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
+  env.godrayBreak = lerp(a.godrayBreak ?? 0.35, b.godrayBreak ?? 0.35, ts);
   env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
   // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.
