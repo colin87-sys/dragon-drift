@@ -2213,9 +2213,11 @@ const ARCHETYPES = {
       // the LANE-facing edge (+x) in a post–GAP–post–post rhythm, VARIED heights + two leaning (Fable r1:
       // square-section flat-top stubs read as crenellation, not columns; a tapered round shaft with a broken
       // top reads as a weathered column). One bay (z −0.20) left OPEN with a FALLEN LINTEL toppled across it.
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.05, 0.085, 0.58, 5, 1, true), { x: 0.24, z: -0.62, y: 0.81 }) }); // tall column, y 0.52→1.10 (10)
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.05, 0.085, 0.40, 5, 1, true), { x: 0.24, z: 0.18, y: 0.72, rz: 0.11 }) }); // broken short, leaning (10)
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.05, 0.085, 0.54, 5, 1, true), { x: 0.24, z: 0.60, y: 0.79, rz: -0.05 }) }); // column, slight lean (10)
+      // (Fable r2 free polish: THICKER shafts so they read as solid limestone not thin cool fins, and the two
+      // leaners get a REAL 12–15° collapse lean — a 5° lean read as a render error at silhouette scale.)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.58, 5, 1, true), { x: 0.24, z: -0.62, y: 0.81 }) }); // tall column, y 0.52→1.10 (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.40, 5, 1, true), { x: 0.24, z: 0.18, y: 0.72, rz: 0.24 }) }); // broken short, collapsing (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.54, 5, 1, true), { x: 0.24, z: 0.60, y: 0.79, rz: -0.13 }) }); // column, leaning (10)
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.13, 0.13, 0.46), { x: 0.22, z: -0.20, y: 0.60, rz: 0.42, ry: 0.12 }) }); // fallen lintel, toppled across the open bay (12)
       // BROKEN END — no sawn termination: a proud jagged wall-stub at one end (amber). Kept inside |z|≤~0.95
       // so ρ stays ~1.0 (lane-clearance). (The water-end fallen block was dropped for the moss-blob budget.)
@@ -2224,8 +2226,9 @@ const ARCHETYPES = {
       // irregular lumps, NOT flat facet-plates: Fable r1 kill-shot — octahedra rendered as green diamond
       // "kites", the same clean-geometric-plane tell as the dead jade wedge). One blob SAGGING over the lane-
       // edge lip to break the crown line; ~15% deck coverage. bake:'lily' (3-stop green, lit top / shadow under).
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.17, z: -0.10, y: 0.62, sx: 1.15, sy: 0.7, sz: 0.9 }) }); // main clump, sagging over the lane lip (20)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.15, 0), { x: -0.03, z: -0.32, y: 0.86, sx: 1.1, sy: 0.75, sz: 1.0 }) });  // smaller clump on the crown (20)
+      // (Fable r2 free polish: ry rotation so the icosa top-plan silhouette stops resolving as a clean hexagon.)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.17, z: -0.10, y: 0.62, sx: 1.15, sy: 0.7, sz: 0.9, ry: 0.6, rz: 0.3 }) }); // main clump, sagging over the lane lip (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.15, 0), { x: -0.03, z: -0.32, y: 0.86, sx: 1.1, sy: 0.75, sz: 1.0, ry: 1.1, rx: 0.35 }) });  // smaller clump on the crown (20)
       return mergeLagoonParts(parts);
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
