@@ -109,7 +109,8 @@ export function initGodRays(renderer, scene, camera, sky) {
       uCloudOctaves: cloudUniforms.uCloudOctaves,
       uCloudWarp: cloudUniforms.uCloudWarp,
       uCloudTime: cloudUniforms.uCloudTime,
-      uCarve: { value: 0.85 },   // how deeply cloud bodies bite into the light field (1 = fully dark under core)
+      uCarve: { value: 0.72 },   // how deeply cloud bodies bite into the light field (1 = fully dark under core); gentler = lower band-to-gap contrast = softer read
+      uSoft: { value: 0.055 },   // screen-space feather radius (ndc units) — spreads each cloud edge into a penumbra so shafts aren't defined beams
       uCamRight: { value: new THREE.Vector3() },
       uCamUp: { value: new THREE.Vector3() },
       uCamFwd: { value: new THREE.Vector3() },
@@ -118,13 +119,22 @@ export function initGodRays(renderer, scene, camera, sky) {
     fragmentShader: /* glsl */`
       ${CLOUD_HEAD}
       uniform vec3 uCamRight, uCamUp, uCamFwd;
-      uniform float uCloudTime, uCarve;
+      uniform float uCloudTime, uCarve, uSoft;
       varying vec2 vUv;
+      // coverage at an ndc sample, with a WIDE shape ramp (0.30,0.86) so the light field feathers where
+      // the sky (0.40,0.72) stays crisp — same registration, softer edges.
+      float _covAt(vec2 ndc) {
+        vec3 d = normalize(uCamFwd + ndc.x * uCamRight + ndc.y * uCamUp);
+        return _cloudCov(d, clamp(d.y, 0.0, 1.0), uCloudTime, 0.30, 0.86);
+      }
       void main() {
         vec2 ndc = vUv * 2.0 - 1.0;
-        vec3 d = normalize(uCamFwd + ndc.x * uCamRight + ndc.y * uCamUp);
-        float h = clamp(d.y, 0.0, 1.0);
-        float cov = _cloudCov(d, h, uCloudTime);
+        // 5-tap screen-space feather: the cloud edge becomes a penumbra in the LIGHT field, so the marched
+        // shafts read as soft crepuscular bands, not hard-edged beams. (The mask erode+tent chain adds more.)
+        float e = uSoft;
+        float cov = _covAt(ndc) * 0.36
+          + (_covAt(ndc + vec2(e, 0.0)) + _covAt(ndc + vec2(-e, 0.0))
+           + _covAt(ndc + vec2(0.0, e)) + _covAt(ndc + vec2(0.0, -e))) * 0.16;
         gl_FragColor = vec4(vec3(1.0 - uCarve * cov), 1.0);
       }`,
     depthTest: false, depthWrite: false,
