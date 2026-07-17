@@ -35,7 +35,7 @@ const findFar = () => { const dd = window.__dd; const pz = -dd.player.dist; let 
   dd.scene.traverse((m) => { if (!m.isInstancedMesh || m.count < 1) return; const arr = m.instanceMatrix.array;
     for (let k = 0; k < m.count; k++) { const sx = Math.hypot(arr[k*16+0], arr[k*16+1], arr[k*16+2]);
       const x = arr[k*16+12], y = arr[k*16+13], z = arr[k*16+14];
-      if (sx < 1 || y < -20 || Math.abs(x) < 40) continue; n++;
+      if (sx < 1 || y < -20 || Math.abs(x) < 30) continue; n++;
       const dz = Math.abs(z - (pz - 40)); if (dz < pdz) { pdz = dz; pick = { x, y, z, h: Math.hypot(arr[k*16+4],arr[k*16+5],arr[k*16+6]), r: sx }; } } });
   return { pick, n }; };
 await page.evaluate(`window.__findFar = ${findFar.toString()};`);
@@ -50,7 +50,7 @@ for (let i = 0; i < 5 && shot < 3; i++) {
     if (o.elev) {
       // DEAD-FRONT ELEVATION: camera SQUARE to the +z front face (HERO pin → rotY 0 → face points +z), level,
       // framing the whole run so the two-tier arch rhythm reads dead-on.
-      dd.__cam = { p: [p.x, H * 0.5, p.z + p.r * 1.15], t: [p.x, H * 0.5, p.z], fov: 46 };
+      dd.__cam = { p: [p.x, H * 0.65, p.z + p.r * 2.6], t: [p.x, H * 0.5, p.z], fov: 42 };
     } else {
       // FROM THE LANE across the water: eye near the flight lane (x≈0), low, looking out at the far massif.
       dd.__cam = { p: [s * 6, H * 0.34, p.z + 46], t: [p.x * 0.9, H * 0.42, p.z], fov: 44 };
