@@ -82,7 +82,7 @@ export const BIOMES = [
     // opt-in via ?props=v2; the legacy verdigris props (tower/column/archruin/slab/dome) via ?props=v1.
     // (This array is documentation only — spawning is gated by each archetype's `biomes` whitelist in
     // environment.js.)
-    props: ['karstfang', 'figgate', 'mangrovehold', 'prasat', 'lotusraft', 'nagawall'],
+    props: ['karstfang', 'figgate', 'mangrovehold', 'prasat', 'lotusraft', 'nagawall', 'causeway', 'rampart'],
     matIndex: 0, // lagoonStone (vertex-color bakes: honey limestone / jade tide / jungle greens / temple sandstone / gilt)
     // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
     // deep-rose (re-run bulletcontrast after the jade-water retune).
