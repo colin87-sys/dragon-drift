@@ -1804,6 +1804,9 @@ const ARCHETYPES = {
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
     step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.25, glow: true }, // sMax 1.25 (Fable 68): peak survivors SWELL into a thicket-event instead of the grove reading flat
+    // Fable 88 lever-6 SIZE OCTAVES (pup / adult / tall / rare mother): a colony reads as many pups, some
+    // adults, one matriarch — not street lighting. EV≈0.95 (mass stays put); peak k = 1.25×1.90 ≈ 2.4 towers.
+    sizeOctave: [[0.44, 0.58], [0.78, 1.00], [0.93, 1.45], [1.0, 1.90]],
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
@@ -1831,6 +1834,12 @@ const ARCHETYPES = {
   // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
     step: 37, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true }, // step 37 prime (Fable 68): coprime with shroom 45 + all Mire steps, kills the gcd-9 lattice co-beat
+    // Fable 88 lever-6 SIZE OCTAVES — glowbloom is DENSE near-lane ground filler (base inner ≈14.9, right at
+    // the ±14.5 clearance floor), so it cannot take an UPSIZE class without invading the lane (propclearance
+    // octave-aware gate). Its variance skews DOWNWARD instead — small/mid/full — max 1.0× so the effective
+    // sMax is byte-unchanged and clearance holds; the dramatic upward "mother" variance lives on glowshroom
+    // (placed further out). Still breaks the runway (mostly-smaller blooms with some full-size).
+    sizeOctave: [[0.45, 0.70], [0.80, 0.90], [1.0, 1.00]],
     build: () => {
       const parts = [];
       const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
@@ -1988,7 +1997,12 @@ export function propClearanceData() {
       const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
       samples.push(def.place(1, rnd));
     }
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, gate: !!def.gate, samples };
+    // Fable 88 lever-6: the per-instance size octave multiplies the render scale ON TOP of comp.sMax,
+    // so a "mother" instance is comp.sMax × maxOctave. Fold it into the effective sMax the clearance model
+    // audits — else the gate tests a smaller prop than the game draws (the mother cap would be unaudited).
+    const octaveMax = def.sizeOctave ? Math.max(...def.sizeOctave.map((o) => o[1])) : 1;
+    const sMaxEff = (def.comp ? def.comp.sMax : 1) * octaveMax;
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: sMaxEff, paired: !!def.paired, gate: !!def.gate, samples };
   });
 }
 
@@ -2678,7 +2692,17 @@ function writeMatrix(band, i, d) {
         const c = band.def.comp;
         const density = c.floor + (1 - c.floor) * g;
         if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
-        else k = c.sMin + (c.sMax - c.sMin) * g;
+        else {
+          k = c.sMin + (c.sMax - c.sMin) * g;
+          // Fable 88 lever-6: per-instance SIZE OCTAVES break the "runway of identical lamps" — the
+          // congregation k gives every survivor the same size, so multiply it by a pure per-instance
+          // class (pups/adults/tall/rare-mother). `side` is in the hash → left/right flanks decorrelate
+          // (kills the mirror-pair tell for free). Render-scale only, no rnd → gold-determinism byte-identical.
+          if (band.def.sizeOctave) {
+            const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
+            for (const o of band.def.sizeOctave) { if (hc < o[0]) { k *= o[1]; break; } }
+          }
+        }
       }
     }
   }
