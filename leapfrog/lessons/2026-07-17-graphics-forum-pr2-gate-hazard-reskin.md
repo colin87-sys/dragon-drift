@@ -1,42 +1,53 @@
-# Drowned Forum PR-2 (hazard) — reskinning the Phase Gate as the Sinking Triumphal Arch
+# Drowned Forum PR-2 (hazard) — reskinning the Phase Gate as the Sinking Triumphal Arch (Fable 2.1 → 4.3)
 
 **What we did.** Reskinned the shipped biome-0 `gate` obstacle (the fresnel Phase Gate) into a sunken-Roman
-toll-arch, under `?props=forum` only. The deadly veil becomes travertine masonry; the safe bay is framed as
-a gilt arched portal (pilasters + a bold voussoir ring) with a magenta keystone toll telegraph; every
-safe-route affordance is kept. Committed; the shipped gate is byte-identical everywhere else.
+coursed-ashlar toll-arch, under `?props=forum` only. Fable-gated it through SIX harsh rounds
+(2.1 → 3.7 → 3.8 → 3.7 → 4.0 → 4.3 PASS). The shipped gate is byte-identical everywhere else.
 
-**THE COLLIDER IS GAP-MATH, SO A RESKIN IS FREE — verify this first for any hazard.** `collision.js` tests
-the gate purely against `c.gapX/gapY/gapW/gapH` (`|p.x−gapX| < gapW−0.5 && |p.y−gapY| < gapH−0.5`); the mesh
-never enters the test. So swapping the mesh cannot change difficulty — "colliders byte-identical" is true by
-construction, not by careful matching. Confirm the same for pillar/shard/bar before reskinning them.
+**PROCESS LAW (learned the hard way, twice): a harsh Fable assessment at EVERY checkpoint is not optional.**
+Self-gating "looks solid to me" shipped a 2.1 hazard AND (earlier) a 2.7 hero. The owner had to call it out
+twice. §10 is LAW: spawn `model: fable`, attach the PNG by absolute path, ask for /5 + the single biggest
+failure + the one highest-leverage fix, and LOOP until ≥4.2 BEFORE showing the owner. Every round the number
+moves because it spends on exactly the cited failure. Do this for props, hazards, AND compositions.
 
-**A Phase Gate is a FULL-LANE WALL with a small hole — so the reskin is a wall-GATE, not a freestanding
-arch.** The deadly region is everything except a fixed 7.6×6.8 bay that floats to an arbitrary `(gapX,gapY)`.
-You cannot shrink the masonry to a bounded triumphal-arch silhouette — the uncovered lane would look safe but
-kill. So the visual must cover the whole span (a city-wall/gate facade), and the "arch" read has to come from
-DRESSING THE BAY: gilt pilasters flanking it + a bold gilt voussoir ring over it + a magenta keystone at the
-apex = "a framed arched portal in a sunken wall." A faint ring alone read as "a window in a slab" (round 2);
-the framed portal read as a toll-arch (round 3).
+**THE COLLIDER IS GAP-MATH, SO A RESKIN IS DIFFICULTY-FREE.** `collision.js` tests the gate purely against
+`c.gapX/gapY/gapW/gapH`; the mesh never enters the test. Swapping the mesh cannot change difficulty —
+"colliders byte-identical" is true by construction. Verify this first for any hazard reskin.
 
-**Keep 100% of the safe-route affordances — fairness is not the place to be creative.** The Phase Gate's
-readability (aperture frame + corner brackets + core-glow + beacon) is tuned and proven. The reskin ONLY
-swaps the deadly barrier's material and adds decoration; it retints the affordances warm (cyan Sanctuary →
-gilt) but never removes or moves them. The bay collider is unchanged, so the decoration must sit OUTSIDE it
-(the ring/pilasters are proud of the wall, never narrowing the gap).
+**CONSISTENCY IS A HARD GATE (owner): the hazard must be the SAME stone as the props.** The gate first used
+its own flat grey block palette — it read as imported Victorian brick beside the triumphgate's travertine
+(the one-city test, §12). The fix: bake the gate blocks with the SAME forum tide ladder (travertine crown /
+algae / drowned slate-teal base, keyed by WORLD HEIGHT — the gate stands in the water at y≈0) on the SAME
+`forumStone` material (exported `getForumStone()` from environment.js, whose `ladderEmissive` fold carries the
+ladder backlit). A hazard reskin should reuse the biome's material + bake, never invent a parallel one.
 
-**Backlit flat masonry crushes to black — the hero's lesson, again.** First capture: the travertine wall
-rendered as a solid BLACK slab (flat boxes, backlit by the dusk sun, low emissive). A plain gate material has
-no ladder-emissive fold, so it needs a strong WARM emissive floor (0xbaa878 @0.5) just to read as stone
-against the bright sky. Any large flat prop facing the low sun needs this or it silhouettes to black.
+**A BACKLIT GATE IS A SILHOUETTE — so an arch must read as the SHAPE OF THE HOLE + RADIAL voussoirs, not as
+value or relief.** Rounds 3.7–3.8 failed because I tried to make the arch read with value-alternated blocks
+and "proud" relief — both DIE when the gate silhouettes against the low dusk sun (no shadow line, no value).
+What finally read (4.0+): (1) CARVE a clean semicircular hole (the rectangular collider bay + a semicircle
+above it — collider stays the rectangle, the arched top is bonus clearance); (2) ring the hole edge with
+tight RADIAL voussoir wedges (each `rotateZ(θ−π/2)` so its long axis points at the arch centre) — a radial
+fan reads as an arch in pure silhouette; (3) keep the arch SURROUND solid (no erosion punching light through
+above the apex, which severs the keystone); (4) seat the magenta keystone AS the apex wedge (a wide-top
+trapezoid via `CylinderGeometry(rTop>rBot, h, 4)`), touching the ring — not a floating chip a course above.
 
-**Capture gotcha:** the full-game gate capture (`_forumgate.mjs`) stalls headless GPU readback at
-1280×820 @1.4 — shrink to ~1100×720 @1.0 (the §9 canvas-size warning) or `page.screenshot` times out with
-zero frames. Harden the health-pin to revert crash/damage state each tick (the parked player sits in the live
-obstacle field). Gates are sparse, so probe several dists to find one ahead.
+**NO VOUSSOIR WITHOUT WALL BEHIND IT (the 4.0→4.3 score-mover).** The safe bay floats to an arbitrary lane
+position, so a full semicircular ring can hang its flank off the wall edge into open sky — a silhouette-level
+structural lie the eye flags at cruise. Clamp the fan to the span the wall actually covers (`backed(vx,vy)`):
+near the lane edge it becomes a clean broken HALF-arch (ruin-appropriate), never a levitating fan.
 
-**Status:** PR-2 complete — hero (`triumphgate`, Fable 4.3) + hazard (gate reskin). Next: PR-3
+**Keep 100% of the safe-route affordances — fairness isn't the place to be creative.** The reskin only swaps
+the deadly barrier's material/geometry and warm-retints the cyan Sanctuary affordances (frame/brackets/core/
+beacon → gilt); it never removes or narrows them. The arch dressing sits OUTSIDE the fixed collider bay.
+
+**Capture gotchas:** full-game gate captures stall headless GPU readback at 1280×820 @1.4 — use ~1100×720 @1.0
+(§9). Harden the health-pin to revert crash/damage/`state` each tick or the parked player crashes into the
+"CRASHED"/"SECOND WIND?" overlay. Gates are sparse — probe several dists. Near-miss spark particles (magenta)
+appear when the dragon is parked IN the gate; tell Fable to ignore them.
+
+**Status:** PR-2 complete — hero (`triumphgate`, Fable 4.3) + hazard (gate reskin, Fable 4.3). Next: PR-3
 (`viamarina` near-rail + `drumfall` foil), reusing the proven forum stone kit.
 
 **Verify:** `?biome=0&debug&props=forum` (tools/_forumgate.mjs); node --check js/obstacles.js;
-gold-determinism / envcount / bulletcontrast green; shipped gate unchanged (forum branch is `PROPS_FORUM &&
-bi===0`, false in normal play and headless).
+gold-determinism / envcount / bulletcontrast green; shipped gate unchanged (`PROPS_FORUM && bi===0`, false in
+normal play and headless).
