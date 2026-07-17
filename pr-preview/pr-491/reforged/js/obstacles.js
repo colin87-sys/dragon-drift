@@ -562,41 +562,47 @@ function bakeFlatColor(geo, rgb) {
 function buildForumMasonry(group, o, X, TOP) {
   const rnd = mulberry32((Math.floor(o.dist * 8.1) ^ 0x51ed3c9b) >>> 0);
   const gL = o.gapX - o.gapW, gR = o.gapX + o.gapW, gB = o.gapY - o.gapH, gT = o.gapY + o.gapH;
-  const courseH = 2.3, blockW = 3.6, mortar = 0.16, blocks = [];
+  // MONUMENTAL ashlar (Fable: small brick read Victorian, not Roman) — big blocks, deep courses.
+  const courseH = 3.2, blockW = 5.0, mortar = 0.22, blocks = [];
   const nCourses = Math.ceil(TOP / courseH);
   for (let c = 0; c < nCourses; c++) {
     const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - mortar;
-    if (ch <= 0.3) continue;
+    if (ch <= 0.4) continue;
     const cy = (cy0 + cy1) / 2, stagger = (c % 2) ? blockW * 0.5 : 0;
     for (let bx = -X - stagger; bx < X; bx += blockW) {
       const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW - mortar), bw = br - bl;
-      if (bw <= 0.4) continue;
+      if (bw <= 0.5) continue;
       const cx = (bl + br) / 2;
-      if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                 // the safe bay (opening) — leave clear
-      if (cy0 > TOP - courseH * 2 && rnd() < 0.42) continue;                    // erode the crown
-      if (Math.abs(cx) > X - blockW * 1.2 && cy0 > TOP - courseH * 3.5 && rnd() < 0.5) continue; // erode outer corners
+      if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                          // the safe bay — leave clear
+      // erode the crown CONTIGUOUSLY from the top edge in (probability grows with height) — no floating confetti
+      const fromTop = (TOP - cy1) / courseH;                                             // 0 at the crown → grows down
+      if (fromTop < 2.2 && rnd() < 0.5 - fromTop * 0.22) continue;
+      if (Math.abs(cx) > X - blockW * 1.3 && fromTop < 3.5 && rnd() < 0.4 - fromTop * 0.1) continue; // outer corners
       const zJit = (rnd() - 0.5) * 0.7;
-      const g = new THREE.BoxGeometry(bw, ch, 2.6 + Math.abs(zJit)).toNonIndexed();
+      const g = new THREE.BoxGeometry(bw, ch, 2.8 + Math.abs(zJit)).toNonIndexed();
       g.translate(cx, cy, zJit * 0.4);
       bakeFlatColor(g, _FGT_VALS[(rnd() * _FGT_VALS.length) | 0]);
       blocks.push(g);
     }
   }
-  // VOUSSOIRS — wedge blocks ringing the bay's arched top, hugging the real opening; keystone at the true apex.
-  const R = o.gapW + 1.0, nV = 7;
+  // VOUSSOIRS — a real semicircular ring of wedge blocks springing from the bay's TOP CORNERS (Rin=gapW),
+  // radiating outward (2× course height), ALTERNATING value so the ring reads as an arch; the magenta
+  // keystone is seated at the apex (th=π/2), not orphaned on the crown (Fable 3.7 miss).
+  const Rin = o.gapW, rMid = Rin + 1.7, nV = 9;
   for (let k = 0; k < nV; k++) {
+    if (k === (nV - 1) / 2) continue;                       // leave the apex slot for the keystone
     const th = Math.PI * (k + 0.5) / nV;
-    const vx = o.gapX + Math.cos(th) * R, vy = gT + Math.sin(th) * R * 0.9;
-    const g = new THREE.BoxGeometry(1.6, 1.5, 3.0).toNonIndexed();
-    g.rotateZ(th - Math.PI / 2); g.translate(vx, vy, 0.5);
-    bakeFlatColor(g, _FGT_VALS[2]);   // lighter travertine voussoir ring
+    const g = new THREE.BoxGeometry(2.3, 3.3, 3.2).toNonIndexed();
+    g.rotateZ(th - Math.PI / 2);                            // long axis points radially (a voussoir)
+    g.translate(o.gapX + Math.cos(th) * rMid, gT + Math.sin(th) * rMid, 0.4);
+    bakeFlatColor(g, (k % 2) ? _FGT_VALS[5] : _FGT_VALS[2]);
     blocks.push(g);
   }
   const merged = mergeGeometries(blocks, false);
   blocks.forEach((b) => b.dispose());
   group.add(new THREE.Mesh(merged, forumGateMats.stone));
-  const key = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.1, 3.3), forumGateMats.toll);
-  key.position.set(o.gapX, gT + R * 0.9, 0.6);   // seated at the voussoir apex
+  const key = new THREE.Mesh(new THREE.BoxGeometry(2.3, 3.6, 3.5), forumGateMats.toll);
+  key.position.set(o.gapX, gT + rMid, 0.55);               // seated at the voussoir apex above the bay
   group.add(key);
   group.userData.tollKey = key;
 }
