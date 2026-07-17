@@ -31,5 +31,25 @@ pipeline to produce a build-ready sheet: a high-effort Fable **engineer** revers
 station resample + split notch must stay **NaN-free and byte-identical at `caudalBloom:0`**,
 and must read as a fan-bloom (not "tube-with-flaps," the AD's veto) from rear chase.
 
+**THE BIG v2 LESSON — the orchestrator (`dragonModel.js`) is part of the rig contract.** The
+adversarial auditor (opening every cited line + running a headless `starters.mjs` probe +
+`tricount.mjs`) caught that a rig audit against `dragon.js` ALONE misses two whole classes of
+bug: (1) **dead-code forwarding** — a `parts.*` material that a per-frame tick reads is null
+in-game unless `buildDragonModel`'s TWO return objects (preview + main) explicitly forward it;
+grep the orchestrator, don't assume the tick runs. This was live: jade's shipped pearl-breath
+and dew-gem shimmer had NEVER run because `pearlMat`/`tipGemMat` were never forwarded. (2)
+**the flare/reset clobber** — `updateDragon` is one function; any tick that writes
+`material.emissiveIntensity` directly is overwritten later the same frame by the spineFlare
+cruise-reset loop (`m.emissiveIntensity = userData.baseIntensity ?? 1`). The ONLY write that
+survives is `userData.baseIntensity` (the Revenant gravePulse pattern, documented in-code). A
+corollary shipped bug: a spineMat built WITHOUT `userData.baseEmissive/baseIntensity` gets
+forced to emissive-white @1.0 every cruise frame. **Reusable rule for any glow/pulse feature:
+forward the material through both `dragonModel.js` returns, stamp `userData` at construction,
+and drive it via `userData.baseIntensity` — never `emissiveIntensity` directly.**
+
+**Also: pin the tri plan to the REAL CI assert, not a ±% feel.** `tests/starters.mjs` gates
+each form at `triTarget × [0.8, 1.2]` (f0 ×1.5). v1's f1 target (~4450) blew the 4416 ceiling
+by ~34 tris; the fix is to re-pin `SPECS.<dragon>.triTargets`, not to hand-wave "±15%."
+
 **What it unlocks.** A build-ready Jade sheet another chat can implement, and a repeatable
 "locked image → engineer → auditor" recipe for elevating any shipped starter to AAA.
