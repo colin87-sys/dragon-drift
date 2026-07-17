@@ -67,10 +67,31 @@ temple prop: rampart, any wall/terrace.)
   `inst:[r,h]` scale hook + `tools/_cwstudio.mjs` (wall angles: gallery face / full-length / worm's-eye WALL
   read / down-the-length / top-plan) so horizontal props gate at their true proportion.
 
+## Stage-2 in-context (double-gated): 3.4 FAIL → 4.4 PASS — the two in-context laws
+
+The studio Stage-1 pass (4.3) did NOT predict the in-context read. Two things only a live-game frame revealed:
+- **A featureless amber FACE reads as a plain slab at cruise, even with a good silhouette** (Fable 3.4). The
+  colonnade lived on the CROWN; the big visible mass at cruise is the deck BODY, a blank plane. Fix: **dark
+  doorway BAY openings cut into the visible face** give the value structure (core→bloom→dark) a flat wall
+  lacks — see the PR-8 rampart lesson for the reusable `void`/`reveal` bake + the single-sided-plane winding
+  gotcha. This is the load-bearing in-context fix and it recurs on every wall prop.
+- **SIDE-BASED rotY, or half your instances show their back.** causeway's `(rnd()<0.5?0:π)` flip meant half
+  the galleries faced the lane with their blank parapet back — a hidden second cause of the "plain slab."
+  `rotY = (side>0?π:0)+jitter` turns the decorated face to the lane every time.
+- **THE MOSS GEM TRAP (Fable 4.0→4.4, the last fix):** a smooth convex icosa with a bright up-facing olive
+  facet reads as a **cut emerald / low-poly avocado**, not moss — "vegetation never presents as a clean convex
+  ovoid with a specular facet." Fix, all cheap: **`bake:'root'`** (upThresh 0.75 → the dark fern/shadow
+  greens, NOT the bright `_LAG_OLIVE` gem-highlight), **FLATTEN `sy` to ~0.3–0.5** (a low mat, not an ovoid),
+  and **slump it OVER the crown edge so the dark underside falls over the face** — overhang + dark underside +
+  matte = "drape," and drape = organic. (A lit top ridge is FINE if the bulk below is dark: that's correct
+  lit-core→dark-falloff value structure, not a gem.)
+
+Warmth resolved itself in-context (the studio's cool-grey columns read warm honey in the real golden key — the
+studio-bg caveat was right). causeway is DOUBLE-GATED: Stage-1 4.3, Stage-2 4.4. Free polish left (non-gating):
+break the hero moss's top ridge into 2–3 smaller lit patches; add a second small tuft to echo the bay rhythm.
+
 ## What it unlocks
 
 The Lagoon finally has its horizontal rest-rail — the corridor reads as a framed avenue, not empty mirror, and
-the vertical heroes read colossal against it. Remaining: `rampart` (the continuous FAR massif — the
-glacierwall/riftwall analog, both horizons, so the mid-horizon isn't empty sky either), then the in-context
-Stage-2 gate for both + the owner montage. Stage-2 watch items for causeway (Fable free polish, non-gating):
-warm the columns if they read cool grey over jade water, waver the jade band's ruler-straight top edge.
+the vertical heroes read colossal against it. Its sister prop `rampart` (the continuous FAR massif) reuses
+every technique here (dark bays, side-rotY, matte-drape moss) — see the PR-8 lesson.
