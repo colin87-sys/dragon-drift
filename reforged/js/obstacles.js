@@ -493,38 +493,51 @@ function buildForumMasonry(group, o, X, TOP) {
   const gL = o.gapX - o.gapW, gR = o.gapX + o.gapW, gB = o.gapY - o.gapH, gT = o.gapY + o.gapH;
   const stoneMat = getForumStone();                        // the SAME material as the props (ladderEmissive fold)
   const Rh = o.gapW + 0.6;                                  // arched-opening radius (springs from the bay top corners)
-  const courseH = 3.2, blockW = 5.0, mortar = 0.22, blocks = [];
+  // OPUS QUADRATUM (Fable art-direction / owner + Roman research): a MONUMENTAL gate is a handful of huge
+  // squared ashlar blocks, not small running-bond brick (that's opus latericium — a house facing). Big blocks
+  // (~5–6 across the whole span, ~5 courses), joints as VALUE only (near-zero gap — a dark mortar gap is the
+  // loudest brick tell), 70% smooth mass / 30% faint coursing → it reads as the SAME construction as the
+  // triumphgate hero's smooth travertine masses.
+  const courseH = 4.7, blockW = 6.2, blocks = [];
   const nCourses = Math.ceil(TOP / courseH);
+  // Contiguous BROKEN-TOP height profile per column bucket (Fable: no floaters — erode a HEIGHT, never punch
+  // random holes; asymmetric stair-step following the courses). ~35% of columns full height, most lose 1, some 2–3.
+  const topBucket = new Map();
+  const topAt = (cx) => {
+    const b = Math.round(cx / blockW);
+    let v = topBucket.get(b);
+    if (v === undefined) { const r = rnd(); const lost = r < 0.35 ? 0 : r < 0.74 ? 1 : r < 0.92 ? 2 : 3; v = TOP - lost * courseH; topBucket.set(b, v); }
+    return v;
+  };
   for (let c = 0; c < nCourses; c++) {
-    const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - mortar;
+    const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - 0.06;   // near-zero joint (value, not gap)
     if (ch <= 0.4) continue;
     const cy = (cy0 + cy1) / 2, stagger = (c % 2) ? blockW * 0.5 : 0;
     for (let bx = -X - stagger; bx < X; bx += blockW) {
-      const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW - mortar), bw = br - bl;
-      if (bw <= 0.5) continue;
+      // Header/stretcher: an occasional HALF block (a header) breaks the running bond — 2 lengths only, no jitter.
+      const isHeader = (((bx / blockW) | 0) + c) % 3 === 0;
+      const step = isHeader ? blockW * 0.5 : blockW;
+      const bl = Math.max(-X, bx), br = Math.min(X, bx + step), bw = br - bl;             // blocks TOUCH (no mortar gap)
+      if (bw <= 0.6) continue;
       const cx = (bl + br) / 2;
-      // ARCH-TOPPED opening = the rectangular safe bay + a clean semicircle above it (radius Rh).
+      // ARCH-TOPPED opening = the rectangular safe bay + a clean semicircle above it (radius Rh). Big blocks →
+      // a big monumental portal; the gilt aperture frame marks the exact (smaller) safe route inside it.
       if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                          // rectangular bay
       const dArch = Math.hypot(cx - o.gapX, cy - gT);
       if (cy > gT && dArch < Rh) continue;                                               // clean arched top (hole)
-      // erode the crown CONTIGUOUSLY from the top edge in — but keep the arch SURROUND solid (Fable: light
-      // punching through above the apex severs the keystone). No erosion within ~one block of the ring.
-      const nearArch = dArch < Rh + 4.0 && cy > gB;
-      const fromTop = (TOP - cy1) / courseH;
-      // Erode the crown CONTIGUOUSLY from the top edge in (no floating confetti — only the top ~2 courses,
-      // probability falls with depth so a removed block never leaves an isolated island below it).
-      if (!nearArch && fromTop < 2.0 && rnd() < 0.55 - fromTop * 0.28) continue;
-      const zJit = (rnd() - 0.5) * 0.7;
-      const g = new THREE.BoxGeometry(bw, ch, 2.8 + Math.abs(zJit)).toNonIndexed();
-      g.translate(cx, cy, zJit * 0.4);
-      bakeFlatColor(g, forumStoneCol(cy, 0.86 + rnd() * 0.26));                          // tide ladder by height + jitter
+      const nearArch = dArch < Rh + 5.0 && cy > gB;                                      // keep the arch surround solid
+      if (!nearArch && cy0 >= topAt(cx)) continue;                                       // contiguous broken top (no floaters)
+      const zJit = (rnd() - 0.5) * 0.5;                                                   // subtle relief seam only
+      const g = new THREE.BoxGeometry(bw, ch, 3.0 + Math.abs(zJit)).toNonIndexed();
+      g.translate(cx, cy, zJit * 0.35);
+      bakeFlatColor(g, forumStoneCol(cy, 0.95 + rnd() * 0.10));                           // tide ladder + FAINT jitter (coursing is garnish)
       blocks.push(g);
     }
   }
   // VOUSSOIRS — a tight radial ring HUGGING the hole (inner edge AT Rh), each wedge pointing at the arch
   // centre. Radial orientation is what makes the arch read in SILHOUETTE when value is dead backlit (Fable
   // 3.8). The magenta keystone IS the apex wedge (touching the ring, flared), not a floating chip.
-  const nV = 11, vLen = 3.4, rMid = Rh + vLen / 2 - 0.4;   // inner edge ≈ Rh (hugs the hole)
+  const nV = 9, vLen = 4.4, rMid = Rh + vLen / 2 - 0.5;    // fewer, BIGGER wedges (opus quadratum scale); inner edge ≈ Rh
   // NO VOUSSOIR WITHOUT WALL BEHIND IT (Fable 4.0 score-mover): clamp the fan to the span the wall actually
   // covers ([-X,X] × below the crown) so no wedge floats against open sky/water. When the bay sits near the
   // lane edge the arch is a clean broken half-arch (ruin-appropriate) instead of a levitating stone fan.
@@ -534,10 +547,10 @@ function buildForumMasonry(group, o, X, TOP) {
     const th = Math.PI * (k + 0.5) / nV;
     const vx = o.gapX + Math.cos(th) * rMid, vy = gT + Math.sin(th) * rMid;
     if (k === (nV - 1) / 2 || !backed(vx, vy)) continue;    // apex → keystone; skip any unbacked wedge
-    const g = new THREE.BoxGeometry(2.7, vLen, 3.6).toNonIndexed();
+    const g = new THREE.BoxGeometry(3.4, vLen, 3.8).toNonIndexed();
     g.rotateZ(th - Math.PI / 2);                            // long axis radial
     g.translate(vx, vy, 0.9);
-    bakeFlatColor(g, forumStoneCol(vy, 0.9 + (k % 2) * 0.22));   // travertine crown values + alternation
+    bakeFlatColor(g, forumStoneCol(vy, 0.97 + (k % 2) * 0.06));   // travertine crown + faint alternation
     vgeo.push(g);
   }
   blocks.push(...vgeo);
@@ -546,7 +559,7 @@ function buildForumMasonry(group, o, X, TOP) {
   // Magenta keystone — a trapezoid wedge (wide top, tall) locking the apex, only if the apex is wall-backed.
   const kx = o.gapX, ky = gT + rMid;
   if (backed(kx, ky)) {
-    const kg = new THREE.CylinderGeometry(1.9, 1.2, 4.4, 4, 1).rotateY(Math.PI / 4);   // 4-sided → trapezoid prism, wide-top
+    const kg = new THREE.CylinderGeometry(2.3, 1.5, 5.2, 4, 1).rotateY(Math.PI / 4);   // 4-sided → trapezoid prism, wide-top
     const key = new THREE.Mesh(kg, forumGateMats.toll);
     key.position.set(kx, ky, 1.2);
     group.add(key);
