@@ -3486,7 +3486,7 @@ const ARCHETYPES = {
       // OCULUS GILT — inward-facing recessed frustum (the withheld mid-hero ember; reads only as trapped
       // sunset through the wound/oculus, never an exterior face). mat 1, 5 seg. Recessed DEEP (domeY+0.16, not
       // +0.35) so the collapsed quarter never exposes it above the dome crown as a floating gilt BLOCK.
-      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.14, 5, 1, true), { y: domeY + 0.16 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.075, 0.075, 0.11, 5, 1, true), { y: domeY + 0.05 }) });
 
       // ═══ PORTICO STUB (the "pantheon" ADD) — on local −x (the clean quadrant; drowns deepest under the bake
       // tilt so the porch wades and the lost pediment corner is on the drowned/seaward side). Post-and-beam
@@ -3497,21 +3497,24 @@ const ARCHETYPES = {
         F(xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: -0.66, z, y: 0.10 + h / 2, rz: lean }));
         if (cap) F(xform(new THREE.CircleGeometry(rT, 5), { x: -0.66, z, y: 0.10 + h, rx: -Math.PI / 2 }));   // broken crown visible from the air → cap it
       };
-      col(-0.21, 0.50, 0.026, 0.021, 0.03, false);    // full column
-      col(-0.126, 0.50, 0.026, 0.021, -0.02, false);  // full column
-      col(-0.042, 0.30, 0.027, 0.027, 0.05, true);    // broken at ⅗ height (capped)
+      col(-0.25, 0.50, 0.020, 0.016, 0.03, false);    // full column — THINNER + spread so sky-gaps read as a COLONNADE, not a wall (Fable pn gate)
+      col(-0.13, 0.50, 0.020, 0.016, -0.02, false);   // full column
+      col(-0.01, 0.30, 0.021, 0.021, 0.05, true);     // broken at ⅗ height (capped)
       // ARCHITRAVE BEAM + snapped PEDIMENT — the raking triangle. Flatten law: place() h/r≈0.55, so a world
       // ~20° rake is built at object apex ~0.11 above the beam. Inner end embeds ~0.02 INTO the drum face
       // (pronaos weld); the seaward (+z) corner is the one LOST (over the fallen drums).
-      F(xform(new THREE.BoxGeometry(0.12, 0.045, 0.30), { x: -0.66, z: -0.11, y: 0.635 }));   // architrave beam over the columns
+      F(xform(new THREE.BoxGeometry(0.12, 0.045, 0.34), { x: -0.66, z: -0.13, y: 0.635 }));   // architrave beam over the columns
       {
-        const xf = -0.725, xb = -0.595, yB = 0.658, yA = 0.768;   // front/back x (back embeds ~0.03 INTO the drum face at -0.63 → pronaos weld), beam-top y, apex y
-        const zL = -0.255, zA = -0.125, zR = -0.03;               // eaveL, apex z, snapped-short +z end
+        // PEDIMENT — a PROMINENT raking triangle (Fable pn gate: the old one read as a flat top edge, no rake,
+        // no sky-notch). Apex 0.17 ABOVE the beam (front face wound −x → visible from the lane), a clear gable
+        // notching against the dome's rising arc. The seaward (+z) corner is the one LOST (over the fallen drums).
+        const xf = -0.735, xb = -0.585, yB = 0.658, yA = 0.828;   // front/back x (back embeds INTO the drum face at −0.63), beam-top y, apex y (0.17 rake)
+        const zL = -0.30, zA = -0.15, zR = -0.02;                 // eaveL, apex z, snapped-short +z end
         const v = [];
         const tri = (a, b, c) => v.push(...a, ...b, ...c);
-        const fL = [xf, yB, zL], fA = [xf, yA, zA], fR = [xf, yB, zR];   // front gable (facing −x), +z corner snapped short (zR near apex)
+        const fL = [xf, yB, zL], fA = [xf, yA, zA], fR = [xf, yB, zR];   // front gable (normal −x, faces the lane)
         const bL = [xb, yB, zL], bA = [xb, yA, zA], bR = [xb, yB, zR];
-        tri(fL, fA, fR); tri(bR, bA, bL);                                // front + back gable faces
+        tri(fR, fA, fL); tri(bL, bA, bR);                                // front (−x) + back (+x) gable faces
         tri(fL, bL, bA); tri(fL, bA, fA);                                // left rake (long, intact)
         tri(fA, bA, bR); tri(fA, bR, fR);                                // right rake (short → the snapped break)
         tri(fL, fR, bR); tri(fL, bR, bL);                                // underside soffit (seen from below at cruise)
