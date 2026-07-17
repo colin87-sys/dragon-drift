@@ -159,7 +159,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     const cant = 0.9 - 0.12 * cb;                 // opens the fan wider at apex
     const sinC = Math.sin(cant), cosC = Math.cos(cant);
     const cPale = new THREE.Color(cRim);
-    const cRoot = colBody.clone().lerp(colShadow, 0.55);
+    const cRoot = colBody.clone().lerp(colShadow, 0.72);   // deeper emerald root (Fable gate r1: restore the DARK tier so the fan isn't a pale wash)
     const cEdge = colBody.clone().lerp(cPale, 0.78);
     if (rb > 0) cEdge.lerp(colCrest, rb * 0.5);   // the crest ribbon pours into the fan's pale edge (§3a.A.4)
     const cP7 = new THREE.Color(0x9ff0c8), cP5 = new THREE.Color(0x116b45);
@@ -193,9 +193,9 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
       for (let m = 0; m < M; m++) {
         const along = m / (M - 1);
         const st = stationOf(along);
-        const flare = Math.sin(Math.min(1, Math.pow(along, 0.5)) * Math.PI * 0.96);   // crescent envelope (shipped)
+        const flare = Math.sin(Math.min(1, Math.pow(along, 0.62)) * Math.PI * 0.99);   // crescent envelope — broadened so the trailing region keeps mass for a 2nd prong
         const wob = 1 + 0.14 * Math.sin(along * Math.PI * 2.6);                        // scalloped edge (shipped)
-        const split = 1 - cb * 0.52 * Math.exp(-Math.pow((along - 0.84) / 0.10, 2));   // ONE clean V per blade → 2 prongs
+        const split = 1 - cb * 0.72 * Math.exp(-Math.pow((along - 0.78) / 0.070, 2));   // ONE deep, SHARP V per blade → two countable prongs (Fable gate r1: the notch must read)
         const h = leadR * hCoef * moonTail * flare * wob * split;
         const rm = rayMaskAt(along);
         const root = rootAt(st);

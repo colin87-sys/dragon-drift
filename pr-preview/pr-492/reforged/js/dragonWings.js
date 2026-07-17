@@ -1678,7 +1678,7 @@ function buildSilkFinWings(def, model, attach, giM) {
       furl.add(tipObj);
       // GLOW-UP: ONE dew gem rides the tallest lobe's tip per fin (i===1) — a single jeweled
       // bead of pearl-light at each fin crest, not a confetti row (few + large, bloom-safe).
-      if (tipGemMat && i === 1) { const gem = new THREE.Mesh(gemGeo(), tipGemMat); gem.position.set(len * side, camber * 0.4, 0); furl.add(gem); }
+      if (tipGemMat && i === 1) { const gem = new THREE.Mesh(gemGeo(), tipGemMat); gem.position.set(len * side * 0.9, camber * 0.28, 0); furl.add(gem); }   // Fable gate r1: seat the dew gem ON the notched blade tip (was floating past it in the rear frame)
       (isRear ? wingTip : pivot).add(rest);
       lobePivots.push({ pivot: furl, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z, restGroup: rest });
 
@@ -1690,7 +1690,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           const sl = streamerLen * (1 - s * 0.16);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
-          const strip = new THREE.Mesh(streamerGeo(sl, 0.88 * ws, side * 0.8 + s * 0.5), streamerMat);   // BROAD veil ribbon → reads as mass, not hairline wire, in the rear fill (gate rework r4 dir 1); streamerMat=finMatRear unless streamerPulse (§3b.1)
+          const strip = new THREE.Mesh(streamerGeo(sl, 1.08 * ws, side * 0.8 + s * 0.5), streamerMat);   // BROAD veil ribbon → reads as mass, not hairline wire (Fable gate r1: widened 0.88→1.08 to clear the ≥2px thin-thread floor §8.9); streamerMat=finMatRear unless streamerPulse (§3b.1)
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
@@ -1720,7 +1720,7 @@ function buildSilkFinWings(def, model, attach, giM) {
     for (let i = 0; i <= nZ; i++) {
       const t = i / nZ;
       const z = t * L;
-      const hw = w * 0.5 * Math.pow(1 - t, 1.1) + 0.004;    // smooth monotonic taper to a fine point
+      const hw = w * 0.5 * Math.pow(1 - t, 0.9) + 0.02;    // smooth monotonic taper — softer exponent + a wider floor so the ribbon holds ≥2px along most of its length (thin-thread tell #11)
       const xw = Math.sin(t * Math.PI * 0.9) * bend * L;    // ONE gentle hump (single inflection), no zigzag
       const yd = -Math.pow(t, 1.4) * 0.1 * L;               // very gentle droop — trails aft behind the dragon
       for (let j = 0; j <= nW; j++) {
