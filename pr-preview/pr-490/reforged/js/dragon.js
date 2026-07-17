@@ -1141,7 +1141,7 @@ export function updateDragon(dt, player, time) {
   // WELCOME+HUB §1.2a layer A — the ignite DOWNSTROKE: a one-shot positive impulse drives the
   // wings DOWN then back (positive rootFlap = down, per the apex convention). Depth ≈ idle-peak
   // ×1.4–1.8. Reaches every classic path (wingParts/direct/lobe) that reads rootFlap; 0 when idle.
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55 + igniteBeat01 * 0.5;
+  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55 + igniteBeat01 * 0.85;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
   if (WING_DEBUG) {
@@ -1600,7 +1600,11 @@ export function updateDragon(dt, player, time) {
   }
   prevFever = player.feverActive;
   if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
-  const ignite = surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0;
+  // WELCOME+HUB §1.2a — the splash ignite beat drives the SAME proven ignition-flare visual as a
+  // Surge flourish (wings glow, body emissive spike, scale pulse), so the dragon visibly IGNITES —
+  // not just moves. max() → byte-identical when the beat is idle (igniteBeat01===0), and the two
+  // never overlap (the beat is menu-only, Surge is in-run).
+  const ignite = Math.max(surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0, igniteBeat01);
   surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
   // Per-form Surge intensity (apex Obsidian flares a touch harder); default 1 =
   // unchanged. Scales ONLY the Surge-delta terms below, never the steady base.
@@ -1786,7 +1790,7 @@ export function updateDragon(dt, player, time) {
   }
   // WELCOME+HUB §1.2a layer B — the ignite RIM/key LIFT: a one-shot +~10% rim strength (∈ +8–12%),
   // decaying with the same envelope. ×1 exactly when igniteBeat01===0 → byte-identical rim.
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality * (1 + igniteBeat01 * 0.10);
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
