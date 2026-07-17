@@ -212,6 +212,33 @@ let igniteBeatT = 0;
 export function igniteDragonBeat() { igniteBeatT = IGNITE_BEAT_DUR; }
 export function clearIgniteBeat() { igniteBeatT = 0; }
 
+// WELCOME+HUB §3.2 — the equipped dragon's on-screen SPAN, so the hub camera can FIT the
+// framing per-dragon (a fixed radius clips the big-winged forms — phoenix/tempest — while
+// dwarfing the starter). Measured over the dragon's MESHES only (FX sprites/glow excluded so
+// they can't inflate the fit), in world units, at the current pose × the ×1.1 wing-flap margin.
+// Recomputed once per build (createDragon sets the dirty flag); cached otherwise (no per-frame
+// traversal). updateDragon() runs before cameraController each frame, so the group is already
+// scaled to model.scale when this is first read.
+const _fitBox = new THREE.Box3();
+const _fitSize = new THREE.Vector3();
+let _fitSpan = { halfW: 3.4, halfH: 2.6 };   // sane default until the first real measure
+let _fitDirty = true;
+export function getDragonFitSpan() {
+  if (_fitDirty && group) {
+    _fitBox.makeEmpty();
+    group.updateWorldMatrix(true, true);
+    group.traverse((o) => { if (o.isMesh && o.geometry) _fitBox.expandByObject(o); });
+    if (!_fitBox.isEmpty()) {
+      _fitBox.getSize(_fitSize);
+      if (_fitSize.x > 0.1 && _fitSize.y > 0.1) {
+        _fitSpan = { halfW: _fitSize.x * 0.5 * 1.1, halfH: _fitSize.y * 0.5 * 1.05 };
+        _fitDirty = false;
+      }
+    }
+  }
+  return _fitSpan;
+}
+
 // PR-C THE VISIBLE INHALE: 0..1 charge amount fed per-frame from main.js
 // (lockHudState().fuse01 while the lance cap fuse burns — the setDragonLook
 // pattern). Drives the rear-cam telegraph: torso ARCH + wing MANTLE + jade glow.
@@ -409,6 +436,7 @@ export function createDragon(scene, def, riderDef) {
 
   buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
+  _fitDirty = true;   // WELCOME+HUB §3.2 — re-measure the hub-fit span for the new dragon
 
   // HERO POINT LIGHT (Fable 75): create ONCE, then re-parent to each new group on rebuild
   // (THREE.add auto-detaches from the old, disposed group) so the scene always holds exactly
