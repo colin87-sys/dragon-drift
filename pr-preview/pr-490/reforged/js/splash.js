@@ -100,14 +100,35 @@ export function splashArmed() {
   return armed;
 }
 
+// WELCOME+HUB §1.2a — schedule the one-shot 3D IGNITE beat (dragon downstroke + rim lift +
+// camera push) co-timed with the wordmark resolve (~1.2s after the splash appears). Fires at
+// most once per show; cancelled on takeoff (hideSplash) so it can never fire into a run.
+let igniteTimer = null;
+let igniteBeatFired = false;
+const IGNITE_BEAT_DELAY = 1200; // ms — lands on the wordmark-resolve beat
+
+function cancelIgniteBeat() {
+  if (igniteTimer) { clearTimeout(igniteTimer); igniteTimer = null; }
+}
+
 export function showSplash() {
   if (!root) return;
   root.classList.add('show');
   document.body.classList.add('splash-open');
+  // (Re)arm the ignite beat for this viewing.
+  cancelIgniteBeat();
+  igniteBeatFired = false;
+  igniteTimer = setTimeout(() => {
+    igniteTimer = null;
+    if (igniteBeatFired || !splashVisible()) return;
+    igniteBeatFired = true;
+    handlers.onIgniteBeat && handlers.onIgniteBeat();
+  }, IGNITE_BEAT_DELAY);
 }
 
 export function hideSplash() {
   if (!root) return;
+  cancelIgniteBeat();
   root.classList.remove('show');
   document.body.classList.remove('splash-open');
 }

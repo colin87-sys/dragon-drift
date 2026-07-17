@@ -20,7 +20,7 @@ import { initHazards, addHazard, updateHazards, resetHazards, debugVentStates } 
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
 import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
-import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
+import { setDragonQuality, setDragonLook, setDragonInhale, igniteDragonBeat, clearIgniteBeat } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
@@ -927,6 +927,11 @@ initSplash({
   // First splash interaction: unlock + swell in the intro/title theme (browser
   // autoplay only permits audio inside a user gesture). The run does NOT start.
   onIgnite: () => music.startMenuTheme(),
+  // WELCOME+HUB §1.2a — the signature IGNITE beat (~1.2s after the splash shows): the
+  // dragon takes one deliberate wingbeat, its rim/key lifts, and the camera pushes a hair
+  // toward it — one dragonfire event, co-timed with the wordmark resolve. Subject + camera
+  // only (menu law); force-zeroed at takeoff so it can't touch a run.
+  onIgniteBeat: () => { igniteDragonBeat(); cameraCtl.splashPush(); },
 });
 const firstTimePilot = saveData.stats.runs === 0 && !bootHasNotice &&
   game.mode === 'normal' && !game.challengeScore;
@@ -1046,6 +1051,8 @@ function startGame(mode = 'normal') {
   // Leave the attract splash on any takeoff path (CTA, tap-anywhere, ENTER).
   hideSplash();
   cameraCtl.setSplash(false);
+  clearIgniteBeat();   // WELCOME+HUB §0.5/audit#4 — a decaying ignite beat can never bleed into the run
+  // (the splash camera push lives in the splash branch, which stops running once setSplash(false).)
   const modeChanged = mode !== game.mode;
   game.mode = mode;
   if (modeChanged || mode === 'daily' || mode === 'rush') {
