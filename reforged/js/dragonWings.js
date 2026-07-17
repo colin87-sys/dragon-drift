@@ -1581,10 +1581,12 @@ function buildSilkFinWings(def, model, attach, giM) {
         // sawtooth of teeth (the reference's clean folding-fan look) + a gentle overall cup.
         const y = pleatAmp * foldSign * Math.sin(u * Math.PI) + camber * 0.5 * Math.sin(u * Math.PI);
         verts.push(x, y, z);
-        // value: deep-emerald hub → mid-jade → pale-mint arc; fold valleys darker (pleats read)
-        c.copy(cL).lerp(cM, Math.min(1, u * 1.7)).lerp(cT, Math.max(0, (u - 0.42) / 0.58));
-        if (foldSign < 0) c.lerp(cL, 0.24 * (0.35 + 0.65 * u));    // shade the receding pleat spokes
-        if (u > 0.80) c.lerp(cR, (0.35 + rimAmt * 0.55) * (u - 0.80) / 0.20);   // mint-pearl arc rim
+        // value: deep-emerald hub → RICH mid-jade body (held long, not washed pale) → pale-mint
+        // only on the outer arc; the receding fold spokes darken toward emerald so the radial
+        // ribs read as strong light/dark folds (the reference's pleated depth).
+        c.copy(cL).lerp(cM, Math.min(1, u * 2.4)).lerp(cT, Math.max(0, (u - 0.70) / 0.30));
+        if (foldSign < 0) c.lerp(cL, 0.34 * (0.4 + 0.6 * u));      // deepen the receding pleat spokes → bold ribs
+        if (u > 0.86) c.lerp(cR, (0.3 + rimAmt * 0.5) * (u - 0.86) / 0.14);   // mint-pearl only on the very rim
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -1609,7 +1611,7 @@ function buildSilkFinWings(def, model, attach, giM) {
     const t = i / (N - 1);
     return 0.7 + 0.3 * Math.sin(Math.min(1, 0.2 + t * 0.7) * Math.PI);
   }
-  const maxLen = reach * 0.9;
+  const maxLen = reach * (model.fanRadius ?? 0.72);   // fan radius — smaller so a ROW of koi web-fans fits without becoming giant kite-wings
   const rootArc = reach * 0.14;    // lobe roots MARCH a short arc (overlap permitted, §3) — not a single sunburst hub
 
   function buildSide(side) {

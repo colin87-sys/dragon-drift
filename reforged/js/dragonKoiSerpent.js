@@ -65,6 +65,13 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   // Resting vertical S (line-of-action §6.4 inflection): neck lifts, mid dips, tail lifts.
   const arcY = (model.bodyArcY ?? 0.14) * leadR * 6;
   const yAt = (t) => bodyY - 0.02 - t * t * (leadR * 0.35) + arcY * Math.sin(t * Math.PI * 2.0);
+  // Resting LATERAL S — the sinuous koi coil (IMG_7739): the tube centreline sweeps side-to-side
+  // at REST so the static/showcase body reads as a long swimming serpent, not a straight rod (the
+  // runtime bodyWave then rides on top of this baked curve). Default 0 → straight (jade-only dial).
+  const latArc = (model.bodyLatArc ?? 0) * leadR * 6;
+  const latWaves = model.bodyLatWaves ?? 2.0;
+  const latPhase = model.bodyLatPhase ?? 0;
+  const xAt = (t) => latArc * Math.sin(t * Math.PI * latWaves + latPhase);
 
   const zzOf = (i) => zs[i] - zAnchor;
 
@@ -90,7 +97,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
       const a = (j / K) * Math.PI * 2;
       const cs = Math.cos(a), sn = Math.sin(a);
       const x = cs * r * OVAL_W, y = sn * r * OVAL_H;
-      positions.push(x, cy + y, cz);
+      positions.push(xAt(t) + x, cy + y, cz);
       // radial normal (approx; the wave shears it but the rim uses the view-space normal)
       const nx = cs / OVAL_W, ny = sn / OVAL_H; const nl = Math.hypot(nx, ny) || 1;
       normals.push(nx / nl, ny / nl, 0);
@@ -117,10 +124,10 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   }
   // nose cap (fan to a point ahead of ring 0) + tail cap (fan to the tail tip)
   const noseIdx = positions.length / 3;
-  positions.push(0, yAt(0), zzOf(0) - radii[0] * 0.9); normals.push(0, 0, -1);
+  positions.push(xAt(0), yAt(0), zzOf(0) - radii[0] * 0.9); normals.push(0, 0, -1);
   colors.push(colBody.r, colBody.g, colBody.b);
   const tailIdx = positions.length / 3;
-  positions.push(0, yAt(1), zzOf(N - 1) + radii[N - 1] * 1.4); normals.push(0, 0, 1);
+  positions.push(xAt(1), yAt(1), zzOf(N - 1) + radii[N - 1] * 1.4); normals.push(0, 0, 1);
   colors.push(colBody.r, colBody.g, colBody.b);
   for (let j = 0; j < K; j++) {
     const j2 = (j + 1) % K;
@@ -167,7 +174,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
       const D = norm3(s * 0.52, 0.52, 0.68);                     // leaf length axis: out + up + back
       const Wd = norm3(-D[2] * s, 0, D[0] * s);                  // width axis (horizontal-ish, ⊥ D)
       const Nn = norm3(D[1] * Wd[2] - D[2] * Wd[1], D[2] * Wd[0] - D[0] * Wd[2], D[0] * Wd[1] - D[1] * Wd[0]);  // face normal = D×Wd
-      const B = [s * rTail * OVAL_W * 0.28, baseY, tailZ];
+      const B = [xAt(1) + s * rTail * OVAL_W * 0.28, baseY, tailZ];
       const rows = [];
       for (let iu = 0; iu <= nU; iu++) {
         const u = iu / nU;
@@ -236,6 +243,59 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     stripBoth(rootR, edgeR);
   }
 
+  // ── BODY WEB-FANS (IMG_7739) — a ROW of broad radiating pleated koi fans marching DOWN the
+  // serpentine body, emitted INTO the tube arrays (before the wave snapshot) so each fan rides
+  // the swim wave AND follows the resting coil for free. Each fan is proportional to the LOCAL
+  // girth (small fins on a long body, never giant kite-wings) and tapers toward the tail.
+  const bodyFins = model.bodyFins ?? 0;
+  if (bodyFins > 0) {
+    const nFan = Math.max(2, Math.round(model.bodyFinCount ?? 4));
+    const cLeadF = new THREE.Color(0x116b45), cMidF = new THREE.Color(0x2f9e77), cTipF = new THREE.Color(cRim);
+    const nRf = 3, nAf = 8;
+    const finScale = model.bodyFinScale ?? 3.2;
+    const tilt = model.bodyFinTilt ?? 0.95;
+    const halfArc = Math.min(0.95, model.fanSpread ?? 0.66), hubF = 0.14;
+    const norm3 = (x, y, z) => { const l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; };
+    const ztOf = (t) => { const fi = Math.min(N - 1, Math.max(0, t * (N - 1))); const i0 = Math.min(N - 2, Math.floor(fi)), f = fi - i0; return zzOf(i0) + (zzOf(i0 + 1) - zzOf(i0)) * f; };
+    for (let k = 0; k < nFan; k++) {
+      const t = 0.18 + 0.6 * (nFan > 1 ? k / (nFan - 1) : 0);   // stations: just behind the head → before the tail
+      const g = girth(t);
+      const cx = xAt(t), cy = yAt(t), cz = ztOf(t);
+      const rW = leadR * g * OVAL_W, rH = leadR * g * OVAL_H;
+      const R = leadR * g * finScale * (1 - 0.32 * t) * bodyFins;   // proportional to local girth, tapering aft
+      const pleatAmp = (model.fanPleat ?? 0.08) * R;
+      for (const s of [-1, 1]) {
+        const ex = norm3(s * Math.cos(tilt), Math.sin(tilt), 0);   // fan radial-out: up-and-out from the flank
+        const ez = norm3(s * 0.12, -0.05, 1);                      // fan spreads fore-aft (slightly raked back)
+        const ey = norm3(ex[1] * ez[2] - ex[2] * ez[1], ex[2] * ez[0] - ex[0] * ez[2], ex[0] * ez[1] - ex[1] * ez[0]);  // pleat normal
+        const P0 = [cx + s * rW * 0.72, cy + rH * 0.15, cz];       // rooted on the body flank
+        const rows = [];
+        for (let i = 0; i <= nRf; i++) {
+          const u = i / nRf; const rowIdx = [];
+          for (let j = 0; j <= nAf; j++) {
+            const af = j / nAf, fold = (j % 2) * 2 - 1;
+            const lx = R * (hubF + (1 - hubF) * u);                 // radial length
+            const lz = (af - 0.5) * 2 * (R * halfArc * (0.05 + 0.95 * u));   // chord (sector opens wide at the arc)
+            const ly = pleatAmp * fold * Math.sin(u * Math.PI);    // interior pleat fold-ridges, smooth rim
+            rowIdx.push(positions.length / 3);
+            positions.push(P0[0] + ex[0] * lx + ey[0] * ly + ez[0] * lz, P0[1] + ex[1] * lx + ey[1] * ly + ez[1] * lz, P0[2] + ex[2] * lx + ey[2] * ly + ez[2] * lz);
+            normals.push(ey[0], ey[1], ey[2]);
+            const c = cLeadF.clone().lerp(cMidF, Math.min(1, u * 2.4)).lerp(cTipF, Math.max(0, (u - 0.7) / 0.3));
+            if (fold < 0) c.lerp(cLeadF, 0.32 * (0.4 + 0.6 * u));   // deepen receding pleat spokes → ribs read
+            if (rb > 0 && u > 0.86) c.lerp(colCrest, (u - 0.86) / 0.14 * 0.4);
+            colors.push(c.r, c.g, c.b);
+          }
+          rows.push(rowIdx);
+        }
+        for (let i = 0; i < nRf; i++) for (let j = 0; j < nAf; j++) {
+          const a = rows[i][j], b = rows[i][j + 1], d = rows[i + 1][j], e = rows[i + 1][j + 1];
+          indices.push(a, b, e, a, e, d);        // front winding
+          indices.push(a, e, b, a, d, e);        // back winding
+        }
+      }
+    }
+  }
+
   // NOTE: the "lateral pearl-line" glow-scutes were removed. They required a SECOND material
   // (a geometry group) on the body mesh, which makes mesh.material an ARRAY — and every
   // procedural dispose path (`preview.js`, `dragon.js`) assumes a SINGLE material and calls
@@ -296,7 +356,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
 
   // Attach contract -----------------------------------------------------------------
   const segmentAnchors = [];
-  for (let i = 0; i < N; i++) segmentAnchors.push({ x: 0, y: yAt(N > 1 ? i / (N - 1) : 0), z: zzOf(i), scale: radii[i] / leadR, r: radii[i] });
+  for (let i = 0; i < N; i++) { const tt = N > 1 ? i / (N - 1) : 0; segmentAnchors.push({ x: xAt(tt), y: yAt(tt), z: zzOf(i), scale: radii[i] / leadR, r: radii[i] }); }
   const leadR2 = radii[0];
   const sa = segmentAnchors[shoulderI];
   const riderSocket = { x: 0, y: yAt(0.06) + leadR2 * 0.8, z: leadZ + leadR2 * 0.6 };
@@ -309,7 +369,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     headBase: { x: 0, y: bodyY + 0.04, z: leadZ - leadR2 * 0.7 },
     tailAnchor: { y: yAt(1), z: lastZ + radii[N - 1] * 1.0 },
     riderSocket,
-    wingRoot: (side) => ({ x: sa.r * 0.6 * side, y: sa.y + sa.r * 0.55, z: sa.z }),
+    wingRoot: (side) => ({ x: sa.x + sa.r * 0.6 * side, y: sa.y + sa.r * 0.55, z: sa.z }),
     sideFinRoots: (side, pairIndex) => {
       const a = segmentAnchors[Math.min(shoulderI + pairIndex * 2, N - 1)];
       return { x: a.r * 0.7 * side, y: a.y + a.r * 0.1, z: a.z };

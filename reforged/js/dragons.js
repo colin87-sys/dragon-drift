@@ -272,7 +272,10 @@ export const DRAGONS = {
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
-      finGlow: 0.6,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
+      finGlow: 0.22,                     // modest GREEN emissive floor — holds jade in cool light but LOW enough that the fan's emerald hub / pale arc / pleat-rib value structure reads (0.6 washed the broad fans flat-pale)
+      fanSpread: 0.66, fanPleat: 0.08, fanMarch: 0.62, fanRadius: 0.42,   // broad koi web-fan dials (IMG_7739): PROPORTIONAL fans (smaller) marching well down the LONG body — not giant kite-wings
+      bodyLatArc: 1.0, bodyLatWaves: 2.4,   // resting LATERAL S-coil so the static body reads as a long swimming serpent (IMG_7739), not a straight rod
+      bodyFinScale: 4.6, bodyFinTilt: 0.92,   // BODY WEB-FANS: a row of proportional koi fans emitted INTO the tube (ride the wave, follow the coil) — the reference's fins-down-the-body
       finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
       spineGlow: 0.3,
       flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
@@ -289,10 +292,11 @@ export const DRAGONS = {
       // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
       { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
-        bodyGirth: 0.66, bodyLength: 1.7,   // chubby river-pup: still a long koi, but its BIG head makes it read short (head:body ~3)
+        bodyGirth: 0.6, bodyLength: 2.0,   // chubby river-pup — but already a long-ish koi so the fins read proportional
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
-        lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        lobeCount: 2, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        bodyFins: 0.6, bodyFinCount: 3,    // whelp: a few small budding web-fans down the body
         moonTail: 0.15,                    // GLOW-UP ladder: the tiniest veiltail NUB on the pup, so the tail grows pup-nub → bud → full veiltail across the three forms (same dragon growing, not a leap)
         crestRibbon: 0.2,                  // AAA: a faint nape hint of the dorsal crest ribbon (§5 ladder) — paint only, byte-identical geometry
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
@@ -303,10 +307,11 @@ export const DRAGONS = {
       // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
       { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
-        bodyGirth: 0.58, bodyLength: 1.35,   // lengthening river-serpent
+        bodyGirth: 0.48, bodyLength: 2.6,   // lengthening river-serpent — long + slim so the web-fans sit proportional
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
-        lobeCount: 3, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        lobeCount: 2, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        bodyFins: 0.85, bodyFinCount: 4,   // the web-fans unfurl down the lengthening body
         moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
         caudalBloom: 0.35,                 // AAA §5: the fan BUDS (split barely dimples) — ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
         crestRibbon: 0.55, bodyArcY: 0.16, bodyWaveAmpY: 0.18,   // AAA §5: the ribbon becomes a line; the vertical swim share deepens (rear-visible majesty, lateral amp untouched)
@@ -322,9 +327,10 @@ export const DRAGONS = {
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
       { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
-        bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
+        bodyGirth: 0.42, bodyLength: 3.2,   // LONG, slim serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739)
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
+        lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
+        bodyFins: 1.0, bodyFinCount: 6,    // the full ROW of broad koi web-fans down the serpent (IMG_7739)
         rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
         caudalBloom: 1.0,                  // AAA §5: THE GRAND FAN-BLOOM — 3-blade split caudal fan (the hero). ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
