@@ -2901,6 +2901,77 @@ body.splash-open #hud { display: none; }
   100% { opacity: 0;    transform: scale(1.6); }
 }
 
+/* ===== WELCOME+HUB §2 — the returning-player idle-reward POP-IN ===== */
+/* Asymmetric scrim: heavy behind the card (foot), light over the dragon (top). */
+#reward-scrim {
+  position: fixed; inset: 0; z-index: 40; pointer-events: auto; opacity: 0;
+  background: linear-gradient(180deg,
+    rgba(var(--scrim-ink),0.08) 0%, rgba(var(--scrim-ink),0.18) 42%,
+    rgba(var(--scrim-ink),0.58) 70%, rgba(var(--scrim-ink),0.80) 100%);
+  transition: opacity var(--t-card-enter) var(--ease-enter);
+}
+#reward-scrim.show { opacity: 1; }
+/* The card seats in the lower band so the dragon holds center (HUB COMPOSITION LAW / §2.3).
+   THE ONE PANEL RECIPE: warm-glass fill + 1 hairline + 1 inner top highlight + 1 soft shadow.
+   A reward modal's BODY is opaque — a near-solid warm base under the glass tint so the hub CTA
+   never bleeds through it. */
+#reward-card {
+  position: fixed; left: 50%; bottom: 13%; z-index: 41; width: min(420px, 86vw);
+  padding: 20px 22px 16px; border-radius: var(--r-l); text-align: left;
+  background: linear-gradient(rgba(23,16,10,0.985), rgba(19,13,8,0.99)), var(--panel-fill);
+  border: var(--panel-line);
+  box-shadow: var(--panel-inner), var(--panel-shadow);
+  opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.90);
+  transition: opacity var(--t-card-enter) var(--ease-enter),
+              transform var(--t-card-enter) var(--ease-enter);
+}
+#reward-card.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.0); }
+#reward-card.landed { animation: rc-settle 220ms var(--ease-spring); }  /* the ONE rationed overshoot */
+#reward-card.leaving {
+  opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.98);
+  transition: opacity var(--t-card-exit) var(--ease-exit), transform var(--t-card-exit) var(--ease-exit);
+}
+@keyframes rc-settle { 0% { transform: translateX(-50%) scale(1.0); } 55% { transform: translateX(-50%) scale(1.03); } 100% { transform: translateX(-50%) scale(1.0); } }
+.rc-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  opacity: 0; transform: translateY(10px);
+  animation: rc-row-in 260ms var(--ease-enter) forwards; animation-delay: calc(120ms + var(--i) * 100ms);
+}
+@keyframes rc-row-in { to { opacity: 1; transform: translateY(0); } }
+.rc-row + .rc-row { margin-top: 12px; }
+.rc-label {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: var(--fs-label);
+  letter-spacing: var(--track-caps-tight); text-transform: uppercase; color: var(--rf-ink-2);
+}
+.rc-val { display: inline-flex; align-items: baseline; gap: 8px; }
+.rc-sigil {
+  font-size: var(--fs-title); color: #ffce6a; opacity: 0.28;
+  filter: drop-shadow(0 0 0 rgba(255,206,106,0));
+}
+#reward-card.landed .rc-sigil { animation: rc-sigil 400ms var(--ease-spring) forwards; }
+@keyframes rc-sigil {
+  0%   { opacity: 0.28; transform: scale(1.0); filter: drop-shadow(0 0 4px rgba(255,206,106,0.2)); }
+  55%  { opacity: 1;    transform: scale(1.08); filter: drop-shadow(0 0 18px rgba(255,206,106,0.5)); }
+  100% { opacity: 1;    transform: scale(1.0); filter: drop-shadow(0 0 10px rgba(255,206,106,0.35)); }
+}
+.rc-amount {
+  font-family: var(--font-display); font-weight: 400; font-size: var(--fs-display);
+  color: #ffce6a; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; line-height: 1;
+}
+.rc-sub { margin: 12px 0 0; font-family: 'Rajdhani', sans-serif; font-size: var(--fs-body); color: var(--rf-ink-2); }
+.rc-dismiss {
+  margin: 14px 0 0; text-align: center; font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  font-size: var(--fs-micro); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--rf-ink-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  #reward-scrim, #reward-card { transition: opacity 160ms linear; }
+  #reward-card { transform: translateX(-50%); }
+  #reward-card.show { transform: translateX(-50%); }
+  #reward-card.landed { animation: none; }
+  .rc-row { animation: none; opacity: 1; transform: none; }
+  #reward-card.landed .rc-sigil { animation: none; opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember,
   #splash .splash-slogan, #splash .splash-tag, #splash .splash-begin { animation: none; }
