@@ -622,6 +622,31 @@ function bakeBloom(geo, upThresh = 0.2) {
   return geo;
 }
 
+// PINE — the Drowned Forum's ONE vegetal element (DROWNED-FORUM-BUILD-SHEET §3 #8): near-black stone-pine +
+// cypress, the Claude-Lorrain SIDE-FRAME. Normal-keyed 3-zone inside a DARK envelope (Fable pinisle): a
+// warm-olive sun-kiss on up-faces, a dark pine body on the flanks, a near-black underside (the Lorrain frame
+// the player sees backlit). ~2.2:1 top-to-under restores FORM (kills the flat-black-poverty vinyl-sticker
+// failure) while peak luminance stays ~9% vs the ~90% gold sky — it never stops being the darkest thing in
+// frame, so the sun-path reads brighter by contrast (it prices the gold the way drumfall prices the gilt).
+// forumStone's ladderEmissive folds vColor into emissive, so this near-black bake self-suppresses the warm
+// fill even backlit — ONE material group, ZERO glow, no material change.
+const _PINE_LIT = [0.275, 0.314, 0.227];   // 0x46503A warm-olive sun-kiss (up-faces catching the sky)
+const _PINE_BODY = [0.165, 0.208, 0.141];  // 0x2A3524 dark pine body (flanks)
+const _PINE_UNDER = [0.122, 0.157, 0.098]; // 0x1F2819 near-black underside — the Lorrain frame
+function bakePine(geo) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > 0.5 ? _PINE_LIT : (nr.y < -0.2 ? _PINE_UNDER : _PINE_BODY);
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
 // THE DROWNED FORUM re-stopped tide ladder (DROWNED-FORUM-BUILD-SHEET §2A) — the SAME position-keyed
 // 3-stop engine as bakeTideLadder, re-stopped OFF the jade jungle onto sunken-Roman travertine so the
 // forum stone reads as a different geology in the SAME material/draw group (the bake:'forum' tag): a
@@ -705,13 +730,14 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], forumB = [], frescoB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], forumB = [], frescoB = [], pineB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
     else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
+    else if (p.bake === 'pine') pineB.push(g);                           // tagged → near-black stone-pine/cypress (Lorrain side-frame, PR-4)
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
     else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
     else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
@@ -732,6 +758,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
+  if (pineB.length) { const g = pineB.length > 1 ? mergeGeometries(pineB) : pineB[0]; bakePine(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : (opts.forum ? propMats.forumStone : propMats.lagoonStone)); }
   if (accent.length) {
@@ -2866,6 +2893,50 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // pinisle — STONE-PINE ISLET, the CLAUDE-LORRAIN SIDE-FRAME (DROWNED-FORUM-BUILD-SHEET §3 #8, PR-4). The
+  // biome's ONE vegetal element + its compositional frame: a near-black umbrella pine + cypress flame bracketing
+  // the gold sun-path (a Lorrain harbour-painting dark side-tree). Fable pre-assessed. The NAME-TEST is a RATIO:
+  // a thin FLAT parasol slab floating on ≥60% BARE trunk, a ground-rooted cypress spike ~10% taller beside it.
+  // Kill on sight: broccoli (domed pads), lollipop (crown creeping down the trunk), Christmas-tree (base-wide
+  // cypress). NO glow — it PRICES the gold by being the darkest thing in frame. ONE material group. ≤150 tris.
+  pinisle: {
+    step: 31, biomes: forumV1, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.10 },   // punctuation: near-absent in the breaths
+    build: () => {
+      const parts = [];
+      // RUBBLE BASE — 2 drowned-stone chunks (tide ladder → the sunken-city tie; the pine roots split them). (24)
+      parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.56, 0.14, 0.44), { y: 0.07 }) });
+      parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.34, 0.18, 0.30), { x: -0.05, z: 0.08, y: 0.13, ry: 0.4 }) });
+      // UMBRELLA PINE — a BARE trunk (60%+ naked, leans laneward into the frame) + fork limbs holding the crown
+      // UP (the V of sky between limbs = "umbrella on branches", not lollipop-on-a-stick). bake:'wood'. (22)
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.12, 0.10, 0], [-0.16, 0.62, 0], 0.042, 0.028, 5) });   // trunk
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.15, 0.58, 0], [-0.16, 0.85, 0], 0.022, 0.012, 3) });   // fork limb → pad A
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.14, 0.60, 0], [0.02, 0.77, 0], 0.020, 0.010, 3) });    // fork limb → pad B
+      // 3 PARASOL PADS — squashed CLOSED cones (rb3 law: closed, ~10% apex rise, never a circle-sandwich). The
+      // ONE-CROWN law: all ride above y0.70, stagger Δy≈0.07, overlap ≥40%, counter-tilts → ONE ragged flat
+      // umbrella slab, never a shish-kebab of discs. bake:'pine'. (~44)
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.40, 0.055, 6), { x: -0.16, y: 0.88, sx: 1.10, sz: 0.85, rz: 0.06 }) });   // pad A — wind-sheared crown master
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.28, 0.045, 6), { x: 0.02, y: 0.80, sz: 0.80, rz: -0.10 }) });             // pad B
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.22, 0.04, 5), { x: -0.36, y: 0.73, rz: 0.14 }) });                        // pad C — drooping outboard shoulder
+      // CYPRESS FLAME — a tall thin flame-taper (widest at ⅓ height, tapering BOTH ways = flame not cone),
+      // ~9:1 slender, tip overtopping the umbrella (the postcard exclamation point). bake:'pine'. (20)
+      parts.push({ mat: 0, bake: 'pine', geo: frustumBetween([0.45, 0.06, 0.10], [0.45, 0.34, 0.10], 0.040, 0.065, 5) });   // shin (widens to the ⅓ belly)
+      parts.push({ mat: 0, bake: 'pine', geo: frustumBetween([0.45, 0.34, 0.10], [0.47, 1.0, 0.10], 0.065, 0.004, 5) });    // taper to the tip (flame flick +x)
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.10 });   // rubble drowns to the algae line; pine/wood self-suppress the warm emissive (near-black bake)
+    },
+    // MID band (between the foil field and the far massif): crown reads OVER the viamarina rail, far UNDER the
+    // aqueduct. WORLD-ASPECT law (aqueduct a1): couple h≈1.25·r or the pine stretches to a poplar / squashes to
+    // broccoli — this prop's identity is pure aspect ratio. rotY side-based so the pine is INBOARD + its parasol
+    // overhangs toward the gold (the canopy brackets the sky's corner, the cypress echoes the colonnade).
+    place: (side, rnd) => {
+      const r = 10 + rnd() * 3;
+      const h = 1.25 * r * (0.95 + 0.10 * rnd());   // → 12–16 world; couple h≈1.25r (protect the aspect ratio)
+      const p = { x: side * (17 + 0.9 * r + rnd() * 5), h, r, tilt: side * (0.02 + rnd() * 0.03) };
+      p.rotY = (side > 0 ? 0 : Math.PI) + (rnd() * 0.30 - 0.15);   // pine inboard, parasol overhangs toward the lane/gold
+      if (HERO_SET.has('pinisle')) p.rotY = 0;   // debug: face the studio camera
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2916,6 +2987,7 @@ const FOAM_CFG = {
   viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
+  pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
