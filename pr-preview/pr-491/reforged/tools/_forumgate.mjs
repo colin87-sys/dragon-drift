@@ -3,10 +3,10 @@
 // follow-cam.  node tools/_forumgate.mjs [tag]
 import { writeFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
-const VIEW = { width: 1280, height: 820 };
+const VIEW = { width: 1100, height: 720 };
 const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({ v:2, embers:50, stats:{runs:5}, skins:{owned:['azure'],equipped:'azure'}, flags:{seenFirstSurge:true,hintsSeen:9,phaseTaught:true}, settings:{reticle:false} }))`;
 const tag = process.argv[2] || 'g1';
-const { page, done, errors } = await boot({ query: '?biome=0&debug&props=forum', viewport: VIEW, deviceScaleFactor: 1.4, initScript: save });
+const { page, done, errors } = await boot({ query: '?biome=0&debug&props=forum', viewport: VIEW, deviceScaleFactor: 1.0, initScript: save });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.waitForFunction(() => window.__dd && window.__dd.game, { timeout: 15000 }).catch(() => {});
 for (let a = 0; a < 12; a++) {
