@@ -19,6 +19,7 @@ const round = process.argv[2] || 'c1';
 const KEY = process.argv[3] || 'causeway';
 const RX = parseFloat(process.argv[4] || '9');   // representative world r (XZ)
 const HY = parseFloat(process.argv[5] || '6.5'); // representative world h (Y)
+const RY = parseFloat(process.argv[6] || '0');   // prop yaw so a specific face (e.g. the lane-face) turns toward the camera
 mkdirSync('reforged-captures', { recursive: true });
 const srv = await serve();
 const browser = await pw.chromium.launch();
@@ -42,7 +43,7 @@ const tiles = [
 ];
 for (let i = 0; i < tiles.length; i++) {
   const t = tiles[i];
-  if (i === 0) await page.evaluate((o) => window.psRender(o), { key: KEY, opts: { single: true }, inst, angle: t.angle, bg: t.bg, rig: t.rig, fill: t.fill });
+  if (i === 0) await page.evaluate((o) => window.psRender(o), { key: KEY, opts: { single: true }, inst, ry: RY, angle: t.angle, bg: t.bg, rig: t.rig, fill: t.fill });
   else await page.evaluate((o) => window.psReframe(o), { angle: t.angle, bg: t.bg, rig: t.rig, fill: t.fill });
   await page.evaluate((a) => window.psTile(a[0], a[1]), [i, t.label]);
 }

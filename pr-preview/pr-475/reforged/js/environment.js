@@ -2408,18 +2408,22 @@ const ARCHETYPES = {
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 0.84, 0.50), { z: -0.16, y: 0.52, ry: 0.05 }) },  // section B — collapsed low bay, y 0.10→0.94 (12)
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 1.10, 0.50), { z: 0.34, y: 0.65, ry: -0.04 }) },  // section C — tall-med, y 0.10→1.20 (12)
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.32, 0.58, 0.44), { z: 0.80, y: 0.39, ry: 0.10 }) },   // section D — broken end stub, y 0.10→0.68 (12)
-      // a BUTTRESS proud on the tall section (lane-face) — depth + a shoulder on the vertical silhouette.
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.20, 0.82, 0.22), { x: 0.20, z: -0.62, y: 0.51 }) },   // buttress, y 0.10→0.92 (12)
-      // FLUSH drowned base — a thin footprint-matched plinth (NOT a wider tapered under-plate: the hull tell).
+      // DARK BAY OPENINGS — near-black doorway insets flush on the LANE-facing face (+x), at a regular pitch
+      // down the length: the repeating shadowed bay rhythm + the DARK VALUES the flat amber face lacked (Fable
+      // r3 + causeway Stage-2 kill-shot: a featureless tan plane violates core→bloom→dark; a gallery needs dark
+      // openings readable at 400m). bake:'wood' → the near-black shadow value. Placement-rotY faces these to
+      // the lane so they always read (side-based rotY, below).
+      { mat: 0, bake: 'wood', geo: xform(new THREE.BoxGeometry(0.10, 0.62, 0.16), { x: 0.14, z: -0.62, y: 0.52 }) },     // bay on A (12)
+      { mat: 0, bake: 'wood', geo: xform(new THREE.BoxGeometry(0.10, 0.40, 0.16), { x: 0.14, z: -0.16, y: 0.40 }) },     // bay on B (12)
+      { mat: 0, bake: 'wood', geo: xform(new THREE.BoxGeometry(0.10, 0.54, 0.16), { x: 0.14, z: 0.34, y: 0.46 }) },      // bay on C (12)
+      // FLUSH drowned base — a thin footprint-matched plinth (NOT a wider tapered under-plate: the hull tell);
+      // a darker plinth band at the waterline anchors the value structure (Fable Stage-2).
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.40, 0.10, 1.80), { y: -0.05 }) },                     // laterite drowned foot, flush, y −0.10→0.00 (12)
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.12, 1.82), { y: 0.06 }) },                      // jade tide stain, flush, y 0.00→0.12 (12)
-      // a tumbled BLOCK fallen at the foot into the water (ruin + it breaks the base line).
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.28, 0.20, 0.26), { x: 0.18, z: 0.30, y: 0.08, ry: 0.4 }) }, // fallen block at the tide (12)
-      // JUNGLE CREST — rounded deformed-icosa clumps (the causeway moss law: NOT flat facet-plates), one
-      // DROOPING over the tall section's lane-face edge to break the crown line. The jungle makes this the
-      // LAGOON's wall (bare stone would read Caldera/Frozen) + the greenery the owner asked for.
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.14, z: -0.60, y: 1.36, sx: 1.15, sy: 0.9, sz: 1.2, ry: 0.5, rz: 0.5 }) }, // canopy drooping over the tall section's lane edge (20)
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.17, 0), { x: -0.06, z: 0.34, y: 1.18, sx: 1.1, sy: 0.85, sz: 1.1, ry: 1.1 }) },           // canopy on the tall-med section (20)
+      // JUNGLE — rounded deformed-icosa clumps DROOPING DOWN the lane-face past the crown line (Fable r3: not
+      // "party hats" perched on top — the green must break the stone silhouette downward). bake:'lily'.
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: 0.20, z: -0.60, y: 1.14, sx: 1.0, sy: 1.5, sz: 1.1, ry: 0.5, rz: 0.3 }) }, // canopy spilling DOWN pier A's lane face (20)
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.18, 0), { x: 0.18, z: 0.30, y: 0.96, sx: 1.0, sy: 1.4, sz: 1.05, ry: 1.1 }) },            // canopy spilling down section C's face (20)
     ]),
     // FAR backdrop, TALL LONG WALL (~3:1 tall face, ~5:1 long plan). rotY PINNED lane-parallel (nagawall/
     // causeway pattern) so the long broken face runs DOWN-LANE and never foreshortens to a lump or rotates
@@ -2429,8 +2433,11 @@ const ARCHETYPES = {
     place: (side, rnd) => {
       const r = 20 + rnd() * 10;
       const p = { x: side * (20 + 1.0 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: side * (rnd() * 0.03 - 0.015) };
-      p.rotY = (rnd() < 0.5 ? 0 : Math.PI) + (rnd() * 0.28 - 0.14);   // lane-parallel ± a breath (the long wall face runs down-lane)
-      if (HERO_SET.has('rampart')) p.rotY = 0;   // debug: pin the long face down-lane
+      // SIDE-BASED rotY: the decorated LANE-face (+x object: the dark bays + drooping jungle) always turns
+      // toward the flight lane (a +side prop faces −x, a −side prop faces +x), so every instance shows its
+      // gallery face, never its blank back. ± a breath of jitter. (sungate's side-mirror pattern.)
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.24 - 0.12);
+      if (HERO_SET.has('rampart')) p.rotY = 0;   // debug: pin the face down-lane
       return p;
     },
   },
