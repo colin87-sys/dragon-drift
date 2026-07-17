@@ -388,9 +388,10 @@ export function initObstacles(s) {
   // a warm travertine; the gilt is the withheld gold of the soffit/arch ring; the toll is the role-locked
   // danger magenta (0xff2b6a) that telegraphs the descending hazard on the keystone.
   forumGateMats = {
-    // A warm travertine that stays READABLE backlit (the gate faces the low dusk sun): a strong warm
-    // emissive floor so a flat masonry slab never crushes to black (the hero's backlight lesson).
-    stone: new THREE.MeshStandardMaterial({ color: 0xd8caa0, roughness: 0.74, metalness: 0.03, flatShading: true, emissive: 0xbaa878, emissiveIntensity: 0.5 }),
+    // Coursed-ashlar travertine (Fable rebuild): vertexColors so each block carries its own jittered value
+    // (the value structure the flat slab lacked); a MODERATE warm emissive floor so a backlit block reads as
+    // a shadowed dark-warm stone (darker than the sky glare = the danger reads) without crushing to black.
+    stone: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.8, metalness: 0.03, flatShading: true, emissive: 0x4a4230, emissiveIntensity: 0.42 }),
     gilt: new THREE.MeshStandardMaterial({ color: 0xffd8a0, roughness: 0.42, metalness: 0.12, emissive: 0xffb84a, emissiveIntensity: 1.3 }),
     toll: new THREE.MeshStandardMaterial({ color: 0xff2b6a, roughness: 0.5, emissive: 0xff2b6a, emissiveIntensity: 1.8 }),
   };
@@ -541,6 +542,65 @@ export function addObstacle(o) {
   entries.push(e);
 }
 
+// Coursed-ashlar reskin of the forum gate barrier (§4 / Fable rebuild 2.1→): the deadly lane-spanning mass
+// is COURSES of individual value-jittered travertine blocks in running bond (the value structure a flat slab
+// lacked), the outer SILHOUETTE eroded (missing crown/corner blocks — the collider stays the full rectangle,
+// only the visible geometry breaks up, like the background ruins), and the bay ringed by real VOUSSOIR wedges
+// hugging the true opening with the magenta keystone seated at its apex (killing the floating chrome arc).
+// Merged to ONE geometry (one draw). Deterministic per gate (seeded from o.dist), so it never touches the
+// gold-determinism fixture (obstacle meshes aren't fixtured) and a given gate looks the same every frame.
+const _FGT_VALS = [
+  [0.50, 0.44, 0.33], [0.62, 0.55, 0.41], [0.73, 0.65, 0.49],
+  [0.40, 0.37, 0.30], [0.67, 0.59, 0.44], [0.56, 0.49, 0.37],
+];
+function bakeFlatColor(geo, rgb) {
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i * 3] = rgb[0]; col[i * 3 + 1] = rgb[1]; col[i * 3 + 2] = rgb[2]; }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+function buildForumMasonry(group, o, X, TOP) {
+  const rnd = mulberry32((Math.floor(o.dist * 8.1) ^ 0x51ed3c9b) >>> 0);
+  const gL = o.gapX - o.gapW, gR = o.gapX + o.gapW, gB = o.gapY - o.gapH, gT = o.gapY + o.gapH;
+  const courseH = 2.3, blockW = 3.6, mortar = 0.16, blocks = [];
+  const nCourses = Math.ceil(TOP / courseH);
+  for (let c = 0; c < nCourses; c++) {
+    const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - mortar;
+    if (ch <= 0.3) continue;
+    const cy = (cy0 + cy1) / 2, stagger = (c % 2) ? blockW * 0.5 : 0;
+    for (let bx = -X - stagger; bx < X; bx += blockW) {
+      const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW - mortar), bw = br - bl;
+      if (bw <= 0.4) continue;
+      const cx = (bl + br) / 2;
+      if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                 // the safe bay (opening) — leave clear
+      if (cy0 > TOP - courseH * 2 && rnd() < 0.42) continue;                    // erode the crown
+      if (Math.abs(cx) > X - blockW * 1.2 && cy0 > TOP - courseH * 3.5 && rnd() < 0.5) continue; // erode outer corners
+      const zJit = (rnd() - 0.5) * 0.7;
+      const g = new THREE.BoxGeometry(bw, ch, 2.6 + Math.abs(zJit)).toNonIndexed();
+      g.translate(cx, cy, zJit * 0.4);
+      bakeFlatColor(g, _FGT_VALS[(rnd() * _FGT_VALS.length) | 0]);
+      blocks.push(g);
+    }
+  }
+  // VOUSSOIRS — wedge blocks ringing the bay's arched top, hugging the real opening; keystone at the true apex.
+  const R = o.gapW + 1.0, nV = 7;
+  for (let k = 0; k < nV; k++) {
+    const th = Math.PI * (k + 0.5) / nV;
+    const vx = o.gapX + Math.cos(th) * R, vy = gT + Math.sin(th) * R * 0.9;
+    const g = new THREE.BoxGeometry(1.6, 1.5, 3.0).toNonIndexed();
+    g.rotateZ(th - Math.PI / 2); g.translate(vx, vy, 0.5);
+    bakeFlatColor(g, _FGT_VALS[2]);   // lighter travertine voussoir ring
+    blocks.push(g);
+  }
+  const merged = mergeGeometries(blocks, false);
+  blocks.forEach((b) => b.dispose());
+  group.add(new THREE.Mesh(merged, forumGateMats.stone));
+  const key = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.1, 3.3), forumGateMats.toll);
+  key.position.set(o.gapX, gT + R * 0.9, 0.6);   // seated at the voussoir apex
+  group.add(key);
+  group.userData.tollKey = key;
+}
+
 // A biome-adaptive Phase Gate: a translucent fresnel veil spanning the lane
 // around a clearly-framed rectangular opening. Layered per the design spec —
 //   1. outer silhouette frame (dim, reads from afar)
@@ -578,10 +638,14 @@ function buildGate(o) {
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
   };
-  panel(left + X, TOP, (left - X) / 2, TOP / 2); // left of gap
-  panel(X - right, TOP, (right + X) / 2, TOP / 2); // right of gap
-  panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
-  panel(right - left, bottom, o.gapX, bottom / 2); // below gap
+  if (forum) {
+    buildForumMasonry(group, o, X, TOP);   // coursed ashlar + eroded silhouette + voussoirs + keystone
+  } else {
+    panel(left + X, TOP, (left - X) / 2, TOP / 2); // left of gap
+    panel(X - right, TOP, (right + X) / 2, TOP / 2); // right of gap
+    panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
+    panel(right - left, bottom, o.gapX, bottom / 2); // below gap
+  }
 
   const bar = (w, h, cx, cy, mat, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), mat);
@@ -619,29 +683,6 @@ function buildGate(o) {
       bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5); // horizontal leg
       bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5); // vertical leg
     }
-  }
-
-  // Forum arch dressing (§4): a round GILT voussoir ring springing from the bay's top corners + a magenta
-  // KEYSTONE toll telegraph at the apex + a gilt coffered SOFFIT strip at the bay's lintel. Decorative only
-  // — it sits OUTSIDE the collider bay (which stays gapX/Y/W/H), so it never narrows the safe route.
-  if (forum) {
-    const R = o.gapW + 0.8;                        // arch ring centreline just outside the bay
-    const gz = 0.7;                                // proud of the wall face so the gilt order reads in relief
-    // Gilt PILASTERS flanking the bay + a bold gilt voussoir RING over it = a framed arched PORTAL (not a
-    // window in a slab). Springs at the bay lintel.
-    for (const s of [-1, 1]) {
-      const pil = new THREE.Mesh(new THREE.BoxGeometry(0.7, H + 1.0, 0.9), forumGateMats.gilt);
-      pil.position.set(o.gapX + s * (o.gapW + 0.45), o.gapY, gz);
-      group.add(pil);
-    }
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.7, 4, 12, Math.PI), forumGateMats.gilt);
-    ring.position.set(o.gapX, top, gz);
-    group.add(ring);
-    // Magenta KEYSTONE at the apex — the toll telegraph (role-locked danger).
-    const key = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.0, 1.1), forumGateMats.toll);
-    key.position.set(o.gapX, top + R - 0.4, gz + 0.2);
-    group.add(key);
-    group.userData.tollKey = key;
   }
 
   // Layer 4 — core-glow locator: a faint additive fill of the OPENING so the

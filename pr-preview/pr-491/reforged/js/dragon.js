@@ -201,6 +201,44 @@ let quality = 1;
 let lookYaw = null;
 export function setDragonLook(yaw) { lookYaw = yaw; }
 
+// WELCOME+HUB §0.5 — the SPLASH IGNITE beat: a one-shot 3D "the dragon reacts" impulse
+// (a wing DOWNSTROKE + a rim/key LIFT) fired co-timed with the splash wordmark resolve.
+// It is MENU-ONLY: set solely by the splash (igniteDragonBeat), and force-zeroed at takeoff
+// (clearIgniteBeat, called from startGame) so a decaying beat can NEVER perturb the first
+// frames of a run (audit blocker #4). At igniteBeatT===0 every injected term is exactly 0 →
+// pose/rim byte-identical (the L245 endpoint law). Envelope: sin over ~0.7s (0→1→0).
+const IGNITE_BEAT_DUR = 0.7;
+let igniteBeatT = 0;
+export function igniteDragonBeat() { igniteBeatT = IGNITE_BEAT_DUR; }
+export function clearIgniteBeat() { igniteBeatT = 0; }
+
+// WELCOME+HUB §3.2 — the equipped dragon's on-screen SPAN, so the hub camera can FIT the
+// framing per-dragon (a fixed radius clips the big-winged forms — phoenix/tempest — while
+// dwarfing the starter). Measured over the dragon's MESHES only (FX sprites/glow excluded so
+// they can't inflate the fit), in world units, at the current pose × the ×1.1 wing-flap margin.
+// Recomputed once per build (createDragon sets the dirty flag); cached otherwise (no per-frame
+// traversal). updateDragon() runs before cameraController each frame, so the group is already
+// scaled to model.scale when this is first read.
+const _fitBox = new THREE.Box3();
+const _fitSize = new THREE.Vector3();
+let _fitSpan = { halfW: 3.4, halfH: 2.6 };   // sane default until the first real measure
+let _fitDirty = true;
+export function getDragonFitSpan() {
+  if (_fitDirty && group) {
+    _fitBox.makeEmpty();
+    group.updateWorldMatrix(true, true);
+    group.traverse((o) => { if (o.isMesh && o.geometry) _fitBox.expandByObject(o); });
+    if (!_fitBox.isEmpty()) {
+      _fitBox.getSize(_fitSize);
+      if (_fitSize.x > 0.1 && _fitSize.y > 0.1) {
+        _fitSpan = { halfW: _fitSize.x * 0.5 * 1.1, halfH: _fitSize.y * 0.5 * 1.05 };
+        _fitDirty = false;
+      }
+    }
+  }
+  return _fitSpan;
+}
+
 // PR-C THE VISIBLE INHALE: 0..1 charge amount fed per-frame from main.js
 // (lockHudState().fuse01 while the lance cap fuse burns — the setDragonLook
 // pattern). Drives the rear-cam telegraph: torso ARCH + wing MANTLE + jade glow.
@@ -398,6 +436,7 @@ export function createDragon(scene, def, riderDef) {
 
   buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
+  _fitDirty = true;   // WELCOME+HUB §3.2 — re-measure the hub-fit span for the new dragon
 
   // HERO POINT LIGHT (Fable 75): create ONCE, then re-parent to each new group on rebuild
   // (THREE.add auto-detaches from the old, disposed group) so the scene always holds exactly
@@ -1100,6 +1139,13 @@ export function updateDragon(dt, player, time) {
   // hold open, and near-freeze: "drawing breath," the strongest rear silhouette.
   // inhale01=0 → all identity (byte-identical, the coexist endpoint).
   const inhaleCalm = 1 - (CONFIG.LOCK.inhaleFlapCalm ?? 0.6) * inhale01;
+  // WELCOME+HUB §0.5 — one-shot splash ignite envelope (0→1→0 over ~0.7s). Byte-identical
+  // when igniteBeatT===0; consumed by rootFlap (downstroke) + rimStrength (key lift) below.
+  let igniteBeat01 = 0;
+  if (igniteBeatT > 0) {
+    igniteBeatT = Math.max(0, igniteBeatT - dt);
+    igniteBeat01 = Math.sin((1 - igniteBeatT / IGNITE_BEAT_DUR) * Math.PI);
+  }
   const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias
     * formSpeed(activeDef.model) * (activeDef.model.flapFreqScale ?? 1)
     * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01) * inhaleCalm;
@@ -1120,7 +1166,10 @@ export function updateDragon(dt, player, time) {
   const phase = flapPhase;
   // Mantle bias: NEGATIVE rootFlap = wings up (the apex convention), so the
   // inhale rides the whole stroke high — a held high-V.
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55;
+  // WELCOME+HUB §1.2a layer A — the ignite DOWNSTROKE: a one-shot positive impulse drives the
+  // wings DOWN then back (positive rootFlap = down, per the apex convention). Depth ≈ idle-peak
+  // ×1.4–1.8. Reaches every classic path (wingParts/direct/lobe) that reads rootFlap; 0 when idle.
+  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55 + igniteBeat01 * 0.85;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
   if (WING_DEBUG) {
@@ -1579,7 +1628,11 @@ export function updateDragon(dt, player, time) {
   }
   prevFever = player.feverActive;
   if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
-  const ignite = surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0;
+  // WELCOME+HUB §1.2a — the splash ignite beat drives the SAME proven ignition-flare visual as a
+  // Surge flourish (wings glow, body emissive spike, scale pulse), so the dragon visibly IGNITES —
+  // not just moves. max() → byte-identical when the beat is idle (igniteBeat01===0), and the two
+  // never overlap (the beat is menu-only, Surge is in-run).
+  const ignite = Math.max(surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0, igniteBeat01);
   surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
   // Per-form Surge intensity (apex Obsidian flares a touch harder); default 1 =
   // unchanged. Scales ONLY the Surge-delta terms below, never the steady base.
@@ -1763,7 +1816,9 @@ export function updateDragon(dt, player, time) {
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
     _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));   // Surge still takes the hue over the biome backlight
   }
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
+  // WELCOME+HUB §1.2a layer B — the ignite RIM/key LIFT: a one-shot +~10% rim strength (∈ +8–12%),
+  // decaying with the same envelope. ×1 exactly when igniteBeat01===0 → byte-identical rim.
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
