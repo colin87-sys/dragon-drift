@@ -55,7 +55,7 @@ export const BIOMES = [
     // horizon + the only GREEN/vegetation in the cycle. PR-1 = the atmosphere/materials substrate.
     name: 'THE LOST LAGOON',
     keyShift: 0,
-    stars: 0.15,   // first stars at dusk
+    stars: 0,   // Fable in-game review: at golden hour the star-speckle read as noise in the empty upper sky — a clear warm tropical sky, no stars
     sky: { top: C(0x0d1f3c), mid: C(0x235058), horizon: C(0xffb060), sun: C(0xffd080),
       // N9 clouds: warm dusk cumulus — sunlit tops, cool blue undersides.
       cloud: { amount: 0.85, lit: C(0xffe4b8), shadow: C(0x1e2c46) } },
@@ -67,7 +67,7 @@ export const BIOMES = [
     // Low sun dead ahead, but the STORY is transmission. hemiGround = JADE LAGOON BOUNCE (undersides
     // pick up cool water-green — the inverse of Caldera's ember bounce, unlike Frozen's rose fog-sea).
     light: { sun: C(0xffb060), sunI: 1.55, hemiSky: C(0x86b4d0), hemiGround: C(0x1e4438) },
-    water: { deep: C(0x07262e), shallow: C(0x2b7a70), waveAmp: 0.42 }, // jade lagoon; calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
+    water: { deep: C(0x07262e), shallow: C(0x2f8578), waveAmp: 0.42 }, // PR-0 (§7.2): jade-turquoise El Nido shallow — greener-biased (deepen the jade, never the gold); calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
     // PETAL WIND (the Tsushima signature): warm blossom-gold petals with the strongest LATERAL drift
     // in the cycle — wind as a composition device. Nothing rises (Caldera), nothing hangs (Frozen).
     ambient: { color: C(0xffcf9a), fall: 0.5, sway: 3.0, size: 0.32, opacity: 0.7 },
@@ -75,12 +75,15 @@ export const BIOMES = [
     // "children" over dark water — the boss's value inversion rehearsed by the wildlife).
     fauna: { color: C(0xf6ead8), scale: 1.25, flap: 0.55 },
     faunaFlyby: true, // foreground egret flyby pass visible over the lane
-    // New drowned-ruins kit (biomes:lagoonNew, default-on): rotunda hero + lilyraft/wrackstone rest-notes
-    // (+ rootbastion/arcade/campanile/sentinel to come). The legacy verdigris props (tower/column/…) still
-    // spawn as placeholder until the PR-3 composition pass migrates them behind ?props=v1. (This array is
-    // documentation only — spawning is gated by each archetype's `biomes` whitelist in environment.js.)
-    props: ['rotunda', 'lilyraft', 'wrackstone', 'rootbastion', 'arcade', 'tower', 'column', 'archruin', 'slab', 'dome'],
-    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-3+)
+    // JUNGLE DROWNED TEMPLE kit (v3, biomes:lagoonV3 — DEFAULT): karstfang (giant sea-stack) + figgate
+    // (strangler-fig gateway) + mangrovehold (stilt-root islet) + prasat (drowned Angkor temple HERO) +
+    // lotusraft (lily pads + blooms) + nagawall (reared naga backdrop). All Fable-gated ≥4.2 (form + in
+    // context). The retired v2 drowned-Greco ruins (rotunda/lilyraft/wrackstone/rootbastion/arcade) are
+    // opt-in via ?props=v2; the legacy verdigris props (tower/column/archruin/slab/dome) via ?props=v1.
+    // (This array is documentation only — spawning is gated by each archetype's `biomes` whitelist in
+    // environment.js.)
+    props: ['karstfang', 'figgate', 'mangrovehold', 'prasat', 'lotusraft', 'nagawall', 'causeway', 'rampart'],
+    matIndex: 0, // lagoonStone (vertex-color bakes: honey limestone / jade tide / jungle greens / temple sandstone / gilt)
     // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
     // deep-rose (re-run bulletcontrast after the jade-water retune).
     bullets: { dark: 0xaf4f73 },
