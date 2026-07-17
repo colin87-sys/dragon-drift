@@ -145,88 +145,54 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   const moonTail = model.moonTail ?? model.veilTail ?? 0;
   const cb = model.caudalBloom ?? 0;
   if (cb > 0) {
-    // ══ THE GRAND FAN-BLOOM (§3a.A) — the hero ══════════════════════════════════════════
-    // A 3-blade split caudal fan — twin canted LYRE crescents (the dominant pair) + a MEDIAN
-    // dorsal veil — INDEPENDENTLY station-sampled (M=16, decoupled from the ring count) so the
-    // trailing split resolves into countable prongs; it REPLACES the shipped moonTail strips.
-    // Emitted into THIS tube's arrays BEFORE the wave snapshot (~line 210), so every fan vert
-    // rides bodyWave for free — the proven moonTail trick. `cb` defaults 0 → this branch is
-    // skipped and the old strips (below) build byte-identically; the height coefficients are
-    // continuous with the old strips at cb→0 so nothing jumps at the ladder's f0→f1 step.
-    // ⚠ Silhouette growth here (crescent height ×~1.67 at apex) is OWNER-APPROVAL-REQUIRED (§3a.7).
-    const vStartT = 0.5;                          // fan spans the rear ~50% of the body
-    const M = 16;                                 // stations across the fan (≥4/feature: the split spans ~3–4)
-    const cant = 0.9 - 0.12 * cb;                 // opens the fan wider at apex
-    const sinC = Math.sin(cant), cosC = Math.cos(cant);
+    // ══ THE LEAF-FORK TAIL (IMG_7739) ═══════════════════════════════════════════════════
+    // Two long pointed koi/leaf blades forking UP-and-BACK-and-OUT from the tail tip — pale
+    // mint blades with a darker central vein, tapering to fine points (the reference's
+    // signature tail). Emitted into THIS tube's arrays BEFORE the wave snapshot (~line 210)
+    // so the fork whips with the tail for free (the moonTail trick). `cb` defaults 0 → skipped,
+    // and the old moonTail strips build byte-identically below.
     const cPale = new THREE.Color(cRim);
-    const cRoot = colBody.clone().lerp(colShadow, 0.72);   // deeper emerald root (Fable gate r1: restore the DARK tier so the fan isn't a pale wash)
-    const cEdge = colBody.clone().lerp(cPale, 0.78);
-    if (rb > 0) cEdge.lerp(colCrest, rb * 0.5);   // the crest ribbon pours into the fan's pale edge (§3a.A.4)
-    const cP7 = new THREE.Color(0x9ff0c8), cP5 = new THREE.Color(0x116b45);
-    // sample the tube station (cy/cz/rW/rH) by interpolating the two bracketing rings
-    const stationOf = (along) => {
-      const tt = vStartT + along * (1 - vStartT);
-      const fi = Math.min(N - 1, Math.max(0, tt * (N - 1)));
-      const i0 = Math.min(N - 2, Math.floor(fi)), i1 = i0 + 1, f = fi - i0;
-      const lp = (aa, bb) => aa + (bb - aa) * f;
-      return {
-        cy: lp(yAt(i0 / (N - 1)), yAt(i1 / (N - 1))),
-        cz: lp(zzOf(i0), zzOf(i1)),
-        rW: lp(radii[i0] * OVAL_W, radii[i1] * OVAL_W),
-        rH: lp(radii[i0] * OVAL_H, radii[i1] * OVAL_H),
-      };
-    };
-    // 3 koi-fin RAYS running root→tip: mask ≈1 on a ray crest, ≈0 in the web between
-    const rayMaskAt = (along) => {
-      let m = 0;
-      for (let r = 0; r < 3; r++) { const d = (along - (0.20 + 0.28 * r)) / 0.09; m += Math.exp(-d * d); }
-      return Math.min(1, m);
-    };
-    // Emit one blade as an M×3 grid (root → mid → edge rows) = 2 height-quads across, both
-    // windings (the single-sided body material shows both flanks). rootAt gives the blade root
-    // ON the tube surface each station (welded by construction); dir is the unit root→edge
-    // growth; nrm is the in-plane normal the mid row carves INWARD along on the webs (crescents
-    // only); faceN is the flat lighting normal. Value: dark root → banded mid (pale ray crest /
-    // emerald web) → pale edge = core→bloom→dark on the hero element.
-    const emitBlade = (rootAt, dir, nrm, hCoef, carve, faceN) => {
-      const rowRoot = [], rowMid = [], rowEdge = [];
-      for (let m = 0; m < M; m++) {
-        const along = m / (M - 1);
-        const st = stationOf(along);
-        const flare = Math.sin(Math.min(1, Math.pow(along, 0.62)) * Math.PI * 0.99);   // crescent envelope — broadened so the trailing region keeps mass for a 2nd prong
-        const wob = 1 + 0.14 * Math.sin(along * Math.PI * 2.6);                        // scalloped edge (shipped)
-        const split = 1 - cb * 0.72 * Math.exp(-Math.pow((along - 0.78) / 0.070, 2));   // ONE deep, SHARP V per blade → two countable prongs (Fable gate r1: the notch must read)
-        const h = leadR * hCoef * moonTail * flare * wob * split;
-        const rm = rayMaskAt(along);
-        const root = rootAt(st);
-        const ex = root.x + dir.x * h, ey = root.y + dir.y * h;
-        const midInset = -cb * 0.12 * h * (1 - rm) * carve;   // webs recede, crests stay AT the envelope (outline never grows)
-        const mx = (root.x + ex) * 0.5 + nrm.x * midInset;
-        const my = (root.y + ey) * 0.5 + nrm.y * midInset;
-        const cMidV = colBody.clone().lerp(cP7, rm * 0.55).lerp(cP5, (1 - rm) * 0.82);
-        rowRoot.push(positions.length / 3); positions.push(root.x, root.y, st.cz); normals.push(faceN[0], faceN[1], faceN[2]); colors.push(cRoot.r, cRoot.g, cRoot.b);
-        rowMid.push(positions.length / 3);  positions.push(mx, my, st.cz);         normals.push(faceN[0], faceN[1], faceN[2]); colors.push(cMidV.r, cMidV.g, cMidV.b);
-        rowEdge.push(positions.length / 3); positions.push(ex, ey, st.cz);         normals.push(faceN[0], faceN[1], faceN[2]); colors.push(cEdge.r, cEdge.g, cEdge.b);
-      }
-      const stripRow = (lo, hi) => {
-        for (let m = 0; m < M - 1; m++) {
-          const a = lo[m], b = hi[m], c = lo[m + 1], d = hi[m + 1];
-          indices.push(a, b, d, a, d, c);        // front winding
-          indices.push(a, d, b, a, c, d);        // back winding (shows from the other flank)
-        }
-      };
-      stripRow(rowRoot, rowMid);
-      stripRow(rowMid, rowEdge);
-    };
-    // median dorsal VEIL — x=0 plane, sagittal-symmetric: NO displacement carve (any x-offset
-    // breaks the symmetry, and it is edge-on to the exact-rear cam anyway), value bands only.
-    emitBlade((st) => ({ x: 0, y: st.cy + st.rH }), { x: 0, y: 1 }, { x: 0, y: 0 },
-      0.68 + 0.44 * cb, 0, [1, 0, 0]);
-    // twin ventral LYRE crescents (the DOMINANT pair), canted ±out (the fan that shows in silhouette)
+    const cVein = colBody.clone().lerp(colShadow, 0.55);         // darker central vein / base
+    const cBlade = colBody.clone().lerp(cPale, 0.62);           // pale-mint blade body
+    const cTipC = colBody.clone().lerp(cPale, 0.94);            // palest at the tip
+    if (rb > 0) cTipC.lerp(colCrest, rb * 0.4);                 // the ribbon flows into the leaf tips
+    const tailZ = zzOf(N - 1) + radii[N - 1] * 0.6;
+    const baseY = yAt(1);
+    const rTail = radii[N - 1];
+    const Llen = leadR * (1.7 + 4.4 * cb);                       // long trailing leaves at apex
+    const camberAmt = Llen * 0.05;
+    const nU = 8, nV = 4;
+    const norm3 = (x, y, z) => { const l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; };
     for (const s of [-1, 1]) {
-      emitBlade((st) => ({ x: s * st.rW * 0.32, y: st.cy - st.rH * 0.7 }),
-        { x: s * sinC, y: -cosC }, { x: cosC, y: s * sinC },
-        1.55 + 1.05 * cb, 1, [cosC, s * sinC, 0]);
+      const D = norm3(s * 0.52, 0.52, 0.68);                     // leaf length axis: out + up + back
+      const Wd = norm3(-D[2] * s, 0, D[0] * s);                  // width axis (horizontal-ish, ⊥ D)
+      const Nn = norm3(D[1] * Wd[2] - D[2] * Wd[1], D[2] * Wd[0] - D[0] * Wd[2], D[0] * Wd[1] - D[1] * Wd[0]);  // face normal = D×Wd
+      const B = [s * rTail * OVAL_W * 0.28, baseY, tailZ];
+      const rows = [];
+      for (let iu = 0; iu <= nU; iu++) {
+        const u = iu / nU;
+        const w = Llen * 0.26 * Math.pow(u + 0.06, 0.45) * Math.pow(1 - u, 0.7);   // lanceolate leaf profile → fine point
+        const cam = camberAmt * Math.sin(u * Math.PI);                              // gentle cup so it isn't dead-flat
+        const cx = B[0] + D[0] * u * Llen + Nn[0] * cam;
+        const cyC = B[1] + D[1] * u * Llen + Nn[1] * cam;
+        const cz = B[2] + D[2] * u * Llen + Nn[2] * cam;
+        const rowIdx = [];
+        for (let iv = 0; iv <= nV; iv++) {
+          const v = iv / nV - 0.5;                               // -0.5..0.5 across the blade
+          rowIdx.push(positions.length / 3);
+          positions.push(cx + Wd[0] * v * 2 * w, cyC + Wd[1] * v * 2 * w, cz + Wd[2] * v * 2 * w);
+          normals.push(Nn[0], Nn[1], Nn[2]);
+          const c = cBlade.clone().lerp(cVein, Math.max(0, 1 - Math.abs(v) * 3) * 0.5 * (1 - u * 0.7));  // darker central vein, fading to the tip
+          c.lerp(cTipC, Math.pow(u, 1.25));                      // palest toward the leaf tip
+          colors.push(c.r, c.g, c.b);
+        }
+        rows.push(rowIdx);
+      }
+      for (let iu = 0; iu < nU; iu++) for (let iv = 0; iv < nV; iv++) {
+        const a = rows[iu][iv], b = rows[iu][iv + 1], d = rows[iu + 1][iv], e = rows[iu + 1][iv + 1];
+        indices.push(a, b, e, a, e, d);        // front winding
+        indices.push(a, e, b, a, d, e);        // back winding (single-sided body mat shows both)
+      }
     }
   } else if (moonTail > 0) {
     const vStartT = 0.5;                         // moon-tail spans the rear ~50% of the body

@@ -1551,78 +1551,47 @@ function buildSilkFinWings(def, model, attach, giM) {
   // trailing +Z), tapering to a forked/notched TIP. Painted leading-ray-dark → mid →
   // pale-tip along the length, with a green leading stripe. `rimAmt`>0 blends the
   // mint-pearl rim into the outer tip (the rear-carrier lobe).
+  // BROAD radiating PLEATED hand-fan (IMG_7739 target): a wide koi web-fan that spreads
+  // from a narrow hub to a broad scalloped mint arc, folded into radial accordion pleats —
+  // the seashell / folding-fan read of the reference, NOT a swept spiky blade. Emerald hub →
+  // mid-jade → pale-mint arc; the pleat valleys darken so the fold ribs read at distance.
+  // `wRoot` now sets the angular spread (broad vs slim), `L` the fan radius, `rimAmt` the arc
+  // mint. Baked L/R mirror (winding + x-negation), never mesh.scale.x=-1 (flips normals).
   function petalGeo(L, wRoot, rimAmt, side) {
-    const nX = seg(Math.max(4, Math.round(8 * detail)));
-    // Flute the chord finer ONLY when the rays are lit (apex): 3 crests + web troughs need
-    // ~11 chord samples to resolve; the low forms keep the cheap 5-sample smooth blade.
-    const nZ = seg(rayRelief > 0 ? Math.max(11, Math.round(5 * detail)) : Math.max(3, Math.round(5 * detail)));
+    const nR = seg(Math.max(3, Math.round(3 + detail)));            // radial rings hub→arc (4 at apex)
+    const nA = seg(2 * Math.max(5, Math.round(4.5 + 2 * detail)));  // EVEN spoke count → clean accordion (12 at apex)
+    const halfArc = Math.min(0.95, model.fanSpread ?? 0.72);        // half-arc-width fraction of L (~120° sector)
+    const pleatAmp = (model.fanPleat ?? 0.07) * L;                  // accordion fold depth
+    const hub = 0.14;                                               // radial hub offset (root is a short stem, not a pinpoint)
     const verts = [], cols = [], idx = [];
     const cL = new THREE.Color(cLead), cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), c = new THREE.Color();
-    for (let i = 0; i <= nX; i++) {
-      const uu = i / nX;
-      for (let j = 0; j <= nZ; j++) {
-        const cf = j / nZ;
-        // central tip NOTCH (depth ≥0.3× len over the outer 40%): each lobe ends in two
-        // koi-ray prongs. With the lobes SPREAD apart + a moderate chord they read as 4
-        // DISTINCT rays — not a merged mitten balloon (gate rework) and not shattered
-        // slivers (gate r6). The notch survives in the rear black-fill.
-        const uMax = 1 - notchDepth * Math.pow(Math.sin(cf * Math.PI), 0.72);   // DEEP wide notch (≥0.3× lobe length over the outer 40%) so 4 tips are countable at distance (gate rework r4 dir 2)
-        const u = uu * uMax;
-        const x = u * L;
-        // a koi blade of MODERATE chord (~40% narrower than the balloon) tapering to a
-        // soft point — a distinct fin ray, so the 4-lobe fan reads and the body stays the hero.
-        const wShape = Math.sin(Math.min(1, 0.16 + u * 0.82) * Math.PI);
-        const halfW = wRoot * 0.5 * wShape;
-        const z = (cf - 0.5) * 2 * halfW;
-        // camber cup + a raised LEADING RIB (cf→0): the leading edge lifts into a spine
-        // so the "darker leading ray" reads as integrated relief, not a floating rod
-        // (gate r1 dir 6 — the separate ray bone is gone).
-        const rib = Math.max(0, 0.5 - cf) * 2;                 // 1 at leading edge → 0 by mid-chord
-        let y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI))
-                + camber * 0.5 * rib * rib * Math.sin(u * Math.PI);
-        // CP3 flutes: 3 koi-fin RAYS as raised crests root→tip with web troughs between
-        // (ray #1 = the leading rib). Displaced along the blade normal (+y) and FADED to
-        // zero at the chord edges (edgeFade) + root/tip (lenFade) so the boundary verts —
-        // the silhouette outline — never move; only the blade interior corrugates.
-        let crest = 0, trough = 0;
-        if (rayRelief > 0) {
-          let ray = 0;
-          for (let r = 0; r < 3; r++) { const d = (cf - (0.16 + r * 0.30)) / 0.11; ray += Math.exp(-d * d); }
-          ray = Math.min(1, ray);                              // 1 on a ray crest → ~0 in the web between
-          const edgeFade = Math.min(1, Math.min(cf, 1 - cf) / 0.14);        // pin the leading/trailing outline
-          const lenFade = Math.sin(Math.max(0, Math.min(1, uu)) * Math.PI);  // 0 at root + tip → rays fade before the notch
-          const fades = edgeFade * lenFade;
-          // CARVE the webs INWARD only (crests stay AT the smooth-blade surface) so the
-          // outline never grows — the ray crests are the original silhouette envelope, the
-          // webs between them recede into shadow. This is what keeps the sil-rear identical.
-          y -= rayRelief * camber * 1.05 * (1 - ray) * fades;  // corrugation depth tuned to the sil-safe ceiling (deeper starts poking the tilted-blade outline)
-          crest = ray * fades;                                 // pale ray top    → value banding below
-          trough = (1 - ray) * fades;                          // emerald web valley → strong crest/trough contrast at play distance
-        }
+    for (let i = 0; i <= nR; i++) {
+      const u = i / nR;                                            // 0 hub → 1 arc
+      for (let j = 0; j <= nA; j++) {
+        const af = j / nA;                                         // 0..1 across the fan
+        const foldSign = (j % 2) * 2 - 1;                          // adjacent spokes fold ± out of plane → pleats
+        const rad = L * (hub + (1 - hub) * u);
+        // sector: narrow hub → wide arc. width grows ~linearly so the fan opens like a
+        // folding fan (broad at the rim), the reference's defining shape.
+        const halfW = L * halfArc * (0.05 + 0.95 * u);
+        const x = rad;                                             // radial length (outward from the hub)
+        const z = (af - 0.5) * 2 * halfW;                         // chord across the fan
+        // accordion pleat as INTERIOR fold-ridges: amplitude peaks mid-radius and fades to 0 at
+        // the hub AND the outer arc (sin(u·π)) so the rim reads as ONE smooth fan edge, not a
+        // sawtooth of teeth (the reference's clean folding-fan look) + a gentle overall cup.
+        const y = pleatAmp * foldSign * Math.sin(u * Math.PI) + camber * 0.5 * Math.sin(u * Math.PI);
         verts.push(x, y, z);
-        // value tiers along the chord (law 11): a deep-emerald leading RAY → bright mid
-        // body → a darker trailing step, so each lobe reads DIMENSIONAL, not a flat
-        // sticker (gate r3 dir 9), plus root→tip lightening.
-        c.copy(cM).lerp(cT, Math.pow(u, 2.6));                 // stay SATURATED mid-jade for most of the lobe; pale-jade only on the outer ~25% tip (gate r6 dir 7 — kill the gray-sage wash)
-        c.lerp(cL, Math.max(0, 1 - u * 2.8) * 0.72);          // ROOT deep-emerald tier — the 3rd value tier (root dark → mid → pale tip, gate rework r4 dir 6)
-        const lead = Math.pow(Math.max(0, 1 - cf * 2.0), 1.05); // strong wide leading-ray band → 0 by ~mid-chord
-        c.lerp(cL, lead * 0.98);                               // strong deep-emerald leading RAY at FULL contrast (gate rework r4 dir 3 — each lobe reads separately, not one leaf)
-        if (cf > 0.74) c.lerp(cL, (cf - 0.74) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
-        if (rayRelief > 0) {                                    // CP3: value-band the flutes so the rays READ at rear-chase, not just in the crop
-          c.lerp(cT, crest * rayRelief * 0.55);                // BRIGHT pale-jade highlight on the raised ray crest
-          c.lerp(cL, trough * rayRelief * 0.82);               // DEEP-emerald in the recessed web → bold alternating light/dark bands
-        }
-        if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
+        // value: deep-emerald hub → mid-jade → pale-mint arc; fold valleys darker (pleats read)
+        c.copy(cL).lerp(cM, Math.min(1, u * 1.7)).lerp(cT, Math.max(0, (u - 0.42) / 0.58));
+        if (foldSign < 0) c.lerp(cL, 0.24 * (0.35 + 0.65 * u));    // shade the receding pleat spokes
+        if (u > 0.80) c.lerp(cR, (0.35 + rimAmt * 0.55) * (u - 0.80) / 0.20);   // mint-pearl arc rim
         cols.push(c.r, c.g, c.b);
       }
     }
-    const W = nZ + 1;
-    for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) {
+    const W = nA + 1;
+    for (let i = 0; i < nR; i++) for (let j = 0; j < nA; j++) {
       const a = i * W + j, b = a + 1, d = a + W, e = d + 1;
-      // BAKE the L/R mirror into the winding (not mesh.scale.x=-1, which flips the
-      // normals → one wing lit sage-green, the other blue-teal, gate r1 dir 7). For the
-      // left side we negate x below AND reverse the triangle winding here so normals
-      // still compute OUTWARD and both wings shade identically green.
+      // bake the L/R mirror into the winding (x negated below) so both fans shade identically
       if (side < 0) { idx.push(a, b, d, b, e, d); } else { idx.push(a, d, b, b, d, e); }
     }
     if (side < 0) for (let k = 0; k < verts.length; k += 3) verts[k] = -verts[k];
@@ -1657,16 +1626,16 @@ function buildSilkFinWings(def, model, attach, giM) {
       const t = N > 1 ? i / (N - 1) : 0;
       const len = maxLen * lenMulFor(i);
       const wRoot = (0.44 + 0.12 * Math.sin(t * Math.PI)) * len;   // MODERATE koi ray chord — 4 distinct lobes, body stays the hero (gate rework dir 1/3)
-      const rootX = rootArc * t;                            // march outboard (overlap ok)
-      const rootZ = -0.05 + t * reach * 0.05;               // slight aft spread
+      const rootX = rootArc * (0.3 + 0.7 * t);              // march outboard
+      const rootZ = -0.05 + t * reach * (model.fanMarch ?? 0.34);   // MARCH the fans down the body → a ROW of koi web-fans (IMG_7739), not a shoulder cluster
       const rootY = 0.02;
-      const isRear = i === N - 1;                           // rear-most lobe = the translucent carrier lobe
+      const isRear = i === N - 1;                           // rear-most lobe = the carrier lobe (arc mint)
       const rimAmt = isRear ? rimCarrier : (i === N - 2 ? rimCarrier * 0.35 : 0);
-      // rest = the static fan pose (rake back + tall tilt); furl = the animated fan-fold child.
+      // rest = the static fan pose; furl = the animated fan-fold child.
       const rest = new THREE.Group();
       rest.position.set(rootX * side, rootY, rootZ);
-      rest.rotation.y = side * -(rake * (0.38 + 0.6 * t));   // spread the 4 lobes so their tips SEPARATE into distinct koi rays (gate: not a merged mitten)
-      rest.rotation.z = side * tilt * (0.82 + 0.22 * t);     // TALL tilt, rising outboard (koi fan)
+      rest.rotation.y = side * -(rake * (0.30 + 0.5 * t));   // rake each fan back along the body
+      rest.rotation.z = side * tilt * (0.5 + 0.26 * t);      // SPLAY OUTWARD (koi pectoral), not straight up like wings
       const furl = new THREE.Group();
       rest.add(furl);
       // the petal geometry bakes its own L/R mirror (correct outward normals) + the
