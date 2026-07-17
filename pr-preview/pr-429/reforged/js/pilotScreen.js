@@ -121,17 +121,23 @@ export function buildPilotHtml(tab) {
     `<button class="seg-btn${tab === key ? ' sel' : ''}" data-pilottab="${key}">${label}</button>`;
   const featCount = saveData.feats.unlocked.length;
   const body = tab === 'log' ? logBody() : tab === 'titles' ? titlesBody() : featsBody();
+  // Header = the shared .screen-topbar grammar (title + ✕), matching shop/
+  // settings/quests/daily/rush. The equipped «title» rides the topbar the way
+  // the shop's wallet chip does; the rest of the identity chips keep their row.
   return `
-    <h1>PILOT</h1>
+    <div class="screen-topbar">
+      <span class="topbar-title">PILOT</span>
+      ${saveData.titles.equipped ? `<div class="meta-chip title-chip">«${(titleById(saveData.titles.equipped) || {}).name || ''}»</div>` : ''}
+      <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
+    </div>
     <div class="meta-row">
       <div class="meta-chip">LV <b>${saveData.level}</b></div>
-      ${saveData.titles.equipped ? `<div class="meta-chip title-chip">«${(titleById(saveData.titles.equipped) || {}).name || ''}»</div>` : ''}
-      <div class="meta-chip">⬢ <b>${featCount}</b>/${FEAT_DEFS.length} feats</div>
+      <div class="meta-chip">${ICONS.feat} <b>${featCount}</b>/${FEAT_DEFS.length} feats</div>
       <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b></div>
     </div>
-    <div class="seg-row shop-tabs">${tabBtn('feats', '⬢ FEATS')}${tabBtn('log', '✈ FLIGHT LOG')}${tabBtn('titles', '« TITLES »')}</div>
+    <div class="seg-row shop-tabs">${tabBtn('feats', `${ICONS.feat} FEATS`)}${tabBtn('log', `${ICONS.log} FLIGHT LOG`)}${tabBtn('titles', `${ICONS.laurel} TITLES`)}</div>
     <div class="pilot-body stagger-kids">${body}</div>
-    <div class="action-row"><button class="btn-secondary" id="btn-back">← BACK</button></div>`;
+    <div class="action-row"><button class="btn-secondary" id="btn-back2">← BACK</button></div>`;
 }
 
 // Returns true if a re-render is needed (tab switch / title equip).
