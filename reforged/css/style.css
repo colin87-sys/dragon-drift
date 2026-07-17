@@ -1190,12 +1190,8 @@ body.biome-bright #hud .bell {
 /* ============ EMBERSIGHT H1 — THE BELL + the center micro-pop ============ */
 /* The perfect-ring micro-pop (§B.11): tiny, 500ms, the ONE sanctioned center
    event text. Gold only — every other ephemeral line rings the Bell. */
-.popup { position: absolute; top: 40%; left: 50%; transform: translateX(-50%);
-  font-family: 'Rajdhani', sans-serif; font-size: var(--fs-label); font-weight: 700;
-  letter-spacing: var(--track-caps); text-transform: uppercase; color: #ffd86a;
-  opacity: 0; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-.popup.popup-anim { animation: popup 0.5s ease-out forwards; }
-@keyframes popup { 0%{opacity:0;transform:translate(-50%,6px) scale(0.9)} 20%{opacity:1;transform:translate(-50%,0) scale(1.05)} 70%{opacity:1;transform:translate(-50%,-8px) scale(1)} 100%{opacity:0;transform:translate(-50%,-14px) scale(1)} }
+/* DECLUTTER — the separate center `.popup` (perfect-ring float at top 40%) is retired;
+   perfect rings now ride THE BELL like every other earn, so there is one toast lane only. */
 
 /* THE BELL (§B.11): one anchored, queued toast lane at ~24% (portrait ~20%).
    One type style — a slug (smoked lozenge) with an accent underline by role.

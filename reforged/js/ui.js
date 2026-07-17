@@ -657,7 +657,6 @@ export const ui = {
         </div>
       </div>
       <!-- The perfect-ring micro-pop: the ONE sanctioned center event text (§B.11). -->
-      <div class="popup" id="popup"></div>
       <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
       <!-- H3 §B.10: quadrant-weighted damage vignette — the struck side blooms -->
@@ -743,7 +742,6 @@ export const ui = {
       raceStrip:    root.querySelector('#race-bar'),
       raceYou:      root.querySelector('#race-you'),
       raceRival:    root.querySelector('#race-rival'),
-      popup:        root.querySelector('#popup'),
       bell:         root.querySelector('#bell'),
       bellSlug:     root.querySelector('#bell-slug'),
       bellText:     root.querySelector('#bell-text'),
@@ -1190,20 +1188,12 @@ export const ui = {
     this._bellEnd();
   },
 
-  // The at-center micro-pop — perfect-ring only (§B.11: the one sanctioned
-  // center event text; tiny, 500ms, no reticle coupling — H4 owns the Lure).
-  _centerPop(text) {
-    if (!els.popup) return;
-    els.popup.textContent = text;
-    restartAnim(els.popup, 'popup-anim');
-  },
-
   ringPopup(points, perfect, streak = 0) {
-    if (perfect) {
-      this._centerPop(streak > 1 ? `+${points} PERFECT ×${streak}` : `+${points} PERFECT`);
-    } else {
-      this.bell(`+${points}`, 'gold', { key: 'earn:ring' });
-    }
+    // DECLUTTER — every routine scoring earn rings the ONE 'earn' lane so they COALESCE into a
+    // single running "+N ×M" line instead of a cycle of different pop-ups. Perfect rings ride the
+    // same lane (the separate center pop is retired), so there is exactly one earn readout.
+    const txt = perfect ? (streak > 1 ? `+${points} PERFECT ×${streak}` : `+${points} PERFECT`) : `+${points}`;
+    this.bell(txt, 'gold', { key: 'earn' });
   },
 
   // Flow-run carve chain: a low-noise multiplier line at milestones (the
@@ -1291,35 +1281,35 @@ export const ui = {
   phasePopup(points, perfect, streak = 0, assisted = false) {
     if (assisted) { this.bell('Like that! — roll to phase', 'hint', { key: 'hint' }); return; }
     if (perfect) {
-      this.bell(streak > 1 ? `PERFECT PHASE ×${streak} +${points}` : `PERFECT PHASE +${points}`, 'gold', { key: 'earn:phase' });
+      this.bell(streak > 1 ? `PERFECT PHASE ×${streak} +${points}` : `PERFECT PHASE +${points}`, 'gold', { key: 'earn' });
     } else {
-      this.bell(`PHASE +${points}`, 'gold', { key: 'earn:phase' });
+      this.bell(`PHASE +${points}`, 'gold', { key: 'earn' });
     }
   },
 
   nearMissPopup(points) {
-    this.bell(`NEAR MISS +${points}`, 'cyan', { key: 'earn:near' });
+    this.bell(`NEAR MISS +${points}`, 'cyan', { key: 'earn' });
   },
 
   rollPopup(points) {
-    this.bell(`BARREL ROLL +${points}`, 'gold', { key: 'earn:roll' });
+    this.bell(`BARREL ROLL +${points}`, 'gold', { key: 'earn' });
   },
 
   // Reflect/parry callout. A perfect parry keeps the climbing streak read;
   // a normal parry is a quieter cyan line.
   parryPopup(points, perfect, streak) {
-    if (perfect) this.bell(`PERFECT PARRY ×${streak} +${points}`, 'gold', { key: 'earn:parry' });
-    else this.bell(`PARRY +${points}`, 'cyan', { key: 'earn:parry' });
+    if (perfect) this.bell(`PERFECT PARRY ×${streak} +${points}`, 'gold', { key: 'earn' });
+    else this.bell(`PARRY +${points}`, 'cyan', { key: 'earn' });
   },
 
   gatePopup(points) {
-    this.bell(`THREADED +${points}`, 'cyan', { key: 'earn:gate' });
+    this.bell(`THREADED +${points}`, 'cyan', { key: 'earn' });
   },
 
   // §5i.B THREAD-THE-GAP: threading a boss WALL's safe gap — same word/colour as the course
   // gate (it's the same skill), streak-aware like parryPopup. Boss.js owns the scoring.
   threadPopup(points, streak) {
-    this.bell(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan', { key: 'earn:gate' });
+    this.bell(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan', { key: 'earn' });
   },
 
   milestonePopup(metres) {
