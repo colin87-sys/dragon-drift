@@ -2399,31 +2399,33 @@ const ARCHETYPES = {
   rampart: {
     step: 70, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0.45, sMin: 0.95, sMax: 1.06 }, // FAR massif: mostly-continuous enclosure on BOTH horizons (glacierwall/riftwall rhythm), thins in the breaths, parks the arrival seam
     build: () => mergeLagoonParts([
-      // stacked HORIZONTAL temple STRATA — each course sinks ≥25% into the one below (NO daylight through the
-      // massif), varied lengths, a proud overhanging shoulder (asymmetric crown). Each course is a TALL-enough
-      // box that its two side-tris both clear the 0.22 amber band → clean amber, no diagonal (causeway slab law).
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.05, 0.34, 0.60), { y: 0.30, rz: 0.02 }) },            // base course, y 0.13→0.47 (12)
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.90, 0.30, 0.54), { x: -0.06, y: 0.56, ry: -0.05 }) }, // course 2 (sinks into base), y 0.41→0.71 (12)
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.64, 0.28, 0.48), { x: 0.14, y: 0.78, ry: 0.06 }) },   // course 3, y 0.64→0.92 (12)
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.40, 0.26, 0.42), { x: -0.24, y: 0.96, ry: 0.11, rz: -0.06 }) }, // proud overhanging shoulder (12)
-      // broken END-steps — offset chunks that jog the wall's ends (no sawn 90° termination — colonnata law).
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.26, 0.44), { x: 0.54, y: 0.28, ry: 0.20, rz: 0.08 }) }, // (12)
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.22, 0.30, 0.40), { x: -0.56, y: 0.30, ry: -0.16 }) },        // (12)
-      // jade TIDE-STAIN — a PROUD clean horizontal band at the drowned base (the causeway slab law: a stacked
-      // band-height slab reads as a strictly horizontal waterline where the rampart meets the mirror).
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.12, 0.11, 0.66), { y: 0.055 }) },                     // jade tide ridge, y 0.00→0.11 (12)
-      // a COLONNADE ECHO band partway up the lane face — two short notches read as a temple wall at distance.
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.09, 0.20, 0.10), { x: 0.12, z: 0.30, y: 0.44 }) },    // (12)
-      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.09, 0.20, 0.10), { x: 0.26, z: 0.30, y: 0.44 }) },    // (12)
-      // JUNGLE CREST — rounded moss/canopy clumps swallowing the crown (bake:'lily' 3-stop green, deformed
-      // icosahedra not facet-plates — the causeway moss law). The jungle is what makes this the LAGOON's wall
-      // (a bare stone rampart would read Caldera/Frozen); + the greenery the owner asked for.
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.20, 0), { x: -0.14, z: 0.08, y: 1.02, sx: 1.25, sy: 0.6, sz: 1.05, ry: 0.5 }) }, // canopy clump — smaller so the STONE strata dominate (a temple rampart is stone-first, jungle-topped), not a green lid (20)
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.15, 0), { x: 0.20, z: -0.06, y: 0.94, sx: 1.15, sy: 0.6, sz: 1.0, ry: 1.1 }) },  // canopy clump, clustered toward one section (20)
+      // A cluster of TALL BROKEN WALL SEGMENTS spread in x AND z (rotation-robust, glacierwall pattern), NOT a
+      // stacked layer-cake (Fable r2 kill-shot: outward-skirting thin courses + a proud wider jade under-plate
+      // read as a SHIP'S HULL at worm's-eye). Each is a near-vertical wall pier of a DIFFERENT height so the
+      // crown STEPS DOWN like a real massif (tall → med → low → stub); nothing skirts outward → no hull taper.
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.84, 0.44), { x: -0.30, z: -0.18, y: 0.52 }) },          // pier A — tallest, y 0.10→0.94 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.66, 0.44), { x: 0.28, z: -0.26, y: 0.43, ry: 0.30 }) }, // pier B — tall-med, y 0.10→0.76 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.50, 0.42), { x: -0.08, z: 0.30, y: 0.35, ry: -0.22 }) },// pier C — med, y 0.10→0.60 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.36, 0.36, 0.38), { x: 0.34, z: 0.30, y: 0.28, ry: 0.50 }) },  // pier D — broken low stub, y 0.10→0.46 (12)
+      // a BUTTRESS proud on pier A — depth + mass (a wall, not a flat card) + a shoulder on the silhouette.
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.20, 0.50, 0.20), { x: -0.30, z: 0.06, y: 0.35 }) },           // buttress, y 0.10→0.60 (12)
+      // FLUSH drowned base — a footprint-matched plinth (NOT a wider tapered under-plate: that was the hull
+      // tell). Laterite foot below the waterline + a jade tide stain at the base, both matching the cluster
+      // footprint so the waterline reads flush, not as a serving tray.
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.92, 0.10, 0.86), { y: -0.05 }) },                             // laterite drowned foot, y −0.10→0.00 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.94, 0.12, 0.88), { y: 0.06 }) },                              // jade tide stain, footprint-flush, y 0.00→0.12 (12)
+      // a tumbled BLOCK fallen at the foot into the water (ruin + it breaks the base line).
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.20, 0.26), { x: 0.20, z: 0.42, y: 0.08, ry: 0.4 }) },   // fallen block at the tide (12)
+      // JUNGLE CREST — rounded deformed-icosa clumps (the causeway moss law: NOT flat facet-plates), one
+      // DROOPING over pier A's edge to break the crown line. The jungle is what makes this the LAGOON's wall
+      // (bare stone would read Caldera/Frozen) + the greenery the owner asked for.
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: -0.24, z: -0.10, y: 0.92, sx: 1.1, sy: 0.85, sz: 1.15, ry: 0.5, rz: 0.4 }) }, // canopy drooping over pier A (20)
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.17, 0), { x: 0.26, z: -0.20, y: 0.74, sx: 1.1, sy: 0.8, sz: 1.05, ry: 1.1 }) },            // canopy on pier B (20)
     ]),
-    // FAR backdrop, WIDE + LOW (~4:1): couple x to the measured ρ so the inner edge holds ≥26 (off-lane, like
-    // glacierwall/riftwall) — it underlines the far horizon, never intrudes on the flight band. Explicit tilt.
-    place: (side, rnd) => { const r = 30 + rnd() * 18; return { x: side * (22 + 0.92 * r + rnd() * 10), h: 13 + rnd() * 6, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
+    // FAR backdrop MASSIF (glacierwall pattern): spread in x AND z → rotation-robust, so random rotY is fine;
+    // couple x to the measured ρ so the inner edge holds ≥26 (BACKDROP class) — it underlines the far horizon,
+    // never intrudes on the flight band. Explicit tilt (a ruin leans a breath).
+    place: (side, rnd) => { const r = 26 + rnd() * 16; return { x: side * (26 + 1.0 * r + rnd() * 12), h: 15 + rnd() * 6, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
   },
 };
 
