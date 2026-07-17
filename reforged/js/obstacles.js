@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { biomeIndexAt } from './biomes.js';
+import { biomeIndexAt, computeEnv } from './biomes.js';
 import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
@@ -37,6 +37,10 @@ const markerFlow = { value: 0 };            // per-ROLE 0..1 driver (gate: slipM
 const markerTime = { value: 0 };            // globally shared clock (one write/frame)
 let gateFrameMats = null;                   // Phase Gate aperture frame — one per biome (Skyforged)
 const gateFlowRef = { value: 0 };           // gate-frame heat ← speedNorm (NEVER markerFlow — that's the flow slip)
+// I1 marrow-fire (Fable D1): the dark-biome bone-lume term. ONE shared uniform ref (the markerFlow
+// pattern) — every spine gate's boneMat() program points at THIS object, so one write per frame in
+// updateObstacles reaches every live gate. NEVER written per-material.
+const boneLumeRef = { value: 0 };
 let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
@@ -137,6 +141,69 @@ function glacierWallMat() {
                                      // alive in backlight like the props (fake transmission), not the intensity
   m.emissiveIntensity = 0.45;        // trimmed from 0.5 so the frost caps (×vColor) don't clip toward LED
   m.roughness = 0.30; m.metalness = 0.08;   // pick up the same per-facet sun glints as the props
+  return m;
+}
+
+// I1 marrow-fire (Fable D1): the bone value-ladder — each hoop's three organized value zones
+// (warm marrow crown → cool ivory mid-arc → near-dark belly tip). vColor multiplies BOTH the
+// diffuse (base white) and the emissive (the withLadderEmissive fold), so the arc self-reads as a
+// gradient in ANY light — never an LED ring. Position-baked, no rng (determinism-safe).
+const _BONE_APEX  = [1.00, 0.76, 0.42];   // 0xffc26b — warm marrow (dorsal apex)
+const _BONE_MID   = [0.74, 0.71, 0.64];   // 0xbdb5a3 — cool ivory (mid-arc, one value-step below shipped 0xe7dcc0)
+const _BONE_BELLY = [0.13, 0.115, 0.10];  // 0x211d1a — near-dark (belly tips)
+const _mix3  = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const _sstep = (t) => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+// d: 0 = belly … 1 = dorsal apex. The warm apex saturates only above d≈0.92 — a narrow warm crown
+// on the top of the arc, not half the hoop (kills the flat-wash tell).
+const boneLadderCol = (d) => d > 0.60
+  ? _mix3(_BONE_MID, _BONE_APEX, _sstep((d - 0.60) / 0.32))
+  : _mix3(_BONE_BELLY, _BONE_MID, _sstep(d / 0.60));
+
+// Bake the 3-stop bone ladder onto a hoop. d = alignment of the vertex's radial direction with
+// world-up pulled back through the hoop's known placement rz into local space → 1 at the dorsal
+// apex, 0 at the open belly tips. Position-only, no rng.
+function bakeHoopLadder(geo, rz) {
+  const p = geo.attributes.position, n = p.count, col = new Float32Array(n * 3);
+  const ux = Math.sin(rz), uy = Math.cos(rz);          // R_z(-rz) · (0,1)
+  for (let i = 0; i < n; i++) {
+    const x = p.getX(i), y = p.getY(i), r = Math.hypot(x, y) || 1;
+    const c = boneLadderCol(0.5 + 0.5 * ((x * ux + y * uy) / r));
+    col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}
+
+// I1 marrow-fire: gradient core for a dorsal vertebra (calBarFissure treatment on a sphere) — hot
+// pale green-white core at the dorsal pole, cooled near-dark under-rim. Position-only, no rng.
+const _MARROW_CORE = [0.95, 1.00, 0.90];   // ≈0xf2ffe5 — pale green-white core
+const _MARROW_RIM  = [0.06, 0.10, 0.075];  // ≈0x0f1a13 — near-dark rim
+function bakeMarrowCore(geo, r) {
+  const p = geo.attributes.position, n = p.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const c = _mix3(_MARROW_RIM, _MARROW_CORE, _sstep((p.getY(i) / r + 0.6) / 1.4));
+    col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}
+
+// I1 (M1b): the SPINE fadeMat FACTORY. A factory, not a patch on mats.bone, because every spine gate
+// clones its fadeMat per instance and r160 Material.clone/copy drops onBeforeCompile + live uniform
+// refs (the never-clone-Skyforged trap). Each call returns a fresh, fully-armed material;
+// customProgramCacheKey collapses them onto ONE compiled program (markerSurface precedent). uBoneLume
+// is the SHARED boneLumeRef — one write per frame reaches every per-gate instance by reference.
+function boneMat() {
+  const m = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.7, metalness: 0.0,
+    emissive: 0xd9b070, emissiveIntensity: 0.26 * CONFIG.spineRibLadder,   // pale warm bone-fire floor
+  });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uBoneLume = boneLumeRef;                       // SHARED ref — the markerFlow pattern
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uBoneLume;')
+      .replace('#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor.rgb;\n\ttotalEmissiveRadiance *= (1.0 + uBoneLume);');
+  };
+  m.customProgramCacheKey = () => 'boneLadder';
   return m;
 }
 
@@ -259,6 +326,18 @@ export function initObstacles(s) {
     socket: new THREE.MeshStandardMaterial({
       color: 0x140f0a, flatShading: true, roughness: 0.9, metalness: 0.0,
     }),
+    // I1 marrow-fire (Fable D1, M1a): "the soul-fire still burns in the marrow" — the dorsal vertebra
+    // chain. Soul-fire FAMILY but dimmed + DESATURATED below the reward-ring green (role-colour law:
+    // rings/orbs stay the brightest, most-saturated green in frame — S=0.61 < ring 0.76). Gradient-cored
+    // per-vertex (calBarFissure discipline): hot pale core at the dorsal pole → near-dark under-rim,
+    // folded into emissive by withLadderEmissive — never flat. SHARED + never cloned (ribcage sections
+    // are noDissolve → no per-instance fade), so the clone-carry trap can't strip it. Intensity written
+    // ONCE per frame in updateObstacles (the soul-fire pattern). NOT bindAtmosphere'd (signature-marker
+    // parity with soul-fire — fog relief is the later M3 PR).
+    marrow: withLadderEmissive(new THREE.MeshStandardMaterial({
+      color: 0x0c2415, vertexColors: true, flatShading: true, roughness: 0.4, metalness: 0.0,
+      emissive: 0x2f7a54, emissiveIntensity: 0.85,
+    })),
   };
   // N8: the solid obstacle bodies (rock gates / spines / skeleton — the big
   // fogged geometry the player flies THROUGH) join the atmosphere so they sink
@@ -1878,7 +1957,11 @@ function buildRockGap(o, e) {
 
   // One per-instance base material for ALL solids in this gate → they dissolve
   // together near the camera. Bone for the Dragon Spine, biome rock otherwise.
-  const fadeMat = (spine ? mats.bone : mats.body[bi]).clone();
+  // I1 marrow-fire: with the ladder dial on, spine gates take the boneMat() FACTORY (a fresh armed
+  // material per gate — a clone would drop the shader patch); at 0 the shipped clone path runs
+  // untouched (byte-identical). mats.bone itself is never modified.
+  const ladderOn = spine && CONFIG.spineRibLadder > 0;
+  const fadeMat = ladderOn ? boneMat() : (spine ? mats.bone : mats.body[bi]).clone();
   fadeMat.transparent = true;
   fadeMat.opacity = 1;
   fadeMat.userData.perInstance = true;
@@ -1887,6 +1970,10 @@ function buildRockGap(o, e) {
 
   // --- build helpers --------------------------------------------------------
   const place = (geo, x, y, z = 0, rx = 0, ry = 0, rz = 0) => {
+    // I1: the ladder fadeMat is vertexColors:true → any geometry lacking a color attribute samples
+    // black (invisible bone). Safety net: fill unbaked geometry with the mid-arc ivory. Hoops get the
+    // real 3-stop bake before place() (this net skips them); non-spine gates never set ladderOn.
+    if (ladderOn && !geo.attributes.color) _fillCol(geo, _BONE_MID);
     const m = new THREE.Mesh(geo, fadeMat);
     m.position.set(x, y, z); m.rotation.set(rx, ry, rz);
     group.add(m); return m;
@@ -2246,11 +2333,25 @@ function buildRockGap(o, e) {
       // Bank the hoop into the turn (roll about the flight axis by the sweep slope) for
       // the racing lean — visual only, the hoop has no collider. Travel is +z now.
       const bank = Math.max(-0.16, Math.min(0.16, 2.4 * (sway(z + 1) - sxz)));
-      const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
-        ox, oy, wz, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3 + bank); // belly-down + bank
+      const rzRib = -Math.PI * 0.3 + bank;
+      const ribGeo = new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55);
+      if (ladderOn) bakeHoopLadder(ribGeo, rzRib);   // I1 (M1b): 3-stop value-ladder from geometry (no rng)
+      const rib = place(ribGeo, ox, oy, wz, (rng() - 0.5) * 0.12, 0, rzRib); // belly-down + bank
       rib.scale.set(wS, hS, wS);
-      place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, oy + hS + 0.3, wz); // dorsal vertebra
-      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, oy + hS + 1.7, wz); // neural spine
+      // I1 (M1a): the dorsal vertebra IS the marrow beacon. Glow dial on → split onto the shared
+      // gradient-cored soul-fire chain (mats.marrow, never cloned → clone-trap can't strip it); at 0
+      // it stays on the fadeMat via place() exactly as shipped. Same geometry/position/mesh count.
+      const vGeo = new THREE.IcosahedronGeometry(0.7 + vert, 0);
+      if (CONFIG.spineMarrowGlow > 0) {
+        bakeMarrowCore(vGeo, 0.7 + vert);
+        const vm = new THREE.Mesh(vGeo, mats.marrow);
+        vm.position.set(ox, oy + hS + 0.3, wz);
+        group.add(vm);
+      } else {
+        if (ladderOn) _fillCol(vGeo, boneLadderCol(0.92));   // apex-warm even unlit (ladder story coherent)
+        place(vGeo, ox, oy + hS + 0.3, wz);
+      }
+      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, oy + hS + 1.7, wz); // neural spine (dead code in I1)
     }
   };
 
@@ -2399,7 +2500,9 @@ function buildRockGap(o, e) {
     }
     // Swept-back horns: long, smooth, angled up & back & splayed out from the crown.
     for (const sx of [-1, 1]) {
-      const horn = new THREE.Mesh(new THREE.ConeGeometry(1.4, 11, 7), fadeMat);
+      const hornGeo = new THREE.ConeGeometry(1.4, 11, 7);
+      if (ladderOn) _fillCol(hornGeo, _BONE_MID);   // I1: horns bypass place() — fill the ladder vColor directly
+      const horn = new THREE.Mesh(hornGeo, fadeMat);
       horn.position.set(gx + sx * (W + 4.2), gy + H + 9.5, -2.5);
       horn.rotation.set(-0.7, 0, sx * 0.5);
       group.add(horn);
@@ -2491,6 +2594,22 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
   // Skull soul-fire eyes breathe (shared material, one write) so the mouth reads as
   // "ancient, awake" — pulsing together across any skull instance.
   if (mats.soul) mats.soul.emissiveIntensity = 1.7 + Math.sin(time * 2.2) * 0.6;
+  // I1 marrow-fire (Fable D1, M2): dark-biome bone-lume. keyLuma = the rig's incident key light
+  // (sun energy + mean hemisphere), from inputs computeEnv ALREADY lerps → seam-safe by construction.
+  // KEY_KNEE calibrates "full marrow-fire" to the Mire's dead rig; every bright biome's keyLuma lands
+  // ≥ the knee and clamps to EXACTLY 0 (untouched by construction, not by tuning). Scales the EMISSIVE
+  // terms only — never diffuse, never a flat lift (M2 law). One uniform write reaches every live gate's
+  // hoop shader via the shared boneLumeRef; one intensity write drives the marrow chain.
+  if (mats.marrow && (CONFIG.spineMarrowGlow > 0 || CONFIG.spineBoneLumeMix > 0)) {
+    const BONE_LUME_GAIN = 2.2, MARROW_BASE = 0.85, MARROW_LUME_GAIN = 1.2, KEY_KNEE = 0.72;
+    const env = computeEnv(playerDist);
+    const Lc = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    const keyLuma = env.lightSunI * Lc(env.lightSun) + 0.5 * (Lc(env.hemiSky) + Lc(env.hemiGround));
+    const lume = Math.min(1, Math.max(0, 1 - keyLuma / KEY_KNEE));
+    boneLumeRef.value = BONE_LUME_GAIN * CONFIG.spineBoneLumeMix * lume;                 // hoops (shader, all gates)
+    mats.marrow.emissiveIntensity =
+      MARROW_BASE * CONFIG.spineMarrowGlow * (1 + MARROW_LUME_GAIN * CONFIG.spineBoneLumeMix * lume);
+  }
   const sn = Math.max(0, Math.min(1, speedNorm));
   // Phase Gate: flow the veil shimmer (shared per biome) and give the aperture
   // ring a gentle, speed-aware breath. Six writes each — negligible.
