@@ -4,7 +4,7 @@ import { CONFIG } from './config.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
-import { setWaterTint } from './water.js';
+import { setWaterTint, setMireWaterPools } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
 import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
@@ -1543,7 +1543,7 @@ const ARCHETYPES = {
   // severs so it floats on fog. Mass in the upper y-band; crops the horizon under the amber
   // haze. 2 pinprick beacons recessed under lobe overhangs (the under-brim address at a mile).
   canopywall: {
-    step: 83, biomes: mireNew, matIndex: 4,
+    step: 83, biomes: mireNew, matIndex: 4, nearGlowLift: true,   // Fable 96-C: drinks nearby glow
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.5, 5).toNonIndexed(), { y: 0.25 }) });
@@ -1572,7 +1572,7 @@ const ARCHETYPES = {
   // cones — the sanctioned "sparse feathered reeds" exception to no-sharp-verticals) at
   // varied heights + 1 leaning bare snag. Sweeps past fast; sells speed. All near-black.
   reedveil: {
-    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror
+    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34, nearGlowLift: true,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror; Fable 96-C drinks nearby glow
     build: () => {
       const parts = [];
       const tufts = [
@@ -1596,7 +1596,7 @@ const ARCHETYPES = {
   // knuckled — never straight cylinders) sharing one blobby crown mass at the top third.
   // The mid-ground black shape the drape fringe + future glow-carriers read AGAINST.
   boleveil: {
-    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep)
+    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58, nearGlowLift: true,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep); Fable 96-C drinks nearby glow
     build: () => {
       const parts = [];
       const boles = [
@@ -1627,7 +1627,7 @@ const ARCHETYPES = {
   // laneMaxY 22 + camera) — so the roof paints the top of frame without ever blocking the lane.
   // Dark foil (moss DARK); the glowing air is the PR-1 mote system drifting under the fringe.
   drape: {
-    step: 19, biomes: mireNew, matIndex: 4,
+    step: 19, biomes: mireNew, matIndex: 4, nearGlowLift: true,   // Fable 96-C: drinks nearby glow
     overhead: { unitY: 0.66, minWorldY: 28 },
     build: () => {
       const parts = [];
@@ -2336,6 +2336,15 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.add(hemi);
   initSkyProbe(scene, hemi); // N5 sky-IBL probe (dormant until enabled)
 
+  // GLOW-SPILL lights (Fable 96-A): the Mire's 2 hero-cluster spill PointLights, created ONCE at boot
+  // (fixed pool → NUM_POINT_LIGHTS compiles once, never mid-run) and parked at y −50 intensity 0 until
+  // updateMireSpill positions them in the Mire. Warm, budgeted; +2 light-loop slots (with the drake's, 3).
+  if (!mireSpillA0) {
+    mireSpillA0 = new THREE.PointLight(0xffa245, 0, 34, 2); mireSpillA0.position.set(0, -50, 0); // arch gate
+    mireSpillA1 = new THREE.PointLight(0xffb057, 0, 26, 2); mireSpillA1.position.set(0, -50, 0); // spire beacon
+  }
+  scene.add(mireSpillA0, mireSpillA1);
+
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
   for (const key of Object.keys(ARCHETYPES)) {
@@ -2536,6 +2545,101 @@ function nearArchGate(dist) {
   const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
   const peakEase = pLocal >= 1050 && pLocal <= 1350;
   return localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5);
+}
+
+// GLOW-SPILL near-glow value lift (Fable 96 mechanism C) — the mid-scene fix: a dark prop within a glow
+// cluster's reach DRINKS its light (lands at value-ladder step-4), a prop far from any glow stays step-6
+// black. Per-instance instanceColor MULTIPLIER, computed PURELY at placement (heroHash/mireComp only, no
+// rnd) → gold-determinism byte-identical; w=0 ⇒ WHITE identity ⇒ far/parked/other-biome instances untouched.
+// "Matter drinks light" made visible. Applied to the 4 dark Mire families (nearGlowLift), never the glows.
+const MIRE_LIFT = new THREE.Color(2.8, 2.35, 1.5);   // warm multiplicative ratio (R>G>B; >1 legal, BIOME_TINTS precedent) — the GATE meters it (may rise ≤4.0 to hit step-4)
+const MIRE_SPIRE_X = 40;                              // representative glowspire flank x (place x ≈ 34–47); the falloff is soft so the mean suffices
+const _liftC = new THREE.Color();
+function _glowFalloff(d, dFull, dZero) { return Math.max(0, Math.min(1, (dZero - d) / (dZero - dFull))); }
+// PURE 0..1 near-glow weight for a dark prop at (x, dist, side): arch gate (kept peaks, x0), spire beacon
+// (kept troughs, parity flank), and the shroom/bloom chorus congregations (easement-zeroed). Same hashes the
+// gate/clearing/beacon already agree on, so the lift can never imply light where no organism was seated.
+function mireNearGlowW(x, dist, side) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;   // 300
+  let w = 0;
+  const pa = mireHeroClearPeak(dist, 0, 0.5);              // arch: kept peak covering dist (or NaN)
+  if (!Number.isNaN(pa)) w += _glowFalloff(Math.hypot(x, dist - (pa * period + HERO_PEAK_OFFSET)), 12, 34);
+  const ps = mireHeroClearPeak(dist, 150, 0.4);            // spire: kept trough beacon
+  if (!Number.isNaN(ps) && side === (((ps % 2) + 2) % 2 === 1 ? 1 : -1)) {
+    w += 0.8 * _glowFalloff(Math.hypot(Math.abs(x) - MIRE_SPIRE_X, dist - (ps * period + HERO_PEAK_OFFSET + 150)), 9, 26);
+  }
+  const local = ((dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+  if (!(local >= 1050 && local <= 1350)) w += 0.30 * mireComp(dist);   // chorus, easement-zeroed
+  return Math.min(1, w);
+}
+
+// GLOW-SPILL lights + mirror pools (Fable 96 A+B). Two boot-created PointLights (a FIXED pool → the
+// NUM_POINT_LIGHTS shaders compile once at load, never mid-run) that track the nearest kept arch gate +
+// spire beacon and physically spill warm light on the dark trunks as you fly the gate; plus up to 4 mirror
+// pools fed to the water. Analytic per frame from the along-track dist (same kept-peak hashes the gate /
+// clearing / beacon agree on) → zero scene queries, zero per-frame alloc, render-only. seamRamp gates the
+// whole thing to biome 4; outside the Mire the lights park at y −50 intensity 0 (pixel-identical: 0 radiance)
+// and uMirePoolK is 0 (byte-identical water). `?spill=0` parks them permanently for an A/B.
+const MIRE_SPILL_LIGHTS = 2;
+const _spillParked = (() => { try { return new URLSearchParams(location.search).get('spill') === '0'; } catch { return false; } })();
+let mireSpillA0 = null, mireSpillA1 = null;
+const _spillPools = [ { x: 0, z: 0, invR: 1 / 11, strength: 0 }, { x: 0, z: 0, invR: 1 / 11, strength: 0 },
+                      { x: 0, z: 0, invR: 1 / 7, strength: 0 }, { x: 0, z: 0, invR: 1, strength: 0 } ];
+// PURE per-cluster breath (Fable 96 §5): source, spill light, and pool of ONE organism share ONE pulse.
+// Irrational-feeling period spread → no two clusters sync (the metronome tell). Render-only (wall-clock t).
+function mireBreath(peakIdx, t) {
+  const T = 4.1 + 2.3 * heroHash(peakIdx ^ 0x9e37);
+  const ph = 6.2832 * heroHash(peakIdx ^ 0x85eb);
+  return 1 + 0.14 * Math.sin(t * 6.2832 / T + ph);
+}
+// Kept hero peaks (arch: shift 0 rare 0.5 / spire: shift 150 rare 0.4) in [dist−back, dist+ahead], nearest
+// first. Same keep test as mireHeroClearPeak so lights/pools sit exactly where a hero was seated.
+function keptMirePeaks(dist, shift, rare, back, ahead) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;
+  const out = [];
+  const pk0 = Math.round((dist - HERO_PEAK_OFFSET - shift) / period);
+  for (let pk = pk0 - 1; pk <= pk0 + 5; pk++) {
+    const Pd = pk * period + HERO_PEAK_OFFSET + shift;
+    if (Pd < dist - back || Pd > dist + ahead) continue;
+    const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+    const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+    const peakEase = pLocal >= 1050 && pLocal <= 1350;
+    if (localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < rare)) out.push({ pk, Pd });
+  }
+  out.sort((a, b) => a.Pd - b.Pd);
+  return out;
+}
+function updateMireSpill(dist, t) {
+  if (!mireSpillA0) return;
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const inMire = biomeIndexAt(Math.max(dist, 0)) === 4;
+  const seam = (inMire && !_spillParked)
+    ? THREE.MathUtils.smoothstep(local, 0, 40) * (1 - THREE.MathUtils.smoothstep(local, L - 40, L)) : 0;
+  for (const p of _spillPools) p.strength = 0;
+  if (seam < 0.001) {   // outside the Mire: park (0 radiance / +0 water) → byte-identical elsewhere
+    mireSpillA0.intensity = 0; mireSpillA1.intensity = 0;
+    mireSpillA0.position.y = -50; mireSpillA1.position.y = -50;
+    setMireWaterPools(_spillPools, 0);
+    return;
+  }
+  const arches = keptMirePeaks(dist, 0, 0.5, 15, 500);
+  const spires = keptMirePeaks(dist, 150, 0.4, 15, 400);
+  if (arches.length) {
+    const a0 = arches[0], br0 = mireBreath(a0.pk, t);
+    mireSpillA0.position.set(0, 6.0, -a0.Pd);
+    mireSpillA0.intensity = 10 * br0 * seam;
+    _spillPools[0].z = -a0.Pd; _spillPools[0].strength = 0.34 * br0;
+    if (arches.length > 1) { const a1 = arches[1], br1 = mireBreath(a1.pk, t);
+      _spillPools[1].z = -a1.Pd; _spillPools[1].strength = 0.34 * br1; }
+  } else { mireSpillA0.intensity = 0; mireSpillA0.position.y = -50; }
+  if (spires.length) {
+    const s = spires[0], brs = mireBreath(s.pk, t), side = (((s.pk % 2) + 2) % 2 === 1) ? 1 : -1;
+    mireSpillA1.position.set(side * MIRE_SPIRE_X, 7.5, -s.Pd);
+    mireSpillA1.intensity = 7 * brs * seam;
+    _spillPools[2].x = side * MIRE_SPIRE_X; _spillPools[2].z = -s.Pd; _spillPools[2].strength = 0.22 * brs;
+  } else { mireSpillA1.intensity = 0; mireSpillA1.position.y = -50; }
+  setMireWaterPools(_spillPools, seam);
 }
 
 // --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
@@ -2756,6 +2860,13 @@ function writeMatrix(band, i, d) {
   // Single-biome archetypes never allocate instanceColor — untouched.
   if (band.def.biomes.length > 1) {
     band.mesh.setColorAt(i, BIOME_TINTS[bi] ?? TINT_WHITE);
+  } else if (band.def.nearGlowLift) {
+    // Fable 96 mechanism C: dark Mire families DRINK nearby organism-glow. WRITE EVERY instance (WHITE at
+    // w=0) — the first setColorAt allocates a ZERO-filled buffer, so any unwritten instance would render
+    // BLACK; writeMatrix runs for every instance at build/recycle/reseed, so all are covered.
+    const w = active ? mireNearGlowW(d.x, d.dist, d.side) : 0;
+    _liftC.copy(TINT_WHITE).lerp(MIRE_LIFT, w);
+    band.mesh.setColorAt(i, _liftC);
   }
 }
 
@@ -2919,6 +3030,9 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   });
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
+  // Fable 96 A+B: position the 2 spill lights + feed the mirror pools from the kept hero peaks (analytic;
+  // parks / 0 water outside the Mire → byte-identical elsewhere).
+  updateMireSpill(playerDist, time);
 
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
