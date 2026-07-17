@@ -2739,25 +2739,28 @@ const ARCHETYPES = {
       // A TOPPLED COLUMN reads as a SENTENCE: the surviving stump at one end + its drums trailing away in the
       // fall LINE (down +z), progressively more scattered — "the column stood HERE and fell THAT way." A random
       // pile reads as rubble; a trail reads as architecture (viamarina comb lesson: rhythm needs direction).
-      // SURVIVING STUB — a proud broken column base with ENTASIS (top ⅚ base dia, §3 #6), at the −z end of the
-      // fall line. CLOSED so the broken crown reads as a solid disc, not a hollow tube. The eye's anchor. (24)
-      S(xform(new THREE.CylinderGeometry(0.108, R, 0.40, 6, 1, false), { x: 0, z: -0.34, y: 0.20, rz: 0.03 }));
-      // DORIC CAPITAL — the "single quiet trumpet": a MODEST echinus cushion + a compact abacus riding the stub
-      // crest (y0.40). Kept small so it reads "column top," not a table; it is the prop's ONE flourish, withheld
-      // everywhere else so the hero's gilt still reads rich. (24)
-      S(xform(new THREE.CylinderGeometry(0.135, 0.10, 0.075, 6, 1, true), { x: 0, z: -0.34, y: 0.4375, rz: 0.03 }));   // echinus cushion (12)
-      S(xform(new THREE.BoxGeometry(0.215, 0.045, 0.215), { x: 0, z: -0.34, y: 0.4975, rz: 0.03 }));                    // abacus slab (12) → capital 24
-      // LEANING DRUM — the first coin to slip, still half-upright propped toward the fall (big rz lean). CLOSED. (24)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.24, 6, 1, false), { x: 0.02, z: -0.13, y: 0.12, rz: 0.85, ry: 0.15 }));
-      // LYING DRUM A — down flat, axis ALONG the fall line (rx π/2 → round BREAK FACE points ±z, addressing the
-      // ¾ camera down the trail; wrackstone w1: a round break face reads "column slice", not a box). CLOSED. (24)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.27, 6, 1, false), { x: -0.01, z: 0.07, y: R, rx: Math.PI / 2, ry: 0.05 }));
+      // SURVIVING STUB — a proud broken column base at the −z end of the fall line, SUBTLE entasis (a strong
+      // base-taper made it read plinth-under-tabletop; Fable df2). CLOSED so the broken crown is a solid disc. (24)
+      S(xform(new THREE.CylinderGeometry(0.122, R, 0.40, 6, 1, false), { x: 0, z: -0.34, y: 0.20, rz: 0.03 }));
+      // DORIC CAPITAL — the "single quiet trumpet". Fable df2: a flat plate with a gap under it read as a
+      // floating table. Fixed: an 8-sided ECHINUS that GROWS OUT of the shaft (base = stub top 0.122, no gap)
+      // and FLARES up to 0.165, capped by a compact abacus sitting directly on it. The flare IS the trumpet. (28)
+      S(xform(new THREE.CylinderGeometry(0.165, 0.122, 0.10, 8, 1, true), { x: 0, z: -0.34, y: 0.45, rz: 0.03 }));   // echinus flare (base 0.40 = stub top; 8-sided reads round) (16)
+      S(xform(new THREE.BoxGeometry(0.20, 0.05, 0.20), { x: 0, z: -0.34, y: 0.525, rz: 0.03 }));                      // abacus slab, seated on the echinus (12) → capital 28
+      // ON-END COIN — THE fix that converts "crates" → "column" (Fable df2): one drum stood STEEPLY on end so
+      // its round 8-sided BREAK FACE is presented to the ¾ camera. 8 sells round; this single circular face is
+      // the cue that says "sliced Doric shaft", not shipwreck rubble. CLOSED. (32)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.22, 8, 1, false), { x: 0.03, z: -0.10, y: 0.15, rz: 0.42, ry: 0.2 }));
+      // LYING DRUM A — down flat, axis ALONG the fall line (rx π/2 → round break face points ±z down the trail).
+      // Lying side-profile is a rectangle regardless of segment count, so 6 is fine here — spend the round-ness
+      // on the on-end coin above where the circular face actually shows. CLOSED. (24)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.27, 6, 1, false), { x: -0.01, z: 0.09, y: R, rx: Math.PI / 2, ry: 0.05 }));
       // LYING DRUM B — the next coin along the trail, rolled a touch off-line (ry) so it doesn't re-stack. (20)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.24, 5, 1, false), { x: 0.07, z: 0.28, y: R, rx: Math.PI / 2, ry: -0.22 }));
+      S(xform(new THREE.CylinderGeometry(R, R, 0.24, 5, 1, false), { x: 0.07, z: 0.30, y: R, rx: Math.PI / 2, ry: -0.22 }));
       // STRAY DRUM — one coin rolled CLEAR off the line (+x) and half-buried (y sunk below R): the "scattered"
       // tell that says these did not fall neatly — the tide took the rest. (20)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.20, 5, 1, false), { x: 0.30, z: 0.33, y: 0.10, rx: Math.PI / 2 + 0.12, ry: 0.7, rz: 0.3 }));
-      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.15 });   // the level tide stain cuts THROUGH the low coins at one world Y (drowned foot / travertine crown on each) — "a waterline that ignores them"
+      S(xform(new THREE.CylinderGeometry(R, R, 0.20, 5, 1, false), { x: 0.30, z: 0.34, y: 0.10, rx: Math.PI / 2 + 0.12, ry: 0.7, rz: 0.3 }));
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.14 });   // the level tide stain cuts THROUGH the low coins at one world Y (drowned foot / travertine crown on each) — "a waterline that ignores them"
     },
     // LOW WIDE foil scatter (wrackstone rhythm): draw r first, couple x → inner ≥16 (clears the ±16 gate veil);
     // low h so the stump-capital reads proud over a flat rubble field, never a tower. FREE rotY — a rubble heap
