@@ -607,6 +607,64 @@ function bakeBloom(geo, upThresh = 0.2) {
   return geo;
 }
 
+// THE DROWNED FORUM re-stopped tide ladder (DROWNED-FORUM-BUILD-SHEET §2A) — the SAME position-keyed
+// 3-stop engine as bakeTideLadder, re-stopped OFF the jade jungle onto sunken-Roman travertine so the
+// forum stone reads as a different geology in the SAME material/draw group (the bake:'forum' tag): a
+// sun-bleached travertine crown / a NARROW hard-edged algae-crust tide line (browner, never leafy) /
+// a drowned slate-teal base (one of the palette's three cool anchors). Its own stops — never the jade
+// _LAG_ hues (the green purge, §11.5; the symmetric mechanical grep keeps the kits leak-free). Zero tri
+// cost. waterY lifted to 0.16 so the arch feet drown; the tilt (bradyseism) then crosses the band at an angle.
+const _FRM_TRAV = [0.918, 0.875, 0.784];  // 0xeadfc8 sun-bleached travertine crown (never whiter — HOLLOWGATE stays palest)
+const _FRM_ALGAE = [0.263, 0.310, 0.227]; // 0x434f3a browner algae-crust tide line (NOT leafy green)
+const _FRM_DROWN = [0.078, 0.200, 0.231]; // 0x14333b wet slate-teal drowned base (the cool anchor)
+function bakeForumLadder(geo, waterY = 0.16, bandH = 0.06) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const s = [0, 0, 0];
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    if (yc > waterY + bandH) {
+      // BLEACH crown — value structure (core→bloom→dark): brighten toward a sunlit top + an undercut
+      // self-shadow on down-faces (arch soffit / cornice belly), so a pier reads dark-tide → bright crown.
+      const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);
+      ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+      e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+      const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 up/side → 1 straight-down overhang (soffit)
+      const uf = 1 - 0.5 * u;
+      s[0] = _FRM_TRAV[0] * (1 + 0.06 * t) * uf; s[1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; s[2] = _FRM_TRAV[2] * (1 + 0.03 * t) * uf;
+    } else if (yc < waterY) {
+      const t = Math.min(1, (waterY - yc) / 0.4);
+      const f = 1 - 0.30 * t;
+      s[0] = _FRM_DROWN[0] * f; s[1] = _FRM_DROWN[1] * f; s[2] = _FRM_DROWN[2] * f;
+    } else {
+      s[0] = _FRM_ALGAE[0]; s[1] = _FRM_ALGAE[1]; s[2] = _FRM_ALGAE[2];   // NARROW hard-edged band (bandH 0.06, flat)
+    }
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+// PROTECTED-recess Pompeian-red fresco (§2B) — bake:'fresco'. Normal-keyed 2-zone like the bloom bake:
+// a weathered lit edge on up/out faces → deep wine-red in the recess, so a niche reads as painted plaster
+// with value, not a flat red decal. Deliberately OFF the magenta danger lane (bulletcontrast law).
+// Small in area — only inside a roof-sheltered pier niche (§4), never an outer panel.
+const _FRM_FRESCO = [0.620, 0.169, 0.145];   // 0x9e2b25 Pompeian red (the protected recess)
+const _FRM_FRESCO_E = [0.651, 0.278, 0.227]; // 0xa6473a weathered lit edge
+function bakeFresco(geo, upThresh = 0.3) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > upThresh ? _FRM_FRESCO_E : _FRM_FRESCO;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
 // Merge a Lost Lagoon new-kit archetype: NON-INDEXED parts → ≤2 material groups → bake the tide
 // ladder → bake AO. Primary group = lagoonStone (reads vColor); accent group = gilt (vertexColors
 // off, ignores the bake on the shared geometry). opts.foil → the no-ladder no-glow lagoonFoil mass
@@ -619,11 +677,13 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], forumB = [], frescoB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
+    else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
+    else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
     else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
     else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
@@ -642,6 +702,8 @@ function mergeLagoonParts(parts, opts = {}) {
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
+  if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g); stone.push(g); }
+  if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {
@@ -2497,6 +2559,67 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // ═══ THE DROWNED FORUM — WAVE A ═══════════════════════════════════════════════════════════════════
+  // triumphgate — TRIUMPHAL ARCH (DROWNED-FORUM-BUILD-SHEET §3 #1). The HERO / identity-prover: a chunky
+  // Roman block WIDER than tall (~1.15:1 world), a semicircular hole low-centre, a SOLID attic cap-block on
+  // top with an inscription band, and a coffered TUNNEL through it (0.40-deep piers/attic → a real tunnel,
+  // never a flat cut). The ONE tell (name test, black-on-gold): pier + round arch + attic mass. Cheap-tells
+  // killed: pier ≈0.75× span (≥¾, no croquet-hoop, §11.1); attic mass always present; the arch springs at
+  // 50% H with a raised keystone; one attic shoulder broken (nothing plumb/whole, §11.3). Bakes: the
+  // re-stopped forum tide ladder (travertine crown / narrow algae line / drowned slate — waterY 0.16 so the
+  // feet drown and the bradyseism tilt crosses the band at an angle); GILT ONLY in the recessed soffit
+  // coffer (the aperture address, §2C ≤4/13); Pompeian-red fresco in ONE protected pier niche. Engaged
+  // columns are deferred to a revise round if the studio read needs them (silhouette economics — the name
+  // test holds on the arch+attic mass). ≤150 tris, 2 material groups (forum stone + gilt).
+  triumphgate: {
+    step: 149, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.05, sMin: 0.95, sMax: 1.15 }, // rare HERO scatter off-lane in the shallows; only in congregation peaks, parks the arrival seam
+    build: () => {
+      const parts = [];
+      const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine tide ladder
+      // PIERS — two chunky blocks, full height to the cornice line (y0.70), 0.40 deep (the tunnel depth).
+      // Span (hole) = 0.40 (x ±0.20); pier width 0.30 → pier/span = 0.75 (§11.1 no croquet-hoop).
+      S(xform(new THREE.BoxGeometry(0.30, 0.70, 0.40), { x: -0.35, y: 0.35 }));   // left pier (12)
+      S(xform(new THREE.BoxGeometry(0.30, 0.70, 0.40), { x: 0.35, y: 0.35 }));    // right pier (12)
+      // IMPOST SPRINGERS — a projecting horizontal ledge on each pier at the arch springing (y0.465), where
+      // the arch's weight lands on the pier. The classic triumphal-arch tell that reads as MASONRY, not a
+      // spike: Stage-2 r3 showed proud vertical pilasters foreshorten into dark fins from a ¾ vantage; a
+      // horizontal impost never does, and it frames the bay + articulates the otherwise-blank pier. (24)
+      S(xform(new THREE.BoxGeometry(0.34, 0.05, 0.44), { x: -0.35, y: 0.465 }));   // left impost (12)
+      S(xform(new THREE.BoxGeometry(0.34, 0.05, 0.44), { x: 0.35, y: 0.465 }));    // right impost (12)
+      // FRONT ARCH RING — a half-torus of chunky voussoirs springing at y0.48, apex y0.68 (arc 0→π = the top
+      // half). tube 0.05 → the ring outer laps onto the pier imposts (the arch springs from the piers). (36)
+      S(xform(new THREE.TorusGeometry(0.20, 0.05, 3, 6, Math.PI), { y: 0.48, z: 0.15 }));
+      // SOFFIT — a clean coffered ceiling capping the bay at the arch apex (y0.68). Stage-2 showed the open
+      // top let the eye see up into the cornice/attic stack = a jumble; this closes the tunnel into a clean
+      // arched passage. Its underside IS the coffered soffit; the gilt coffer recesses into it. (12)
+      S(xform(new THREE.BoxGeometry(0.44, 0.04, 0.44), { y: 0.685 }));
+      // GILT SOFFIT COFFER — the withheld gold, ONLY in a recessed square in the soffit (the aperture
+      // address / the one distant light; §2C ≤4/13 archetypes carry glow). mat 1 = gilt. (12)
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.16, 0.03, 0.16), { y: 0.66 }) });
+      // CORNICE — the projecting entablature ledge running the FULL width above the arch (the single
+      // strongest "Roman" horizontal tell): it separates the arch level from the attic. Proud front & back. (12)
+      S(xform(new THREE.BoxGeometry(1.02, 0.05, 0.44), { y: 0.725 }));
+      // ATTIC CAP — the solid crowning block (0.30 of H, §110). SHIFTED −x + a lower broken step on +x = one
+      // shoulder sheared away (§11.3 asymmetry; nothing whole, every pediment loses a corner). (24)
+      S(xform(new THREE.BoxGeometry(0.78, 0.30, 0.40), { x: -0.06, y: 0.90 }));   // attic main (12)
+      S(xform(new THREE.BoxGeometry(0.18, 0.16, 0.40), { x: 0.40, y: 0.83 }));    // broken shoulder remnant, lower (12)
+      return mergeLagoonParts(parts);   // → 144 tris, 2 groups (forum stone + gilt)
+    },
+    // HERO scale, WIDER than tall (~1.15:1 world = r:h). The opening (world ~0.40·r wide × 0.48·h tall) stays
+    // flyable with margin. Explicit bradyseism tilt (§1 — the sea crept in; a level waterline is a bug). Draw
+    // r first, couple x so even the biggest inner edge clears the ±16 gate veil. rotY PINNED side-based (the
+    // pier pilasters + gilt soffit are on the object +z face) so the money face always turns to the lane and
+    // doubles in the mirror; a landmark scatter sits far off-lane so the player passes it, never through it.
+    place: (side, rnd) => {
+      const h = 17 + rnd() * 6;
+      const r = h * 1.15 + rnd() * 3;
+      const p = { x: side * (18 + 0.95 * r + rnd() * 7), h, r, tilt: side * (0.05 + rnd() * 0.045) };
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.18 - 0.09);   // decorated +z face turns lane-ward (± a breath)
+      if (HERO_SET.has('triumphgate')) { p.rotY = 0; p.tilt = side * 0.06; }   // debug: pin the money face + a fixed lean down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2543,6 +2666,7 @@ const FOAM_CFG = {
   // parked forms carry inert rows until their stage activates + tunes them.
   glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, // arch elliptical collar; spire spar-only collar
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
+  triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
