@@ -258,10 +258,12 @@ function makeMats() {
   // 0.34 = a wet storm-scoured sheen. storm-teal is BANNED — this stays value-structured slate.
   mats.tempestStone = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.34, metalness: 0.05,
-    emissive: 0x5a6a78, emissiveIntensity: 0.12,   // Fable device critique: the old NEUTRAL grey @0.30 milked
-    // the whole ladder toward one flat mid-grey (F2 — grey emissive is fog, not material). Now a DARK COOL-SLATE
-    // lift at a low floor: silhouettes still separate from the pale slot, but near rock reads ink-dark + carved
-    // and the near→far value ramp finally spans (the ladder vColor folds INTO this via ladderEmissive).
+    emissive: 0x7d8a98, emissiveIntensity: 0.25,   // Fable device critique R2: @0.12 was calibrated on headless
+    // captures (which render ~1 stop brighter than a real phone) → the rock collapsed to FLAT BLACK cardboard on
+    // the owner's device. Lift back to a COOL-PALE @0.25: because ladderEmissive multiplies by the (now wide)
+    // ladder vColor, the lift lands on SCOUR crests (bright wind-bitten tops catching the storm-light) while the
+    // wetcore vColor keeps soaked bellies near-black → real value RANGE inside each prop (Frozen's luminosity law,
+    // storm-native), not one flat value. Gate on DEVICE, never headless.
   }), true);
   // (The atmospheric CLOUD-WALL `arcuswall` and its tempestCloud/lip materials are DEFERRED to a future
   //  sky-shader pass — see the archetype note — so no cloud materials are built here.)

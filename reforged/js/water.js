@@ -344,6 +344,19 @@ const fragmentShader = /* glsl */`
     col = mix(col, col * vec3(0.90, 0.98, 1.10) + vec3(0.03, 0.05, 0.07), _calmPatch * 0.6);   // toward a calm silver-blue
     col += vec3(1.0, 0.847, 0.439) * _goldPool * 0.5;                                          // gold sun-pool at the eye's foot
 
+    // THE SUN-ROAD (Fable beauty pass — the single highest-awe move): the breach's reflection laid on the
+    // sea as a BROKEN gold glitter path running from the eye at the horizon down the lane toward the player.
+    // Unlike the far calm POOL above (deliberately NOT a glitter lane, per the old restraint), the beauty
+    // pass now WANTS the lane: a tight azimuth cone that SPANS distance (near→far), brightest at the horizon
+    // source, fading toward camera, shattered into shimmering glints so it reads as sun-on-water not a painted
+    // stripe. Gold #ffd06b matching the breach lip. Gated by uBreachMix → only burns when the eye is open.
+    float _roadAz = pow(_azB, 8.0);                                                   // TIGHT lane cone along the sun/breach azimuth (a path, not a broad wash)
+    float _roadFar = smoothstep(fogFar * 0.04, fogFar * 0.52, dist);                  // 0 at camera → 1 toward the horizon source
+    float _roadBase = _roadAz * mix(0.32, 1.0, _roadFar) * uBreachMix;               // soft continuous gold sheen down the lane
+    float _roadSpark = hash(floor(p * 3.3) + floor(time * 2.5));                      // hashed breakup → shimmering, not solid
+    col += vec3(1.0, 0.816, 0.42) * _roadBase * 0.42;                                 // the road glow (kept moderate so the teal-slate sea reads THROUGH it — a path, not a gold sea)
+    col += vec3(1.0, 0.90, 0.60) * _roadBase * step(0.78, _roadSpark) * 1.0;          // shattered gold glints riding the road (the shimmer carries the read, not a flat wash)
+
     // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
     // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
     if (uRainRipple > 0.001) {

@@ -325,7 +325,11 @@ export const BIOMES = [
     breach: 1.0,
     // KILL THE BLUE: charcoal storm-trough deep + grey-green wave face; waveAmp 0.95 = the roughest
     // sea in the game (the previous cycle max was Amber Wastes at 0.7).
-    water: { deep: C(0x1b262c), shallow: C(0x54696b), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
+    // BEAUTY PASS (Fable, sea half of the regrade): the pale grey-slate sea (deep 0x1b262c / shallow
+    // 0x54696b) read as neutral MUD — "gold on grey is mud; gold on teal-slate is fire." Deepened toward
+    // a darker teal-slate (the ROCK teal-ban doesn't apply to water) so the sun-road can actually burn and
+    // the sea stops reading depressing-neutral. Sky regrade (indigo deck) held for the full pass.
+    water: { deep: C(0x0c1a22), shallow: C(0x3c5a62), waveAmp: 0.95, swellForce: true }, // force the rolling swell geometry ON (like cloudForce) so the sea ROLLS for every capable device, not only where the player toggled water-swell; weak tier-2 devices auto-stay flat
 
     wind: TEMPEST_WIND,   // one wind vector: foam + rain streaks + cloud-crawl all lean this way
     rain: 1.0,            // the rain.js LineSegments streak layer (rainMix-gated)
