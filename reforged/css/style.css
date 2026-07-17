@@ -247,6 +247,21 @@ body.app-loaded > canvas { opacity: 1; }
 @keyframes combo-rage { 0%,100%{transform:translateX(0) scale(1)} 25%{transform:translateX(-1.5px) scale(1.04)} 75%{transform:translateX(1.5px) scale(1.04)} }
 .combo-x.combo-pop { animation: combo-pop 0.3s ease-out; }
 @keyframes combo-pop { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }
+/* GAUNTLET-FOLLOW GUARD (owner bug 2026-07-17). This container's transform is OWNED by
+   ui.gauntletFollow — main.js projects the dragon each frame and gauntletFollow writes an
+   inline `translate(calc(-50% + Xpx), -50%) scale(...)` so the cluster rides under the
+   dragon. A *running CSS animation* that sets `transform` outranks an inline transform
+   (animations are a higher cascade origin), so it silently overrides the follow in the
+   RENDERED output while `el.style.transform` still reads the tracking value — the follow
+   looks fine to any harness sampling the inline style, but on screen the cluster freezes.
+   The gauntlet wears `.combo` + `data-tier` (for .gauntlet-x visibility + gem tint), which
+   made the legacy combo-badge rules `.combo[data-tier="4"/"5"]` apply `combo-rage`
+   (a translateX+scale shake) to the whole cluster → at DRAGON SURGE (fever ⇒ tier 5) the
+   gauntlet snapped to centre and pulsed in place instead of following. Keep the followed
+   container animation-FREE; Surge/combo emphasis lives on inner children (g-ignite,
+   gem-blaze, surge-flash, the .gauntlet-x colour ramp). Specificity (0,3,0) > the legacy
+   (0,2,0); `animation` is not inherited, so child animations are untouched. */
+.stamina-arc.combo[data-tier] { animation: none; }
 
 /* Chain chip (H2 §B.4): gold, appears from 2, pops per link, and a hairline
    underline fills in CELLS OF FIVE. A live chain is a decision window — it is
