@@ -11,7 +11,7 @@ import { initStormLightning, updateStormLightning, setStormLightningEnabled, get
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
-import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
+import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, chainBeforeCompile } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
 import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
@@ -276,6 +276,23 @@ function makeMats() {
     ...opts, color: 0x241b10, vertexColors: true, roughness: 0.7, metalness: 0.05,
     emissive: 0x2a1c0e, emissiveIntensity: 0.5,
   }), true);
+  // Fable 98 GLOW-DRINK (mechanism C emissive fallback): a near-black base can't multiply up under the
+  // 0.2 sun, so the per-instance near-glow weight drives EMISSIVE (light-independent) instead — a warm add
+  // that lands the mid-scene trunks near a glow at step-4 while far/parked trunks (aGlowLift 0) stay black.
+  // Per-instance `aGlowLift` attribute (written in writeMatrix); ONLY the 3 mireVeil families carry it, so
+  // this material never shares a program with the other ladder mats (unique cache key below). aGlowLift 0
+  // ⇒ +0 ⇒ the ladder look is unchanged where no glow is near.
+  chainBeforeCompile(mats.mireVeil, (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'attribute float aGlowLift;\nvarying float vGlowLift;\nvoid main() {')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlowLift = aGlowLift;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'varying float vGlowLift;\nvoid main() {')
+      // AFTER all of addPropDetail's emissive modulations (noise ×, ladder ×vColor, aerial +) — anchoring on
+      // emissivemap_fragment would put the drink BEFORE the ×vColor ladder and a dark trunk would kill it.
+      .replace('#include <opaque_fragment>', '  totalEmissiveRadiance += vec3(0.227, 0.200, 0.141) * vGlowLift;\n#include <opaque_fragment>');
+  });
+  mats.mireVeil.customProgramCacheKey = () => 'mireVeilDrink';   // own bucket — never alias another ladder mat's program (which lacks aGlowLift)
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -2380,6 +2397,9 @@ function makeBand(scene, def) {
   if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
+  // Fable 98 glow-drink: per-instance near-glow weight (mireVeil families read it for the emissive lift;
+  // reedveil carries it unused). Default 0 ⇒ +0 emissive ⇒ ladder look unchanged where no glow is near.
+  if (def.nearGlowLift) mesh.geometry.setAttribute('aGlowLift', new THREE.InstancedBufferAttribute(new Float32Array(perSide * 2), 1));
   // N10c: sibling foam mesh, same instance count — written at the same index in
   // writeMatrix so it recycles + parks in lockstep with the props.
   const foam = makeFoamMesh(perSide * 2);
@@ -2552,7 +2572,7 @@ function nearArchGate(dist) {
 // black. Per-instance instanceColor MULTIPLIER, computed PURELY at placement (heroHash/mireComp only, no
 // rnd) → gold-determinism byte-identical; w=0 ⇒ WHITE identity ⇒ far/parked/other-biome instances untouched.
 // "Matter drinks light" made visible. Applied to the 4 dark Mire families (nearGlowLift), never the glows.
-const MIRE_LIFT = new THREE.Color(2.8, 2.35, 1.5);   // warm multiplicative ratio (R>G>B; >1 legal, BIOME_TINTS precedent) — the GATE meters it (may rise ≤4.0 to hit step-4)
+const MIRE_LIFT = new THREE.Color(4.0, 3.3, 1.9);   // Fable 98 revise: ceiling ratio (warm R>G>B, blue held low) — a near-black base can only multiply so far; the spill LIGHTS carry the near-field
 const MIRE_SPIRE_X = 40;                              // representative glowspire flank x (place x ≈ 34–47); the falloff is soft so the mean suffices
 const _liftC = new THREE.Color();
 function _glowFalloff(d, dFull, dZero) { return Math.max(0, Math.min(1, (dZero - d) / (dZero - dFull))); }
@@ -2628,16 +2648,16 @@ function updateMireSpill(dist, t) {
   if (arches.length) {
     const a0 = arches[0], br0 = mireBreath(a0.pk, t);
     mireSpillA0.position.set(0, 6.0, -a0.Pd);
-    mireSpillA0.intensity = 10 * br0 * seam;
-    _spillPools[0].z = -a0.Pd; _spillPools[0].strength = 0.34 * br0;
+    mireSpillA0.intensity = 14 * br0 * seam;   // Fable 98: 10→14 — buys the facing-side gradient on the near gate posts
+    _spillPools[0].z = -a0.Pd; _spillPools[0].strength = 0.42 * br0;   // Fable 98: 0.34→0.42
     if (arches.length > 1) { const a1 = arches[1], br1 = mireBreath(a1.pk, t);
-      _spillPools[1].z = -a1.Pd; _spillPools[1].strength = 0.34 * br1; }
+      _spillPools[1].z = -a1.Pd; _spillPools[1].strength = 0.42 * br1; }
   } else { mireSpillA0.intensity = 0; mireSpillA0.position.y = -50; }
   if (spires.length) {
     const s = spires[0], brs = mireBreath(s.pk, t), side = (((s.pk % 2) + 2) % 2 === 1) ? 1 : -1;
     mireSpillA1.position.set(side * MIRE_SPIRE_X, 7.5, -s.Pd);
-    mireSpillA1.intensity = 7 * brs * seam;
-    _spillPools[2].x = side * MIRE_SPIRE_X; _spillPools[2].z = -s.Pd; _spillPools[2].strength = 0.22 * brs;
+    mireSpillA1.intensity = 10 * brs * seam;   // Fable 98: 7→10
+    _spillPools[2].x = side * MIRE_SPIRE_X; _spillPools[2].z = -s.Pd; _spillPools[2].strength = 0.28 * brs;   // Fable 98: 0.22→0.28
   } else { mireSpillA1.intensity = 0; mireSpillA1.position.y = -50; }
   setMireWaterPools(_spillPools, seam);
 }
@@ -2861,12 +2881,14 @@ function writeMatrix(band, i, d) {
   if (band.def.biomes.length > 1) {
     band.mesh.setColorAt(i, BIOME_TINTS[bi] ?? TINT_WHITE);
   } else if (band.def.nearGlowLift) {
-    // Fable 96 mechanism C: dark Mire families DRINK nearby organism-glow. WRITE EVERY instance (WHITE at
+    // Fable 96/98 mechanism C: dark Mire families DRINK nearby organism-glow. WRITE EVERY instance (WHITE at
     // w=0) — the first setColorAt allocates a ZERO-filled buffer, so any unwritten instance would render
     // BLACK; writeMatrix runs for every instance at build/recycle/reseed, so all are covered.
     const w = active ? mireNearGlowW(d.x, d.dist, d.side) : 0;
-    _liftC.copy(TINT_WHITE).lerp(MIRE_LIFT, w);
+    _liftC.copy(TINT_WHITE).lerp(MIRE_LIFT, w);          // small warm DIFFUSE multiply (all 4 families)
     band.mesh.setColorAt(i, _liftC);
+    const gl = band.mesh.geometry.getAttribute('aGlowLift');   // the main EMISSIVE lift (mireVeil families read it)
+    if (gl) { gl.setX(i, w); gl.needsUpdate = true; }
   }
 }
 
