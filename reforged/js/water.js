@@ -78,6 +78,27 @@ const sharedUniforms = {
   // or it vanishes on the reflective↔cheap rebuild.
   uHeavenGlow: { value: 0 },
   uHorizonCol: { value: new THREE.Color(0x9a6242) },   // warm umber — one tier BELOW the dome's skyHorizon 0xa87838, so the far sea grades UP into the gold band under the blast
+  // HERO POOL (Fable 75): the player's PointLight answered on the mirror — the custom water
+  // ShaderMaterial has `lights` off, so a scene light can never pool here; it's fed positionally
+  // (world XZ) as an anisotropic reflection STREAK. uHeroPool 0 = byte-identical shipped water.
+  // MUST live in sharedUniforms or it vanishes on the reflective↔cheap/swell tier rebuild.
+  uHeroPos: { value: new THREE.Vector3() },
+  uHeroCol: { value: new THREE.Color(0) },
+  uHeroPool: { value: 0 },
+  // REFLECTION CRAFT (Fable 85): three default-0 per-biome levers that turn the black mirror from a
+  // uniform brown smear into the biome's signature — anisotropic streak-stretch + luma-keyed 3-tap
+  // streak under glow sources, sparse drifting amber glints, and a hue-keyed pull that tames the green
+  // catch-ring's mirror-blob (the RING itself is never touched — it's a game-wide gameplay signal). All
+  // 0 elsewhere → the other 6 biomes byte-identical. MUST live here or they vanish on the tier rebuild.
+  uReflStretch: { value: 0 },
+  uReflGlint: { value: 0 },
+  uReflGreenPull: { value: 0 },
+  // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
+  // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
+  // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
+  uMirePoolK: { value: 0 },
+  uMirePools: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] }, // xz world center, invR, strength
+  uMirePoolCol: { value: new THREE.Color(0xff9a33) },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -165,6 +186,10 @@ const fragmentShader = /* glsl */`
   uniform float uRainRipple; // rain LAYER B — splash rings (0 = off)
   uniform float uBreachMix;  // EYE-BREACH calm/gold patch at the eye's foot (0 = shipped)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
+  uniform vec3 uHeroPos, uHeroCol; uniform float uHeroPool; // Fable 75: player light-pool on the mirror (0 = shipped)
+  uniform float uReflStretch, uReflGlint, uReflGreenPull;    // Fable 85: reflection craft (0 = shipped)
+  uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
+  const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -242,10 +267,33 @@ const fragmentShader = /* glsl */`
 
     vec3 refl;
     #ifdef USE_REFLECTION
-      vec2 distort = N.xz * (0.42 + 1.1 * uStormSea);   // STORMSEA: scatter the mirror sample → the clean reflection lane shatters into broken speckle
+      // Fable 85 §1a — ANISOTROPIC distort: crisp side-to-side, long down-lane (a real black-water
+      // mirror is not an isotropic blob). At uReflStretch 0 → dAniso vec2(1.0) → identical to shipped.
+      float dBase = 0.42 + 1.1 * uStormSea;
+      vec2 dAniso = mix(vec2(1.0), vec2(0.35, 2.6), uReflStretch);   // x=lateral, y=N.z=down-lane
+      vec2 distort = N.xz * dBase * dAniso;   // STORMSEA: scatter the mirror sample → the clean reflection lane shatters into broken speckle
       vec4 proj = vUvProj;
       proj.xy += distort * proj.w;
       refl = texture2DProj(tDiffuse, proj).rgb;
+      // Fable 85 §1b — luma-keyed 3-tap down-lane streak: ONLY bright glow sources smear into a vertical
+      // streak (dark trunks stay crisp). 2 extra taps, inside the branch → the other 6 biomes pay zero.
+      if (uReflStretch > 0.001) {
+        vec4 sOff = vec4(0.0, 0.018 * proj.w, 0.0, 0.0);   // down-lane in proj space
+        vec3 s1 = texture2DProj(tDiffuse, proj + sOff).rgb;
+        vec3 s2 = texture2DProj(tDiffuse, proj + sOff * 2.333).rgb;
+        refl += uReflStretch * (s1 * smoothstep(0.35, 0.90, dot(s1, LUMA)) * 0.55
+                              + s2 * smoothstep(0.45, 1.00, dot(s2, LUMA)) * 0.30);
+        refl /= 1.0 + uReflStretch * 0.45;   // renormalize — streak, don't brighten
+      }
+      // Fable 85 §3 — green mirror-blob fix, MIRROR side only: hue-keyed pull on the SAMPLED colour so
+      // the saturated green catch-ring reflection reads as glow-on-water, not a glitch. Cyan flow decals
+      // (b≈g) and the amber scene (r>g) key to 0. The ring mesh/HUD colour is never touched.
+      if (uReflGreenPull > 0.001) {
+        float rLuma = dot(refl, LUMA);
+        float greenExcess = refl.g - max(refl.r, refl.b);   // >0 only for green-dominant pixels
+        float gpk = uReflGreenPull * smoothstep(0.04, 0.25, greenExcess);
+        refl = mix(refl, rLuma * vec3(1.08, 0.90, 0.62), gpk);   // toward amber-tinted luma
+      }
     #else
       // Analytic sky reflection + cheap sparkle glints.
       vec3 R = reflect(-V, N);
@@ -265,6 +313,16 @@ const fragmentShader = /* glsl */`
     // MATTE IT DOWN: an overcast storm sea is dull, not chrome — dim the reflected sample + cap the
     // mirror at ~55% even at grazing angles so the dark water body always owns ≥45%.
     refl *= mix(1.0, 0.55, uStormSea);
+    // Fable 85 §2 — sparse drifting amber glints: ~8–12 lozenge sparkles on the black mirror, hash-
+    // varied twinkle (no metronome), never white/green (gameplay hues stay exclusive). 0 → skipped.
+    if (uReflGlint > 0.001) {
+      vec2 gp = vWorldPos.xz * vec2(2.2, 0.9);          // cells compressed in x → lozenge glints
+      gp.y -= time * 0.55;                              // drift down-lane, matches the water flow
+      float gk = hash(floor(gp));
+      float tw = 0.5 + 0.5 * sin(time * (1.8 + 4.5 * gk) + gk * 6.2831);   // per-glint twinkle
+      float g = step(0.985, gk) * tw * tw;             // tw² = sharp on-pulse, long dark gap
+      refl += uReflGlint * g * vec3(1.0, 0.80, 0.50) * 1.4 * (0.3 + 0.7 * fresnel);
+    }
     vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0) * (1.0 - 0.45 * uStormSea));
 
     // Golden sun streak: compress the normal's x so the highlight stretches
@@ -356,6 +414,22 @@ const fragmentShader = /* glsl */`
     float _roadSpark = hash(floor(p * 3.3) + floor(time * 2.5));                      // hashed breakup → shimmering, not solid
     col += vec3(1.0, 0.816, 0.42) * _roadBase * 0.42;                                 // the road glow (kept moderate so the teal-slate sea reads THROUGH it — a path, not a gold sea)
     col += vec3(1.0, 0.90, 0.60) * _roadBase * step(0.78, _roadSpark) * 1.0;          // shattered gold glints riding the road (the shimmer carries the read, not a flat wash)
+
+    // HERO POOL (Fable 75): the player light answered on the mirror. 0 = shipped. The vec2(2.4, 0.9)
+    // anisotropy stretches the pool DOWN-lane into a vertical reflection streak (~2.7:1 on screen) —
+    // what a real light on real water does, never another disc. World XZ = the rain-ring hash space.
+    vec2 _hd = (vWorldPos.xz - uHeroPos.xz) * vec2(2.4, 0.5);   // Fable 77: z 0.9→0.5 (world ~4.8:1 down-lane) — perspective foreshortens the z-axis, so 0.9 compressed to a ~1:1 disc on screen; 0.5 lands a true ~2:1 vertical reflection streak
+    float _hp = exp(-dot(_hd, _hd) / 70.0);   // ~8.4m 1/e half-width
+    col += uHeroCol * (_hp * uHeroPool * 0.38);
+    // GLOW-SPILL POOLS (Fable 96-B): the Mire's hero glow clusters answered on the mirror. Same z-anisotropy
+    // as the hero pool (perspective foreshortens z → a vertical streak, never a disc). Empty slot strength 0 =
+    // +0; uMirePoolK 0 in the other 6 biomes ⇒ the whole loop is exactly +0 ⇒ byte-identical shipped water.
+    if (uMirePoolK > 0.001) {
+      for (int i = 0; i < 4; i++) {
+        vec2 _md = (vWorldPos.xz - uMirePools[i].xy) * vec2(2.0, 0.55) * uMirePools[i].z;
+        col += uMirePoolCol * (exp(-dot(_md, _md)) * uMirePools[i].w * uMirePoolK);
+      }
+    }
 
     // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
     // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
@@ -648,12 +722,15 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull }) {
   if (!water) return;
   const u = water.material.uniforms;
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical
+  u.uReflStretch.value = reflStretch || 0;   // Fable 85 reflection craft; 0 elsewhere → byte-identical mirror
+  u.uReflGlint.value = reflGlint || 0;
+  u.uReflGreenPull.value = reflGreenPull || 0;
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);
@@ -666,6 +743,34 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
   // colours — the darker the deeps read relative to the shallows, the murkier the
   // water absorbs. No new biome fields; free biome-seam smoothness.
   if (deep && shallow) u.uAbsorbK.value = absorbKFromColors(deep, shallow);
+}
+
+// HERO POOL (Fable 75): feed the player light to the mirror each frame. Written through the LIVE
+// material's uniforms (NOT the sharedUniforms template — that gets UniformsUtils.clone'd per material,
+// so writing the template would never reach the drawn water; the atmosphere.js clone-trap lesson).
+// pos = dragon world position; col = the hero light's (warm-neutralised) colour; k = 0.55 idle → 1.0
+// fever. k=0 ⇒ the fragment add is exactly +0 (byte-identical), so any water-identity test still walks.
+export function setWaterHeroPool(pos, col, k) {
+  if (!water) return;
+  const u = water.material.uniforms;
+  if (pos) u.uHeroPos.value.copy(pos);
+  if (col) u.uHeroCol.value.copy(col);
+  u.uHeroPool.value = k || 0;
+}
+
+// GLOW-SPILL POOLS (Fable 96-B): feed the Mire's hero glow-cluster pools to the mirror each frame. `pools`
+// is an array of up to 4 {x, z, invR, strength}; `k` is the master (0 = shipped water, seam-ramped). Written
+// through the LIVE material uniforms (the clone-trap). Empty/short arrays leave the rest at strength 0 = +0.
+export function setMireWaterPools(pools, k) {
+  if (!water) return;
+  const u = water.material.uniforms;
+  const arr = u.uMirePools.value;
+  for (let i = 0; i < 4; i++) {
+    const p = pools && pools[i];
+    if (p) arr[i].set(p.x, p.z, p.invR, p.strength);
+    else arr[i].set(0, 0, 1, 0);   // strength 0 → contributes exactly +0
+  }
+  u.uMirePoolK.value = k || 0;
 }
 
 // Rec.709 relative luminance heuristic → a murkier (darker-deep) biome absorbs faster.

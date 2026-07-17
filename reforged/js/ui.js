@@ -13,6 +13,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { uiSound } from './uiSound.js';
 import { ICONS } from './icons.js';
 import { initHudState, updateHudState, hudPoke } from './hudState.js';
+import { setDragonVitalsEnabled, vitalsUrlForced } from './dragonBond.js';
 import { input } from './input.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS } from './dragons.js';
@@ -71,6 +72,13 @@ function applyAccessibility() {
   root.style.setProperty('--hud-alpha', s.hudAlpha || 1);
   root.classList.remove('cb-deuter', 'cb-prot', 'cb-trit');
   if (s.colorblind && s.colorblind !== 'off') root.classList.add(`cb-${s.colorblind}`);
+  // EMBERSIGHT H7 §F — DRAGON VITALS: one persisted flag drives BOTH halves of
+  // Law 1's contract — the bondChannel enable (the dragon carries ambient
+  // state) and the root class that deepens the chrome rest-ghosts one step.
+  // `?vitals=1` (dev alias) forces the same pair on.
+  const vitalsOn = !!s.dragonVitals || vitalsUrlForced();
+  root.classList.toggle('vitals-on', vitalsOn);
+  setDragonVitalsEnabled(vitalsOn);
 }
 
 let lastCombo = 1;
@@ -2244,6 +2252,7 @@ export const ui = {
           </div>
           ${swRow('assist', 'scorekeeper', 'SCOREKEEPER', 'Score and distance never fade — the classic corner readout.')}
           ${swRow('assist', 'immersiveHud', 'IMMERSIVE HUD', 'Hides the readouts — just you, the dragon and the sky. Vital warnings still land.')}
+          ${swRow('assist', 'dragonVitals', 'DRAGON VITALS', 'Your dragon carries its vitals — wing-charge light, body-glow health, a heartbeat at the last heart. The readouts rest deeper.')}
           ${segGroup('COLORBLIND', 'Shifts the success and danger hues — the roles stay the same.',
             cbSeg('off', 'OFF') + cbSeg('deuter', 'DEUTER') + cbSeg('prot', 'PROT') + cbSeg('trit', 'TRIT'))}
 
@@ -2841,13 +2850,19 @@ function wireScreenButtons(type) {
   if (pilot) pilot.onclick = stop(() => ui.showScreen('pilot'));
   const chipTitle = q('#chip-title');
   if (chipTitle) chipTitle.onclick = stop(() => { pilotTab = 'titles'; ui.showScreen('pilot'); });
-  const back = q('#btn-back');
-  if (back) back.onclick = stop(() => {
+  // #btn-back is the topbar ✕ every meta screen shares; #btn-back2 is the
+  // optional bottom "← BACK" on the long scrolling screens (settings, pilot).
+  // Both routes honor the pause→subscreen return path.
+  const goBack = stop(() => {
     uiSound.back();
     // BACK from a pause-opened subscreen returns to the pause overlay.
     if (returnScreen === 'pause') ui.showPauseOverlay();
     else ui.showScreen(returnScreen);
   });
+  const back = q('#btn-back');
+  if (back) back.onclick = goBack;
+  const back2 = q('#btn-back2');
+  if (back2) back2.onclick = goBack;
 
   if (type === 'shop') {
     const hint = q('#shop-hint');
@@ -3181,12 +3196,6 @@ function wireScreenButtons(type) {
     const selectSeg = (btn) => {
       for (const o of btn.parentElement.querySelectorAll('.seg-btn')) o.classList.toggle('sel', o === btn);
     };
-    const back2 = q('#btn-back2');
-    if (back2) back2.onclick = stop(() => {
-      uiSound.back();
-      if (returnScreen === 'pause') ui.showPauseOverlay();
-      else ui.showScreen(returnScreen);
-    });
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-track]')) {
       btn.onclick = stop(() => {
         music.setTrack(Number(btn.dataset.track));
@@ -3258,6 +3267,9 @@ function wireScreenButtons(type) {
         saveData.settings[id] = on;
         persist();
         flipSwitch(btn, on);
+        // H7 DRAGON VITALS applies instantly (bond enable + the vitals-on
+        // root class), like the colorblind presets.
+        if (id === 'dragonVitals') applyAccessibility();
       });
     }
     // Graphics switches. dither/effects apply live; particleBatch re-inits the

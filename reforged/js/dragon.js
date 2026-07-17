@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { damp, makeGlowTexture } from './util.js';
+import { damp, makeGlowTexture, makeTrailTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
-import { setFeverWarm } from './environment.js';
+import { setFeverWarm, getHeroRim } from './environment.js';
+import { setWaterHeroPool } from './water.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
@@ -27,6 +28,49 @@ import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
 import { createPulseTimer, mulberry32 } from './pulseTimer.js';
 import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
+import { bondState } from './dragonBond.js';
+
+// ── EMBERSIGHT H7 — DRAGON VITALS (the living gauge, HUD-REDESIGN §B.1/§B.2) ──
+// All state for the flag-gated bond channel. THE HARD CONTRACT: while the
+// DRAGON VITALS toggle is OFF, this layer contributes exactly ×1 / +0 to every
+// shipped material write and never creates an object — the dragon is
+// byte-identical to the shipped game (the off-proof harness asserts it).
+// Everything below is created LAZILY on the first enabled frame and torn down
+// with the dragon, so tricount / the shipped roster never see it.
+let bondNubsBuilt = false;
+let bondNubMats = [];        // 3 rank-shared mats (root/carpal/tip) — SAME mat L/R (mirror law)
+let bondNubMeshes = [];      // the 6 charge-stud meshes (for teardown bookkeeping)
+let bondBleedMotes = [];     // ~12 pooled ember-bleed sprites (scene-level, like the trail pools)
+let bondPrevHealth = null;   // wound edge detector (null = no baseline)
+let bondBodyBaseHex = null;  // bodyMat identity colour, cached before the first ash write
+let bondBodyWriting = false; // are we currently colouring the body? (restore-once on exit)
+let bondCoreBaseHex = null;  // coreGlow base colour, cached before the first danger write
+let bondCoreWriting = false;
+let bondBodyMul = 1;         // damped health multiplier on the body emissive floor (≥0.75)
+let bondCoreAdd = 0;         // additive coreGlow term (1-heart heartbeat) — 0 when flag OFF
+let bondDangerMix = 0;       // damped 0..1 blend into the danger-magenta heartbeat
+const _bondC1 = new THREE.Color();
+const _bondC2 = new THREE.Color();
+const BOND_ASH = 0x4a4f55;         // cold-ash target for the wounded body lerp (§B.1)
+const BOND_DANGER = 0xff2f8e;      // danger-magenta heartbeat hue (magenta role)
+const BOND_NUB_EMISSIVE = 0x6fd6ff; // wing-charge cyan (the stamina role colour)
+
+// ── EMBERSIGHT H8 — SPINE-IGNITION surge (§B.3) ──────────────────────────────
+// Five dorsal surge nodes ignite nose→tail, one per chained ring; all lit = the
+// tail-tip node blazes gold. THE SHAPE-AGNOSTIC FALLBACK CONTRACT (risk #5 —
+// roster-safe on day one, author heroes incrementally):
+//   1. AUTHORED dorsal markers: any Object3D in the model with
+//      `userData.vitalsSurgeNode = <order>` (0 = nose-most). A recipe publishes
+//      up to 5; fewer is fine (the ladder compresses).
+//   2. TAIL-CHAIN fallback: nodes distribute along tailSegs (every roster
+//      dragon with a tail gets spine ignition for free).
+//   3. CORE-GLOW fallback (tail-less/GLB shapes): the chained charge rides
+//      coreGlow as stepped brightness — never an error, never a missing channel.
+let bondSurgeMats = [];      // 5 per-node materials (nodes light independently)
+let bondSurgeMode = '';      // 'markers' | 'tail' | 'core' (debug/tests)
+let bondSurgeAdd = 0;        // coreGlow fallback term — exactly 0 when flag OFF
+const BOND_SURGE_GOLD = 0xffc24a;   // surge role gold (matches the DOM gem ramp)
+const BOND_TRAIL_GOLD = 0xffd86a;   // trail-as-combo tint target (§B.4, lerp cap 0.5)
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -105,6 +149,14 @@ let eyeMat = null;
 let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
+// HERO POINT LIGHT (Fable 75) — the player's REAL light: pools specular on the water + kisses
+// the drake's underside (the premium answer to the flat additive halo). A PERSISTENT singleton
+// (created once, re-PARENTED on shop rebuild, never re-created) so NUM_POINT_LIGHTS stays 1 and
+// the lit shaders never recompile mid-flight. Hue is per-skin (pulled toward warm-neutral); only
+// intensity is driven per frame. _heroPos/heroPoolK feed the water hero-pool term.
+let heroLight = null;
+const _heroPos = new THREE.Vector3();
+let heroPoolK = 0;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
 let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
@@ -213,8 +265,17 @@ let aeroShearTimer = 0;
 function pickTrailHex(fallback) {
   if (trailGoldT > 0) return OVERTAKE_GOLD;   // H6 §B.12 the 1s overtake gold flash overrides the tint
   const pal = activeDef && activeDef.trailPalette;
-  if (pal && pal.length) return pal[trailPaletteIdx++ % pal.length];
-  return fallback;
+  const hex = (pal && pal.length) ? pal[trailPaletteIdx++ % pal.length] : fallback;
+  // H8 §B.4 trail-as-combo (flag-gated): the trail lerps toward ember-gold with
+  // the combo tier — LERP CAP 0.5 so it never overrides the dragon's identity
+  // hue (risk #7). Exactly the authored hex when the toggle is OFF or combo=1.
+  const bs = bondState();
+  if (bs.enabled && bs.vitals.active && bs.surge.comboT > 0.01) {
+    _bondC1.setHex(hex);
+    _bondC2.setHex(BOND_TRAIL_GOLD);
+    return _bondC1.lerp(_bondC2, 0.5 * bs.surge.comboT).getHex();
+  }
+  return hex;
 }
 
 // Ice-burst death particles
@@ -306,11 +367,29 @@ export function createDragon(scene, def, riderDef) {
   // rimWingMul tames the wing rim per-dragon: flat faceted wings catch far more grazing-angle rim than the
   // rounded body, so a body-tuned cruise rim washes the whole wing in a cheap chrome outline the body
   // lacks. The Tempest (hot P1b rim + flat storm panels) drops it hard so the wing matches the body.
-  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm, mul: def.rimWingMul ?? 1 });
+  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm, mul: def.rimWingMul ?? 1, wing: true });   // wing: the per-biome backlit boost is DAMPED ×0.35 on flat facets (Fable 79 — no chrome plates)
   for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 * rpm });
   surgeMix = 0;
   surgeAnimT = 0;
   prevFever = false;
+
+  // H7 DRAGON VITALS: the bond FX are per-dragon (nubs live in the old group,
+  // its mats died with it) — reset so an enabled flag lazily rebuilds them for
+  // THIS dragon. Colour caches must re-read the new materials.
+  bondNubsBuilt = false;
+  bondNubMats = [];
+  bondNubMeshes = [];
+  bondPrevHealth = null;
+  bondBodyBaseHex = null;
+  bondBodyWriting = false;
+  bondCoreBaseHex = null;
+  bondCoreWriting = false;
+  bondBodyMul = 1;
+  bondCoreAdd = 0;
+  bondDangerMix = 0;
+  bondSurgeMats = [];
+  bondSurgeMode = '';
+  bondSurgeAdd = 0;
 
   // Per-dragon Surge wash hue (def.feverWash): the Phoenix Rebirth washes warm
   // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
@@ -319,6 +398,18 @@ export function createDragon(scene, def, riderDef) {
 
   buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
+
+  // HERO POINT LIGHT (Fable 75): create ONCE, then re-parent to each new group on rebuild
+  // (THREE.add auto-detaches from the old, disposed group) so the scene always holds exactly
+  // one point light → no shader recompile after the first build. Parented to `group` (the
+  // auraSprite's pre-scale local space) so the offset rides the dragon's pitch/roll — the
+  // underside kiss stays under the chest as it banks. r160 physical units (decay 2).
+  if (!heroLight) heroLight = new THREE.PointLight(0xffffff, 12, 34, 2);
+  heroLight.position.set(0, -0.7, -0.35);   // under the chest, nosed toward the head
+  group.add(heroLight);
+  // Per-skin hue pulled 45% toward warm-neutral so no skin dyes the water acid (Azure's
+  // 142,213,255 → #C1DBDF, a soft ice-warm white — blue identity kept, never a blue lamp).
+  heroLight.color.set(`rgb(${def.fx.auraColor})`).lerp(new THREE.Color(0xffe2b8), 0.45);
 
   // Ponytail chain (world-space follow), length varies per rider
   const hairMat = new THREE.MeshStandardMaterial({ color: riderDef.hair, roughness: 0.9 });
@@ -337,8 +428,8 @@ export function createDragon(scene, def, riderDef) {
   // hard-white) core, so the additive tail-exhaust / body-trail read as FIRE instead of a blue-skirt
   // gray + white-core cloud that stacks along the rear-chase axis into a cream plume (the "white mess").
   const fireTrails = def.fireTrails;
-  const cyanTex = makeGlowTexture(fireTrails ? '255,150,60' : '120,220,255', fireTrails ? '255,226,184' : '255,255,255');
-  const blueTex = makeGlowTexture(fireTrails ? '255,110,30' : '80,130,255', fireTrails ? '255,214,150' : '255,255,255');
+  const cyanTex = makeTrailTexture(fireTrails ? '255,150,60' : '120,220,255', fireTrails ? '255,226,184' : '255,255,255');   // Fable 79: tight shoulder-free falloff — the frozen puff-stack was reading as balloons under the hero
+  const blueTex = makeTrailTexture(fireTrails ? '255,110,30' : '80,130,255', fireTrails ? '255,214,150' : '255,255,255');
 
   trailSprites = [];
   for (let i = 0; i < TRAIL_POOL; i++) {
@@ -502,10 +593,11 @@ export function disposeDragon() {
     m.geometry.dispose();
     sceneRef.remove(m);
   }
-  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) {
+  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes, ...bondBleedMotes]) {
     s.material.dispose();
     sceneRef.remove(s);
   }
+  bondBleedMotes = [];   // H7: nub meshes/mats die with the group traverse above
   for (const p of burstParticles) {
     p.geometry.dispose();
     p.material.dispose();
@@ -542,7 +634,7 @@ export function rebuildDragon(def, riderDef, player) {
 // Hide/show the dragon's OWN flight FX (trail ribbons + wingtip/ember wisps) for the
 // shop's static hero shot. Visual only — these belong to the dragon, not the run.
 export function setDragonFxVisible(v) {
-  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) s.visible = v;
+  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes, ...bondBleedMotes]) s.visible = v;
 }
 
 // EMBERSIGHT H6 — the wingbeat clock (Law's garnish clause): the integrated flap
@@ -560,6 +652,22 @@ export function __trailDebug() {
     trail: vis(trailSprites), boost: vis(boostTrailSprites), ember: vis(emberMotes),
     wingtip: vis(wingtipTrailSprites), aero: vis(aeroShearSprites),
     tailSegs: tailSegs.length, dragon: activeDef && activeDef.name,
+  };
+}
+
+// H7/H8 debug seam: bond-channel FX introspection for the roster-fallback proof
+// (which fallback tier the surge nodes resolved to, and the live stud/node
+// intensities). Read-only; flag-OFF reports the un-built state.
+export function __bondDebug() {
+  return {
+    built: bondNubsBuilt,
+    surgeMode: bondSurgeMode,
+    surgeNodes: bondSurgeMats.length,
+    surgeLevels: bondSurgeMats.map((m) => +m.emissiveIntensity.toFixed(3)),
+    nubLevels: bondNubMats.map((m) => +m.emissiveIntensity.toFixed(3)),
+    bodyMul: +bondBodyMul.toFixed(3),
+    coreAdd: +(bondCoreAdd + bondSurgeAdd).toFixed(3),
+    dragon: activeDef && activeDef.name,
   };
 }
 
@@ -595,6 +703,257 @@ export function triggerDeathBurst(position, lethal = false) {
 function flapSurge(x) {
   const s = Math.sin(x);
   return s >= 0 ? Math.pow(s, 0.5) : -0.55 * Math.pow(-s, 0.85);
+}
+
+// ── EMBERSIGHT H7 — DRAGON VITALS: lazy FX construction ─────────────────────
+// Built on the FIRST enabled+active frame only, so a flag-OFF session never
+// allocates a byte. Six small charge-stud octahedra (≈48 tris total) ride the
+// wing joints — glow as discrete COMPONENTS igniting (DRAGON-DESIGN §6.3),
+// never a strip or a bloom blob — plus a 12-sprite ember-bleed pool.
+function bondEnsureFx() {
+  if (bondNubsBuilt || !group) return;
+  bondNubsBuilt = true;
+  // 3 rank-shared materials: the SAME material serves the L and R stud of a
+  // rank (DRAGON-DESIGN §5.5 mirror corollary — a per-side material is an
+  // accidental asymmetry), and rank-sharing guarantees the two wings always
+  // read the same charge. Dark stud + cyan core: rim/tip-over-dark-face law.
+  bondNubMats = [0, 1, 2].map(() => new THREE.MeshStandardMaterial({
+    color: 0x101820, emissive: BOND_NUB_EMISSIVE, emissiveIntensity: 0,
+    roughness: 0.55, metalness: 0.15,
+  }));
+  const geo = new THREE.OctahedronGeometry(0.11, 0);
+  for (const side of ['L', 'R']) {
+    const pivot = side === 'L' ? wingPivotL : wingPivotR;
+    const mid = side === 'L' ? wingMidL : wingMidR;
+    const tip = side === 'L' ? wingTipL : wingTipR;
+    const marker = side === 'L' ? tipMarkerL : tipMarkerR;
+    // Shape-agnostic anchor ladder: shoulder joint → carpal joint → tip marker,
+    // each falling back inboard (finally the dragon root) so EVERY roster rig —
+    // yoke, wingParts, lobe fans, direct-pivot, even markerless serpents —
+    // resolves three anchors without erroring.
+    const anchors = [
+      pivot || group,
+      mid || tip || pivot || group,
+      marker || tip || mid || pivot || group,
+    ];
+    for (let r = 0; r < 3; r++) {
+      const m = new THREE.Mesh(geo, bondNubMats[r]);
+      m.scale.set(1, 1.35, 1);
+      // Shared-anchor fallback (a rig without mid/tip joints): step the studs
+      // outboard along the wing's canonical +X so the rank still reads as a
+      // root→tip ladder (the L wrapper's scale.x=−1 mirrors it for free). A
+      // dragon with no wing joints at all gets a body-side ladder instead.
+      const onBody = anchors[r] === group;
+      const shared = !onBody && r > 0 && anchors[r] === anchors[r - 1];
+      m.position.set(
+        onBody ? (side === 'L' ? -1 : 1) * (0.6 + r * 0.55) : (shared ? r * 0.5 : 0),
+        onBody ? 0.35 : 0.10, 0);
+      m.visible = false;
+      anchors[r].add(m);
+      bondNubMeshes.push(m);
+    }
+  }
+  // ── H8 SPINE-IGNITION nodes (§B.3) — the fallback contract in code. ──
+  // Resolve anchors: authored dorsal markers → tail-chain segments → coreGlow
+  // steps (bondSurgeMode 'core' skips geometry entirely; the stepped charge
+  // rides bondSurgeAdd in the update pass).
+  const markers = [];
+  group.traverse((o) => { if (o.userData && o.userData.vitalsSurgeNode != null) markers.push(o); });
+  markers.sort((a, b) => a.userData.vitalsSurgeNode - b.userData.vitalsSurgeNode);
+  let nodeAnchors = null;
+  if (markers.length >= 2) {
+    bondSurgeMode = 'markers';
+    nodeAnchors = markers.slice(0, 5).map((m) => ({ parent: m, off: 0 }));
+  } else if (tailSegs.length >= 2) {
+    bondSurgeMode = 'tail';
+    nodeAnchors = [];
+    const n = tailSegs.length;
+    for (let j = 0; j < 5; j++) {
+      const si = Math.round((j * (n - 1)) / 4);
+      nodeAnchors.push({ parent: tailSegs[si], off: j * 0.001 });   // tiny z stagger de-dupes short chains
+    }
+  } else {
+    bondSurgeMode = 'core';   // no geometry — stepped coreGlow charge
+  }
+  if (nodeAnchors) {
+    const nodeGeo = new THREE.OctahedronGeometry(0.10, 0);
+    for (let j = 0; j < nodeAnchors.length; j++) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x181008, emissive: BOND_SURGE_GOLD, emissiveIntensity: 0,
+        roughness: 0.5, metalness: 0.2,
+      });
+      bondSurgeMats.push(mat);
+      const m = new THREE.Mesh(nodeGeo, mat);
+      m.scale.set(0.9, 1.25, 0.9);
+      // dorsal seat: a whisker above the anchor's spine line (markers sit exact)
+      m.position.set(0, nodeAnchors[j].parent.userData.vitalsSurgeNode != null ? 0 : 0.22, nodeAnchors[j].off);
+      m.visible = false;
+      nodeAnchors[j].parent.add(m);
+      bondNubMeshes.push(m);   // rides the same show/hide + teardown bookkeeping
+    }
+  }
+  // Ember-bleed pool (§B.1): scene-level like the other FX pools; disposed
+  // alongside them in disposeDragon.
+  const bleedTex = makeGlowTexture('255,140,70', '255,220,180');
+  for (let i = 0; i < 12; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: bleedTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    s.visible = false; s.userData.life = 0; s.userData.vy = 0;
+    s.layers.set(1);
+    sceneRef.add(s);
+    bondBleedMotes.push(s);
+  }
+}
+
+// The per-frame living-gauge pass — called from updateDragon INSIDE the
+// existing material section (no second rAF). Sets bondBodyMul / bondCoreAdd
+// (consumed by the shipped bodyMat / coreGlow writes below as ×mul / +add) and
+// owns every other vitals write. THE CONTRACT: with the toggle OFF this
+// function early-outs at ×1 / +0 having written nothing.
+function updateBondVitals(dt, time) {
+  const { enabled, vitals } = bondState();
+  const live = enabled && vitals.active;
+  if (!live) {
+    // Neutralize (once) anything a previously-enabled frame wrote, then park.
+    bondBodyMul = 1;
+    bondCoreAdd = 0;
+    bondDangerMix = 0;
+    bondPrevHealth = null;
+    if (bondBodyWriting && bodyMat && bondBodyBaseHex != null) {
+      bodyMat.color.setHex(bondBodyBaseHex);
+      bondBodyWriting = false;
+    }
+    if (bondCoreWriting && coreGlow && bondCoreBaseHex != null) {
+      coreGlow.material.color.setHex(bondCoreBaseHex);
+      bondCoreWriting = false;
+    }
+    bondSurgeAdd = 0;
+    if (bondNubsBuilt) {
+      for (const m of bondNubMats) m.emissiveIntensity = 0;
+      for (const m of bondSurgeMats) m.emissiveIntensity = 0;
+      for (const n of bondNubMeshes) n.visible = false;
+      for (const s of bondBleedMotes) {
+        if (s.visible) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
+      }
+    }
+    return;
+  }
+
+  bondEnsureFx();
+
+  // WING-CHARGE stamina (§B.2): the 3 cells map to the stud ladder lighting
+  // root→carpal→tip. Boost drains the TIP first, so the light visibly retreats
+  // toward the shoulder (directional drain / trend encoding); regen crawls it
+  // back out. The moving (fractional) stud breathes fast while boost is held —
+  // the legible tell at chase distance. BOOST SEALED banks the ladder to dim
+  // coals so the dragon and the chained chrome agree.
+  const cellsF = Math.max(0, Math.min(1, vitals.stamina / Math.max(1e-6, vitals.staminaMax))) * 3;
+  for (let r = 0; r < 3; r++) {
+    const lit = Math.max(0, Math.min(1, cellsF - r));
+    let target = Math.pow(lit, 1.5) * 2.2;
+    if (vitals.boosting && lit > 0.02 && lit < 0.98) target *= 0.7 + 0.3 * Math.sin(time * 14);
+    if (vitals.sealed) target = Math.min(target, 0.18);
+    bondNubMats[r].emissiveIntensity = damp(bondNubMats[r].emissiveIntensity, target, 10, dt);
+  }
+  for (const n of bondNubMeshes) n.visible = true;
+
+  // BODY-LIGHT health (§B.1): each heart lost steps the emissive floor down —
+  // multiplier CLAMPED ≥0.75 (value tiers must survive dark biomes, risk #6) —
+  // and lerps the body ~8%/heart toward cold ash (capped at 3 hearts' worth).
+  const lostHearts = Math.max(0, (vitals.healthMax - vitals.health) / Math.max(1e-6, CONFIG.obstacleDamage));
+  bondBodyMul = damp(bondBodyMul, Math.max(0.75, 1 - 0.08 * lostHearts), 4, dt);
+  if (bodyMat) {
+    if (bondBodyBaseHex == null) bondBodyBaseHex = bodyMat.color.getHex();
+    const ashT = Math.min(0.24, 0.08 * lostHearts);
+    if (ashT > 0.001) {
+      _bondC1.setHex(bondBodyBaseHex);
+      _bondC2.setHex(BOND_ASH);
+      bodyMat.color.copy(_bondC1).lerp(_bondC2, ashT);
+      bondBodyWriting = true;
+    } else if (bondBodyWriting) {
+      bodyMat.color.setHex(bondBodyBaseHex);
+      bondBodyWriting = false;
+    }
+  }
+
+  // EMBER-BLEED (§B.1): a wound sheds a one-shot burst of ember motes off the
+  // flank — they gutter down and stream back past the chase camera.
+  if (bondPrevHealth != null && vitals.health < bondPrevHealth - 0.01) {
+    let bn = 0;
+    for (const s of bondBleedMotes) {
+      if (s.visible || bn >= 8) continue;
+      const flank = Math.random() < 0.5 ? -1 : 1;
+      s.visible = true;
+      s.userData.life = 1;
+      s.userData.vy = -(0.8 + Math.random() * 1.4);
+      s.position.set(
+        group.position.x + flank * (0.7 + Math.random() * 0.5),
+        group.position.y - 0.1 + Math.random() * 0.4,
+        group.position.z + (Math.random() - 0.5) * 1.2);
+      bn++;
+    }
+  }
+  bondPrevHealth = vitals.health;
+  for (const s of bondBleedMotes) {
+    if (!s.visible) continue;
+    s.userData.life -= dt * 1.4;
+    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; continue; }
+    s.position.y += s.userData.vy * dt;
+    s.position.z += dt * 2.2;
+    s.material.opacity = s.userData.life * 0.7;
+    const sz = 0.18 + (1 - s.userData.life) * 0.3;
+    s.scale.set(sz, sz, 1);
+  }
+
+  // ── H8 SPINE-IGNITION (§B.3): nodes ignite nose→tail, one per chained ring,
+  // frame 0 (the DOM gem echoes +120ms via CSS). All lit / fever = the
+  // tail-tip node blazes gold with a slow pulse — the "crest gem" beat, played
+  // shape-agnostically on whatever anchor the fallback contract resolved.
+  const { surge } = bondState();
+  const litNodes = surge.fever ? 5 : Math.floor((Math.min(surge.lit, surge.max) / surge.max) * 5 + 1e-6);
+  if (bondSurgeMats.length) {
+    const nN = bondSurgeMats.length;
+    const allLit = litNodes >= 5 || surge.fever;
+    for (let j = 0; j < nN; j++) {
+      // compress the 5-slot ladder onto however many nodes this shape authored
+      const slotLit = litNodes > Math.floor((j * 5) / nN);
+      let target = slotLit ? 2.0 : 0;
+      if (allLit && j === nN - 1) target = 3.0 + 0.6 * Math.sin(time * 3);   // the tip-gem blaze
+      bondSurgeMats[j].emissiveIntensity = damp(bondSurgeMats[j].emissiveIntensity, target, 12, dt);
+    }
+    bondSurgeAdd = 0;
+  } else {
+    // core fallback: the chained charge rides coreGlow as stepped brightness
+    bondSurgeAdd = 0.07 * litNodes + (litNodes >= 5 ? 0.12 + 0.1 * Math.sin(time * 3) : 0);
+  }
+
+  // 1-HEART HEARTBEAT (§B.1): at the last heart the coreGlow recolors
+  // danger-magenta and beats ~1.1Hz (a lub-dub, not a sine) — a heartbeat in
+  // the chest at chase distance. Colour restores exactly on exit.
+  const danger = vitals.health > 0 && vitals.health <= CONFIG.obstacleDamage + 0.01;
+  bondDangerMix = damp(bondDangerMix, danger ? 1 : 0, 6, dt);
+  if (coreGlow) {
+    if (bondDangerMix > 0.001) {
+      if (bondCoreBaseHex == null) bondCoreBaseHex = coreGlow.material.color.getHex();
+      _bondC1.setHex(bondCoreBaseHex);
+      _bondC2.setHex(BOND_DANGER);
+      coreGlow.material.color.copy(_bondC1).lerp(_bondC2, bondDangerMix);
+      bondCoreWriting = true;
+      const w = time * Math.PI * 2 * 1.1;
+      const beat = Math.pow(Math.max(0, Math.sin(w)), 3) + 0.55 * Math.pow(Math.max(0, Math.sin(w - 2.4)), 3);
+      bondCoreAdd = bondDangerMix * (0.12 + 0.34 * beat);
+    } else {
+      if (bondCoreWriting && bondCoreBaseHex != null) {
+        coreGlow.material.color.setHex(bondCoreBaseHex);
+        bondCoreWriting = false;
+      }
+      bondCoreAdd = 0;
+    }
+  } else {
+    bondCoreAdd = 0;
+  }
 }
 
 export function updateDragon(dt, player, time) {
@@ -1337,6 +1696,10 @@ export function updateDragon(dt, player, time) {
     stormCoreKick = 1;
   }
   if (trailGoldT > 0) trailGoldT = Math.max(0, trailGoldT - dt);   // H6 §B.12 overtake gold flash decay
+  // H7 DRAGON VITALS — the flag-gated living-gauge pass. Runs inside THIS
+  // material section (no second loop); sets bondBodyMul / bondCoreAdd for the
+  // shipped writes below. Toggle OFF ⇒ exactly ×1 / +0 and zero writes.
+  updateBondVitals(dt, time);
   // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
     if (swallowT > 0) swallowT = Math.max(0, swallowT - dt);   // H6 §B.7 the swallow tick
@@ -1344,7 +1707,9 @@ export function updateDragon(dt, player, time) {
     const cb = (coreGlow.userData.base || 0.3) * stormCoreKick;
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
       : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4   // PR-C: interior ember charges
-      + swallow01 * 0.5;   // the ember swallow: a brief core flare as it's eaten
+      + swallow01 * 0.5   // the ember swallow: a brief core flare as it's eaten
+      + bondCoreAdd       // H7: the 1-heart heartbeat (exactly 0 with DRAGON VITALS off)
+      + bondSurgeAdd;     // H8: the core-fallback surge steps (exactly 0 with the flag off)
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
   // THE HAUNTING gap-pulse (Revenant): walk a brightness wave tail→head across the 3 dorsal
@@ -1389,16 +1754,22 @@ export function updateDragon(dt, player, time) {
   // Cruise rim hue is per-dragon: a warm cream by default, but a COLD storm-steel for the Tempest so her
   // charcoal reads OUTLINED with a cool identity in cruise instead of a warm-lit generic silhouette
   // (glow-up: kill the flat-black read; a storm dragon's edge must be cold, not cream).
+  const lever = getHeroRim();   // per-biome backlit-rim lever — k is 0 everywhere but the Mire (Fable 79)
   _rimCol.setHex(activeDef.rimCruise ?? 0xfff0d8);
+  // The boost is SCENE light (the ember horizon behind the hero), so it drags the edge hue toward the
+  // biome backlight — capped at 0.65 so a cold-identity skin (Tempest) keeps a third of its own edge.
+  if (lever.k > 0.001) _rimCol.lerp(lever.color, Math.min(0.65, lever.k * 1.1));
   if (surgeMix > 0.002) {
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
-    _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));
+    _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));   // Surge still takes the hue over the biome backlight
   }
   const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
-  updateRim(_rimCol, rimStrength);
+  updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
-  bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
+  // H7 DRAGON VITALS: bondBodyMul steps the emissive floor down per heart lost,
+  // clamped ≥0.75 (§B.1); exactly ×1 with the toggle off.
+  bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, (player.feverActive ? 0.35 : 0.12) * bondBodyMul, 4, dt);
   eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
   // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
   // Surge reads as one giant synchronized event. stormCrack is 0 for every non-storm dragon.
@@ -1407,14 +1778,25 @@ export function updateDragon(dt, player, time) {
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = (player.feverActive
-    ? 0.30 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.10   // trimmed ~40%; feverAuraScale further shrinks the big cream disc for fire dragons (it read as a lens-flare "ring on the dragon")
+    ? 0.20 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.06   // Fable 75: base 0.30→0.20, amp 0.10→0.06 (the tamed body-glow); feverAuraScale still shrinks it further for fire dragons
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
-    + inhale01 * 0.22;   // PR-C: the halo swells with the drawn breath
+    + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
   // Tint the aura to an ember corona on Surge (default white ⇒ every other dragon unchanged).
   if (activeDef.feverAura != null) auraSprite.material.color.setHex(player.feverActive ? activeDef.feverAura : 0xffffff);
 
   group.updateMatrixWorld(true);
+
+  // HERO LIGHT + WATER POOL (Fable 75): the player's real light breathes on the idle pulse
+  // and blazes on fever; the custom water shader ignores scene lights, so the mirror is fed
+  // the light positionally (a reflection STREAK that moves with the player, never a disc).
+  if (heroLight) {
+    const heroI = 12 * (0.85 + 0.15 * Math.sin(time * 2.1)) * (player.feverActive ? 1.7 : 1.0);
+    heroLight.intensity = damp(heroLight.intensity, heroI, 4, dt);
+    group.getWorldPosition(_heroPos);
+    heroPoolK = damp(heroPoolK, player.feverActive ? 1.0 : 0.55, 4, dt);
+    setWaterHeroPool(_heroPos, heroLight.color, heroPoolK);
+  }
 
   // Wing-tip contrails — the SECONDARY boost accent, only on the elite forms
   // (spineGlow ≥ 0.5) and only while boosting, so it stays restrained. Violet
@@ -1478,7 +1860,7 @@ export function updateDragon(dt, player, time) {
     s.userData.life -= dt * 2.5;
     if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
     else {
-      s.material.opacity = s.userData.life * (activeDef.fireTrails ? 0.32 : 0.65);
+      s.material.opacity = s.userData.life * (activeDef.fireTrails ? 0.40 : 0.85);   // Fable 79: comp for the ~¼-energy tight trail curve — restores in-motion centreline luminance
       const sz = 0.8 + (1 - s.userData.life) * 2.2;
       s.scale.set(sz, sz, 1);
     }
@@ -1510,7 +1892,7 @@ export function updateDragon(dt, player, time) {
       );
     }
   }
-  const boostOp = activeDef.fireTrails ? 0.4 : 0.8;   // fire exhaust runs dimmer + sparser so it doesn't wash the scene gold (owner: "too much")
+  const boostOp = activeDef.fireTrails ? 0.50 : 0.95;   // fire exhaust runs dimmer + sparser so it doesn't wash the scene gold (owner: "too much"); Fable 79: +comp for the tight trail curve
   const boostSzK = activeDef.fireTrails ? 2.4 : 3.5, boostSz0 = activeDef.fireTrails ? 1.0 : 1.2;
   for (const s of boostTrailSprites) {
     if (!s.visible) continue;
@@ -1751,6 +2133,8 @@ export function resetDragon(player) {
   for (const s of boostTrailSprites) { s.visible = false; s.userData.life = 0; }
   for (const s of emberMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
   for (const s of wingMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
+  for (const s of bondBleedMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
+  bondPrevHealth = null;   // H7: a run reset is never a "wound"
   for (const p of burstParticles) { p.visible = false; }
   tailDeploy = 0.82;
   burstActive = false;

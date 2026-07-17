@@ -12,11 +12,16 @@ permissions:
   contents: write          # push the preview to the gh-pages branch
   pull-requests: write     # comment the preview URL on the PR
 
-# Shares the gh-pages concurrency group with the production deploy so writes to
-# the branch are serialised (no clobbered pushes).
+# PER-PR preview lane. PREVIOUSLY every PR's preview shared ONE `gh-pages` group with
+# cancel-in-progress:false — GitHub keeps only the newest PENDING run per group, so when ANY other PR
+# pushed, a given PR's queued preview was superseded and never published (PR #476 sat 6 commits stale for
+# hours while a sibling PR churned). Each PR deploys to its OWN pr-preview/pr-N/ subdir, so concurrent
+# previews don't clobber each other's files (the deploy action retries on the rare gh-pages push race —
+# this is the action's own recommended per-ref pattern). cancel-in-progress:true = the newest push for
+# THIS PR wins (no self-pileup). deploy-pages.yml (group `pages`) is already separate.
 concurrency:
-  group: gh-pages
-  cancel-in-progress: false
+  group: preview-${{ github.event.number }}
+  cancel-in-progress: true
 
 jobs:
   preview:

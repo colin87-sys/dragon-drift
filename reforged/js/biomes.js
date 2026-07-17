@@ -55,7 +55,7 @@ export const BIOMES = [
     // horizon + the only GREEN/vegetation in the cycle. PR-1 = the atmosphere/materials substrate.
     name: 'THE LOST LAGOON',
     keyShift: 0,
-    stars: 0.15,   // first stars at dusk
+    stars: 0,   // Fable in-game review: at golden hour the star-speckle read as noise in the empty upper sky — a clear warm tropical sky, no stars
     sky: { top: C(0x0d1f3c), mid: C(0x235058), horizon: C(0xffb060), sun: C(0xffd080),
       // N9 clouds: warm dusk cumulus — sunlit tops, cool blue undersides.
       cloud: { amount: 0.85, lit: C(0xffe4b8), shadow: C(0x1e2c46) } },
@@ -67,7 +67,7 @@ export const BIOMES = [
     // Low sun dead ahead, but the STORY is transmission. hemiGround = JADE LAGOON BOUNCE (undersides
     // pick up cool water-green — the inverse of Caldera's ember bounce, unlike Frozen's rose fog-sea).
     light: { sun: C(0xffb060), sunI: 1.55, hemiSky: C(0x86b4d0), hemiGround: C(0x1e4438) },
-    water: { deep: C(0x07262e), shallow: C(0x2b7a70), waveAmp: 0.42 }, // jade lagoon; calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
+    water: { deep: C(0x07262e), shallow: C(0x2f8578), waveAmp: 0.42 }, // PR-0 (§7.2): jade-turquoise El Nido shallow — greener-biased (deepen the jade, never the gold); calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
     // PETAL WIND (the Tsushima signature): warm blossom-gold petals with the strongest LATERAL drift
     // in the cycle — wind as a composition device. Nothing rises (Caldera), nothing hangs (Frozen).
     ambient: { color: C(0xffcf9a), fall: 0.5, sway: 3.0, size: 0.32, opacity: 0.7 },
@@ -75,12 +75,15 @@ export const BIOMES = [
     // "children" over dark water — the boss's value inversion rehearsed by the wildlife).
     fauna: { color: C(0xf6ead8), scale: 1.25, flap: 0.55 },
     faunaFlyby: true, // foreground egret flyby pass visible over the lane
-    // New drowned-ruins kit (biomes:lagoonNew, default-on): rotunda hero + lilyraft/wrackstone rest-notes
-    // (+ rootbastion/arcade/campanile/sentinel to come). The legacy verdigris props (tower/column/…) still
-    // spawn as placeholder until the PR-3 composition pass migrates them behind ?props=v1. (This array is
-    // documentation only — spawning is gated by each archetype's `biomes` whitelist in environment.js.)
-    props: ['rotunda', 'lilyraft', 'wrackstone', 'rootbastion', 'arcade', 'tower', 'column', 'archruin', 'slab', 'dome'],
-    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-3+)
+    // JUNGLE DROWNED TEMPLE kit (v3, biomes:lagoonV3 — DEFAULT): karstfang (giant sea-stack) + figgate
+    // (strangler-fig gateway) + mangrovehold (stilt-root islet) + prasat (drowned Angkor temple HERO) +
+    // lotusraft (lily pads + blooms) + nagawall (reared naga backdrop). All Fable-gated ≥4.2 (form + in
+    // context). The retired v2 drowned-Greco ruins (rotunda/lilyraft/wrackstone/rootbastion/arcade) are
+    // opt-in via ?props=v2; the legacy verdigris props (tower/column/archruin/slab/dome) via ?props=v1.
+    // (This array is documentation only — spawning is gated by each archetype's `biomes` whitelist in
+    // environment.js.)
+    props: ['karstfang', 'figgate', 'mangrovehold', 'prasat', 'lotusraft', 'nagawall', 'causeway', 'rampart'],
+    matIndex: 0, // lagoonStone (vertex-color bakes: honey limestone / jade tide / jungle greens / temple sandstone / gilt)
     // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
     // deep-rose (re-run bulletcontrast after the jade-water retune).
     bullets: { dark: 0xaf4f73 },
@@ -212,6 +215,35 @@ export const BIOMES = [
     godrayMul: 0.075,
     godrayTint: C(0xff9d45),
     moteDepthFade: 0.85, // Fable 70: far motes DIM as they shrink (quadratic 20→110m) — kills the depth-flat "screen confetti" that ate the black mirror. Near firefly halos untouched.
+    // Fable 75 AERIAL PERSPECTIVE: distant silhouette props LIGHTEN + hue-shift toward the horizon
+    // ember (55→230m). 0x9c5a22 sits between the horizon haze (0x7a4818) and the mote amber (0xffb75c),
+    // ≈2.1× the luma of fogFarColor 0x4a2c0e — so after the scene fog folds on top, distance still reads
+    // LIGHTER (the flat-black canopy was the frame's deepest flatness). Never brighter than the glowcap
+    // accents → the glow hierarchy holds. Other biomes leave propAerial unset → byte-identical.
+    propAerial: 0.85, propAerialColor: C(0x9c5a22),
+    // Fable 85 REFLECTION CRAFT: the black mirror is the biome's signature — turn the uniform brown
+    // smear into anisotropic down-lane streaks under the glow sources (0.85), a few drifting amber
+    // glints (0.7), and a mirror-side pull that tames the green catch-ring's reflection (0.8, the ring
+    // itself untouched). Consumed by water.js via setWaterTint. 0 elsewhere → other biomes byte-identical.
+    reflStretch: 0.85, reflGlint: 0.7, reflGreenPull: 0.8,
+    // Fable 94: the Mire reserves MAGENTA for danger telegraphs, so a full-sky magenta Surge wash makes the
+    // danger colour decorative — during boss fights, no less. Force the Surge sky EMBER instead (skin-agnostic)
+    // + zero the magenta sky-curtain (Canopy Law). "The mire's organisms surge WITH you." 0 elsewhere.
+    surgeWarm: 1,
+    // Fable A1 ROOF-FROM-ABOVE: at the top of the lane the drape roof exits frame → a dark amber VOID.
+    // A camera-following canopy-shelf shader quad (altitude-gated) turns it into the inverted money shot —
+    // the mire's canopy seen from above, amber welling up through the gaps. 0 elsewhere → byte-identical.
+    canopyRoof: 1,
+    // Fable 90 HORIZON SHAFT: one sourceless warm glow-column off the ember horizon (light that TRAVELS,
+    // not light that is placed). Metabolic, off-center, breathes — never a sun. Consumed by the sky shader
+    // (su.uShaft). 0/absent elsewhere → byte-identical sky in every other biome.
+    horizonShaft: 1.0,
+    // Fable 79 HERO BACKLIT-RIM: the drake reads too small at cruise against the bright ember horizon.
+    // Backlight its silhouette edge in the Mire's own identity amber (the mote/lantern hue) so it reads
+    // as a NatGeo backlit animal — the edge takes the sky's colour, not its own. Body cruise = 0.5+0.55
+    // = 1.05 (under the Tempest's proven 1.25); wings take it damped. Other biomes leave heroRim unset
+    // → byte-identical rim, all skins.
+    heroRim: 0.55, heroRimColor: C(0xffb75c),
     // Amber MOTES (the identity air / THRUMSWARM's proto-form): near-hovering with a slight
     // rise, a down-lane sway bias (the drift-current leading line, GoT Guiding-Wind).
     ambient: { color: C(0xffb75c), fall: 0.05, sway: 1.1, size: 0.72, opacity: 0.70 }, // fireflies — big near halos KEPT; hot-cored, calmer sway (was metronome), depth-faded far (moteDepthFade)
@@ -426,6 +458,28 @@ const env = {
   // its far motes' alpha by camera distance so the field recedes instead of reading as a flat
   // screen overlay. Consumed by ambient.js. (Fable 70.)
   moteDepthFade: 0,
+  // Aerial perspective (OPTIONAL; 0 everywhere by default → byte-identical props). A biome may
+  // lighten + hue-shift its far silhouette props toward an ember horizon by view depth. Consumed
+  // by environment.js's addPropDetail (uPropAerial/uPropAerialCol). (Fable 75.)
+  propAerial: 0, propAerialColor: new THREE.Color(),
+  // Reflection craft (OPTIONAL; 0 everywhere by default → byte-identical mirror). A biome may give its
+  // water anisotropic reflection streaks + drifting glints + a mirror-side green-blob pull. Consumed by
+  // water.js via setWaterTint. (Fable 85.)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0,
+  // Per-biome ember-Surge override (OPTIONAL; 0 = the shipped magenta Surge sky). A biome that reserves
+  // magenta for another meaning may flare its Surge horizon ember + drop the magenta curtain. (Fable 94.)
+  surgeWarm: 0,
+  // Canopy-roof-from-above (OPTIONAL; 0 = no altitude canopy shelf → byte-identical). A biome may grow a
+  // from-above canopy shelf when the camera climbs to the top of the lane. Consumed by environment.js's roof
+  // quad + ambient.js's high-altitude mote treatment. (Fable A1.)
+  canopyRoof: 0,
+  // Horizon shaft (OPTIONAL; 0 everywhere by default → byte-identical sky). A biome may raise one
+  // sourceless warm glow-column off its horizon. Consumed by the sky shader (su.uShaft). (Fable 90.)
+  horizonShaft: 0,
+  // Hero backlit-rim lever (OPTIONAL; 0 everywhere by default → byte-identical rim, all skins).
+  // A biome with a bright horizon may backlight the dragon's silhouette edge in the horizon's own
+  // colour. Consumed by dragon.js's rim block via environment.js getHeroRim(). (Fable 79.)
+  heroRim: 0, heroRimColor: new THREE.Color(),
   // God-ray fan scale (OPTIONAL; 1 everywhere by default → byte-identical shafts).
   // A night biome (Lumen Mire) meters it down; consumed by main.js's god-ray gate.
   godrayMul: 1,
@@ -505,6 +559,16 @@ export function computeEnv(dist) {
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
   env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
+  env.propAerial = lerp(a.propAerial ?? 0, b.propAerial ?? 0, ts);
+  env.horizonShaft = lerp(a.horizonShaft ?? 0, b.horizonShaft ?? 0, ts);
+  env.surgeWarm = lerp(a.surgeWarm ?? 0, b.surgeWarm ?? 0, ts);
+  env.canopyRoof = lerp(a.canopyRoof ?? 0, b.canopyRoof ?? 0, ts);
+  env.reflStretch = lerp(a.reflStretch ?? 0, b.reflStretch ?? 0, ts);
+  env.reflGlint = lerp(a.reflGlint ?? 0, b.reflGlint ?? 0, ts);
+  env.reflGreenPull = lerp(a.reflGreenPull ?? 0, b.reflGreenPull ?? 0, ts);
+  env.propAerialColor.lerpColors(a.propAerialColor ?? a.fogFarColor ?? a.fog.color, b.propAerialColor ?? b.fogFarColor ?? b.fog.color, ts);
+  env.heroRim = lerp(a.heroRim ?? 0, b.heroRim ?? 0, ts);
+  env.heroRimColor.lerpColors(a.heroRimColor ?? a.fogFarColor ?? a.fog.color, b.heroRimColor ?? b.fogFarColor ?? b.fog.color, ts);
   env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
   env.godrayBreak = lerp(a.godrayBreak ?? 0.35, b.godrayBreak ?? 0.35, ts);
   env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);

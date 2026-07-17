@@ -522,6 +522,14 @@ body[data-qtier="2"] .hud-sew { display: none; }
 @keyframes hud-flash { 0% { transform: scale(1.14); } 100% { transform: scale(1); } }
 /* SCOREKEEPER (§F): pins score + distance at full alpha, defeats the ghosts. */
 body.hud-scorekeeper .score.rest { opacity: 1; }
+/* EMBERSIGHT H7 §F — DRAGON VITALS ON (Law 1's contract): the dragon now
+   carries the ambient stamina read (wing-charge studs), so the arc's
+   rest-ghost deepens ONE STEP (0.30 → 0.18). Only channels the dragon
+   actually carries deepen; LIFE already rests at 0. The per-element ALWAYS
+   override (body.hud-stamina-always, higher specificity) still wins. */
+html.vitals-on .g-arc.rest { opacity: 0.18; }
+/* H8: the surge horn's dragon channel (spine ignition) shipped too — same step. */
+html.vitals-on .gauntlet-surge.rest { opacity: 0.18; }
 
 /* Stamina arc — a compact bar just under the dragon, ~body-width (not wings),
    with a constant thickness (non-scaling stroke) so narrowing it never thins
@@ -733,6 +741,11 @@ body.hud-critical .arc-danger { opacity: 0.85;
 .gauntlet-surge i.lit { opacity: 1;
   background: linear-gradient(160deg,#ffe6a6,#ff8a3c); }
 .gauntlet-surge i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
+/* EMBERSIGHT H8 — the +120ms BOND-ECHO (Law 1): with DRAGON VITALS on, the
+   dragon's spine node ignites frame 0 and the DOM gem's pop ceremony echoes
+   120ms later (--t-micro). The lit fill itself stays frame-0 authoritative —
+   only the celebration is delayed. */
+html.vitals-on .gauntlet-surge i.gem-pop { animation-delay: 120ms; }
 @keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.6)} 100%{transform:scale(1)} }
 /* 4/5 desire state: filled cells shimmer in sync */
 .gauntlet.surge-near .gauntlet-surge i.lit { animation: gem-blaze 1.1s ease-in-out infinite; }
@@ -1608,6 +1621,10 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 /* ============ SHOP ============ */
 /* Sticky topbar: wallet + exit stay visible while scrolling the grid. */
 .screen-topbar { position: sticky; top: 0; z-index: 5; width: 100%;
+  /* Never shrink: on a plain (non-scroll) screen like SETTINGS the flex column
+     used to compress this sticky header — the title + ✕ got squished to ~21px
+     when the content ran long. A header holds its height. */
+  flex: 0 0 auto;
   display: flex; align-items: center; gap: 10px; padding: 10px 16px;
   padding-top: calc(10px + env(safe-area-inset-top, 0px));
   /* U4/U6: warm scrim ink, softened tail (the old 80%-solid stop cut a hard
@@ -1623,7 +1640,9 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 .screen-topbar .topbar-close { pointer-events: auto; cursor: pointer; width: 34px; height: 34px;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-size: 18px; color: var(--rf-ink); background: rgba(60,42,28,0.6);
-  border: 1px solid var(--rf-stroke-hi); flex: 0 0 auto; }
+  border: 1px solid var(--rf-stroke-hi); flex: 0 0 auto; position: relative; }
+/* ≥44pt touch target: the ✕ stays 34px visually but hits at 46px (inset -6px). */
+.screen-topbar .topbar-close::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
 .screen-topbar .topbar-close:hover { background: rgba(80,54,32,0.7); }
 /* U3: topbar screens keep a SMALL fixed spacer under the sticky bar (the old
    `content:none` removal let the first content line render tucked under the
