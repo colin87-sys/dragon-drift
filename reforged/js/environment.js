@@ -1940,7 +1940,7 @@ const ARCHETYPES = {
   // is the baked wind-scour value ladder (pale wind-bitten scour / damp body / soaked belly). rotY
   // pinned so the local scour axis stays wind-aligned and every prow leans the SAME down-wind way.
   stormprow: {
-    step: 17, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.12, sMin: 0.90, sMax: 1.12 },
+    step: 17, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.04, sMin: 0.90, sMax: 1.12 },
     build: () => {
       const parts = [];
       // [centerX, y, width(x), height, depth(z)] — 6 MAIN strata, bottom→crest. Windward edge
@@ -2025,7 +2025,7 @@ const ARCHETYPES = {
   // slight lean. mat 0 = tempestStone (wind-scour ladder), mat 1 = accent[7] gold pools. rotY 0 so the
   // socket face always turns toward the camera on approach.
   tafonihold: {
-    step: 30, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.12, sMin: 0.88, sMax: 1.12, glow: true },
+    step: 60, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.0, sMin: 0.88, sMax: 1.20, glow: true },
     build: () => {
       const parts = [], centers = [];
       // Rounded core mass — two interpenetrating icosahedral lumps (weather-rounded boulder, top ~1.05),
@@ -2037,10 +2037,10 @@ const ARCHETYPES = {
       // THE GLOW ADDRESS — a low band of gold sockets pooled in wave-worn hollows on the seaward (+z)
       // face. VARIED sizes + IRREGULAR clustering (not an even row) so no boulder reads as a stamped
       // pattern; the recessed scoops double as the honeycombed tafoni weathering. [x, y, z, radius].
-      const sockets = [[-0.30, 0.36, 0.47, 0.10], [-0.13, 0.30, 0.52, 0.13], [0.03, 0.41, 0.50, 0.075], [0.27, 0.34, 0.47, 0.11], [0.43, 0.29, 0.37, 0.065]];
+      const sockets = [[-0.30, 0.36, 0.47, 0.14], [-0.13, 0.30, 0.52, 0.18], [0.05, 0.41, 0.50, 0.11], [0.28, 0.34, 0.47, 0.15], [0.44, 0.29, 0.37, 0.10]];
       for (const [sx, sy, sz, ss] of sockets) addGoldSocket(parts, centers, sx, sy, sz, ss);
       const m = mergeTempestParts(parts);
-      bakeSocketSpill(m.geometry, centers);   // warm gold bloom bleeds onto the rim rock (0 tris)
+      bakeSocketSpill(m.geometry, centers, 0.34);   // warm gold bloom bleeds onto the rim rock — wider spill (Fable: concentrate the gold into POOLS), 0 tris
       return m;
     },
     // NEAR glow carrier — broad+low so the socket band sits at eye height on approach. r 8–12, h 9–12
@@ -2054,7 +2054,7 @@ const ARCHETYPES = {
   // weather-hardened MUSHROOM CAP (the wave-cut signature). 2–3 gold sockets pooled AT the notch, sun-side.
   // `hero: true` phase-locks it to the congregation peak so it lands as deliberate punctuation, not scatter.
   stormstack: {
-    step: 43, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.06, sMin: 0.90, sMax: 1.15, glow: true },
+    step: 95, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.0, sMin: 0.90, sMax: 1.15, glow: true },
     build: () => {
       const parts = [], centers = [];
       // Wave-cut foot (below the notch) — the broad platform the stack rises from.
@@ -2080,11 +2080,13 @@ const ARCHETYPES = {
       bakeSocketSpill(m.geometry, centers);
       return m;
     },
-    // TALL rare punctuation — r 5–8 thin footprint, h 24–40 world (~1:2.2+). NOT hero-phase-locked (that
-    // twinned the L/R ranks at matched depth — the metronome tell); rareness comes from the big step 43 +
-    // low comp floor, and L/R now draw independent jitter. x coupled to the ~0.56 cap footprint (·sMax
-    // 1.15) so even the mushroom overhang clears the lane. Per-instance lean jitter so no two match.
-    place: (side, rnd) => { const r = 4 + rnd() * 5; return { x: side * (19.5 + 0.68 * r + rnd() * 6), h: 22 + rnd() * 18, r, tilt: side * (rnd() * 0.05 - 0.02), rotY: (rnd() - 0.5) * 0.3 }; },
+    // TALL rare punctuation, ZONED OUT to the skyline (Fable device critique #1+#4). rareness = big step
+    // 95 + comp floor 0 (present ONLY on the swaying headland peaks, alternating banks via the per-side
+    // phase); a LANDMARK height tier makes ~1-in-3 tower to h 42–56 (clearly dominant over the wall + the
+    // hero prows) instead of a uniform mid-height picket. Pushed to inner ~28 (base 30) so the tall stacks
+    // stand BEHIND the near death-wall as a distant rank — tall=far builds the rising amphitheatre, and
+    // they stop looming at even height over the lane. x coupled to the ~0.75 cap footprint (·sMax 1.15).
+    place: (side, rnd) => { const r = 4 + rnd() * 5; const x = side * (30 + 0.68 * r + rnd() * 6); const big = rnd(); const hv = rnd(); const h = big > 0.67 ? 42 + hv * 14 : 22 + hv * 14; return { x, h, r, tilt: side * (rnd() * 0.05 - 0.02), rotY: (rnd() - 0.5) * 0.3 }; },
   },
 
   // TEMPEST REACH — THE LOW REST (bible §4 `stackgrave`): a scatter of stubby BROKEN stumps over a
@@ -2125,19 +2127,22 @@ const ARCHETYPES = {
   // fog (#a7b2b0) so the distance makes it read translucent for FREE (zero transparency cost). No accent,
   // no ladder — it IS light through water. Far-field only; narrow footprint clears the lane trivially.
   rainshaft: {
-    step: 29, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.40, sMin: 0.95, sMax: 1.05 },
+    step: 29, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.50, sMin: 0.95, sMax: 1.05 },
     build: () => {
       const parts = [];
-      const cols = [[0.0, 1.0, 0.16], [0.12, 0.82, 0.11], [-0.14, 0.90, 0.12], [0.05, 0.70, 0.09]];
+      // FIVE overlapping columns spread WIDE (Fable: the old narrow single plank read as a render bug) —
+      // a broad soft rain-smudge, never a solo pillar. Varied heights + soft tapered tops.
+      const cols = [[0.0, 1.0, 0.17], [0.32, 0.84, 0.13], [-0.36, 0.90, 0.14], [0.17, 0.70, 0.10], [-0.17, 0.64, 0.10]];
       for (const [cx, top, w] of cols) {
         parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, top, w * 0.7), { x: cx, y: top / 2, z: cx * 0.3 }) });
         parts.push({ mat: 0, geo: xform(new THREE.ConeGeometry(w * 0.5, top * 0.3, 4), { x: cx, y: top * 1.12, z: cx * 0.3 }) }); // soft tapered top
       }
       return mergeTempestVirga(parts);
     },
-    // FAR backdrop, tall + thin (~1:4). Narrow footprint → clears easily; rotY jitter so the slabs don't
-    // all face the same way. foam:false (a collar under a distant rain-smudge would be a bright artifact).
-    place: (side, rnd) => { const r = 4 + rnd() * 3; return { x: side * (40 + rnd() * 22), h: 30 + rnd() * 18, r, tilt: 0, rotY: (rnd() - 0.5) * 0.5 }; },
+    // FAR backdrop veil, WIDE + tall — r 10–16, pushed to |x| 55+ so it hangs in the deep fog behind the
+    // rock rank and fills the open breaths with atmosphere (high comp floor 0.50 = a fairly constant far
+    // veil). Narrow-ish footprint at that distance still clears. foam:false. rotY jitter to vary facing.
+    place: (side, rnd) => { const r = 10 + rnd() * 6; return { x: side * (55 + rnd() * 24), h: 30 + rnd() * 18, r, tilt: 0, rotY: (rnd() - 0.5) * 0.5 }; },
   },
 };
 
@@ -2741,6 +2746,24 @@ function mireComp(dist) {
   const ph = (local % seg) / seg;
   return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.15));
 }
+// TEMPEST REACH composition rhythm (Fable device critique — the storm-strait engine). The Tempest
+// props had NO congregation branch, so every slot rendered on both banks = a continuous picket fence.
+// This gathers props into rocky HEADLANDS and clears WIDE open storm-water breaths between them. Two
+// design laws Fable called for: (1) genuinely empty breaths — a raised cosine RAISED TO A POWER so the
+// weight collapses fast off the peak (like Lagoon), giving ~150m of open water that survives ~2s at
+// flight speed; (2) the banks must SWAY, not beat together — a per-SIDE phase offset (0.42 of a period)
+// so a left-heavy headland is followed by a right-heavy one, forcing the eye across the lane (the
+// Tsushima trick). 4 periods/biome (375m). PURE (no rnd) → gold-determinism call-order untouched.
+const TEMPEST_COMP_PERIODS = 4;
+function tempestComp(dist, side) {
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const seg = L / TEMPEST_COMP_PERIODS;                       // 375m
+  const sideShift = side > 0 ? 0.42 : 0.0;                    // de-mirror: right bank lags the left by 0.42 period
+  const ph = ((((local % seg) / seg) - sideShift) % 1 + 1) % 1;
+  const raised = 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.18));
+  return raised * raised;                                     // sharpen → wide, genuinely empty breaths
+}
 // Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
 // slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
 function compHash(salt, side, slot) {
@@ -2979,6 +3002,25 @@ function writeMatrix(band, i, d) {
         if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
         else k = c.sMin + (c.sMax - c.sMin) * g;
       }
+    }
+  } else if (active && bi === 7) {
+    // TEMPEST REACH composition (Fable device critique) — the storm-strait rhythm. Previously ABSENT
+    // (no bi===7 branch) so every slot rendered on both banks = a continuous picket fence. The swaying
+    // congregation (per-side phase-offset tempestComp) now gathers props into rocky HEADLANDS and clears
+    // WIDE open storm-water breaths between them; stormstack's big step + floor-0 make it the RARE tall
+    // punctuation that lands on the headland peaks, alternating banks via the per-side phase. An arrival
+    // beat opens the seam to empty water. PURE (no rnd), after the rotY init → gold-determinism untouched.
+    if (band.def.arrivalPark) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+      if (seamDelta < 200) active = false;
+    }
+    if (active && band.def.comp) {
+      const g = tempestComp(d.dist, d.side);
+      const c = band.def.comp;
+      const density = c.floor + (1 - c.floor) * g;            // fraction of this archetype's slots kept here
+      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false; // park (off-beat → open breath)
+      else k = c.sMin + (c.sMax - c.sMin) * g;                // survivors SWELL into the headland congregation
     }
   }
   // Deck-skim rule (see the window block above), inside a strait2 run window:
