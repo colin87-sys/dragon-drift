@@ -2745,6 +2745,56 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // drumfall — FALLEN-COLUMN FOIL (DROWNED-FORUM-BUILD-SHEET §3 #6). The LOW common rest-note that PRICES the
+  // gilt: no accent, no glow, just tide-laddered stone. Evolves the v2 wrackstone slot into pure Roman drums.
+  // Fable pre-assess one-liner: "equal COINS scattered from one stump, stained by a waterline that ignores
+  // them, with a single quiet trumpet at the end." So: ONE surviving stub carrying the ONE flared Doric
+  // CAPITAL proud (the trumpet), and equal-diameter (they are slices of ONE column) 6-sided drum coins
+  // scattered around it — leaning / lying / strayed. Every drum CLOSED-end (wrackstone w2 + viamarina law:
+  // an open cylinder shows the water straight through it and reads as curled paper). No set dressing. ≤150.
+  drumfall: {
+    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.08 },   // foil rest note: clusters with the commons, near-empty in the breaths (wrackstone rhythm)
+    build: () => {
+      const parts = [];
+      const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // tide ladder by world Y (ladder-only foil)
+      const R = 0.13;   // ONE column diameter — every coin is the same slice
+      // A TOPPLED COLUMN reads as a SENTENCE: the surviving stump at one end + its drums trailing away in the
+      // fall LINE (down +z), progressively more scattered — "the column stood HERE and fell THAT way." A random
+      // pile reads as rubble; a trail reads as architecture (viamarina comb lesson: rhythm needs direction).
+      // SURVIVING STUB — a proud broken column base at the −z end of the fall line, SUBTLE entasis (a strong
+      // base-taper made it read plinth-under-tabletop; Fable df2). CLOSED so the broken crown is a solid disc. (24)
+      S(xform(new THREE.CylinderGeometry(0.122, R, 0.40, 6, 1, false), { x: 0, z: -0.34, y: 0.20, rz: 0.03 }));
+      // DORIC CAPITAL — the "single quiet trumpet". Fable df2: a flat plate with a gap under it read as a
+      // floating table. Fixed: an 8-sided ECHINUS that GROWS OUT of the shaft (base = stub top 0.122, no gap)
+      // and FLARES up to 0.165, capped by a compact abacus sitting directly on it. The flare IS the trumpet. (28)
+      S(xform(new THREE.CylinderGeometry(0.165, 0.122, 0.10, 8, 1, true), { x: 0, z: -0.34, y: 0.45, rz: 0.03 }));   // echinus flare (base 0.40 = stub top; 8-sided reads round) (16)
+      S(xform(new THREE.BoxGeometry(0.20, 0.05, 0.20), { x: 0, z: -0.34, y: 0.525, rz: 0.03 }));                      // abacus slab, seated on the echinus (12) → capital 28
+      // ON-END COIN — THE fix that converts "crates" → "column" (Fable df2): one drum stood STEEPLY on end so
+      // its round 8-sided BREAK FACE is presented to the ¾ camera. 8 sells round; this single circular face is
+      // the cue that says "sliced Doric shaft", not shipwreck rubble. CLOSED. (32)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.22, 8, 1, false), { x: 0.03, z: -0.10, y: 0.15, rz: 0.42, ry: 0.2 }));
+      // LYING DRUM A — down flat, axis ALONG the fall line (rx π/2 → round break face points ±z down the trail).
+      // Lying side-profile is a rectangle regardless of segment count, so 6 is fine here — spend the round-ness
+      // on the on-end coin above where the circular face actually shows. CLOSED. (24)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.27, 6, 1, false), { x: -0.01, z: 0.09, y: R, rx: Math.PI / 2, ry: 0.05 }));
+      // LYING DRUM B — the next coin along the trail, rolled a touch off-line (ry) so it doesn't re-stack. (20)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.24, 5, 1, false), { x: 0.07, z: 0.30, y: R, rx: Math.PI / 2, ry: -0.22 }));
+      // STRAY DRUM — one coin rolled CLEAR off the line (+x) and half-buried (y sunk below R): the "scattered"
+      // tell that says these did not fall neatly — the tide took the rest. (20)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.20, 5, 1, false), { x: 0.30, z: 0.34, y: 0.10, rx: Math.PI / 2 + 0.12, ry: 0.7, rz: 0.3 }));
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.14 });   // the level tide stain cuts THROUGH the low coins at one world Y (drowned foot / travertine crown on each) — "a waterline that ignores them"
+    },
+    // LOW WIDE foil scatter (wrackstone rhythm): draw r first, couple x → inner ≥16 (clears the ±16 gate veil);
+    // low h so the stump-capital reads proud over a flat rubble field, never a tower. FREE rotY — a rubble heap
+    // has no facing, and random spin kills the copy-paste tell down the lane (viamarina Stage-2 note).
+    place: (side, rnd) => {
+      const r = 4 + rnd() * 2.5;
+      const p = { x: side * (16 + 0.7 * r + rnd() * 4), h: 3 + rnd() * 1.5, r, tilt: side * (rnd() * 0.10 - 0.05), rotY: rnd() * Math.PI * 2 };
+      if (HERO_SET.has('drumfall')) p.rotY = 0.6;   // debug: a ¾ angle so the stump, capital + break faces all read
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2793,6 +2843,7 @@ const FOAM_CFG = {
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
   triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
   viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
+  drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
