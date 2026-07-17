@@ -898,7 +898,7 @@ let bootReward = null;      // WELCOME+HUB §2 — payload for the returning-pla
   if (rows.length) bootReward = { rows, preTotal, finalTotal: saveData.embers };
   if (!bootReward && PREVIEW_REWARD) {
     const pre = saveData.embers;   // preview only — not persisted, resets on reload
-    bootReward = { rows: [{ label: 'Tailwind banked', amount: 100 }, { label: 'Gauntlet stake returned', amount: 250 }], preTotal: pre, finalTotal: pre + 350, sub: 'Welcome back, pilot.' };
+    bootReward = { rows: [{ label: 'Tailwind banked', amount: 100 }, { label: 'Gauntlet stake returned', amount: 250 }], preTotal: pre, finalTotal: pre + 350, sub: 'Welcome back, drifter.' };
     bootHasNotice = true;   // route to the hub (not the splash) so the card can play
   }
 }

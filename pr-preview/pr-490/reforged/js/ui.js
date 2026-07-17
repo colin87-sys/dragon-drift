@@ -1931,7 +1931,7 @@ export const ui = {
       let rail = '';
       let items = '';
       if (!cold) {
-        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'PILOT',  pilotBadgeDue(), newPilot);
+        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'DRIFTER',  pilotBadgeDue(), newPilot);
         if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue(), newQuests);
         items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue(), newShop);
         if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue(), newDaily);
@@ -2665,7 +2665,7 @@ export const ui = {
         <div class="pm-footer">
           <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b> · LV <b>${saveData.level}</b></span>
           <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
-            ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>`}
+            ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">DRIFTER${badgeHtml(pilotBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>
             ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn pm-quit-btn" id="pm-quit">EXIT TO MENU</button>
