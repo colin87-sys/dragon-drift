@@ -2682,6 +2682,63 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // viamarina — COLONNADED STREET-FRONT (DROWNED-FORUM-BUILD-SHEET §3 #2). The NEAR-RAIL: runs lane-parallel,
+  // the player skims it up close (replaces the "weird stone things" — every element has a nameable Roman job).
+  // Fable pre-assess: "a comb with missing teeth carrying one beam, in front of a lower jagged wall." TWO
+  // rhythms that never merge — a front COLONNADE (9-position grid, uneven survival: 2 full / 3 broken / stump)
+  // on a stylobate + a set-back TABERNAE WALL (2nd register at ~75% column height) with a shadow gap between;
+  // ONE architrave fragment bridging the 2 hero columns (post-and-beam = "this was BUILT"); a collapse
+  // gradient down the length (intact −z → drowned +z). Pompeian-red fresco ONLY in doorway recesses. No roof,
+  // no clutter, no gilt (Fable discipline). Same forumStone + tide ladder as the hero (one-city). ≤150 tris.
+  viamarina: {
+    step: 23, biomes: forumV1, matIndex: 0, comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor hugs the lane edge through the breaths (causeway rhythm)
+    build: () => {
+      const parts = [];
+      const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine (tide ladder by world Y)
+      // STYLOBATE — a long stepped plinth under the colonnade (z-long); the tide ladder drowns its foot. (12)
+      S(xform(new THREE.BoxGeometry(0.22, 0.09, 1.02), { x: 0.26, y: 0.045 }));
+      // TABERNAE WALL (2nd register) — two z-long boxes at DIFFERENT heights (a collapse dip at the decayed
+      // +z end), set BACK at x0.10 so a shadow gap separates it from the colonnade (x0.26). Top ~75% col height.
+      S(xform(new THREE.BoxGeometry(0.10, 0.42, 0.62), { x: 0.10, y: 0.31, z: -0.18 }));            // wall A — tall (12)
+      S(xform(new THREE.BoxGeometry(0.10, 0.26, 0.40), { x: 0.10, y: 0.23, z: 0.32, ry: 0.05 }));   // wall B — collapse dip, decayed end (12)
+      // TABERNAE DOORWAYS — recessed panels on the wall front face (x0.151, facing +x → the lane after the
+      // side-based rotY; single-sided planes built ry+π/2 per the winding rule). 2 Pompeian-red fresco, 1 dark. (6)
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.30, 0.16), { x: 0.151, z: -0.32, y: 0.21, ry: Math.PI / 2 }) });  // door 1 — red fresco
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.30, 0.16), { x: 0.151, z: -0.02, y: 0.21, ry: Math.PI / 2 }) });  // door 2 — red fresco
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.24, 0.15), { x: 0.151, z: 0.26, y: 0.18, ry: Math.PI / 2 }) });   // door 3 — dark (faded)
+      // COLONNADE — a 9-position grid (spacing ~0.14), only some survive. Tapered 5-sided shafts (pentagon
+      // reads round flat-shaded; taper = entasis); the 2 hero columns get a square ABACUS (the #1 "column over
+      // fence-post" tell). Broken shafts end OPEN (a snapped top). Everything leans 2–4° a different way.
+      const col = (z, h, rB, rT, lean, cap) => {
+        parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.26, z, y: 0.09 + h / 2, rz: lean }) });   // shaft (10)
+        if (cap) parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.09, 0.035, 0.09), { x: 0.26, z, y: 0.09 + h + 0.015, rz: lean }) });   // square abacus (12)
+      };
+      col(-0.44, 0.55, 0.042, 0.033, 0.03, true);    // full — hero (carries the architrave)
+      col(-0.30, 0.55, 0.042, 0.033, -0.02, true);   // full — hero (carries the architrave)
+      col(-0.16, 0.37, 0.041, 0.034, 0.05, false);   // broken tall (~⅔)
+      col(-0.02, 0.27, 0.041, 0.036, -0.06, false);  // broken (~½)
+      // gap at z 0.12 (a fallen drum lies below — the missing column)
+      col(0.26, 0.18, 0.042, 0.037, 0.09, false);    // broken short
+      col(0.42, 0.10, 0.046, 0.041, 0.05, false);    // knee stump
+      // ARCHITRAVE FRAGMENT — one beam bridging the 2 hero columns (z −0.44..−0.30), tilted ~4° (a ruin). (12)
+      S(xform(new THREE.BoxGeometry(0.07, 0.05, 0.24), { x: 0.26, z: -0.37, y: 0.665, rz: 0.06 }));
+      // FALLEN DRUM — a half-submerged pentagon drum by the empty position (proves the missing column). (10)
+      S(xform(new THREE.CylinderGeometry(0.046, 0.046, 0.10, 5, 1, true), { x: 0.31, z: 0.12, y: 0.05, rx: Math.PI / 2, rz: 0.35 }));
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.10 });   // low waterline (a near-rail sits AT the water)
+    },
+    // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π) so the colonnade WALLS the corridor,
+    // never blocks across it. High comp.floor hugs the edge. Couple x so the inner edge holds ≥14.5 (causeway
+    // precedent — a low prop may hug inside the ±16 gate veil). Explicit tilt (a ruin leans a breath).
+    place: (side, rnd) => {
+      const r = 8 + rnd() * 5;
+      const p = { x: side * (14.6 + 1.14 * r + rnd() * 3), h: 6 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      // SIDE-BASED rotY: the decorated LANE-face (+x object: the colonnade + doorways) always turns to the lane.
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.20 - 0.10);
+      if (HERO_SET.has('viamarina')) p.rotY = 0;   // debug: pin the colonnade face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2729,6 +2786,7 @@ const FOAM_CFG = {
   glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, // arch elliptical collar; spire spar-only collar
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
   triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
+  viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
