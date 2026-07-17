@@ -5,7 +5,7 @@ import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
 import { makeMarkerSurface, bakeGlowT, bakeConst, facetHash } from './markerSurface.js';
-import { buildPropArchetype, clonePropMaterial, addDeckSkimWindow } from './environment.js';
+import { buildPropArchetype, clonePropMaterial, addDeckSkimWindow, getForumStone } from './environment.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Skyforged A/B kill-switch: the premium Windvault gate is ON by default;
@@ -542,17 +542,25 @@ export function addObstacle(o) {
   entries.push(e);
 }
 
-// Coursed-ashlar reskin of the forum gate barrier (§4 / Fable rebuild 2.1→): the deadly lane-spanning mass
-// is COURSES of individual value-jittered travertine blocks in running bond (the value structure a flat slab
-// lacked), the outer SILHOUETTE eroded (missing crown/corner blocks — the collider stays the full rectangle,
-// only the visible geometry breaks up, like the background ruins), and the bay ringed by real VOUSSOIR wedges
-// hugging the true opening with the magenta keystone seated at its apex (killing the floating chrome arc).
-// Merged to ONE geometry (one draw). Deterministic per gate (seeded from o.dist), so it never touches the
-// gold-determinism fixture (obstacle meshes aren't fixtured) and a given gate looks the same every frame.
-const _FGT_VALS = [
-  [0.50, 0.44, 0.33], [0.62, 0.55, 0.41], [0.73, 0.65, 0.49],
-  [0.40, 0.37, 0.30], [0.67, 0.59, 0.44], [0.56, 0.49, 0.37],
-];
+// Coursed-ashlar reskin of the forum gate barrier (§4). CONSISTENCY (owner): it is baked with the SAME
+// forum tide-ladder as the triumphgate hero — travertine crown / algae line / drowned slate-teal base keyed
+// by WORLD HEIGHT (the gate stands in the water at y≈0) — on the SAME `forumStone` material (its ladderEmissive
+// fold carries the ladder backlit), so the hazard is the same stone as the props (the one-city test). The
+// deadly lane-spanning mass is monumental ashlar blocks in running bond with an eroded ruin crown; the
+// opening is ARCH-TOPPED; a tight radial VOUSSOIR ring hugs the opening edge with the magenta keystone AS the
+// apex wedge (touching the ring). Deterministic per gate (seeded from o.dist); obstacle meshes aren't fixtured.
+const _FRM_TRAV = [0.960, 0.900, 0.770];   // travertine crown (matches environment.js _FRM_TRAV)
+const _FRM_ALGAE = [0.230, 0.300, 0.170];  // algae tide line
+const _FRM_DROWN = [0.115, 0.255, 0.295];  // drowned slate-teal base
+// The forum tide ladder by world height + a per-block value jitter (jit), so every block reads as the same
+// travertine geology as the hero: wet drowned base near the water → algae line → sunlit crown, brightening up.
+function forumStoneCol(worldY, jit) {
+  let s;
+  if (worldY > 3.6) { const t = Math.min(1, (worldY - 3.6) / 14); const b = 0.82 + 0.20 * t; s = [_FRM_TRAV[0] * b, _FRM_TRAV[1] * b, _FRM_TRAV[2] * b]; }
+  else if (worldY < 2.4) s = _FRM_DROWN;
+  else s = _FRM_ALGAE;
+  return [s[0] * jit, s[1] * jit, s[2] * jit];
+}
 function bakeFlatColor(geo, rgb) {
   const n = geo.attributes.position.count, col = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { col[i * 3] = rgb[0]; col[i * 3 + 1] = rgb[1]; col[i * 3 + 2] = rgb[2]; }
@@ -562,7 +570,8 @@ function bakeFlatColor(geo, rgb) {
 function buildForumMasonry(group, o, X, TOP) {
   const rnd = mulberry32((Math.floor(o.dist * 8.1) ^ 0x51ed3c9b) >>> 0);
   const gL = o.gapX - o.gapW, gR = o.gapX + o.gapW, gB = o.gapY - o.gapH, gT = o.gapY + o.gapH;
-  // MONUMENTAL ashlar (Fable: small brick read Victorian, not Roman) — big blocks, deep courses.
+  const stoneMat = getForumStone();                        // the SAME material as the props (ladderEmissive fold)
+  const Rh = o.gapW + 0.6;                                  // arched-opening radius (springs from the bay top corners)
   const courseH = 3.2, blockW = 5.0, mortar = 0.22, blocks = [];
   const nCourses = Math.ceil(TOP / courseH);
   for (let c = 0; c < nCourses; c++) {
@@ -573,43 +582,43 @@ function buildForumMasonry(group, o, X, TOP) {
       const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW - mortar), bw = br - bl;
       if (bw <= 0.5) continue;
       const cx = (bl + br) / 2;
-      // Carve an ARCH-TOPPED opening: the rectangular safe bay PLUS a semicircle above it (radius gapW),
-      // so the masonry opening itself is arched (not a square hole) and the voussoir ring has a recess to
-      // frame. Collider stays the rectangle (the arched top is bonus clearance above the safe route).
+      // ARCH-TOPPED opening = the rectangular safe bay + a clean semicircle above it (radius Rh).
       if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                          // rectangular bay
-      if (cy > gT && Math.hypot(cx - o.gapX, cy - gT) < o.gapW + 0.2) continue;          // arched top
-      // erode the crown CONTIGUOUSLY from the top edge in (probability grows with height) — no floating confetti
-      const fromTop = (TOP - cy1) / courseH;                                             // 0 at the crown → grows down
-      if (fromTop < 2.2 && rnd() < 0.5 - fromTop * 0.22) continue;
-      if (Math.abs(cx) > X - blockW * 1.3 && fromTop < 3.5 && rnd() < 0.4 - fromTop * 0.1) continue; // outer corners
+      const dArch = Math.hypot(cx - o.gapX, cy - gT);
+      if (cy > gT && dArch < Rh) continue;                                               // clean arched top (hole)
+      // erode the crown CONTIGUOUSLY from the top edge in — but keep the arch SURROUND solid (Fable: light
+      // punching through above the apex severs the keystone). No erosion within ~one block of the ring.
+      const nearArch = dArch < Rh + 4.0 && cy > gB;
+      const fromTop = (TOP - cy1) / courseH;
+      if (!nearArch && fromTop < 2.2 && rnd() < 0.5 - fromTop * 0.22) continue;
+      if (!nearArch && Math.abs(cx) > X - blockW * 1.3 && fromTop < 3.5 && rnd() < 0.4 - fromTop * 0.1) continue;
       const zJit = (rnd() - 0.5) * 0.7;
       const g = new THREE.BoxGeometry(bw, ch, 2.8 + Math.abs(zJit)).toNonIndexed();
       g.translate(cx, cy, zJit * 0.4);
-      bakeFlatColor(g, _FGT_VALS[(rnd() * _FGT_VALS.length) | 0]);
+      bakeFlatColor(g, forumStoneCol(cy, 0.86 + rnd() * 0.26));                          // tide ladder by height + jitter
       blocks.push(g);
     }
   }
-  const merged = mergeGeometries(blocks, false);
-  blocks.forEach((b) => b.dispose());
-  group.add(new THREE.Mesh(merged, forumGateMats.stone));
-  // VOUSSOIRS — the ring reads in GEOMETRY, not value (value dies backlit, Fable 3.8): wedge blocks framing
-  // the arched opening, extruded PROUD of the wall (z ≈ +1.4 in front) so the ring survives as relief even
-  // when the whole gate silhouettes against the sun. Springs from the bay's top corners (Rin=gapW). Its own
-  // proud mesh (in front of the merged wall). The magenta keystone plugs the apex, touching the arch.
-  const Rin = o.gapW, rMid = Rin + 1.3, nV = 9, vgeo = [];
+  // VOUSSOIRS — a tight radial ring HUGGING the hole (inner edge AT Rh), each wedge pointing at the arch
+  // centre. Radial orientation is what makes the arch read in SILHOUETTE when value is dead backlit (Fable
+  // 3.8). The magenta keystone IS the apex wedge (touching the ring, flared), not a floating chip.
+  const nV = 11, vLen = 3.4, rMid = Rh + vLen / 2 - 0.4;   // inner edge ≈ Rh (hugs the hole)
+  const vgeo = [];
   for (let k = 0; k < nV; k++) {
-    if (k === (nV - 1) / 2) continue;                       // apex slot → the keystone
     const th = Math.PI * (k + 0.5) / nV;
-    const g = new THREE.BoxGeometry(2.5, 3.8, 3.6).toNonIndexed();
-    g.rotateZ(th - Math.PI / 2);                            // long axis radial (a voussoir wedge)
-    g.translate(o.gapX + Math.cos(th) * rMid, gT + Math.sin(th) * rMid, 1.5);   // PROUD of the wall face
-    bakeFlatColor(g, (k % 2) ? _FGT_VALS[5] : _FGT_VALS[2]);
+    const vx = o.gapX + Math.cos(th) * rMid, vy = gT + Math.sin(th) * rMid;
+    if (k === (nV - 1) / 2) continue;                       // apex → the keystone (below)
+    const g = new THREE.BoxGeometry(2.7, vLen, 3.6).toNonIndexed();
+    g.rotateZ(th - Math.PI / 2);                            // long axis radial
+    g.translate(vx, vy, 0.9);
+    bakeFlatColor(g, forumStoneCol(vy, 0.9 + (k % 2) * 0.22));   // travertine crown values + alternation
     vgeo.push(g);
   }
-  group.add(new THREE.Mesh(mergeGeometries(vgeo, false), forumGateMats.stone));
-  vgeo.forEach((b) => b.dispose());
-  const key = new THREE.Mesh(new THREE.BoxGeometry(2.6, 4.0, 4.0), forumGateMats.toll);
-  key.position.set(o.gapX, gT + rMid, 1.7);                // plugs the ring apex, proud, touching the arch
+  blocks.push(...vgeo);
+  group.add(new THREE.Mesh(mergeGeometries(blocks, false), stoneMat));
+  blocks.forEach((b) => b.dispose());
+  const key = new THREE.Mesh(new THREE.BoxGeometry(2.9, vLen + 0.6, 4.0), forumGateMats.toll);
+  key.position.set(o.gapX, gT + rMid, 1.1);                // the apex wedge, seated ON the ring, proud
   group.add(key);
   group.userData.tollKey = key;
 }

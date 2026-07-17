@@ -2886,6 +2886,12 @@ export function propDiag() {
 // aurora idx 6), but a RUN_KIT may borrow them into another biome's lane
 // (RUN_KIT.frozen wants idx 2 glacial ice). Remap is by material identity, so
 // it stays correct regardless of which of primary/accent a build emits.
+// The Drowned Forum stone material (obstacles.js reskins the gate with it, so the hazard is the SAME stone
+// as the triumphgate hero — the one-city test). Lazily builds the shared propMats like the other exports.
+export function getForumStone() {
+  if (!propMats) propMats = makeMats();
+  return propMats.forumStone;
+}
 export function buildPropArchetype(id, matIndex = null) {
   const def = ARCHETYPES[id];
   if (!def) return null;
