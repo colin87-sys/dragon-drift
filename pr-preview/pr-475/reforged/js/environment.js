@@ -2387,6 +2387,44 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // rampart — CONTINUOUS FAR MASSIF / civilization (§7.3.8, the glacierwall / riftwall analog the v3 kit
+  // lacked): a colossal drowned temple RAMPART — the Angkor Thom city wall / a long jungle-swallowed
+  // embankment — as stacked HORIZONTAL temple strata that UNDERLINE the horizon on BOTH sides at once, so the
+  // mid-ground is never spiky verticals against empty sky (the owner's "needs big expansive props to frame it"
+  // + it makes karstfang/prasat read colossal by contrast). Unlike nagawall (a rare ONE-side serpent EVENT),
+  // rampart is the always-present base layer: comp.floor 0.45 → mostly-continuous enclosure that only thins in
+  // the breaths. FAR off-lane + LOW-angle so it frames the horizon, never walls the sky. Bakes: temple
+  // (laterite/jade/amber) + lily (jungle crest). No gilt.
+  rampart: {
+    step: 70, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0.45, sMin: 0.95, sMax: 1.06 }, // FAR massif: mostly-continuous enclosure on BOTH horizons (glacierwall/riftwall rhythm), thins in the breaths, parks the arrival seam
+    build: () => mergeLagoonParts([
+      // stacked HORIZONTAL temple STRATA — each course sinks ≥25% into the one below (NO daylight through the
+      // massif), varied lengths, a proud overhanging shoulder (asymmetric crown). Each course is a TALL-enough
+      // box that its two side-tris both clear the 0.22 amber band → clean amber, no diagonal (causeway slab law).
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.05, 0.34, 0.60), { y: 0.30, rz: 0.02 }) },            // base course, y 0.13→0.47 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.90, 0.30, 0.54), { x: -0.06, y: 0.56, ry: -0.05 }) }, // course 2 (sinks into base), y 0.41→0.71 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.64, 0.28, 0.48), { x: 0.14, y: 0.78, ry: 0.06 }) },   // course 3, y 0.64→0.92 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.40, 0.26, 0.42), { x: -0.24, y: 0.96, ry: 0.11, rz: -0.06 }) }, // proud overhanging shoulder (12)
+      // broken END-steps — offset chunks that jog the wall's ends (no sawn 90° termination — colonnata law).
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.26, 0.44), { x: 0.54, y: 0.28, ry: 0.20, rz: 0.08 }) }, // (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.22, 0.30, 0.40), { x: -0.56, y: 0.30, ry: -0.16 }) },        // (12)
+      // jade TIDE-STAIN — a PROUD clean horizontal band at the drowned base (the causeway slab law: a stacked
+      // band-height slab reads as a strictly horizontal waterline where the rampart meets the mirror).
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.12, 0.11, 0.66), { y: 0.055 }) },                     // jade tide ridge, y 0.00→0.11 (12)
+      // a COLONNADE ECHO band partway up the lane face — two short notches read as a temple wall at distance.
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.09, 0.20, 0.10), { x: 0.12, z: 0.30, y: 0.44 }) },    // (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.09, 0.20, 0.10), { x: 0.26, z: 0.30, y: 0.44 }) },    // (12)
+      // JUNGLE CREST — rounded moss/canopy clumps swallowing the crown (bake:'lily' 3-stop green, deformed
+      // icosahedra not facet-plates — the causeway moss law). The jungle is what makes this the LAGOON's wall
+      // (a bare stone rampart would read Caldera/Frozen); + the greenery the owner asked for.
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.20, 0), { x: -0.14, z: 0.08, y: 1.02, sx: 1.25, sy: 0.6, sz: 1.05, ry: 0.5 }) }, // canopy clump — smaller so the STONE strata dominate (a temple rampart is stone-first, jungle-topped), not a green lid (20)
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.15, 0), { x: 0.20, z: -0.06, y: 0.94, sx: 1.15, sy: 0.6, sz: 1.0, ry: 1.1 }) },  // canopy clump, clustered toward one section (20)
+    ]),
+    // FAR backdrop, WIDE + LOW (~4:1): couple x to the measured ρ so the inner edge holds ≥26 (off-lane, like
+    // glacierwall/riftwall) — it underlines the far horizon, never intrudes on the flight band. Explicit tilt.
+    place: (side, rnd) => { const r = 30 + rnd() * 18; return { x: side * (22 + 0.92 * r + rnd() * 10), h: 13 + rnd() * 6, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2419,6 +2457,7 @@ const FOAM_CFG = {
   lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
   nagawall: false,                   // Lost Lagoon v3 naga backdrop — NO collar (a bright foam ring 60+ off-lane is an artifact; the arcade/riftwall precedent)
   causeway: { rx: 0.30, rz: 1.0 },   // Lost Lagoon v3 lane-framing gallery — ELLIPTICAL collar wraps the long thin down-lane footprint (a round ring would float off the ends); the jade tide weld where the drowned deck meets the mirror
+  rampart: false,                    // Lost Lagoon v3 far massif — NO collar (a bright foam ring 30+ off-lane on the fog line is an artifact; the glacierwall/riftwall/arcade precedent — the jade tide-stain slab carries the waterline)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
