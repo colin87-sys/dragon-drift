@@ -2675,35 +2675,35 @@ const ARCHETYPES = {
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine (tide ladder by world Y)
       // STYLOBATE — a long stepped plinth under the colonnade (z-long); the tide ladder drowns its foot. (12)
       S(xform(new THREE.BoxGeometry(0.22, 0.09, 1.02), { x: 0.26, y: 0.045 }));
-      // TABERNAE WALL (2nd register) — a LOWER backdrop set BACK at x0.05 (a wide shadow gap to the colonnade
-      // at x0.28) so the colonnade is the dominant front rhythm and clearly rises ABOVE the wall crown (Stage-1:
-      // a tall wall swallowed the columns). Two z-long boxes at different heights (a collapse dip, decayed +z end).
-      S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.64), { x: 0.05, y: 0.26, z: -0.18 }));            // wall A (12)
-      S(xform(new THREE.BoxGeometry(0.09, 0.22, 0.40), { x: 0.05, y: 0.20, z: 0.32, ry: 0.05 }));   // wall B — collapse dip (12)
+      // TABERNAE WALL (2nd register) — a LOW backdrop only behind the INTACT end (z −0.45..−0.05), set back at
+      // x0.05 with a wide shadow gap; the decayed end is open water with scattered drums (Fable Stage-1: a
+      // full-length wall swallowed the colonnade rhythm → read gate+barrier not street). (12)
+      S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.44), { x: 0.05, y: 0.26, z: -0.25 }));
       // TABERNAE DOORWAYS — recessed panels on the wall front face (x0.10, facing +x → the lane after the
       // side-based rotY; single-sided planes built ry+π/2 per the winding rule). 2 Pompeian-red fresco, 1 dark. (6)
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.28, 0.16), { x: 0.101, z: -0.32, y: 0.19, ry: Math.PI / 2 }) });  // door 1 — red fresco
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.28, 0.16), { x: 0.101, z: -0.02, y: 0.19, ry: Math.PI / 2 }) });  // door 2 — red fresco
-      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.22, 0.14), { x: 0.101, z: 0.26, y: 0.17, ry: Math.PI / 2 }) });   // door 3 — dark (faded)
-      // COLONNADE — the DOMINANT front rhythm: CHUNKY Tuscan columns (Fable: 6:1 chunky, not spindly), 9-position
-      // grid, uneven survival. Tapered 5-sided shafts (pentagon reads round flat-shaded; taper = entasis); the 2
-      // hero columns get a square ABACUS (the #1 "column over fence-post" tell). Broken shafts end OPEN (a snapped
-      // top). Everything leans 2–4° a different way. Column crown (~0.72) rises well above the wall (~0.43).
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.16, 0.18), { x: 0.101, z: -0.38, y: 0.20, ry: Math.PI / 2 }) });  // door 1 — red fresco
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.16, 0.18), { x: 0.101, z: -0.24, y: 0.20, ry: Math.PI / 2 }) });  // door 2 — red fresco
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.16), { x: 0.101, z: -0.10, y: 0.18, ry: Math.PI / 2 }) });  // door 3 — dark (faded)
+      // COLONNADE — carry the comb the FULL LENGTH (Fable: rhythm needs repetition): 2 full hero columns +
+      // architrave at the intact end, then a decay sequence of FULL-GIRTH broken columns → stumps down the
+      // length (a broken column is a FATTER, SHORTER survivor with a jagged open top — not a thin shell).
+      // CHUNKY Tuscan shafts (5-sided pentagon reads round; taper = entasis); heroes get a square ABACUS.
       const col = (z, h, rB, rT, lean, cap) => {
         parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.28, z, y: 0.09 + h / 2, rz: lean }) });   // shaft (10)
         if (cap) parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.115, 0.04, 0.115), { x: 0.28, z, y: 0.09 + h + 0.018, rz: lean }) });   // square abacus (12)
       };
       col(-0.44, 0.63, 0.058, 0.046, 0.03, true);    // full — hero (carries the architrave)
       col(-0.30, 0.63, 0.058, 0.046, -0.02, true);   // full — hero (carries the architrave)
-      col(-0.16, 0.44, 0.056, 0.047, 0.05, false);   // broken tall (~⅔)
-      col(-0.02, 0.32, 0.056, 0.049, -0.06, false);  // broken (~½)
-      // gap at z 0.12 (a fallen drum lies below — the missing column)
-      col(0.26, 0.22, 0.058, 0.051, 0.09, false);    // broken short
-      col(0.42, 0.13, 0.062, 0.055, 0.05, false);    // knee stump
+      col(-0.16, 0.44, 0.060, 0.052, 0.05, false);   // broken tall — FULL GIRTH (~⅔)
+      col(0.00, 0.30, 0.062, 0.056, -0.07, false);   // broken — full girth (~½)
+      col(0.20, 0.17, 0.064, 0.060, 0.10, false);    // knee stump — fat, short
+      col(0.40, 0.12, 0.066, 0.062, -0.05, false);   // knee stump — fat, short
       // ARCHITRAVE FRAGMENT — one beam bridging the 2 hero columns (z −0.44..−0.30), tilted ~4° (a ruin). (12)
       S(xform(new THREE.BoxGeometry(0.09, 0.055, 0.26), { x: 0.28, z: -0.37, y: 0.745, rz: 0.055 }));
-      // FALLEN DRUM — a half-submerged pentagon drum by the empty position (proves the missing column). (10)
-      S(xform(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 5, 1, true), { x: 0.33, z: 0.12, y: 0.06, rx: Math.PI / 2, rz: 0.35 }));
+      // FALLEN DRUMS — 2 genuinely cylindrical drums LYING in the lane-side gap (rx π/2 = on their sides),
+      // half-submerged + rolled apart, by the decayed end (the cheapest "collapsed colonnade" signifier). (20)
+      S(xform(new THREE.CylinderGeometry(0.062, 0.062, 0.15, 5, 1, true), { x: 0.34, z: 0.10, y: 0.05, rx: Math.PI / 2, rz: 0.5 }));   // drum rolled off the line
+      S(xform(new THREE.CylinderGeometry(0.060, 0.060, 0.13, 5, 1, true), { x: 0.30, z: 0.30, y: 0.05, rx: Math.PI / 2 + 0.2, rz: -0.3 }));   // drum half-buried
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.10 });   // low waterline (a near-rail sits AT the water)
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π) so the colonnade WALLS the corridor,
