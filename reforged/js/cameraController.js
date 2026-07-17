@@ -52,6 +52,12 @@ let shopW = 0;
 let wasShowcase = false;
 // Splash attract-screen framing: behind the dragon, looking down the course.
 let splashT = 0;
+// WELCOME+HUB §0.5.c — the one-shot ignite camera PUSH toward the subject, fired on the
+// splash wordmark-resolve. Audit blocker #3: punchKick() is consumed only in the chase branch
+// AFTER the splash `return`, so it no-ops under splash — this is a net-new decaying term folded
+// into the splash branch's own position.set, returning to the LOCKED splash pose.
+let splashPushT = 0;
+const SPLASH_PUSH_DUR = 0.6;
 
 // First-launch cinematic: a one-time fly-in that glides from a dramatic low,
 // wide, far pose into the resting showcase orbit while the FOV narrows.
@@ -111,6 +117,11 @@ export const cameraCtl = {
     punchKickT = PUNCH_KICK_DUR;
   },
 
+  // WELCOME+HUB §0.5.c — fire the one-shot splash ignite camera push (menu-only).
+  splashPush() {
+    splashPushT = SPLASH_PUSH_DUR;
+  },
+
   setInhale(x) {
     inhaleLevel = Math.max(0, Math.min(1, x || 0));
   },
@@ -163,10 +174,17 @@ export const cameraCtl = {
       const sx = Math.sin(splashT * 0.80) * 0.07;        // ~8s lateral micro-sway (sub-pixel)
       const sy = Math.sin(splashT * 0.62 + 1.0) * 0.05;  // ~10s vertical float
       const zb = Math.sin(splashT * 0.50) * 0.10;        // tiny in/out breath
+      // WELCOME+HUB §0.5.c — one-shot ignite PUSH: a sin-enveloped ~0.85u dolly toward the subject
+      // (≈5–6% of the ~14u camera→subject distance), returning to the locked pose as splashPushT→0.
+      let pushZ = 0;
+      if (splashPushT > 0) {
+        splashPushT = Math.max(0, splashPushT - dt);
+        pushZ = Math.sin((1 - splashPushT / SPLASH_PUSH_DUR) * Math.PI) * 0.85;
+      }
       camera.position.set(
         player.position.x + sx,
         player.position.y + 4.0 + sy,
-        player.position.z + 14 + zb
+        player.position.z + 14 + zb - pushZ
       );
       smoothPos.copy(camera.position);
       camera.lookAt(player.position.x + sx * 0.25, player.position.y + 0.6, player.position.z - 30);
