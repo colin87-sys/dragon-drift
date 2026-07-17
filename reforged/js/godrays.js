@@ -17,11 +17,14 @@ import { setWaterReflectionSuspended } from './water.js';
 export const GODRAY_MAX_SAMPLES = 48;
 
 let occRT = null, blackMat = null;
-// SOFT MASK (Fable device R2): the binary occlusion mask gives razor shaft EDGES that the radial march
-// can never soften (the march blurs ALONG a ray, not across occluder silhouettes). Blur the mask once
-// into blurRT (a quarter-res 4-tap tent) before the march samples it → ~10px of penumbra on every shaft
-// boundary → no more countable solid-edged bands. Runs inside the 1/3 mask duty-cycle → ~free on tier 0.
-let blurRT = null, blurMat = null, blurScene = null, blurCam = null;
+// SOFT MASK (Fable device R3): the binary occlusion mask gives razor shaft EDGES the radial march can never
+// soften (the march blurs ALONG a ray, not across occluder silhouettes). A THREE-pass chain runs inside the
+// 1/3 mask duty-cycle (~free on tier 0), ping-ponging between two half-of-mask-res targets:
+//   (0) ERODE — 5-tap MIN dilates the dark occluder and CLOSES sub-texel bright gaps (arch crowns / stack
+//       tips leaking a thin bright line). A blur SPREADS a bright gap; only an erode closes it.
+//   (1) TENT 1.5  → (2) TENT 3.25  — two Kawase iterations → ~16 full-res texels of penumbra so no residual
+//       shaft edge survives as a countable line, judged at the owner's 1-stop-darker exposure.
+let blurRT = null, blur2RT = null, erodeMat = null, tentMat = null, blurScene = null, blurCam = null, blurMesh = null;
 let _renderer = null, _scene = null, _camera = null, _sky = null;
 let _enabled = false;
 // N11 — mask render scale, now per-tier: tier0 keeps 0.5 (half-res, shipped), tier1
@@ -42,20 +45,36 @@ export function initGodRays(renderer, scene, camera, sky) {
     depthBuffer: true, stencilBuffer: false,
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
   });
-  // Blur target (no depth) + a fullscreen 4-tap tent that softens the mask edges.
-  blurRT = new THREE.WebGLRenderTarget(2, 2, {
-    depthBuffer: false, stencilBuffer: false,
-    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
-  });
-  blurMat = new THREE.ShaderMaterial({
-    uniforms: { tSrc: { value: occRT.texture }, uTexel: { value: new THREE.Vector2(1, 1) } },
-    vertexShader: /* glsl */`
-      varying vec2 vUv;
-      void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  // Two ping-pong blur targets (no depth) for the erode→tent→tent chain.
+  const rtOpts = { depthBuffer: false, stencilBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+  blurRT = new THREE.WebGLRenderTarget(2, 2, rtOpts);
+  blur2RT = new THREE.WebGLRenderTarget(2, 2, rtOpts);
+  const _vs = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+  // ERODE — dilate the dark occluder (min of 5 taps) to CLOSE thin bright leak-lines.
+  erodeMat = new THREE.ShaderMaterial({
+    uniforms: { tSrc: { value: null }, uTexel: { value: new THREE.Vector2(1, 1) } },
+    vertexShader: _vs,
     fragmentShader: /* glsl */`
       uniform sampler2D tSrc; uniform vec2 uTexel; varying vec2 vUv;
       void main() {
-        vec2 o = uTexel * 1.25;              // diagonal tent; bilinear widens it for free
+        vec2 o = uTexel;
+        float m = texture2D(tSrc, vUv).r;
+        m = min(m, texture2D(tSrc, vUv + vec2( o.x,  o.y)).r);
+        m = min(m, texture2D(tSrc, vUv + vec2(-o.x,  o.y)).r);
+        m = min(m, texture2D(tSrc, vUv + vec2( o.x, -o.y)).r);
+        m = min(m, texture2D(tSrc, vUv + vec2(-o.x, -o.y)).r);
+        gl_FragColor = vec4(vec3(m), 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
+  // TENT — 4-tap diagonal average with a per-pass offset (bilinear widens each tap for free).
+  tentMat = new THREE.ShaderMaterial({
+    uniforms: { tSrc: { value: null }, uTexel: { value: new THREE.Vector2(1, 1) }, uOff: { value: 1.5 } },
+    vertexShader: _vs,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tSrc; uniform vec2 uTexel; uniform float uOff; varying vec2 vUv;
+      void main() {
+        vec2 o = uTexel * uOff;
         float m = texture2D(tSrc, vUv + vec2( o.x,  o.y)).r
                 + texture2D(tSrc, vUv + vec2(-o.x,  o.y)).r
                 + texture2D(tSrc, vUv + vec2( o.x, -o.y)).r
@@ -65,24 +84,27 @@ export function initGodRays(renderer, scene, camera, sky) {
     depthTest: false, depthWrite: false,
   });
   blurScene = new THREE.Scene();
-  blurScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blurMat));
+  blurMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), erodeMat);
+  blurScene.add(blurMesh);
   blurCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   resizeGodRays();
 }
 
 export function setGodRaysReady(on) { _enabled = on && !!occRT; }
-export function godRayTexture() { return blurRT ? blurRT.texture : null; }   // the march samples the SOFTENED mask
+export function godRayTexture() { return blur2RT ? blur2RT.texture : null; }   // the march samples the fully-softened mask (final chain output)
 
 export function resizeGodRays() {
   if (!occRT) return;
   occRT.setSize(Math.max(96, Math.floor(window.innerWidth * _maskScale)),
                 Math.max(96, Math.floor(window.innerHeight * _maskScale)));
-  // Blur at HALF the mask scale (tier0: 0.5 mask → 0.25 blur); the 96px floor carries over.
+  // Blur chain at HALF the mask scale (tier0: 0.5 mask → 0.25 blur); the 96px floor carries over.
   if (blurRT) {
     const bw = Math.max(96, Math.floor(window.innerWidth * _maskScale * 0.5));
     const bh = Math.max(96, Math.floor(window.innerHeight * _maskScale * 0.5));
     blurRT.setSize(bw, bh);
-    blurMat.uniforms.uTexel.value.set(1 / bw, 1 / bh);
+    blur2RT.setSize(bw, bh);
+    erodeMat.uniforms.uTexel.value.set(1 / bw, 1 / bh);
+    tentMat.uniforms.uTexel.value.set(1 / bw, 1 / bh);
   }
 }
 
@@ -117,9 +139,15 @@ export function renderGodRayMask() {
   setWaterReflectionSuspended(true); // sea draws black; skip its mirror render
   r.setRenderTarget(occRT);
   r.render(_scene, _camera);
-  // Soften the mask (blur occRT → blurRT) in the SAME duty-cycle branch → the march samples soft edges.
-  r.setRenderTarget(blurRT);
-  r.render(blurScene, blurCam);
+  // SOFTEN the mask in-branch: erode (close leaks) → tent 1.5 → tent 3.25, ping-ponging blurRT/blur2RT.
+  erodeMat.uniforms.tSrc.value = occRT.texture;   // (0) erode occRT → blur2RT
+  blurMesh.material = erodeMat;
+  r.setRenderTarget(blur2RT); r.render(blurScene, blurCam);
+  blurMesh.material = tentMat;
+  tentMat.uniforms.tSrc.value = blur2RT.texture; tentMat.uniforms.uOff.value = 1.5;   // (1) tent blur2RT → blurRT
+  r.setRenderTarget(blurRT); r.render(blurScene, blurCam);
+  tentMat.uniforms.tSrc.value = blurRT.texture; tentMat.uniforms.uOff.value = 3.25;   // (2) tent blurRT → blur2RT (final)
+  r.setRenderTarget(blur2RT); r.render(blurScene, blurCam);
   // restore everything the main render relies on
   setWaterReflectionSuspended(false);
   r.setRenderTarget(pTarget);
@@ -132,7 +160,9 @@ export function renderGodRayMask() {
 export function disposeGodRays() {
   if (occRT) { occRT.dispose(); occRT = null; }
   if (blurRT) { blurRT.dispose(); blurRT = null; }
-  if (blurMat) { blurMat.dispose(); blurMat = null; }
+  if (blur2RT) { blur2RT.dispose(); blur2RT = null; }
+  if (erodeMat) { erodeMat.dispose(); erodeMat = null; }
+  if (tentMat) { tentMat.dispose(); tentMat = null; }
   if (blackMat) { blackMat.dispose(); blackMat = null; }
   _enabled = false;
 }
@@ -148,9 +178,9 @@ export const GodRaysShader = {
     uIntensity: { value: 0.0 },
     uTint: { value: new THREE.Vector3(1.0, 0.9, 0.72) },
     uSamples: { value: 40.0 },
-    uDensity: { value: 0.62 },   // PREMIUM (Fable): march reaches ~60% of the way, not the full frame (was 0.85 = edge-to-edge sunburst)
-    uDecay: { value: 0.94 },     // shafts FADE by march-end (end-illum ~0.08) instead of persisting (was 0.96)
-    uWeight: { value: 1.05 },
+    uDensity: { value: 0.55 },   // Fable R3: shorten the march further — less straight-line travel = less "ray" readability
+    uDecay: { value: 0.90 },     // faster decay → shafts die sooner, shortening the readable streak
+    uWeight: { value: 0.80 },    // lower peak (was 1.05) — the "solid" read is peak luminance
     uTime: { value: 0.0 },       // slow drift for the crepuscular bundles (visual only)
     uBreak: { value: 0.35 },     // per-biome sunburst-break strength (0 = clean radial; higher = broken into bundles)
   },
@@ -182,19 +212,14 @@ export const GodRaysShader = {
         illum *= uDecay;
       }
       shaft *= uWeight / uSamples;
-      shaft = shaft / (1.0 + 1.5 * shaft);   // soft knee — no shaft can blow to a neon band (all biomes)
-      // Break the clean radial SUNBURST into drifting crepuscular BUNDLES, and CONFINE the light near the
-      // source (real storm-light dies mid-frame, it doesn't span edge-to-edge). Two incommensurate sines on
-      // the angle around the sun, drifting glacially (never strobes); confinement fades before the frame edge.
+      shaft = shaft / (1.0 + 2.4 * shaft);   // Fable R3: HARDER knee (was 1.5) — crushes peak luminance, the "solid" read
+      // A single SLOW radial drift, not discrete lobes (Fable R3 device call): on a dark screen countability
+      // comes from the GAPS between lobes, so a near-flat floor with one low-freq sine cannot be counted. The
+      // radial shear (phase drifts with distance) keeps what little modulation remains curved, not spoked.
       float ang  = atan(dvec.y, dvec.x);
       float dist = length(dvec);
-      // RADIAL SHEAR (Fable device R2): drift the bundle phase with distance from the source so lobe edges
-      // CURVE instead of raying out as straight countable spokes — that geometric straightness is what read
-      // "vector-graphic." Non-integer freqs (5.3/12.7) kill the even 4–5 beat; the higher floor (0.70, amp
-      // 0.30) keeps gaps to ~0.67× (modulation, never on/off wedges) so no band is individually traceable.
       float ph = dist * 2.6;
-      float bundles = 0.70 + 0.30 * sin(ang * 5.3 + ph + uTime * 0.11)
-                           * sin(ang * 12.7 - ph * 0.6 - uTime * 0.05);
+      float bundles = 0.86 + 0.14 * sin(ang * 5.3 + ph + uTime * 0.11);   // floor 0.86, amp 0.14 → gaps barely modulate; dropped the high-freq (12.7) term that made discrete stripes
       shaft *= mix(1.0, bundles, uBreak);
       shaft *= smoothstep(1.05, 0.18, dist);
       // Fade near the frame edges so the radial march can't smear a hard seam.
