@@ -309,10 +309,18 @@ export function initObstacles(s) {
   // a warm travertine; the gilt is the withheld gold of the soffit/arch ring; the toll is the role-locked
   // danger magenta (0xff2b6a) that telegraphs the descending hazard on the keystone.
   forumGateMats = {
-    stone: new THREE.MeshStandardMaterial({ color: 0xc9ba93, roughness: 0.74, metalness: 0.03, flatShading: true, emissive: 0x28221a, emissiveIntensity: 0.28 }),
-    gilt: new THREE.MeshStandardMaterial({ color: 0xffd28a, roughness: 0.42, metalness: 0.12, emissive: 0xffb040, emissiveIntensity: 0.9 }),
-    toll: new THREE.MeshStandardMaterial({ color: 0xff2b6a, roughness: 0.5, emissive: 0xff2b6a, emissiveIntensity: 1.5 }),
+    // A warm travertine that stays READABLE backlit (the gate faces the low dusk sun): a strong warm
+    // emissive floor so a flat masonry slab never crushes to black (the hero's backlight lesson).
+    stone: new THREE.MeshStandardMaterial({ color: 0xd8caa0, roughness: 0.74, metalness: 0.03, flatShading: true, emissive: 0xbaa878, emissiveIntensity: 0.5 }),
+    gilt: new THREE.MeshStandardMaterial({ color: 0xffd8a0, roughness: 0.42, metalness: 0.12, emissive: 0xffb84a, emissiveIntensity: 1.3 }),
+    toll: new THREE.MeshStandardMaterial({ color: 0xff2b6a, roughness: 0.5, emissive: 0xff2b6a, emissiveIntensity: 1.8 }),
   };
+  // Warm-gold aperture frame for the forum gate (the safe-route lip) — the gilt grammar, not Sanctuary cyan.
+  forumGateMats.frame = makeMarkerSurface({
+    rootColor: 0x5a4620, midColor: 0xffb84a, apexColor: 0xffe6b0,
+    flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.8, side: THREE.DoubleSide,
+    glint: 0.35, glintSharp: 44, lipGlow: 0.6,
+  });
 }
 
 // PR-4 Phase Gate aperture FRAME (Skyforged): a closed rounded-rectangle faceted sweep replacing
@@ -514,7 +522,7 @@ function buildGate(o) {
   // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
   // replacing the four flat bars. Fallback (?skyforged=0): the exact shipped bars.
   if (SKYFORGED) {
-    group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
+    group.add(new THREE.Mesh(buildGateFrame(o), forum ? forumGateMats.frame : gateFrameMats[bi]));
   } else {
     bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
     bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
@@ -554,7 +562,7 @@ function buildGate(o) {
   // Layer 4 — core-glow locator: a faint additive fill of the OPENING so the
   // safe route is easy to find from any altitude. Per-instance (approach-lit).
   const coreMat = new THREE.MeshBasicMaterial({
-    color: skin.core, transparent: true, opacity: 0, depthWrite: false,
+    color: forum ? 0xffe6b0 : skin.core, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   coreMat.userData.perInstance = true;
@@ -567,7 +575,7 @@ function buildGate(o) {
   // Layer 4 — long-range beacon: a tall biome-tinted light pillar above the
   // gap, visible through fog/bloom from far away (telegraphs the route early).
   const beaconMat = new THREE.MeshBasicMaterial({
-    color: skin.edge, transparent: true, opacity: 0, depthWrite: false,
+    color: forum ? 0xffc46a : skin.edge, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   beaconMat.userData.perInstance = true;
@@ -580,7 +588,7 @@ function buildGate(o) {
   // Layer 4 — sparse drifting motes for life (tertiary; one shared material per
   // gate, animated in updateObstacles). Tiny additive quads, kept low-density.
   const moteMat = new THREE.MeshBasicMaterial({
-    color: skin.mote, transparent: true, opacity: 0, depthWrite: false,
+    color: forum ? 0xffdca0 : skin.mote, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   moteMat.userData.perInstance = true;
