@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul, godrayTint, godrayBreak } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, setEmpyreanQuality, godrayMul, godrayTint, godrayBreak } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { setVitals, setSurge } from './dragonBond.js';
 import { resolveDetail } from './modelDetail.js';
@@ -1490,6 +1490,7 @@ function applyQuality(tier) {
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
   setAuroraQuality(tier); // Aurora Shallows: tier0 2 layers+rays / tier1 1 layer / tier2 smooth quiet arc
+  setEmpyreanQuality(tier); // THE EMPYREAN: tier2 drops the nebula's 2nd-order domain warp (keeps 4 octaves)
   setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 

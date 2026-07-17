@@ -99,6 +99,20 @@ export function skyColorAt(d, env, sunDir, out) {
     const bwin = Math.pow(s, 8.0) * bm;   // s = clamped alignment to sunDir (computed above)
     out.x += 0.30 * bwin; out.y += 0.28 * bwin; out.z += 0.24 * bwin;   // warm-white ambient lift
   }
+  // THE EMPYREAN mirror — the FOURTH touch (the ported-drift trap that bit deckBias + breachMix). The
+  // inverted RAMP flows through automatically (env.skyTop/Mid/Horizon are data), but the two nebula blooms
+  // are fragment-shader-only steady-state radiance — so the SH ambient must be told about them or the
+  // sky-IBL fill won't answer the ~35° rose bloom. Kept deliberately SIMPLE (the shaped filaments are a
+  // fragment-only cosmetic; the probe only needs the NET pale lift): a faint uniform pearl fill + a
+  // directional lift toward the rose bloom flank. 0 when env.empyMix is absent/0 → byte-identical (guards
+  // tests/skyprobe.mjs, which never sets empyMix).
+  const em = env.empyMix || 0;
+  if (em > 0) {
+    // rose bloom centre = normalize(0.30, 0.22, -1.0) (mirror of empyreanSky.js EMPY_BODY).
+    const rd = Math.max(d.x * 0.281 + d.y * 0.206 + d.z * -0.937, 0);
+    const lift = em * (0.030 + 0.050 * rd * rd);
+    out.x += lift * 0.98; out.y += lift * 0.86; out.z += lift * 0.92;   // pale rose radiance
+  }
 }
 
 // Project the sky radiance into the 9 SH coefficients of `outSH` (raw radiance —

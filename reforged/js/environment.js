@@ -14,6 +14,7 @@ import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, chainBeforeCompile } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
 import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './auroraSky.js';
+import { EMPY_HEAD, EMPY_BODY, empyUniforms, applyEmpyrean, setEmpyreanQuality } from './empyreanSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -23,6 +24,8 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 // Aurora Shallows: the sky-splice controls ride through environment too.
 export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite };
+// THE EMPYREAN: the nebula-substrate tier control rides through environment too (tier 2 drops the 2nd-order warp).
+export { setEmpyreanQuality };
 // Per-biome god-ray fan scale (seam-lerped in computeEnv; 1 = shipped/byte-identical).
 // A night biome meters the shared sun-shaft fan down (Lumen Mire). Read by main.js.
 let _godrayMul = 1;
@@ -193,7 +196,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x0d1410, emissive: 0x0a1508, emissiveIntensity: 0.1 }),   // 4 LUMEN MIRE dead/wet matter — near-black warm-neutral bark/root/mud; "matter drinks" (light-absorbing); the low emissive is only a crush floor, never a light source
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xc2bcd6, emissive: 0xbfb2d8, emissiveIntensity: 0.14 }),   // 5 THE EMPYREAN empyStone — pale bone-nacre matte (PR-1 interim retint of the legacy astral-slate props). The low PALE emissive is a crush FLOOR so undersides stay luminous under the shadowless rig (no dark bellies), never a light source. The final edge-lit sentinel kit lands PR-4/5.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4b545c, roughness: 0.34, metalness: 0.06, emissive: 0x1a2228, emissiveIntensity: 0.18 }), // 7 tempest storm slate — wet dark rock (PR-1 replaces with the wind-scour vertex-colour ladder mats)
     ],
@@ -203,7 +206,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xd8f6ff, roughness: 0.22, emissive: 0x3fc8e8, emissiveIntensity: 0.85 }),   // Sunset Glacier: the CYAN CORE — the light inside the ice (Candle slivers + Sail panes only; warm is NEVER emissive)
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6 }), // 4 LUMEN MIRE living amber glow — firefly-gold gills/motes/lanterns; "life glows" (the ONLY emitter); off-teal by construction (~562nm warm, never 490–510nm). Fable v33: emissive ×~1.8 so existing glow pulls weight until PR-3
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xe8c4d8, roughness: 0.4, emissive: 0xf2b8d8, emissiveIntensity: 0.35 }),  // 5 THE EMPYREAN empyRim — rose edge-light (PR-1 interim: the old saturated-blue "starlit crystal" glow was a cool SOURCE, forbidden). Pale rose, low emissive — an accent tint on the interim props until the PR-4/5 rim kit.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
       new THREE.MeshStandardMaterial({ ...opts, color: 0xcaa25a, roughness: 0.4, metalness: 0.05, emissive: 0xffd870, emissiveIntensity: 1.5 }), // 7 tempest STOLEN GOLD — THE one burning hue in a monochrome storm (Fable: ink-dark rock + warm pale slot + rare burning gold = Tsushima storm grammar). @0.85 was invisible against grey; @1.5 makes the socket the biome's single warm accent
     ],
@@ -3266,6 +3269,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uShaft: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
+      ...empyUniforms, // THE EMPYREAN: uEmpyMix 0 = shipped (biome gate; the nebula blooms + sky-disc sun kill)
     },
     vertexShader: `
       varying vec3 vDir;
@@ -3283,6 +3287,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
+      ${EMPY_HEAD}
       // Rain-veil 1D value noise (layer F) — pure ALU, no texture.
       float _rvHash(float n) { return fract(sin(n) * 43758.5453); }
       float _rvN(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(_rvHash(i), _rvHash(i + 1.0), f); }
@@ -3307,6 +3312,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
         col = mix(col, fogFarColor, fogFarMix * (1.0 - smoothstep(0.0, 0.15, h)));
+        ${EMPY_BODY}
         // Aurora PREVIEW night wash (?aurora=1 only): sink the day sky to a near-black indigo BEFORE the
         // curtain adds on top, so the forced preview reads like the shipping NIGHT biome (an aurora over a
         // sunlit sky is a physics lie). uAurNight is 0 in all real gameplay → byte-identical.
@@ -3403,8 +3409,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // (× (1 - uAurNight): the aurora preview kills the sun — a night sky has none. And under a real
         // aurora biome (uAuroraMix up), dim the moon disc + kill most of its broad halo so it doesn't grey
         // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
-        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
-                        + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
+        // THE EMPYREAN sun #1 kill (§3): a sourceless sky has NO disc. uEmpyMix multiplies BOTH the tight
+        // pow-900 disc AND the broad pow-10 glow to zero (the aurora-precedent factors, taken to a FULL kill
+        // — even sky.sun = sky colour leaves a +70% additive hotspot at the azimuth). 0 elsewhere → byte-identical.
+        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix) * (1.0 - uEmpyMix)
+                        + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix) * (1.0 - uEmpyMix)) * (1.0 - uAurNight);
         // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7, uShaft 0 = off → byte-identical): ONE sourceless warm
         // glow-column rising off the ember horizon, OFF-CENTER of the corridor axis. Theology: the Mire has
         // no sun — the brightest point is the ROOT at the waterline, decaying monotonically upward. Never a
@@ -3434,7 +3443,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);
         float sh = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-        float star = smoothstep(0.9965, 1.0, sh)
+        // THE EMPYREAN R7 (§4a): a BRIGHT sky shows only mag ≤1–2 — dozens, not thousands. uEmpyMix raises
+        // the density threshold so only ~20–60 sparse stars survive (a night-density starfield pasted on a
+        // bright gradient is the single fastest way this biome would read as AI slop). 0 → shipped threshold.
+        float _starThr = mix(0.9965, 0.99935, uEmpyMix);
+        float star = smoothstep(_starThr, 1.0, sh)
                    * (0.6 + 0.4 * sin(time * 2.0 + sh * 90.0))
                    * smoothstep(0.04, 0.3, h);
         // Aurora Shallows: the curtain is nearer than the stars — dim them where it burns
@@ -3442,7 +3455,15 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         star *= 1.0 - 0.55 * clamp(aurLum, 0.0, 1.0);
         // starMix in real night biomes; the aurora preview also lights the stars (max) so its night sky
         // isn't an empty void behind the curtain.
-        col += vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);
+        vec3 _starNight = vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);
+        // THE EMPYREAN R7: "sparkle suspended in light." The add is RELATIVE to the local sky value
+        // (brightest stars only +15–30% over it) and × (1 − local sky luma), so stars fade to nothing in
+        // the brightest field (the dissolve, the bloom cores) and survive where it is locally dimmest. col
+        // here already carries the gradient + blooms, so its luma IS the local sky. A hard white dot at full
+        // contrast on a pale sky reads as a dead pixel — this relative treatment is the authenticity cue.
+        float _sLuma = dot(col, vec3(0.299, 0.587, 0.114));
+        vec3 _starEmpy = vec3(0.96, 0.965, 1.0) * (_sLuma * 0.95 * star * clamp(1.0 - _sLuma, 0.0, 1.0)) * starMix;
+        col += mix(_starNight, _starEmpy, uEmpyMix);
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
         col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12 * (1.0 - uAuroraMix);
@@ -4302,6 +4323,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   heroRimCol.copy(env.heroRimColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
+  applyEmpyrean(env); // THE EMPYREAN: drive the nebula/sun-kill gate (empyMix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
   // as a cloud drifts across it (rather than strobe). main.js reads getCloudSunCover().
   cloudSunCover = damp(cloudSunCover, sunCloudCover(env, su.sunDir.value, playerDist, time), 3, dt);
