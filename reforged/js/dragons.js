@@ -326,11 +326,11 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.66, snoutScale: 0.9, eyeScale: 0.72, eyeShape: 0.78,   // bigger, present jade koi head (Fable gate: the tiny white capsule was the worst offender)
-        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.1, hornCount: 2,
+      { headScale: 0.66, snoutScale: 0.66, eyeScale: 0.72, eyeShape: 0.78,   // bigger jade koi head, SHORTER muzzle (Fable gate r2: was reading crocodile/duck)
+        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.2, hornCount: 2,
         bodyGirth: 0.46, bodyLength: 3.2,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
+        lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 0,   // pearlStage 0: drop the chin pearl entirely — it read as a floating blob under the jaw and isn't a reference feature (Fable gate r2)
         bodyFins: 1.0, bodyFinCount: 6, caudalFork: 1.0, bodyReach: 14,    // full ROW of broad koi web-fans down a LONG serpent + the grand leaf-fork tail (IMG_7739)
         rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
