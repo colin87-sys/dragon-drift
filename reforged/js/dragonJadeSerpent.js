@@ -107,13 +107,14 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       if (sn >= 0.05) tmp.copy(colBody);
       else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
       else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
-      // DORSAL CREST RIBBON (a≈π/2) as a crisp 3-BAND spine (reference identity, ~40% of the read):
-      // a HARD bright pale-mint stripe bounded by dark-emerald flanks (not a soft gradient), nose→tail.
+      // DORSAL CREST RIBBON (a≈π/2) as a HARD 3-BAND spine (reference identity, ~40% of the read):
+      // a bright pale-seafoam stripe (top column) bounded IMMEDIATELY by dark-emerald flank columns,
+      // nose→tail — a crisp graphic band, not a soft luminance gradient.
       const dA = Math.abs(a - Math.PI / 2);
       if (rb > 0 && sn > 0.1) {
         const taper = f.t < 0.9 ? 1 : Math.max(0.4, 1 - (f.t - 0.9) * 4);
-        if (dA < 0.24) tmp.copy(colBody).lerp(colCrest, rb * taper);          // bright pale-mint spine stripe
-        else if (dA < 0.5) tmp.copy(colBody).lerp(colShadow, 0.45 * rb);      // dark-emerald flanks framing it
+        if (dA < 0.35) tmp.copy(colBody).lerp(colCrest, rb * taper);          // HARD bright pale-mint spine stripe (the top column)
+        else tmp.copy(colBody).lerp(colShadow, 0.55 * rb);                    // dark-emerald flank columns framing it
       }
       colors.push(tmp.r, tmp.g, tmp.b);
     }
