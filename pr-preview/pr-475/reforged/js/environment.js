@@ -577,6 +577,22 @@ function bakeSolid(geo, rgb) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// PR-8 (Fable rampart in-context): the REVEAL bake — a doorway/bay with a VERTICAL VALUE GRADIENT so it isn't
+// flat-#000 "tape" (the #1 cheap-tell): a dim warm-lit sill/floor at the base (the golden-hour bounce) fading
+// UP to the near-black roof-shadow interior → each opening carries its own core→bloom→dark instead of a
+// uniform decal. Keyed by object Y (0.10→0.62, the bay band); ry rotation is about Y so it survives.
+const _REVEAL_SILL = [0.315, 0.232, 0.156]; // dim warm bounce at the doorway sill
+function bakeReveal(geo) {
+  const pos = geo.attributes.position, n = pos.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const t = Math.max(0, Math.min(1, (pos.getY(i) - 0.12) / 0.44));   // 0 at the sill → 1 at the lintel
+    col[i * 3] = _REVEAL_SILL[0] + (_VOID[0] - _REVEAL_SILL[0]) * t;
+    col[i * 3 + 1] = _REVEAL_SILL[1] + (_VOID[1] - _REVEAL_SILL[1]) * t;
+    col[i * 3 + 2] = _REVEAL_SILL[2] + (_VOID[2] - _REVEAL_SILL[2]) * t;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 function bakeBloom(geo, upThresh = 0.2) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -603,7 +619,7 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
@@ -611,6 +627,7 @@ function mergeLagoonParts(parts, opts = {}) {
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
     else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
     else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
+    else if (p.bake === 'reveal') revealB.push(g);                       // tagged → doorway with a vertical lit-sill→dark gradient (kills flat-tape, PR-8)
     else if (p.bake === 'temple') temple.push(g);                        // tagged → temple sandstone ladder (PR-0)
     else if (p.bake === 'bloom') bloom.push(g);                          // tagged → lotus blush bloom (PR-0)
     else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
@@ -624,6 +641,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (wood.length) { const g = wood.length > 1 ? mergeGeometries(wood) : wood[0]; bakeWood(g); stone.push(g); }
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
+  if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {
@@ -2382,8 +2400,8 @@ const ARCHETYPES = {
       // the shadowed gallery rhythm + the DARK VALUES the flat amber body lacked (Fable Stage-2 kill-shot — a
       // featureless tan plane occupying the lower frame violates core→bloom→dark and reads as a plain slab at
       // cruise). bake:'wood' → the near-black shadow value. The side-based rotY (below) faces these to the lane.
-      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: -0.42, y: 0.28 }) }); // bay doorway — near-black void (12)
-      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: 0.40, y: 0.28 }) });  // bay doorway — near-black void (12)
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: -0.42, y: 0.28 }) }); // bay doorway — near-black void (12)
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: 0.40, y: 0.28 }) });  // bay doorway — near-black void (12)
       // JUNGLE SWALLOW — one MOSS clump of ROUNDED deformed blobs (icosahedra, non-uniform-scaled → a squashed
       // irregular lump, NOT flat facet-plates: Fable r1 — octahedra read as green diamond kites), SAGGING over
       // the lane-edge lip to break the crown line. bake:'lily' (3-stop green, lit top / shadow under).
@@ -2432,12 +2450,12 @@ const ARCHETYPES = {
       // repeating gallery METER + true DARK values (Fable r4: 3 different-size mid-brown chips were punctuation,
       // not rhythm, and read as paint not shadow — go near-black bake:'void', uniform size, more of them, at a
       // regular beat). Placed on the section faces (not the gaps). value ≈ 0.12 = a doorway into shadow.
-      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.78, y: 0.36, ry: Math.PI / 2 }) }, // bay 1 (A) (2)
-      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.50, y: 0.36, ry: Math.PI / 2 }) }, // bay 2 (A) (2)
-      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.16, y: 0.36, ry: Math.PI / 2 }) }, // bay 3 (B) (2)
-      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.22, y: 0.36, ry: Math.PI / 2 }) },  // bay 4 (C) (2)
-      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.48, y: 0.36, ry: Math.PI / 2 }) },  // bay 5 (C) (2)
-      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.42), { x: 0.175, z: 0.80, y: 0.31, ry: Math.PI / 2 }) },  // bay 6 (D, shorter) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.78, y: 0.36, ry: Math.PI / 2 }) }, // bay 1 (A) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.50, y: 0.36, ry: Math.PI / 2 }) }, // bay 2 (A) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.16, y: 0.36, ry: Math.PI / 2 }) }, // bay 3 (B) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.22, y: 0.36, ry: Math.PI / 2 }) },  // bay 4 (C) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.48, y: 0.36, ry: Math.PI / 2 }) },  // bay 5 (C) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.42), { x: 0.175, z: 0.80, y: 0.31, ry: Math.PI / 2 }) },  // bay 6 (D, shorter) (2)
       // FLUSH drowned base — a thin footprint-matched plinth (NOT a wider tapered under-plate: the hull tell);
       // the darker plinth band at the waterline anchors the value structure.
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.40, 0.10, 1.80), { y: -0.05 }) },                     // laterite drowned foot, flush, y −0.10→0.00 (12)
