@@ -1188,13 +1188,12 @@ export const ui = {
     this._bellEnd();
   },
 
-  ringPopup(points, perfect, streak = 0) {
-    // DECLUTTER — every routine scoring earn rings the ONE 'earn' lane so they COALESCE into a
-    // single running "+N ×M" line instead of a cycle of different pop-ups. Perfect rings ride the
-    // same lane (the separate center pop is retired), so there is exactly one earn readout.
-    const txt = perfect ? (streak > 1 ? `+${points} PERFECT ×${streak}` : `+${points} PERFECT`) : `+${points}`;
-    this.bell(txt, 'gold', { key: 'earn' });
-  },
+  // DECLUTTER (Fable-gated) — routine scoring earns NO LONGER ring the toast lane. Per-action
+  // feedback is carried by the SCORE counter (climbs) + the COMBO multiplier (escalates) + the
+  // gold ring-flash; the lane is reserved for genuine MOMENTS (the chain-end tally, records,
+  // feats, Surge, biome, milestones). This kills the "different pop-ups cycling" clutter at the
+  // source rather than merging it into one (dishonest) line. Ring feedback = score + flash only.
+  ringPopup(points, perfect, streak = 0) {},
 
   // Flow-run carve chain: a low-noise multiplier line at milestones (the
   // SLIPSTREAM speed is the main feedback; this just names the multiplier).
@@ -1278,39 +1277,22 @@ export const ui = {
 
   // Surge phase-through. Perfect climbs with the streak; assisted = the
   // one-time teaching coach line (rings as a hint).
+  // Per-action skill earns are carried by the score counter + combo multiplier (see ringPopup) —
+  // they no longer each ring the lane. The ONE exception kept: the assisted phase COACH line, a
+  // rare sticky onboarding hint (not a score toast).
   phasePopup(points, perfect, streak = 0, assisted = false) {
-    if (assisted) { this.bell('Like that! — roll to phase', 'hint', { key: 'hint' }); return; }
-    if (perfect) {
-      this.bell(streak > 1 ? `PERFECT PHASE ×${streak} +${points}` : `PERFECT PHASE +${points}`, 'gold', { key: 'earn' });
-    } else {
-      this.bell(`PHASE +${points}`, 'gold', { key: 'earn' });
-    }
+    if (assisted) this.bell('Like that! — roll to phase', 'hint', { key: 'hint' });
   },
 
-  nearMissPopup(points) {
-    this.bell(`NEAR MISS +${points}`, 'cyan', { key: 'earn' });
-  },
+  nearMissPopup(points) {},
 
-  rollPopup(points) {
-    this.bell(`BARREL ROLL +${points}`, 'gold', { key: 'earn' });
-  },
+  rollPopup(points) {},
 
-  // Reflect/parry callout. A perfect parry keeps the climbing streak read;
-  // a normal parry is a quieter cyan line.
-  parryPopup(points, perfect, streak) {
-    if (perfect) this.bell(`PERFECT PARRY ×${streak} +${points}`, 'gold', { key: 'earn' });
-    else this.bell(`PARRY +${points}`, 'cyan', { key: 'earn' });
-  },
+  parryPopup(points, perfect, streak) {},
 
-  gatePopup(points) {
-    this.bell(`THREADED +${points}`, 'cyan', { key: 'earn' });
-  },
+  gatePopup(points) {},
 
-  // §5i.B THREAD-THE-GAP: threading a boss WALL's safe gap — same word/colour as the course
-  // gate (it's the same skill), streak-aware like parryPopup. Boss.js owns the scoring.
-  threadPopup(points, streak) {
-    this.bell(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan', { key: 'earn' });
-  },
+  threadPopup(points, streak) {},
 
   milestonePopup(metres) {
     this.bell(`${metres.toLocaleString()} m`, 'gold', { key: 'milestone' });

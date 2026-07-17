@@ -1209,7 +1209,9 @@ body.biome-bright #hud .bell {
 body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px))); }
 .bell-slug { position: relative; max-width: min(420px, 84vw);
   padding: 6px 14px 7px; border-radius: var(--r-s);
-  background: rgba(12,8,6,0.28);
+  /* DECLUTTER (Fable) — plate was 0.28 alpha, near-invisible over the bright horizon band the
+     lane sits on; a warm-ink lozenge that actually reads (still transform/opacity-only). */
+  background: rgba(12,8,6,0.62);
   font-family: 'Rajdhani', sans-serif; font-size: var(--fs-label); font-weight: 600;
   letter-spacing: var(--track-caps); text-transform: uppercase; text-align: center;
   color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7);
