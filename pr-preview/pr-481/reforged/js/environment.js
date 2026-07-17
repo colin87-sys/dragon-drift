@@ -111,6 +111,14 @@ const PROP_NOISE_HEAD = /* glsl */`
 const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
 const propAerialColor   = { value: new THREE.Color(0x000000) };
 
+// Fable 79 HERO BACKLIT-RIM lever — a per-biome optional channel (0 everywhere but the Mire) that
+// dragon.js reads each frame to backlight the drake's silhouette in the biome's horizon colour. Not a
+// shader uniform (the rim GLSL is untouched); a plain JS signal on the same optional-channel pattern.
+let heroRimK = 0;
+const heroRimCol = new THREE.Color();
+const _heroRim = { k: 0, color: heroRimCol };
+export function getHeroRim() { _heroRim.k = heroRimK; return _heroRim; }
+
 function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
@@ -2820,6 +2828,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
   propAerialUniform.value = env.propAerial ?? 0;
   propAerialColor.value.copy(env.propAerialColor);
+  // Fable 79 hero backlit-rim lever: mirror the lerped env for dragon.js to consume via getHeroRim()
+  // (0 everywhere but the Mire → the rim boost is a byte-identical no-op elsewhere).
+  heroRimK = env.heroRim ?? 0;
+  heroRimCol.copy(env.heroRimColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down

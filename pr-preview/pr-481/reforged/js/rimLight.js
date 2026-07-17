@@ -22,13 +22,14 @@ const RIM_INJECT = /* glsl */`
 
 // Attach a rim to one MeshStandardMaterial. Returns the uniform set (also
 // pushed to the registry) in case a caller wants per-material control.
-export function applyRim(material, { color = 0xfff0d8, power = 3.0, strength = 0.0, mul = 1 } = {}) {
+export function applyRim(material, { color = 0xfff0d8, power = 3.0, strength = 0.0, mul = 1, wing = false } = {}) {
   if (!material || material.userData.__rim) return material.userData.__rim;
   const u = {
     uRimColor: { value: new THREE.Color(color) },
     uRimPower: { value: power },
     uRimStrength: { value: strength },
     mul,                                  // per-material scale (e.g. matte hides dim their rim)
+    wing,                                 // flat faceted wing panels take a per-biome backlit BOOST damped (Fable 79 cheap-tell #4: rim is per-surface, no facet-wide chrome)
   };
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uRimColor = u.uRimColor;
@@ -52,10 +53,14 @@ export function applyRim(material, { color = 0xfff0d8, power = 3.0, strength = 0
 
 // Drive every rim at once: edge color (follows the biome sky) + strength
 // (pulses up in Surge, scaled down on low quality tiers). Called per frame.
-export function updateRim(color, strength) {
+// `boost` is the per-biome backlit-rim lever (Fable 79): 0 everywhere but the Mire,
+// wings take it at ×0.35 (kept a per-surface edge, not a facet-wide chrome plate),
+// THEN the whole sum ×mul so a skin's own tame/kill still rules. boost=0 reduces to
+// the shipped `strength * mul` exactly → byte-identical rim in every other biome.
+export function updateRim(color, strength, boost = 0) {
   for (const u of registry) {
     if (color) u.uRimColor.value.copy(color);
-    u.uRimStrength.value = strength * (u.mul ?? 1);
+    u.uRimStrength.value = (strength + boost * (u.wing ? 0.35 : 1)) * (u.mul ?? 1);
   }
 }
 
