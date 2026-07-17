@@ -187,6 +187,19 @@ export const CONFIG = {
   canyonSpineSwayAmp: 2.6,    // lateral SWEEP of the rib tube between rings (0 at each ring so a
                               // perfect stays dead-centre; peaks at the seams, sign-flips per section
                               // → one long gentle S-curve, the racing-tunnel feel). Slope-budgeted.
+  // I1 MARROW-FIRE (rib-run illumination, Fable D1 spec). Each dial at 0 runs the UNTOUCHED
+  // shipped code path (plain mats.bone clone / place()-on-fadeMat / no env read) — 0 is
+  // byte-identical, not a zeroed shader. PR preview ships all three ON.
+  spineRibLadder: 1.0,        // M1b hoop value-ladder. 0 => fadeMat is the exact shipped mats.bone.clone(),
+                              // no vColor bakes, boneMat() never called. >0 => factory + bakes (each hoop
+                              // self-reads as a warm-crown→ivory→dark-belly gradient arc, not an LED ring).
+  spineMarrowGlow: 1.0,       // M1a dorsal marrow chain. 0 => vertebrae stay on fadeMat via place() as
+                              // shipped; mats.marrow never rendered. >0 => material split + gradient core
+                              // (a dim soul-fire chain tracing the sway curve 2+ sections ahead).
+  spineBoneLumeMix: 1.0,      // M2 dark-biome mix (the xMix pattern). 0 => boneLumeRef stays 0 (shader
+                              // identity ×1.0), marrow holds its base. 1 => full Mire wax (bright biomes
+                              // clamp to exactly 0 by construction — the marrow-fire waxes only where the
+                              // biome light dies).
   spineFinaleSegs: 6,         // the closing STRAIGHT rib tunnel — a boost in each segment (~6-8s)
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,

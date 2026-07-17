@@ -3008,6 +3008,30 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   }
   scene.add(mireSpillA0, mireSpillA1);
 
+  // WILL-O'-WISP sprites (Fable B1): 3 additive ghost-flames, boot-created + parked (visible=false), then
+  // wandered in the Mire by updateMireSpill. One shared procedural 64² radial-gradient texture (no assets):
+  // 3-stop core→bloom→skirt (the value-structure law baked into the sprite). depthTest ON so boles occlude
+  // wisps (the pass-behind-a-trunk depth sell); fog ON so far wisps melt into the aerial-perspective ladder.
+  if (!mireWisps) {
+    const wcv = document.createElement('canvas'); wcv.width = wcv.height = 64;
+    const wctx = wcv.getContext('2d');
+    const wgr = wctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    wgr.addColorStop(0.00, 'rgba(255,238,196,1.0)');   // core  #ffeec4 (pale gold, hot)
+    wgr.addColorStop(0.14, 'rgba(255,238,196,1.0)');
+    wgr.addColorStop(0.45, 'rgba(255,199,104,0.38)');  // bloom #ffc768
+    wgr.addColorStop(1.00, 'rgba(247,154,46,0.0)');    // skirt #f79a2e → alpha 0 into the black bog
+    wctx.fillStyle = wgr; wctx.fillRect(0, 0, 64, 64);
+    const wtex = new THREE.CanvasTexture(wcv); wtex.colorSpace = THREE.SRGBColorSpace;
+    mireWisps = [];
+    for (let i = 0; i < WISP_COUNT; i++) {
+      const wm = new THREE.SpriteMaterial({ map: wtex, blending: THREE.AdditiveBlending,
+        depthWrite: false, depthTest: true, fog: true, transparent: true, opacity: 0 });
+      const wsp = new THREE.Sprite(wm); wsp.scale.set(2.6, 2.6, 1); wsp.visible = false; wsp.frustumCulled = false;
+      mireWisps.push(wsp);
+    }
+  }
+  scene.add(...mireWisps);
+
   // Fable A1 ROOF-FROM-ABOVE: one camera-following horizontal shader quad at y10 — the mire's canopy seen
   // from ABOVE (crown-dark cells + amber glow WELLING UP through the gap channels), with a lane corridor
   // aperture so nothing occludes gameplay + the real under-canopy shows straight down. visible=false at
@@ -3285,7 +3309,7 @@ function mireNearGlowW(x, dist, side) {
     w += 0.8 * _glowFalloff(Math.hypot(Math.abs(x) - MIRE_SPIRE_X, dist - (ps * period + HERO_PEAK_OFFSET + 150)), 9, 26);
   }
   const local = ((dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
-  if (!(local >= 1050 && local <= 1350)) w += 0.30 * mireComp(dist);   // chorus, easement-zeroed
+  if (!(local >= 1050 && local <= 1350)) w += 0.36 * mireComp(dist);   // chorus, easement-zeroed (Fable B1: 0.30→0.36 lift)
   return Math.min(1, w);
 }
 
@@ -3299,6 +3323,16 @@ function mireNearGlowW(x, dist, side) {
 const MIRE_SPILL_LIGHTS = 2;
 const _spillParked = (() => { try { return new URLSearchParams(location.search).get('spill') === '0'; } catch { return false; } })();
 let mireSpillA0 = null, mireSpillA1 = null;
+// WILL-O'-WISP light-carriers (Fable B1): 3 render-only additive ghost-flame sprites that WANDER the dark
+// stretches between hero clearings, hugging the water; the nearest visible one feeds the reserved pool
+// slot 3 (a tight ghost-streak on the mirror). NO 3rd boot light — the wisp READS as light (the mirror
+// sells the cast), not casts it. Motion is analytic from heroHash + wall-clock t + along-track dist
+// (the mireBreath anti-metronome recipe) → gold-determinism intact, render-only, zero per-frame alloc.
+// Mire-only + seam-gated (0 outside → sprites invisible + slot-3 strength 0) → byte-identical elsewhere.
+// `?wisp=0` parks them permanently (mirrors `?spill=0` — the A/B + determinism control).
+const WISP_CELL = 120, WISP_COUNT = 3;
+const _wispParked = (() => { try { return new URLSearchParams(location.search).get('wisp') === '0'; } catch { return false; } })();
+let mireWisps = null;
 const _spillPools = [ { x: 0, z: 0, invR: 1 / 11, strength: 0 }, { x: 0, z: 0, invR: 1 / 11, strength: 0 },
                       { x: 0, z: 0, invR: 1 / 7, strength: 0 }, { x: 0, z: 0, invR: 1, strength: 0 } ];
 // PURE per-cluster breath (Fable 96 §5): source, spill light, and pool of ONE organism share ONE pulse.
@@ -3336,6 +3370,7 @@ function updateMireSpill(dist, t) {
   if (seam < 0.001) {   // outside the Mire: park (0 radiance / +0 water) → byte-identical elsewhere
     mireSpillA0.intensity = 0; mireSpillA1.intensity = 0;
     mireSpillA0.position.y = -50; mireSpillA1.position.y = -50;
+    if (mireWisps) for (const w of mireWisps) w.visible = false;
     setMireWaterPools(_spillPools, 0);
     return;
   }
@@ -3355,6 +3390,47 @@ function updateMireSpill(dist, t) {
     mireSpillA1.intensity = 10 * brs * seam;   // Fable 98: 7→10
     _spillPools[2].x = side * MIRE_SPIRE_X; _spillPools[2].z = -s.Pd; _spillPools[2].strength = 0.28 * brs;   // Fable 98: 0.22→0.28
   } else { mireSpillA1.intensity = 0; mireSpillA1.position.y = -50; }
+  // WILL-O'-WISP carriers (Fable B1): wander the dark stretches, hug the water; the nearest visible one
+  // feeds the reserved pool slot 3 as a tight ghost-streak. All analytic in (k, t) → render-only,
+  // determinism-safe. Cell k owns sprite k%3; the 3-cell window [k0..k0+2] maps to all 3 sprites.
+  if (mireWisps && !_wispParked) {
+    const wperiod = CONFIG.biomeLength / MIRE_COMP_PERIODS;
+    const k0 = Math.floor((dist - 45) / WISP_CELL);
+    let bestRel = Infinity, bwx = 0, bwd = 0, bg = 0, benv = 0;
+    for (let ki = 0; ki < WISP_COUNT; ki++) {
+      const k = k0 + ki;
+      const w = mireWisps[((k % WISP_COUNT) + WISP_COUNT) % WISP_COUNT];
+      const baseD = k * WISP_CELL + 60 + 30 * (heroHash(k ^ 0xB0B) - 0.5);
+      let keep = heroHash(k ^ 0x5A1D) < 0.70;                      // ~30% of cells stay dark (no runway)
+      if (keep) { const pa = mireHeroClearPeak(baseD, 0, 0.5);      // never share ±55m with a kept arch gate
+        if (!Number.isNaN(pa) && Math.abs(baseD - (pa * wperiod + HERO_PEAK_OFFSET)) < 55) keep = false; }
+      if (!keep) { w.visible = false; continue; }
+      const side = heroHash(k ^ 0x51DE) < 0.5 ? -1 : 1;
+      const x0 = side * (11 + 6 * heroHash(k ^ 0x77));             // 11–17m off-lane (Fable B3 dial c): just outside the bole line so the wisp stays in-frustum, its slot-3 streak lands on visible mirror, and the pass-behind-a-trunk occlusion reads
+      const Td = 19 + 8 * heroHash(k ^ 0x111), Tx = 13 + 6 * heroHash(k ^ 0x222), Ty = 5.1 + 2.4 * heroHash(k ^ 0x333);
+      const phd = 6.2832 * heroHash(k ^ 0x444), phx = 6.2832 * heroHash(k ^ 0x555);
+      const phy = 6.2832 * heroHash(k ^ 0x666), phg = 6.2832 * heroHash(k ^ 0x888);
+      const wd = baseD + 11 * Math.sin(6.2832 * t / Td + phd);     // ±11m along-track prowl
+      const wx = x0 + 5.5 * Math.sin(6.2832 * t / Tx + phx);       // ±5.5m across
+      const wy = 2.1 + 1.0 * Math.sin(6.2832 * t / Ty + phy);      // 1.1–3.1m — hugs the water
+      const Tg = 3.3 + 1.8 * heroHash(k ^ 0x777);                  // gutter: its OWN faster, deeper clock
+      const g = (0.72 + 0.28 * Math.sin(6.2832 * t / Tg + phg)) * (0.94 + 0.06 * Math.sin(6.2832 * t / (2.7 * Tg)));
+      const rel = wd - dist;
+      const env = THREE.MathUtils.smoothstep(210 - rel, 0, 40)     // born inside the fog melt (210→170m ahead)
+                * THREE.MathUtils.smoothstep(rel, -45, -15) * seam; // gone before frame exit (15→45m behind)
+      const op = 0.9 * g * env;
+      w.visible = op > 0.004;
+      if (!w.visible) continue;
+      w.position.set(wx, wy, -wd);
+      w.material.opacity = op;
+      const sc = 2.6 * (0.9 + 0.2 * g); w.scale.set(sc, sc, 1);    // a flame swells as it brightens
+      if (rel >= -15 && rel < bestRel) { bestRel = rel; bwx = wx; bwd = wd; bg = g; benv = env; }
+    }
+    if (benv > 0.001) {   // nearest visible wisp writes the reserved ghost-streak (invR 0.5 → 1.0m × 3.6m)
+      _spillPools[3].x = bwx; _spillPools[3].z = -bwd; _spillPools[3].invR = 0.5;
+      _spillPools[3].strength = 0.16 * bg * benv;                  // ≪ arch 0.42 / spire 0.28: hierarchy held
+    }
+  } else if (mireWisps) { for (const w of mireWisps) w.visible = false; }
   setMireWaterPools(_spillPools, seam);
 }
 
