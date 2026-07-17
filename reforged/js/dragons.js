@@ -251,7 +251,7 @@ export const DRAGONS = {
       // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
       // stacked spheres that read as an "astral worm." The tail is the tapering rear of
       // this same tube (parts.tail:'none'), continuous by construction.
-      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 8, bodyGlow: 0.2, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // faceted low-poly; green emissive floor holds jade under cool ambient (no teal drift)
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 6, bodyGlow: 0.2, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // hexagonal cross-section → the tube reads CLEARLY faceted paper-craft (8 sides looked round); green emissive floor holds jade under cool ambient
       bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
       bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
@@ -326,7 +326,7 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.74, eyeShape: 0.78,   // bigger jade koi head, BLUNT short muzzle (Fable gate r3: kill the crocodilian profile)
+      { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.74, eyeShape: 0.78, cuteEye: false,   // solid luminous-green gem eye (no black cartoon pupil) — Fable gate r7
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.2, hornCount: 2,
         bodyGirth: 0.46, bodyLength: 1.5,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)

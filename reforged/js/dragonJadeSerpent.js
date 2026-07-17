@@ -146,7 +146,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   // near-white edge | dark-emerald seam. Emitted into the mesh so it whips with the swim wave.
   if (rb > 0) {
     const cStripe = new THREE.Color(model.crestColor ?? 0xbdf5d0);
-    const cSeam = new THREE.Color(0xe4fff0);                                   // near-white seam
+    const cSeam = new THREE.Color(0xcaf2d8);                                   // pale-GREEN seam (a near-white seam drifted blue-grey under cool ambient — Fable gate r7)
     const cDark = colBody.clone().lerp(colShadow, 0.7);                        // dark-emerald flank
     const bw = 0.26;                                                           // half angular width around the dorsal apex
     const angs = [-bw, -bw * 0.55, 0, bw * 0.55, bw];
