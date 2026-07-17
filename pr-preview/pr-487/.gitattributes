@@ -1,7 +1,0 @@
-# The historical lessons archive is append-only. If anyone still appends to it, keep
-# BOTH sides' additions on merge instead of hard-conflicting. New lessons should go in
-# leapfrog/lessons/ (one file each) — see leapfrog/lessons/README.md — not here.
-LEAPFROG.md merge=union
-
-# Derived, read-only combined view (tools/build-ledger.mjs). Belt-and-suspenders.
-leapfrog/LEDGER.md merge=union
