@@ -2682,11 +2682,12 @@ const ARCHETYPES = {
       // doors on a solid slab throw no shadow facet under flat shading → a real opening gives free depth + shadow,
       // and open-fronted piers are how a tabernae actually read). Tall intact pier −z, ruined shorter pier +z. (24)
       S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.26), { x: 0.12, y: 0.26, z: -0.37 }));   // pier A — intact (z −0.50..−0.24)
-      S(xform(new THREE.BoxGeometry(0.09, 0.24, 0.16), { x: 0.12, y: 0.21, z: -0.08 }));   // pier B — ruined, shorter (z −0.16..0.00)
-      // SHOP-INTERIOR FRESCO — a Pompeian-red panel set at the BACK of the wall thickness (x0.076), seen THROUGH the
-      // doorway gap (z −0.24..−0.16) from the lane: a painted interior recessed in shadow, not a decal on the face.
-      // Single-sided ry+π/2 → normal +x (faces the lane); sits inside the opening so no lane-edge backface sliver. (2)
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.075, 0.22), { x: 0.076, z: -0.20, y: 0.20, ry: Math.PI / 2 }) });
+      S(xform(new THREE.BoxGeometry(0.09, 0.24, 0.14), { x: 0.12, y: 0.21, z: -0.05 }));   // pier B — ruined, shorter (z −0.12..0.02)
+      // SHOP-INTERIOR FRESCO — a Pompeian-red panel recessed in the wall thickness (x0.09), seen THROUGH the WIDE
+      // doorway gap (z −0.24..−0.12) from the lane: a painted interior in shadow, not a decal on the face. Widened +
+      // pulled slightly forward so the biome's one color accent CATCHES from the lane-side ¾ the player actually
+      // flies (Fable vm5 polish: the red was shy — only birds saw it). Single-sided ry+π/2 → normal +x. (2)
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.11, 0.23), { x: 0.09, z: -0.18, y: 0.205, ry: Math.PI / 2 }) });
       // COLONNADE — a diminishing-ruin comb (Fable: rhythm + full-girth stumps PASS): 2 tall survivors carrying an
       // architrave fragment (post-and-beam = "this was BUILT") → 2 broken full-girth columns → the row then
       // DISSOLVES into fallen drums. CHUNKY Tuscan shafts (5-sided pentagon reads round; taper = entasis). No abacus
