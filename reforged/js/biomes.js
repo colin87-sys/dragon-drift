@@ -291,33 +291,39 @@ export const BIOMES = [
     stars: 0,
     deckBias: 1.15,   // the storm ceiling owns the sky: pull the mid→top gradient stops DOWN so the dark deck dominates and the green belt compresses to a thin strip above the pale horizon slot
     sky: {
-      top: C(0x1f242c),      // the storm deck overhead — near-black blue-grey; the DECK owns the top ~55% of the sky (Fable gate: darker + heavier than the old 0x2b333d)
-      mid: C(0x4a5348),      // the green-grey core belt — cooler/greener teal-olive (was 0x4d5346 khaki); a NARROW band above the horizon slot, never the whole sky
-      horizon: C(0xaab1ad),  // THE VALUE HOLE — pale silver slot under the deck's far edge where the breach + sheet lightning live. Authored at L≈0.72 (under the 0.75 layered-read ceiling so bright reflected bullets still separate); the god-ray/bloom lift renders it ≈0.87 — brilliant on screen, readable in authoring space.
-      sun: C(0x83877f),      // the hidden sun: NO disc — at most a faint broad brighter smudge IN the deck (was 0xbcae96, still read as a visible sun = theology violation)
-      // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed near-black (the dark
-      // underside is what makes the cloud read as SOLID storm mass), lit tops held BELOW the horizon
-      // slot's value so the slot stays the frame's brightest hole.
-      cloud: { amount: 0.80, lit: C(0xaeb6b0), shadow: C(0x161c24), force: true }, // force: the storm deck is the biome's identity, on even without the global sky-cloud toggle (tier-gated for perf)
+      // BEAUTY PASS sky re-grade (Fable, "bruised storm"): the violet lives in the DARKS (deck, cloud
+      // shadow, near fog), the olive stays in the mid belt as the bruise's sickly complement, all warmth is
+      // rationed to the slot/breach/rays/gold. Converts NEUTRAL (grey/depressing) → moody-ALIVE; stays a
+      // menacing DAY storm (mids lit, slot brightest), not a purple night (that's the surge state).
+      top: C(0x2a2540),      // BRUISED indigo-violet deck (was near-black blue-grey 0x1f242c) — L≈0.15, same silhouette floor, now with HUE. The strategic pixel.
+      mid: C(0x545c46),      // the olive belt KEPT (+sat, +half-stop) — violet deck over olive belt IS the bruise (severe-storm "green sky"); NOT violet (all-violet = surge/monochrome)
+      horizon: C(0xc2b399),  // THE VALUE HOLE, now warm PAPER-GOLD (was silver 0xaab1ad) — the slot is where the stolen sun leaks (conscious theology override; field light stays cool). L≈0.70 authored (~0.87 bloomed), still the brightest hole.
+      sun: C(0x9c8f76),      // the hidden sun warmed to agree with the slot; still NO disc
+      // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed dark VIOLET (deck family; the
+      // dark underside makes the cloud read as SOLID storm mass), lit tops held BELOW the slot's value.
+      cloud: { amount: 0.80, lit: C(0xb5ab98), shadow: C(0x1d1a2e), force: true }, // lit faces catch slot light (warm pale grey); shadow = deck violet. force: the storm deck is the biome identity
     },
-    fog: { color: C(0x44505a), near: 55, far: 360 },  // wet grey-slate storm air, held at L≈0.31 so the magenta danger + dark bullet band clear it via the layered outline/white-core read
+    fog: { color: C(0x494c60), near: 55, far: 360 },  // INDIGO-slate near haze (was grey-slate 0x44505a) — violet/teal is the bruise pairing over the teal sea; L≈0.30 unchanged so danger/bullets still clear it
     // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
     // field is LIGHTER than its near (Frozen melts to gold, Caldera/Aurora sink to black). Receding
     // forms dissolve into the veil: free depth + cycle-unique distinctness.
-    fogFarColor: C(0xa7b2b0),
+    fogFarColor: C(0xb3ac9c),   // far field still goes LIGHTER (cycle identity) but now agrees with the warm slot instead of fighting it (was cool silver 0xa7b2b0)
     // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
     atmos: { heightK: 0.03 },
     // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
     // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
     // rationed cloud-rim/socket gold, never as the field light.
-    light: { sun: C(0xaebac2), sunI: 0.82, hemiSky: C(0x5a6a72), hemiGround: C(0x2c3a3c) },
+    // Light rig (Fable regrade): sun stays COOL + dominant (day-storm; theology holds — no warm field
+    // light). hemiSky carries the deck's indigo onto prop shadow planes; hemiGround carries the sea's teal
+    // up into bellies → rock and sky agree. Warmth enters only via emissive (gold, slot-lit scour) + the sky.
+    light: { sun: C(0xb0b4c6), sunI: 0.82, hemiSky: C(0x5c5f78), hemiGround: C(0x2c3a42) },
     // EYE-BREACH godray meter (TEMPEST-REACH-BIBLE.md — the eye of the gale): the biome's ONE sun-shaft
     // event. The storm has no field-wide shafts, but where the deck BREAKS on the sun azimuth the light
     // pours through — so ramp the shared fan UP (0.05 → 0.42) and the bright almond interior (below)
     // auto-becomes the occlusion-mask source. v1 = a fixed prominent value (the progress-arc growth is a
     // follow-on). Byte-identical elsewhere (godrayMul only lerps at biome 7's seams).
-    godrayMul: 0.42,
+    godrayMul: 0.50,   // the gold shafts are half the awe — +~20% presence under the darker bruised deck (was 0.42)
     godrayTint: C(0xffd28a),   // warm sun-gold — the shafts falling from the breach are the leaked sun, not cold haze
     // EYE-BREACH gate (the still axle): a fixed prominent 1.0 in Tempest, 0 elsewhere = byte-identical.
     // Drives env.breachMix → the sky-shader almond window + the water calm/gold patch. World-locked to

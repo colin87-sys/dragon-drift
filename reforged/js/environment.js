@@ -258,7 +258,7 @@ function makeMats() {
   // 0.34 = a wet storm-scoured sheen. storm-teal is BANNED — this stays value-structured slate.
   mats.tempestStone = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.34, metalness: 0.05,
-    emissive: 0x7d8a98, emissiveIntensity: 0.25,   // Fable device critique R2: @0.12 was calibrated on headless
+    emissive: 0x8a8578, emissiveIntensity: 0.25,   // hue nudged toward the warm SLOT (was cool 0x7d8a98) so scour crests read SLOT-LIT under the bruised deck, not like a compositing error; ladder fold keeps bellies dark. Fable device critique R2: @0.12 was calibrated on headless
     // captures (which render ~1 stop brighter than a real phone) → the rock collapsed to FLAT BLACK cardboard on
     // the owner's device. Lift back to a COOL-PALE @0.25: because ladderEmissive multiplies by the (now wide)
     // ladder vColor, the lift lands on SCOUR crests (bright wind-bitten tops catching the storm-light) while the
@@ -267,11 +267,12 @@ function makeMats() {
   }), true);
   // (The atmospheric CLOUD-WALL `arcuswall` and its tempestCloud/lip materials are DEFERRED to a future
   //  sky-shader pass — see the archetype note — so no cloud materials are built here.)
-  // The virga VEIL — rainshaft ships as thin OPAQUE pale slabs the colour of the far fog (#a7b2b0), so
-  // the pale distance makes opaque geometry read as translucent falling rain for free. No accent — it IS
-  // light-through-water; a faint emissive keeps it from going muddy in the haze.
+  // The virga VEIL — rainshaft ships as thin OPAQUE pale slabs the colour of the far fog, so the pale
+  // distance makes opaque geometry read as translucent falling rain for free. No accent — it IS
+  // light-through-water; a faint emissive keeps it from going muddy in the haze. Re-graded to the new
+  // WARM far-fog 0xb3ac9c (Fable): pinned to the old cool 0xa7b2b0 it would read as a cool stripe on warm fog.
   mats.tempestVirga = addPropDetail(new THREE.MeshStandardMaterial({
-    ...opts, color: 0xa7b2b0, roughness: 0.95, metalness: 0.0, emissive: 0x8f9a9a, emissiveIntensity: 0.30,
+    ...opts, color: 0xb3ac9c, roughness: 0.95, metalness: 0.0, emissive: 0x968f80, emissiveIntensity: 0.30,
   }));
   return mats;
 }
@@ -2575,8 +2576,15 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _nx = _dAz / 0.20;
           float _ny = (d.y - _elC - 0.14 * _dAz) / 0.042;                         // −0.14·Δaz = the rake
           float _rr = sqrt(_nx * _nx + _ny * _ny);
+          // TORN CLOUD LIPS (Fable breach finish): rag the rim radius with a 2-octave angular tear, biased
+          // to the TOP arc so the gold lower lip stays a clean sunlit edge. A torn rim is what a hole in a
+          // storm deck has — a moon doesn't. _rrT feeds the window feather + the dark ring (NOT the interior).
+          float _ang = atan(_ny, _nx);
+          float _tear = _rvN(_ang * 2.6 + 7.3) * 0.7 + _rvN(_ang * 6.1 + 2.9) * 0.3;   // 0..1 rag
+          float _topArc = smoothstep(-0.2, 0.8, _ny / max(_rr, 0.001));                 // 0 at the gold lip → 1 at the top
+          float _rrT = _rr + (_tear - 0.5) * 0.24 * _topArc;                            // ragged top rim only
           // (1) THE HOLE FIRST — interior gradient, tight feather (fully faded by _rr 1.0).
-          float _win = (1.0 - smoothstep(0.74, 1.0, _rr)) * uBreachMix;
+          float _win = (1.0 - smoothstep(0.74, 1.0, _rrT)) * uBreachMix;
           float _bT = clamp((d.y - (_elC - 0.042)) / 0.084, 0.0, 1.0);            // 0 at the bottom lip → 1 at the top
           vec3 _bLow = vec3(0.98, 0.91, 0.74);                                    // Fable R3: HOTTER gold-white core (#fae8bd-class) — it must be the brightest AND warmest pixel in the frame
           vec3 _bHigh = vec3(0.76, 0.79, 0.82);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
@@ -2587,12 +2595,17 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           // (2) THE DARK MOVE, OVER the bloom (Fable r1: the ring must WIN): a tight ALMOND ring hugging
           // the rim (sharp onset at 1.0R, back to deck value by ~1.6R) → the darkest sky FRAMES the hole
           // (core→bloom→DARK). This is what makes it a breach in a wall, not a moon in the clouds.
-          float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.45, 1.95, _rr)) * uBreachMix;   // Fable R3: widened the outer falloff so the dark frame merges deeper into the deck (a socket, not a ring)
+          float _bDark = smoothstep(0.98, 1.12, _rrT) * (1.0 - smoothstep(1.45, 1.95, _rrT)) * uBreachMix;   // Fable R3: widened the outer falloff so the dark frame merges deeper into the deck (a socket, not a ring). _rrT → the dark frame follows the torn rim.
           // Arc-bias (Fable r2 de-donut insurance): weak at the gold lip (bottom ~0.15×), strong at the
           // top (1.0×) so the dark frame CONNECTS UPWARD into the deck — a socket in the storm's wall, not
           // a floating dark ring/eclipse. _ny/_rr = sine of the ring arc angle (−1 bottom → +1 top).
           float _arcW = mix(0.15, 1.0, smoothstep(-1.0, 1.0, _ny / max(_rr, 0.001)));
           col = mix(col, vec3(0.120, 0.145, 0.180), _bDark * 1.0 * _arcW);   // Fable R3: darker + stronger ring (0.92→1.0) so the hole reads as PUNCHED, not smudged
+          // FINGER WISPS (Fable): 2–3 tongues of the dark deck reaching ACROSS the upper hole where the tear
+          // runs deep — the deck visibly overlapping the breach. This is what finally kills the "moon" (moons
+          // have no cloud fingers across them). cloud.shadow violet, only in the upper window.
+          float _finger = smoothstep(0.62, 0.95, _rr) * step(0.72, _tear) * _topArc;
+          col = mix(col, vec3(0.114, 0.102, 0.180), _finger * 0.55 * uBreachMix);
         }
         // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
         // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
