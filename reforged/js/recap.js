@@ -99,7 +99,7 @@ export function selectNextUp() {
   }
 
   return {
-    icon: '⬆', head: 'PILOT LEVEL', label: `Reach level ${saveData.level + 1}`,
+    icon: '⬆', head: 'DRIFTER LEVEL', label: `Reach level ${saveData.level + 1}`,
     frac: Math.min(1, saveData.xp / xpToNext(saveData.level)),
     sub: `${saveData.xp} / ${xpToNext(saveData.level)} XP`,
   };
@@ -220,7 +220,7 @@ function ledgerItems(sum, compact = false, ICONS = {}) {
     items.push(`<div class="earn-line feat-line">⬢ FEAT — ${f.def.name} <b>◆${f.def.reward}</b>${f.titleName ? ` <span class="title-won">«${f.titleName}»</span>` : ''}</div>`);
   }
   if (sum.levelUps > 0) {
-    items.push(`<div class="earn-line levelup-badge">⬆ PILOT LEVEL ${saveData.level} <b>+◆${sum.levelEmbers}</b></div>`);
+    items.push(`<div class="earn-line levelup-badge">⬆ DRIFTER LEVEL ${saveData.level} <b>+◆${sum.levelEmbers}</b></div>`);
   }
   if (game.mode === 'daily' && game.dailyMod) {
     items.push(`<div class="earn-line daily-mod-line">${game.dailyMod.glyph} DAILY MODIFIER — ${game.dailyMod.name}<span class="earn-detail"> · ${game.dailyMod.brief}</span></div>`);
@@ -289,7 +289,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
       <button id="btn-again" class="btn-primary">FLY AGAIN</button>
       <button id="btn-share" class="btn-secondary">SHARE &amp; CHALLENGE</button>
       <button id="btn-shop" class="btn-tertiary">${ICONS.shop} SHOP</button>
-      <button id="btn-pilot" class="btn-tertiary">${ICONS.pilot} PILOT</button>
+      <button id="btn-pilot" class="btn-tertiary">${ICONS.pilot} DRIFTER</button>
     </div>
     <div class="share-menu" id="share-menu" hidden>
       <button id="share-ig"   title="Instagram">${ICONS.ig}</button>
