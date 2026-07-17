@@ -243,7 +243,7 @@ export const DRAGONS = {
     // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
     // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
-    parts: { torso: 'jadeSerpent', wings: 'silkFinWings', head: 'draconic', tail: 'none' },   // fresh spine-frame skeleton (dragonJadeSerpent) — body web-fans + leaf-fork tail live in the torso; silkFinWings kept for the chin pearl only
+    parts: { torso: 'jadeSerpent', wings: 'none', head: 'draconic', tail: 'none' },   // fresh spine-frame skeleton (dragonJadeSerpent) owns the body web-fans + leaf-fork tail; no wing module, no chin pearl (Fable gate r3: the pearl read as a floating jaw orb)
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
       // ── UNDULATING KOI BODY (koiSerpent) ──────────────────────────────────────
@@ -326,7 +326,7 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.66, snoutScale: 0.66, eyeScale: 0.72, eyeShape: 0.78,   // bigger jade koi head, SHORTER muzzle (Fable gate r2: was reading crocodile/duck)
+      { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.74, eyeShape: 0.78,   // bigger jade koi head, BLUNT short muzzle (Fable gate r3: kill the crocodilian profile)
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.2, hornCount: 2,
         bodyGirth: 0.46, bodyLength: 3.2,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
