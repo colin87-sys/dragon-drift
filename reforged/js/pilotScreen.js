@@ -127,7 +127,7 @@ export function buildPilotHtml(tab) {
   return `
     <div class="screen-topbar">
       <span class="topbar-title">DRIFTER</span>
-      ${saveData.titles.equipped ? `<div class="meta-chip title-chip">«${(titleById(saveData.titles.equipped) || {}).name || ''}»</div>` : ''}
+      ${saveData.titles.equipped ? `<div class="meta-chip title-chip">${(titleById(saveData.titles.equipped) || {}).name || ''}</div>` : ''}
       <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
     </div>
     <div class="meta-row">
