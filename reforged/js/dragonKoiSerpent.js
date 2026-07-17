@@ -312,8 +312,12 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     baseX[v] = positions[v * 3]; baseY[v] = positions[v * 3 + 1]; spineZ[v] = positions[v * 3 + 2];
     rampA[v] = 0.12 + 0.88 * Math.min(1, Math.max(0, (spineZ[v] - leadZ) / denom));
   }
+  // rampAt(z): the per-vertex wave ramp (0.12 at the head → 1 at the tail), hoisted so a
+  // waveRider mesh (the lyre gems, §4.5) rides the SAME formula as the tube — two copies of the
+  // wave math is the trail-detach bug.
+  const rampAt = (zq) => 0.12 + 0.88 * Math.min(1, Math.max(0, (zq - leadZ) / denom));
   const bodyWave = {
-    geo, count: vcount, baseX, baseY, spineZ, ramp: rampA,
+    geo, count: vcount, baseX, baseY, spineZ, ramp: rampA, rampAt,
     amp: (model.bodyWaveAmp ?? 0.7) * scale,
     ampY: (model.bodyWaveAmpY ?? 0.16) * (model.bodyWaveAmp ?? 0.7) * scale,
     freq: model.bodyWaveFreq ?? 1.0,

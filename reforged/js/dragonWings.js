@@ -1464,6 +1464,8 @@ registerWings('emberMembraneWings', buildEmberMembraneWings);
 function buildSilkFinWings(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
+  const pearlChainMats = [];   // §3d chain links 1/3/4 (satMat, lyreGemMat, streamerMat) — walked via userData.baseIntensity
+  const waveRiders = [];       // §4.5 separate meshes over the whipping tail (the lyre gems) — ride the bodyWave or detach
   const ws = model.wingScale || 1;
 
   const N = Math.max(3, Math.round(model.lobeCount ?? 3));
@@ -1511,7 +1513,29 @@ function buildSilkFinWings(def, model, attach, giM) {
     emissive: cMid, emissiveIntensity: Math.max(0.14, model.finGlow ?? 0.06),
   });
   applyFresnelRim(finMatRear, cRim);
+  // B3 userData stamps: without these the cruise flare/reset loop (dragon.js:1744–1748) forces
+  // these spineMats to emissive-WHITE @1.0 every frame (a real shipped bug). Stamp the AS-BUILT
+  // emissive so cruise holds the green floor cMid; Surge still lerps → surgeHi from here.
+  finMat.userData.baseEmissive = cMid; finMat.userData.baseIntensity = model.finGlow ?? 0.06;
+  finMatRear.userData.baseEmissive = cMid; finMatRear.userData.baseIntensity = Math.max(0.14, model.finGlow ?? 0.06);
   spineMats.push(finMat, finMatRear);
+  // Streamer material split (§3b.1): the streamers share finMatRear (line ~1675) — pulsing that
+  // would pulse the rear lobe too. With streamerPulse>0 they take a parameter-identical CLONE
+  // (visual parity at pulse 0) carrying the chain-link-4 userData so pearl-light travels the
+  // ribbons like river-current. Off → streamerMat IS finMatRear (byte-identical, no extra mat).
+  const streamerPulse = model.streamerPulse ?? 0;
+  let streamerMat = finMatRear;
+  if (streamerPulse > 0) {
+    streamerMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, roughness: 0.55, metalness: 0.0, envMapIntensity: 0,
+      side: THREE.DoubleSide, opacity: 1.0, emissive: cMid, emissiveIntensity: 0.6,
+    });
+    applyFresnelRim(streamerMat, cRim);
+    streamerMat.userData.baseEmissive = cMid; streamerMat.userData.baseIntensity = 0.6;
+    streamerMat.userData.chainBase = 0.6; streamerMat.userData.chainPulse = 0.4; streamerMat.userData.chainLag = 1.8;
+    spineMats.push(streamerMat);
+    pearlChainMats.push(streamerMat);
+  }
 
   // GLOW-UP: fin-tip DEW GEMS — one small stretched octahedron riding each lobe's tipObj,
   // a jeweled mint bead of pearl-light caught on the silk. Opaque saturated emissive (bloom-
@@ -1520,7 +1544,7 @@ function buildSilkFinWings(def, model, attach, giM) {
   const gemOn = rayRelief > 0 && (model.tipGems ?? 0) > 0;
   const cGem = model.tipGemColor ?? 0x35d69a;   // SATURATED mint (~152°, value ~0.84) → blooms in its OWN colour, never blows white (the pearl stays the only near-white)
   const tipGemMat = gemOn ? new THREE.MeshStandardMaterial({ color: 0x1f8a5c, emissive: cGem, emissiveIntensity: 0.85, roughness: 0.32, metalness: 0.0 }) : null;
-  if (tipGemMat) { tipGemMat.userData.baseEmissive = cGem; tipGemMat.userData.baseIntensity = 0.85; spineMats.push(tipGemMat); }
+  if (tipGemMat) { tipGemMat.userData.baseEmissive = cGem; tipGemMat.userData.baseIntensity = 0.85; tipGemMat.userData.pulseBase = 0.85; spineMats.push(tipGemMat); }   // pulseBase = the dew-gem shimmer base (chain link 2, its own repaired tick §4.3a)
   const gemGeo = () => { const g = new THREE.OctahedronGeometry(0.17 * ws, 0); g.scale(1.7, 0.85, 0.85); return g; };   // one LARGE dew-drop per fin (few + large, not confetti)
 
   // A cambered koi-fin PETAL in the lobe plane: length +X, chord in Z (leading −Z,
@@ -1666,7 +1690,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           const sl = streamerLen * (1 - s * 0.16);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
-          const strip = new THREE.Mesh(streamerGeo(sl, 0.88 * ws, side * 0.8 + s * 0.5), finMatRear);   // BROAD veil ribbon → reads as mass, not hairline wire, in the rear fill (gate rework r4 dir 1)
+          const strip = new THREE.Mesh(streamerGeo(sl, 0.88 * ws, side * 0.8 + s * 0.5), streamerMat);   // BROAD veil ribbon → reads as mass, not hairline wire, in the rear fill (gate rework r4 dir 1); streamerMat=finMatRear unless streamerPulse (§3b.1)
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
@@ -1719,12 +1743,53 @@ function buildSilkFinWings(def, model, attach, giM) {
   }
 
   const R = buildSide(1), L = buildSide(-1);
+
+  // ── LYRE GEMS (§3b.2 — chain link 3) — two stretched mint octahedra, one per ventral caudal
+  // crescent, seated near each crescent's max-flare tip (along≈0.62, ~0.9 of the blade height).
+  // They sit over the WHIPPING tail (wave ramp ≈0.9), so they MUST ride the bodyWave (waveRiders
+  // §4.5) or they visibly detach. Parented to THIS builder's TOP-LEVEL group — an identity sibling
+  // of the torso group (both added bare to the model root) — so torso-space rest coords are valid.
+  const lyreOn = (model.lyreGems ?? 0) > 0 && (model.caudalBloom ?? 0) > 0;
+  if (lyreOn) {
+    const cb = model.caudalBloom ?? 0, mt = model.moonTail ?? model.veilTail ?? 0;
+    const leadR = (model.bodyGirth ?? 0.58) * (model.scale ?? 1);
+    const OVAL_W = model.bodyOvalW ?? 1.14, OVAL_H = model.bodyOvalH ?? 0.9;
+    const anchors = attach.segmentAnchors || [];
+    const Na = anchors.length;
+    const stAt = (tg) => {   // interpolate the torso ring anchors at global t (matches the torso fan sampling)
+      const fi = Math.min(Na - 1, Math.max(0, tg * (Na - 1)));
+      const i0 = Math.min(Na - 2, Math.floor(fi)), i1 = i0 + 1, f = fi - i0;
+      const a0 = anchors[i0], a1 = anchors[i1];
+      return { y: a0.y + (a1.y - a0.y) * f, z: a0.z + (a1.z - a0.z) * f, r: a0.r + (a1.r - a0.r) * f };
+    };
+    const along = 0.62, st = stAt(0.5 + along * 0.5);
+    const rW = st.r * OVAL_W, rH = st.r * OVAL_H;
+    const cant = 0.9 - 0.12 * cb, sinC = Math.sin(cant), cosC = Math.cos(cant);
+    const flare = Math.sin(Math.min(1, Math.pow(along, 0.5)) * Math.PI * 0.96);
+    const wob = 1 + 0.14 * Math.sin(along * Math.PI * 2.6);
+    const hL = leadR * (1.55 + 1.05 * cb) * mt * flare * wob;
+    const cLyre = 0x35d69a;
+    const lyreGemMat = new THREE.MeshStandardMaterial({ color: 0x1f8a5c, emissive: cLyre, emissiveIntensity: 0.6, roughness: 0.32, metalness: 0.0 });
+    lyreGemMat.userData.baseEmissive = cLyre; lyreGemMat.userData.baseIntensity = 0.6;
+    lyreGemMat.userData.chainBase = 0.6; lyreGemMat.userData.chainPulse = 0.35; lyreGemMat.userData.chainLag = 1.35;
+    spineMats.push(lyreGemMat); pearlChainMats.push(lyreGemMat);
+    const lyreGeo = () => { const g = new THREE.OctahedronGeometry(0.14 * ws, 0); g.scale(1.6, 0.8, 0.8); return g; };   // deliberately smaller than the dew gems — few + large, never confetti
+    for (const s of [-1, 1]) {
+      const xr = s * rW * 0.32, yr = st.y - rH * 0.7;
+      const gx = xr + s * hL * sinC * 0.9, gy = yr - hL * cosC * 0.9;   // ~0.9 up the crescent (tip-jewel seating)
+      const gem = new THREE.Mesh(lyreGeo(), lyreGemMat);
+      gem.position.set(gx, gy, st.z);
+      group.add(gem);
+      waveRiders.push({ obj: gem, baseX: gx, baseY: gy, spineZ: st.z });
+    }
+  }
+
   const wingElements = R.elements.map((e) => ({
     root: e.root, tip: new THREE.Vector3(e.root.x + e.len, e.root.y, e.root.z), length: e.len, tipObj: e.tipObj, notchDepth: e.notchDepth,
   }));
 
   // Chin-pearl MOTIF SOCKET (§6.3) — the ONE bloom, published as motifAnchor.
-  const pearl = buildRiverPearl(def, model, attach, spineMats);
+  const pearl = buildRiverPearl(def, model, attach, spineMats, pearlChainMats);
   if (pearl) group.add(pearl.group);
 
   return {
@@ -1740,6 +1805,8 @@ function buildSilkFinWings(def, model, attach, giM) {
       motifAnchor: pearl ? pearl.motifAnchor : null,
       pearlMat: pearl ? pearl.pearlMat : null,   // CP3: the ONE bloom breathes with the swim (dragon.js bodyWave tick)
       tipGemMat,                                  // GLOW-UP: fin-tip dew gems — shimmer travels here from the pearl (phase-lagged)
+      pearlChainMats,                             // §3d chain links 1/3/4 (satMat/lyreGemMat/streamerMat) — walked via userData.baseIntensity
+      waveRiders,                                 // §4.5 lyre gems ride the bodyWave (or detach over the whipping tail)
     },
     wingMat: finMat,
     spineMats,
@@ -1752,7 +1819,7 @@ function buildSilkFinWings(def, model, attach, giM) {
 // INVARIANT torso point (forward of the wing roots — NOT headBase, whose z drifts as
 // the neck grows across forms, which would break the §7 anchor-invariance assert).
 // Publishes { group, motifAnchor:{local,radius} } — local invariant, radius monotonic.
-function buildRiverPearl(def, model, attach, spineMats) {
+function buildRiverPearl(def, model, attach, spineMats, pearlChainMats) {
   const stage = Math.max(0, Math.round(model.pearlStage ?? 0));
   const cPearl = model.pearlColor ?? def.accentHue ?? 0xd6ffe9;   // mint-pearl (green-leaning)
   const group = new THREE.Group();
@@ -1772,18 +1839,22 @@ function buildRiverPearl(def, model, attach, spineMats) {
   const pearlMat = new THREE.MeshStandardMaterial({
     color: 0xa6ecc6, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.26, metalness: 0.0 });   // GREENER mint diffuse (was reading near-white) → unmistakably green-leaning, never blue-grey (CP2 polish)
   pearlMat.userData.baseEmissive = cPearl; pearlMat.userData.baseIntensity = emisI;   // base for the Surge flare + the CP3 breath tick
+  pearlMat.userData.pulseBase = emisI;   // §4.3a: the swim-breath tick reads pulseBase (baseIntensity itself is the pulsing output)
   const pearl = new THREE.Mesh(new THREE.SphereGeometry(r0, seg(10), seg(8)), pearlMat);
   group.add(pearl);
   spineMats.push(pearlMat);
-  // apex: a faint mint halo bead pair (the whisker-cradled "river-pearl" read).
+  // apex: a faint mint halo bead pair (the whisker-cradled "river-pearl" read) — chain link 1.
   if (stage >= 2) {
     const satMat = new THREE.MeshStandardMaterial({ color: 0xcaf3dd, emissive: cPearl, emissiveIntensity: 0.45, roughness: 0.3, metalness: 0.0 });
+    satMat.userData.baseEmissive = cPearl; satMat.userData.baseIntensity = 0.45;   // B3 stamp (was rendered white @1.0 in cruise)
+    satMat.userData.chainBase = 0.45; satMat.userData.chainPulse = 0.30; satMat.userData.chainLag = 0.45;   // §3d chain link 1
     for (const s of [-1, 1]) {
       const sat = new THREE.Mesh(new THREE.SphereGeometry(r0 * 0.34, seg(7), seg(6)), satMat);
       sat.position.set(s * r0 * 1.5, -r0 * 0.2, r0 * 0.4);
       group.add(sat);
     }
     spineMats.push(satMat);
+    if (pearlChainMats) pearlChainMats.push(satMat);
   }
   // published anchor: the FIXED throat reference (invariant across forms → §7 drift ≤0.15);
   // radius monotonic with the bloom.

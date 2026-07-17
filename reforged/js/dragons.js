@@ -310,6 +310,7 @@ export const DRAGONS = {
         moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
         caudalBloom: 0.35,                 // AAA §5: the fan BUDS (split barely dimples) — ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
         crestRibbon: 0.55, bodyArcY: 0.16, bodyWaveAmpY: 0.18,   // AAA §5: the ribbon becomes a line; the vertical swim share deepens (rear-visible majesty, lateral amp untouched)
+        lobeBreath: 0.05,                  // AAA §5: the pectoral fan starts to breathe open on the swim crest (wave-locked)
         rayRelief: 0.5,                    // GLOW-UP ladder: the silk STARTS to ray at Kindled ("lobes unfurl") — a partial pre-echo of the apex's full koi-fin rays, so f1 reads as the adolescent stage of the SAME rayed silk, not a plain smaller dragon. (Dew gems stay apex-exclusive — the coronation reward.)
         tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
@@ -328,6 +329,7 @@ export const DRAGONS = {
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
         caudalBloom: 1.0,                  // AAA §5: THE GRAND FAN-BLOOM — 3-blade split caudal fan (the hero). ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
         crestRibbon: 1.0, bodyArcY: 0.19, bodyWaveAmpY: 0.24,   // AAA §5: full seafoam ribbon; the deepest vertical swim share the rear cam reads
+        lobeBreath: 0.12, lyreGems: 1, streamerPulse: 1,   // AAA §5 coronation: the fan breathes fully; the lyre gems (chain link 3) + the travelling streamer pulse (link 4) light up
         tipGems: 1,                        // GLOW-UP apex: pearl-light hierarchy — fin-tip dew gems (bloom-safe opaque mint emissive; the pearl stays the hero bloom).
         lobeFlareBoost: 1.25, bodyWaveAmp: 0.9, waveBreath: 0.12,   // GLOW-UP motion: fan blooms harder on boost, a deeper swim, a slow breathing meander.
         streamerCount: 3,                  // GLOW-UP: a third staggered streamer pair reads as continuous river-current
@@ -347,6 +349,12 @@ export const DRAGONS = {
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
     eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,
+    // ── THE FEVER FIELDS (§4.4) — jade is a cool dragon; the default fever palette is magenta ──
+    feverEye: 0xbdf3dc,     // REAL fix: eyeMat is driven AFTER the flare loop (dragon.js:1773) and
+                            // currently falls to the magenta 0xff66ee default on Surge — pin it mint.
+    feverWing: 0x9ff0c8,    // hygiene only: inert for jade (finMat ∈ spineMats — the flare loop overwrites
+                            // the 1595 write); documented so it never becomes a mystery later.
+    feverWash: [0.02, 0.06, 0.04],   // faint mint screen wash on Surge (setFeverTint path)
   },
 
 

@@ -448,7 +448,13 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
+      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null,
+        // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
+        // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.
+        pearlMat: wingsResult.parts.pearlMat ?? null,
+        tipGemMat: wingsResult.parts.tipGemMat ?? null,
+        pearlChainMats: wingsResult.parts.pearlChainMats ?? null,
+        waveRiders: wingsResult.parts.waveRiders ?? null },
       materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
       auraSprite,
     };
@@ -468,6 +474,12 @@ export function buildDragonModel(def, opts = {}) {
       coreGlow,
       wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
       stormArcMats: stormArcMats.length ? stormArcMats : null,
+      // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
+      // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.
+      pearlMat: wingsResult.parts.pearlMat ?? null,
+      tipGemMat: wingsResult.parts.tipGemMat ?? null,
+      pearlChainMats: wingsResult.parts.pearlChainMats ?? null,
+      waveRiders: wingsResult.parts.waveRiders ?? null,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
     auraSprite,
