@@ -665,6 +665,57 @@ sleepy/too eager — one dial), chain travel speed (the shared 0.5 clock multipl
 width taste on the brightest biome, Surge mint check in-game (first time the pearl-family
 pulses will ever have rendered — §4.2).
 
+## §9 Gameplay integration (verified against the live systems — owner gap-check, v2.1)
+
+**Read from code this session: `rings.js`, `player.js`, `collision.js`, `boss.js`,
+`cameraController.js`, `config.js`, `dragon.js`.** The engine's gameplay layer treats the
+player as a POINT + config radii; NOTHING in this sheet's geometry (fan, streamers, gems)
+has — or needs — a collider.
+
+1. **Ring/gate pass-through — NON-ISSUE.** Ring collection is a plane-crossing POINT test on
+   the logical player position, not the mesh: when `player.dist` crosses the ring's plane,
+   `d = hypot(player.position.x − r.x, player.position.y − r.y)` vs `CONFIG.ringCatchRadius
+   3.9` (perfect ≤ `ringCenterRadius 1.4`) — rings.js:145–148, config.js:64/112. Obstacle/
+   gate hits are the same story: point vs shrunken primitive (`playerRadius 1.2`, and e.g.
+   pillar `hitR = c.r·0.65 + R`, block `hw·0.85 + R·0.5` — collision.js:142–157/:225; hitboxes
+   are deliberately SMALLER than visuals). The caudal fan, pectoral V, and streamers change
+   pass/fail by exactly zero. Visual clip on a threaded ring is momentary and roster-normal:
+   a collected ring pops and vanishes in ~0.18s (rings.js:150–166) before the TAIL fan even
+   reaches its plane; every apex dragon's wings already overlap ring tori this way. No build
+   constraint required.
+2. **Boss combat firing — NON-ISSUE (one cosmetic check).** The player's damage channels are
+   graze/parry/roll-reflect plus the Surge-unleash BEAM; the beam's origin is a FIXED offset
+   from the player ROOT, not a head node: `beamO.set(player.position.x, player.position.y +
+   0.35, −(player.dist + 1.3))` (boss.js:1428, cinematic 1417–1464; the muzzle orb gathers AT
+   beamO). Boss `def.muzzle` organ nodes are for BOSSES only. So jade's small koi head and
+   the lateral swim cannot move the shot origin or the reticle (screen-space pick). The swim
+   also barely moves the visual mouth: the wave ramp at the head is 0.12 (dragonKoiSerpent
+   .js:215) → ≈±0.11 world units at apex amp 0.9. Residual (cosmetic, PR preview): confirm
+   the charge orb reads as gathering at the koi snout/chin-pearl — a happy accident that the
+   pearl sits ~at beamO; if it looks off by a nose-length, the fix is a one-line per-dragon
+   beamO forward-offset, flagged only if the preview says so.
+3. **Barrel roll — NON-ISSUE by construction.** The roll is an eased 360° spin on the MODEL
+   ROOT (`group.rotation.z = bankZ… + rollSpin`, dragon.js:1047–1058, 0.45s per
+   `CONFIG.rollDuration`), while the camera does NOT roll — it takes only a brief ~0.16 rad
+   lean kick + FOV bump (cameraController.js:343–346). Everything jade owns rides that root
+   rigidly: the `bodyWave` lateral flex writes LOCAL vertex positions inside the group
+   (dragon.js:1452–1464), the §4.5 `waveRiders` write LOCAL positions on siblings in the same
+   group, and the streamers are child meshes of `wingTipL/R` — under a root roll they all
+   rotate as one body, no lag, no detach, no fighting (the wave momentarily reads as a
+   corkscrew mid-roll, which is physically coherent and lasts <0.5s). Better still, the roll
+   already TUCKS the fans: the shared poser feeds `rollFold` (0→0.55) into the jade lobe
+   pivots' z (dragon.js:1049–1053 → 1256–1257), so the wide horizontal fan folds toward the
+   body exactly while the spin peaks. Camera clip is geometrically impossible at chase
+   distance (the fan sweeps a ≤~6-unit local circle around the dragon's own axis). Residual
+   (PR preview): eyeball one roll strip at apex — if the pectoral fans read too busy
+   mid-roll, the optional 1-line lever is clamping the `lobeBreath`/flare term while
+   `player.roll` is active in the lobe poser (the caudal fan is static geometry riding the
+   root; it needs nothing).
+
+**Build constraints added by this section: NONE.** The sheet's geometry needs no collider,
+no muzzle node, and no roll special-casing; the only items carried to the PR preview are the
+two cosmetic checks above.
+
 ## FIDELITY DRIFTS (logged, deliberate — the authority stack notified)
 
 1. **The dorsal ribbon.** The North-Star image shows a broad, near-glowing pale band down the
@@ -718,3 +769,11 @@ pulses will ever have rendered — §4.2).
   wording, tests/ path, `activeDef.model` binding, median-veil rear hedge, median-carve
   exemption. Two fidelity drifts logged (ribbon width vs image; fan world-ratio vs in-frame
   target).
+- **v2.1 (§9 gameplay-integration gap-check, owner question).** Verified against the live
+  systems: ring/gate pass-through is a point-vs-radius test on the player root (rings.js:
+  145–148, collision.js:142–157/:225 — the fan/streamers have no collider, no constraint);
+  the Surge beam fires from a fixed root offset, never a head node (boss.js:1428 — the swim
+  can't move the shot origin); the barrel roll spins the model root while the camera only
+  lean-kicks (dragon.js:1047–1058, cameraController.js:343–346) — bodyWave/waveRiders/
+  streamers all ride the root rigidly, and `rollFold` already tucks the jade fans
+  (dragon.js:1256–1257). Zero build constraints added; two cosmetic PR-preview checks noted.

@@ -4,14 +4,14 @@ import { CONFIG } from './config.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { biomeIndexAt, computeEnv, TEMPEST_WIND } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
-import { setWaterTint } from './water.js';
+import { setWaterTint, setMireWaterPools } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
 import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
-import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
+import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, chainBeforeCompile } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
 import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
@@ -30,6 +30,10 @@ export function godrayMul() { return _godrayMul; }
 // Per-biome god-ray shaft tint (seam-lerped; shipped warm-white = byte-identical). Read by main.js.
 const _godrayTint = new THREE.Color(1.0, 0.9, 0.72);
 export function godrayTint() { return _godrayTint; }
+// Per-biome sunburst-BREAK strength (seam-lerped; default 0.35 = subtle crepuscular bundles everywhere,
+// a shared quality upgrade). Tempest ramps it up so the storm-light reads as broken bundles, not a fan.
+let _godrayBreak = 0.35;
+export function godrayBreak() { return _godrayBreak; }
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -64,6 +68,12 @@ let sceneRef = null;
 let rnd = null;
 let bands = [];
 let feverMix = 0;
+// Fable A1 ROOF-FROM-ABOVE altitude gate (camera y): the canopy shelf + high-mote treatment resolve over the
+// top ~2.5m of the climb. Exported so ambient.js uses the SAME window (the two files can't drift).
+export const ROOF_ALT_LO = 23.5, ROOF_ALT_HI = 26.0;
+const ROOF_Y = 10.0;
+let roof = null;
+const roofUniforms = { time: { value: 0 }, uRoofGate: { value: 0 } };
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
 let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
 // ARENA (PR-A): while THE UNMASKED's void owns the sky, the biome PROP bands (monoliths etc.) must go
@@ -276,6 +286,23 @@ function makeMats() {
     ...opts, color: 0x241b10, vertexColors: true, roughness: 0.7, metalness: 0.05,
     emissive: 0x2a1c0e, emissiveIntensity: 0.5,
   }), true);
+  // Fable 98 GLOW-DRINK (mechanism C emissive fallback): a near-black base can't multiply up under the
+  // 0.2 sun, so the per-instance near-glow weight drives EMISSIVE (light-independent) instead — a warm add
+  // that lands the mid-scene trunks near a glow at step-4 while far/parked trunks (aGlowLift 0) stay black.
+  // Per-instance `aGlowLift` attribute (written in writeMatrix); ONLY the 3 mireVeil families carry it, so
+  // this material never shares a program with the other ladder mats (unique cache key below). aGlowLift 0
+  // ⇒ +0 ⇒ the ladder look is unchanged where no glow is near.
+  chainBeforeCompile(mats.mireVeil, (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'attribute float aGlowLift;\nvarying float vGlowLift;\nvoid main() {')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlowLift = aGlowLift;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'varying float vGlowLift;\nvoid main() {')
+      // AFTER all of addPropDetail's emissive modulations (noise ×, ladder ×vColor, aerial +) — anchoring on
+      // emissivemap_fragment would put the drink BEFORE the ×vColor ladder and a dark trunk would kill it.
+      .replace('#include <opaque_fragment>', '  totalEmissiveRadiance += vec3(0.227, 0.200, 0.141) * vGlowLift;\n#include <opaque_fragment>');
+  });
+  mats.mireVeil.customProgramCacheKey = () => 'mireVeilDrink';   // own bucket — never alias another ladder mat's program (which lacks aGlowLift)
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -303,18 +330,21 @@ function makeMats() {
   // 0.34 = a wet storm-scoured sheen. storm-teal is BANNED — this stays value-structured slate.
   mats.tempestStone = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.34, metalness: 0.05,
-    emissive: 0x5a6a78, emissiveIntensity: 0.12,   // Fable device critique: the old NEUTRAL grey @0.30 milked
-    // the whole ladder toward one flat mid-grey (F2 — grey emissive is fog, not material). Now a DARK COOL-SLATE
-    // lift at a low floor: silhouettes still separate from the pale slot, but near rock reads ink-dark + carved
-    // and the near→far value ramp finally spans (the ladder vColor folds INTO this via ladderEmissive).
+    emissive: 0x8a8578, emissiveIntensity: 0.25,   // hue nudged toward the warm SLOT (was cool 0x7d8a98) so scour crests read SLOT-LIT under the bruised deck, not like a compositing error; ladder fold keeps bellies dark. Fable device critique R2: @0.12 was calibrated on headless
+    // captures (which render ~1 stop brighter than a real phone) → the rock collapsed to FLAT BLACK cardboard on
+    // the owner's device. Lift back to a COOL-PALE @0.25: because ladderEmissive multiplies by the (now wide)
+    // ladder vColor, the lift lands on SCOUR crests (bright wind-bitten tops catching the storm-light) while the
+    // wetcore vColor keeps soaked bellies near-black → real value RANGE inside each prop (Frozen's luminosity law,
+    // storm-native), not one flat value. Gate on DEVICE, never headless.
   }), true);
   // (The atmospheric CLOUD-WALL `arcuswall` and its tempestCloud/lip materials are DEFERRED to a future
   //  sky-shader pass — see the archetype note — so no cloud materials are built here.)
-  // The virga VEIL — rainshaft ships as thin OPAQUE pale slabs the colour of the far fog (#a7b2b0), so
-  // the pale distance makes opaque geometry read as translucent falling rain for free. No accent — it IS
-  // light-through-water; a faint emissive keeps it from going muddy in the haze.
+  // The virga VEIL — rainshaft ships as thin OPAQUE pale slabs the colour of the far fog, so the pale
+  // distance makes opaque geometry read as translucent falling rain for free. No accent — it IS
+  // light-through-water; a faint emissive keeps it from going muddy in the haze. Re-graded to the new
+  // WARM far-fog 0xb3ac9c (Fable): pinned to the old cool 0xa7b2b0 it would read as a cool stripe on warm fog.
   mats.tempestVirga = addPropDetail(new THREE.MeshStandardMaterial({
-    ...opts, color: 0xa7b2b0, roughness: 0.95, metalness: 0.0, emissive: 0x8f9a9a, emissiveIntensity: 0.30,
+    ...opts, color: 0xb3ac9c, roughness: 0.95, metalness: 0.0, emissive: 0x968f80, emissiveIntensity: 0.30,
   }));
   return mats;
 }
@@ -356,6 +386,39 @@ function frustumBetween(p0, p1, r0, r1, seg = 4) {
   geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
   geo.translate(p0[0], p0[1], p0[2]);
   return geo;
+}
+
+// A JITTERED lathe (Fable karstfang r2): a surface of revolution whose per-ring, per-sector radius is
+// nudged by a smooth PERIODIC noise (two sines in theta → wraps seamlessly at 2π) with a per-STATION
+// phase, so no silhouette edge runs straight and the overhang depth varies around the ring — a natural
+// weathered rock, not a machined goblet with a circular flange. Deterministic (fixed trig, no rnd) →
+// build() is stable and gold-determinism is untouched. Radial-only (Y is never perturbed → a tide-
+// laddered band stays dead-level). `prof` = [{ r, y }] stations; `seg` sectors; `amp` = per-station
+// jitter amplitude (0 at the foot, strongest at the mid-flank + shoulder). Cost = (stations−1)·seg·2 tris.
+function jitterLathe(prof, seg, amp) {
+  const rings = prof.map((s, i) => {
+    const ring = [];
+    const a = amp[i] ?? 0;
+    for (let j = 0; j < seg; j++) {
+      const th = (j / seg) * Math.PI * 2;
+      const f = 1 + a * (0.62 * Math.sin(3 * th + i * 1.3) + 0.38 * Math.sin(5 * th + i * 2.7 + 0.9));
+      ring.push([Math.cos(th) * s.r * f, s.y, Math.sin(th) * s.r * f]);
+    }
+    return ring;
+  });
+  const v = [];
+  for (let i = 0; i < prof.length - 1; i++) {
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      v.push(...A, ...C, ...B, ...A, ...D, ...C);   // outward winding (matches the drum lathe)
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+  return g;
 }
 
 function mergeParts(parts, biomeIdx) {
@@ -554,13 +617,17 @@ function mergeTempestVirga(parts) {
 // underside-only belly). BLEACHED bone-amber crown above the old tide / JADE life-band AT the
 // waterline (the saturated hero stop) / DROWNED slate below. Zero triangle cost. Lagoon's OWN stops —
 // never the Caldera _CAL_ or Frozen _FROST hues (the Part B leak the symmetric mechanical grep guards).
-const _LAG_BLEACH = [0.902, 0.827, 0.659]; // 0xe6d3a8 sun-bleached bone-amber (above the old tide)
-const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop)
-const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline)
+// PR-0 palette substrate (jungle drowned temple, §7.2): the crown moves OFF the old cold
+// bone-bleach (that is Glacier/Hollowgate turf) toward warm HONEY — the cycle's only warm-and-
+// green biome now reads golden-hour tropical, never molten, never bleached. Jade + drowned kept.
+const _LAG_BLEACH = [0.941, 0.769, 0.451]; // 0xf0c473 warm HONEY-GOLD limestone crown (Fable in-game review: the karst faces read grey-olive; pushed warmer+more saturated so the limestone JOINS the golden hour)
+const _LAG_JADE = [0.208, 0.537, 0.416];   // 0x35896a jade life-band at the waterline (the hero stop, kept)
+const _LAG_DROWN = [0.086, 0.227, 0.251];  // 0x163a40 drowned slate-teal (below the waterline, kept)
 function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const s = [0, 0, 0];
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
     const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;   // face-centroid height (unit space, pre-scale)
     if (yc > waterY + bandH) {
@@ -568,7 +635,16 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
       // top so a ruin reads dark-waterline → bright sunlit crown instead of one flat pale value. Unit-Y
       // maps to world height (rotY is about Y, tilt tiny), so the gradient stays vertical under instancing.
       const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);   // 0 just above the tide → 1 at a tall crown
-      s[0] = _LAG_BLEACH[0] * (1 + 0.10 * t); s[1] = _LAG_BLEACH[1] * (1 + 0.09 * t); s[2] = _LAG_BLEACH[2] * (1 + 0.06 * t);
+      // UNDERCUT SHADOW (Fable karstfang r1): AO is gated OFF by default (uAO=0), so a down-facing overhang
+      // underside — the Ha Long marine undercut, an arch soffit, a slumped-block belly — reads as flat
+      // sunlit stone with nothing to darken it. Bake the self-shadow into DIFFUSE: a crown face whose
+      // geometric normal points DOWN darkens toward ~0.58×, so an overhang reads as a dark band under a
+      // bright shoulder (the value zone the flat-cream lump lacked). Up-faces are untouched (factor 1).
+      ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+      e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+      const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 for up/side faces → 1 for straight-down overhang
+      const uf = 1 - 0.58 * u;                                    // Fable karstfang Stage-2: +1 stop (front-lit sun didn't shadow the overhang) → the undercut reads as a real dark band
+      s[0] = _LAG_BLEACH[0] * (1 + 0.10 * t) * uf; s[1] = _LAG_BLEACH[1] * (1 + 0.09 * t) * uf; s[2] = _LAG_BLEACH[2] * (1 + 0.06 * t) * uf;
     } else if (yc < waterY) {
       const t = Math.min(1, (waterY - yc) / 0.4);             // darken into the wet shadow core at the base
       const f = 1 - 0.30 * t;
@@ -587,19 +663,125 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
 // height): up-facing leaf faces catch the low sun (sunlit olive-gold), everything else is shadow-green.
 // Used by lilyraft (pads + reeds) and rootbastion's canopy pads — a SYSTEM, not a one-off. Running this
 // INSTEAD of the tide ladder is what stops the default bake painting leaves bleached-ivory (ice-floe leak).
-const _LAG_OLIVE = [0.561, 0.659, 0.290];  // 0x8fa84a sunlit olive-gold (up-facing leaf)
-const _LAG_SHADOW = [0.184, 0.353, 0.220]; // 0x2f5a38 shadow-green (rims, undersides, blades)
-// `upThresh` sets how flat-up a face must be to catch sun: 0.35 = leaf/pad (broad olive tops), 0.75 =
-// ROOT/branch (only true top-curves catch; leaning flanks stay shadow-green → dark roots strangling pale
-// stone, the Ta Prohm contrast — Fable rootbastion). A threshold parameter, still ONE bake system.
+// PR-0 (§7.2): THREE living greens now, not two — a jungle reads as layered canopy, not one flat
+// mint. Sunlit olive-gold catch → mid FERN body → shadow jungle core, a value ladder on the foliage
+// itself (AAA core→bloom→dark applied to leaves). Deeper + more saturated than the old pale pair so the
+// Lagoon's green never rhymes with the Mire's biolume teal or a bleached ice tint.
+const _LAG_OLIVE = [0.624, 0.682, 0.290];  // 0x9fae4a sunlit olive-gold (up-facing leaf — the sun catch)
+const _LAG_FERN = [0.333, 0.502, 0.243];   // 0x55803e mid fern (the leaf body, the majority green)
+const _LAG_SHADOW = [0.153, 0.271, 0.173]; // 0x27452c shadow jungle (rims, undersides, blades, root flanks)
+// `upThresh` sets how flat-up a face must be to catch full sun: 0.35 = leaf/pad (broad olive tops), 0.75 =
+// ROOT/branch (only true top-curves catch; leaning flanks stay dark → dark roots strangling pale stone,
+// the Ta Prohm contrast). The mid FERN band opens `upThresh−0.45` below the sun cutoff, so a leaf gets
+// olive top / fern flank / shadow underside (three zones), while a root's flanks stay shadow (its mid
+// band sits high, ≥0.30 — the strangling-dark read is preserved). One threshold, one bake system.
 function bakeLilyFoliage(geo, upThresh = 0.35) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const midThresh = upThresh - 0.45;
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // geometric face normal
+    const s = nr.y > upThresh ? _LAG_OLIVE : nr.y > midThresh ? _LAG_FERN : _LAG_SHADOW;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// PR-0 (§7.2): the TEMPLE sandstone ladder — a SECOND stone geology sharing the same material/draw
+// group as the karst limestone (via the `bake:'temple'` per-part tag), so a drowned temple reads as
+// a different stone from the sea-karst without a second material. Same position-keyed 3-stop structure
+// as bakeTideLadder (amber crown / moss-verdigris tide / laterite drowned), warmer + more mineral than
+// the honey karst — the Angkor sandstone that has taken on moss where the water sits. Zero tri cost.
+const _TMP_AMBER = [0.851, 0.682, 0.486];  // 0xd9ae7c warm amber sandstone crown (above the old tide)
+const _TMP_MOSS = [0.306, 0.580, 0.408];   // 0x4e9468 moss verdigris at the waterline (temple's life-band)
+const _TMP_LATER = [0.227, 0.196, 0.149];  // 0x3a3226 drowned laterite (below the waterline)
+function bakeTempleLadder(geo, waterY = 0.0, bandH = 0.22) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const s = [0, 0, 0];
+  for (let i = 0; i < n; i += 3) {
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    if (yc > waterY + bandH) {
+      const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);   // brighten toward a sunlit crown (value structure)
+      s[0] = _TMP_AMBER[0] * (1 + 0.09 * t); s[1] = _TMP_AMBER[1] * (1 + 0.08 * t); s[2] = _TMP_AMBER[2] * (1 + 0.06 * t);
+    } else if (yc < waterY) {
+      const t = Math.min(1, (waterY - yc) / 0.4);
+      const f = 1 - 0.30 * t;
+      s[0] = _TMP_LATER[0] * f; s[1] = _TMP_LATER[1] * f; s[2] = _TMP_LATER[2] * f;
+    } else {
+      s[0] = _TMP_MOSS[0]; s[1] = _TMP_MOSS[1]; s[2] = _TMP_MOSS[2];
+    }
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// PR-0 (§7.2): the BLOOM bake — lotus buds/blooms via the `bake:'bloom'` tag. A warm BLUSH, deliberately
+// NOT magenta-adjacent (that lane is role-locked to danger bullets — bulletcontrast law), a second warm
+// hue the roster otherwise lacks. Normal-keyed like the foliage: a lit petal catch on up-faces → a
+// deeper blush body in shadow, so a bud reads as a rounded bloom (two value zones), never a flat pink
+// blob. Diffuse only (no emissive — a flower is not a lantern; gilt stays the only warm emitter).
+const _LAG_BLOOM = [0.937, 0.647, 0.541];  // 0xefa58a warm ROSE-blush petal (up-facing catch) — deepened + more saturated so it reads as a clear 2nd warm hue, not pale cream (still off the magenta danger-bullet lane)
+const _LAG_BLOOM_D = [0.760, 0.443, 0.376]; // 0xc27160 deeper rose body (shadow side of the bloom)
+// PR-2 (Fable figgate r1): the WOOD bake — fig trunk + strangler roots via `bake:'wood'`. Dark BARK-BROWN,
+// deliberately a DIFFERENT hue+value slot from the moss-verdigris waterline and the green canopy (Fable: the
+// old green roots merged into "generic moss" and the strangle read vanished). Normal-keyed like the foliage:
+// a little lit bark catches on top-curves, the vertical flanks stay dark brown → dark roots gripping pale
+// stone (the Ta Prohm contrast) with their OWN value zone. Gives the prop its 3rd organized zone.
+const _WOOD_LIT = [0.360, 0.262, 0.170];   // 0x5c4329 sunlit bark (up-facing curves) — TIGHTENED range (Fable mangrovehold: ivory feet read as flat-tape paddles; keep all wood in one brown family)
+const _WOOD_DARK = [0.205, 0.145, 0.092];  // 0x342517 shadow bark (flanks, undersides) — lightened so thin legs read as one grown root system, not mixed lumber
+function bakeWood(geo, upThresh = 0.45) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
     ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
-    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // geometric face normal
-    const s = nr.y > upThresh ? _LAG_OLIVE : _LAG_SHADOW;
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > upThresh ? _WOOD_LIT : _WOOD_DARK;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+// PR-7/8 (Fable rampart r4): the VOID bake — near-black warm shadow for doorway/bay OPENINGS cut into a
+// temple-wall face. A gallery's repeating dark bays are the value structure (core→bloom→dark) a flat amber
+// wall lacks; a mid-brown (bake:'wood') read as paint chips — this drops to ~value 0.12 so the openings read
+// as true shadowed voids at cruise distance. Flat solid fill (an opening has no internal light).
+const _VOID = [0.129, 0.096, 0.075];   // 0x211812 near-black warm — a doorway into shadow (Fable target ~#241a12)
+function bakeSolid(geo, rgb) {
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i * 3] = rgb[0]; col[i * 3 + 1] = rgb[1]; col[i * 3 + 2] = rgb[2]; }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+// PR-8 (Fable rampart in-context): the REVEAL bake — a doorway/bay with a VERTICAL VALUE GRADIENT so it isn't
+// flat-#000 "tape" (the #1 cheap-tell): a dim warm-lit sill/floor at the base (the golden-hour bounce) fading
+// UP to the near-black roof-shadow interior → each opening carries its own core→bloom→dark instead of a
+// uniform decal. Keyed by object Y (0.10→0.62, the bay band); ry rotation is about Y so it survives.
+const _REVEAL_SILL = [0.315, 0.232, 0.156]; // dim warm bounce at the doorway sill
+function bakeReveal(geo) {
+  const pos = geo.attributes.position, n = pos.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const t = Math.max(0, Math.min(1, (pos.getY(i) - 0.12) / 0.44));   // 0 at the sill → 1 at the lintel
+    col[i * 3] = _REVEAL_SILL[0] + (_VOID[0] - _REVEAL_SILL[0]) * t;
+    col[i * 3 + 1] = _REVEAL_SILL[1] + (_VOID[1] - _REVEAL_SILL[1]) * t;
+    col[i * 3 + 2] = _REVEAL_SILL[2] + (_VOID[2] - _REVEAL_SILL[2]) * t;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+function bakeBloom(geo, upThresh = 0.2) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > upThresh ? _LAG_BLOOM : _LAG_BLOOM_D;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -618,19 +800,29 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], foliage = [], root = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
-    else if (p.bake === 'root') root.push(g);                            // tagged → dark foliage (roots/branches)
+    else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
+    else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
+    else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
+    else if (p.bake === 'reveal') revealB.push(g);                       // tagged → doorway with a vertical lit-sill→dark gradient (kills flat-tape, PR-8)
+    else if (p.bake === 'temple') temple.push(g);                        // tagged → temple sandstone ladder (PR-0)
+    else if (p.bake === 'bloom') bloom.push(g);                          // tagged → lotus blush bloom (PR-0)
     else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
-    else ladder.push(g);                                                 // untagged → tide ladder
+    else ladder.push(g);                                                 // untagged → tide ladder (karst limestone)
   }
   const stone = [];
   if (ladder.length) { const g = ladder.length > 1 ? mergeGeometries(ladder) : ladder[0]; if (!opts.foil) bakeTideLadder(g); stone.push(g); }
+  if (temple.length) { const g = temple.length > 1 ? mergeGeometries(temple) : temple[0]; bakeTempleLadder(g); stone.push(g); }
   if (foliage.length) { const g = foliage.length > 1 ? mergeGeometries(foliage) : foliage[0]; bakeLilyFoliage(g); stone.push(g); }
   if (root.length) { const g = root.length > 1 ? mergeGeometries(root) : root[0]; bakeLilyFoliage(g, 0.75); stone.push(g); }
+  if (wood.length) { const g = wood.length > 1 ? mergeGeometries(wood) : wood[0]; bakeWood(g); stone.push(g); }
+  if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
+  if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
+  if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {
@@ -738,14 +930,53 @@ const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevin
 // new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
 // restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
 // (they coexist in-field; the full legacy retirement + Wastes retire-from-CYCLE is the final PR).
-const lagoonNew = PROPS_V1 ? [] : [0];   // rotunda (+ arcade/rootbastion/lilyraft/wrackstone/campanile/sentinel to come)
-const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once the kit completes)
+// THE LOST LAGOON v3 GROUND-UP REBUILD (LOST-LAGOON-HANDOFF, "jungle drowned temple") — the v2
+// drowned-Greco ruins (rotunda/arcade/…) failed the owner NAME TEST ("generic gray lumps"), so a NEW
+// nameable roster (karstfang/prasat/figgate/mangrovehold/lotusraft/nagawall) is built beside them behind
+// a `?props=v3` seam. v2 stays DEFAULT (shipped roster never breaks) until the PR-5 migration flips it.
+// Coexist → prove a hero (karstfang) → migrate — the same A/B idiom as ?props=v1.
+// v3 (jungle drowned temple) is now the DEFAULT for biome 0 — the owner judged the v2 drowned-Greco lumps
+// off-vision ("not what I had in mind at all"), so the new kit leads and the old two rosters are opt-in.
+// ?props=v2 restores the retired v2 kit, ?props=v1 the legacy Sanctuary/Wastes props (both for A/B only).
+const PROPS_V2 = _envParams.get('props') === 'v2';
+const lagoonV3 = (PROPS_V1 || PROPS_V2) ? [] : [0];  // v3 jungle-drowned-temple kit — DEFAULT (karstfang + roster as it lands)
+const lagoonNew = PROPS_V2 ? [0] : [];   // retired v2 drowned-Greco ruins — opt-in via ?props=v2
+const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins — opt-in via ?props=v1
 // TEMPEST REACH overhaul (TEMPEST-REACH-BIBLE.md) — same flip idiom. Default (v2) = the new
-// storm-carved kit (stormprow hero + stackgrave/tafonihold/stormstack/arcuswall/rainshaft to
-// come, wind-scour value ladder); `?props=v1` restores the empty legacy roster. The archetype's
-// `biomes: tempestNew` whitelist is the ONLY spawn gate. Kit is built up over PRs.
-const tempestNew = PROPS_V1 ? [] : [7];  // stormprow (+ storm roster to come)
+// storm-carved kit (stormprow hero + stackgrave/tafonihold/stormstack/arcuswall/rainshaft/wrackline/
+// stormarch, wind-scour value ladder); `?props=v1` restores the empty legacy roster. The archetype's
+// `biomes: tempestNew` whitelist is the ONLY spawn gate.
+const tempestNew = PROPS_V1 ? [] : [7];  // stormprow (+ storm roster)
 const tempestOld = PROPS_V1 ? [7] : [];  // legacy (empty — biome 7 shipped propless)
+
+// SHARED SHEARED-WEDGE BUILDER (Fable device critique R3 — the ASPECT-LEAN LAW). The world lean of a
+// baked skew is atan(k·r/h): one shared SKEW across a family whose instances span a wide aspect band
+// produces BOTH of the owner's complaints at once — squat prows (big r / small h) topple at ~50° while
+// tall prows (small r / big h) barely lean at ~13°. Fix: parameterize SKEW and split stormprow into two
+// NARROW aspect bands (low + hero), each with its own k tuned to a natural 15–28° world lean. Same unit
+// strata; the instance (r,h,r) scale does the rest.
+function buildStormprow(SKEW) {
+  const parts = [];
+  // [centerX, y, w, h, d, ry] — strata stack ~vertically + taper to a small crest; skewX shears the whole
+  // stack downwind coherently → the windward face is ONE continuous diagonal of parallelogram faces.
+  const strata = [
+    [-0.02, 0.09, 0.44, 0.20, 0.60,  0.05],   // 0 WATERLINE belly — narrow + recessed → undercut
+    [ 0.00, 0.28, 0.52, 0.20, 0.56, -0.07],   // 1 overhangs the belly (the storm undercut)
+    [ 0.02, 0.47, 0.44, 0.20, 0.48,  0.05],   // 2
+    [ 0.04, 0.65, 0.32, 0.19, 0.40, -0.06],   // 3
+    [ 0.06, 0.82, 0.16, 0.16, 0.28,  0.04],   // 4 CREST — sharp, small, far downwind (via the skew)
+  ];
+  for (const [x, y, w, h, d, ry] of strata) parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
+  // Protruding ledge slabs riding the windward DIAGONAL — the stratification tell, proud of the slope.
+  const ledges = [
+    [-0.16, 0.20, 0.22, 0.05, 0.50,  0.10],
+    [-0.10, 0.40, 0.20, 0.05, 0.44, -0.12],
+    [-0.02, 0.60, 0.16, 0.045, 0.36,  0.09],
+    [ 0.06, 0.80, 0.10, 0.08, 0.26,  0.06],   // crest splinter
+  ];
+  for (const [x, y, w, h, d, ry] of ledges) parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
+  return mergeTempestParts(parts);
+}
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -1700,7 +1931,7 @@ const ARCHETYPES = {
   // severs so it floats on fog. Mass in the upper y-band; crops the horizon under the amber
   // haze. 2 pinprick beacons recessed under lobe overhangs (the under-brim address at a mile).
   canopywall: {
-    step: 83, biomes: mireNew, matIndex: 4,
+    step: 83, biomes: mireNew, matIndex: 4, nearGlowLift: true,   // Fable 96-C: drinks nearby glow
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.5, 5).toNonIndexed(), { y: 0.25 }) });
@@ -1729,7 +1960,7 @@ const ARCHETYPES = {
   // cones — the sanctioned "sparse feathered reeds" exception to no-sharp-verticals) at
   // varied heights + 1 leaning bare snag. Sweeps past fast; sells speed. All near-black.
   reedveil: {
-    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror
+    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34, nearGlowLift: true,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror; Fable 96-C drinks nearby glow
     build: () => {
       const parts = [];
       const tufts = [
@@ -1753,7 +1984,7 @@ const ARCHETYPES = {
   // knuckled — never straight cylinders) sharing one blobby crown mass at the top third.
   // The mid-ground black shape the drape fringe + future glow-carriers read AGAINST.
   boleveil: {
-    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep)
+    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58, nearGlowLift: true,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep); Fable 96-C drinks nearby glow
     build: () => {
       const parts = [];
       const boles = [
@@ -1784,7 +2015,7 @@ const ARCHETYPES = {
   // laneMaxY 22 + camera) — so the roof paints the top of frame without ever blocking the lane.
   // Dark foil (moss DARK); the glowing air is the PR-1 mote system drifting under the fringe.
   drape: {
-    step: 19, biomes: mireNew, matIndex: 4,
+    step: 19, biomes: mireNew, matIndex: 4, nearGlowLift: true,   // Fable 96-C: drinks nearby glow
     overhead: { unitY: 0.66, minWorldY: 28 },
     build: () => {
       const parts = [];
@@ -1961,6 +2192,9 @@ const ARCHETYPES = {
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
     step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.25, glow: true }, // sMax 1.25 (Fable 68): peak survivors SWELL into a thicket-event instead of the grove reading flat
+    // Fable 88 lever-6 SIZE OCTAVES (pup / adult / tall / rare mother): a colony reads as many pups, some
+    // adults, one matriarch — not street lighting. EV≈0.95 (mass stays put); peak k = 1.25×1.90 ≈ 2.4 towers.
+    sizeOctave: [[0.44, 0.58], [0.78, 1.00], [0.93, 1.45], [1.0, 1.90]],
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
@@ -1988,6 +2222,12 @@ const ARCHETYPES = {
   // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
     step: 37, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true }, // step 37 prime (Fable 68): coprime with shroom 45 + all Mire steps, kills the gcd-9 lattice co-beat
+    // Fable 88 lever-6 SIZE OCTAVES — glowbloom is DENSE near-lane ground filler (base inner ≈14.9, right at
+    // the ±14.5 clearance floor), so it cannot take an UPSIZE class without invading the lane (propclearance
+    // octave-aware gate). Its variance skews DOWNWARD instead — small/mid/full — max 1.0× so the effective
+    // sMax is byte-unchanged and clearance holds; the dramatic upward "mother" variance lives on glowshroom
+    // (placed further out). Still breaks the runway (mostly-smaller blooms with some full-size).
+    sizeOctave: [[0.45, 0.70], [0.80, 0.90], [1.0, 1.00]],
     build: () => {
       const parts = [];
       const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
@@ -2006,6 +2246,465 @@ const ARCHETYPES = {
     place: (side, rnd) => { const r = 6 + rnd() * 4; return { x: side * (20 + rnd() * 10), h: 10 + rnd() * 4, r, tilt: 0, rotY: 0 }; },
   },
 
+  // ===== THE LOST LAGOON v3 — "jungle drowned temple" roster (LOST-LAGOON-HANDOFF §7.3) =====
+  // Registered at the END of ARCHETYPES so no existing band's render-rnd draw order shifts (RNG-order
+  // law). All behind the `?props=v3` seam (biomes: lagoonV3 = [] by default) — v2 stays shipped until
+  // the PR-5 migration. THE NAME TEST governs every prop: a passing player names it in one word.
+
+  // karstfang — THE MID MASS / nature, BUILD FIRST (the identity prover). A Ha Long Bay fenglin
+  // limestone SEA-STACK: top-heavy honey karst, a wave-cut marine NOTCH at the tide line, a broken twin
+  // summit under a green scrub crown. Three silhouette signals = "tropical sea-rock" at 300m: (1) WIDER
+  // ABOVE the notch (shoulder overhangs → top-heavy mushroom), (2) DARK marine UNDERCUT (the steep
+  // shoulder flare's down-facing underside, AO-shadowed), (3) GREEN crown (the foliage pads). The lathe
+  // profile is a SURFACE OF REVOLUTION → yaw-INVARIANT (the name test survives every random rotY). No
+  // gilt (nature). If the tropical karst doesn't land here, the identity is wrong — stop, don't tune.
+  karstfang: {
+    step: 41, biomes: lagoonV3, matIndex: 0, arrivalPark: true, sizeClass: true, giant: true, comp: { floor: 0.12, sMin: 0.88, sMax: 1.18 }, // mid mass: clusters into archipelagos, off the open-mirror seam + empty in the breaths; size classes + a rare COLOSSAL height-boost class that breaks the horizon (Fable in-game review)
+    build: () => {
+      const parts = [];
+      // MAIN KARST TOWER — a 7-seg LATHE (surface of revolution → reads identical from any yaw). The
+      // fenglin read is TOP-HEAVY: the mass's maximum radius sits HIGH (~72% height) and OVERHANGS a
+      // pinched waterline foot (Fable karstfang r1 — the k2 build was inverted, widest in its lower third
+      // → read "urn/pawn"). Profile: pinched foot AT the waterline (the marine NOTCH, ~0.45× the shoulder)
+      // → flare steadily OUTWARD going up → MAX radius at 74% forming a hard OVERHANGING SHOULDER (the
+      // station below it is smaller, so a down-facing undercut band exists — the tide bake paints it dark)
+      // → short taper to the broken summit. Edge loop at y0.22 keeps the jade waterline dead-level.
+      // The flank is bowed slightly CONVEX (mid-belly r above the notch→shoulder straight line) and the
+      // whole tower is JITTERED per-sector (jitterLathe) so no silhouette edge runs straight and the
+      // shoulder is not a machined circular flange (Fable r2 — the k3 "goblet" tell). Jitter is strongest
+      // at the mid-flank + shoulder, near-zero at the foot/notch so the jade waterline ring stays clean.
+      const prof = [
+        { r: 0.28, y: 0.00 },   // foot (sinks below the waterline weld)
+        { r: 0.23, y: 0.12 },   // NOTCH pinch — the marine undercut at the waterline (narrowest)
+        { r: 0.29, y: 0.22 },   // edge loop AT the band top (jade band below is dead-level)
+        { r: 0.44, y: 0.58 },   // mid-belly — bowed CONVEX + set high so the flare to the shoulder is STEEP (Fable Stage-2: a steeper overhang → more down-facing area → the undercut band reads)
+        { r: 0.58, y: 0.74 },   // SHOULDER — MAX radius, hard overhang (top-heavy; underside → dark undercut band)
+        { r: 0.34, y: 0.90 },   // taper in to the summit
+      ];
+      parts.push({ mat: 0, geo: jitterLathe(prof, 7, [0.04, 0.05, 0.05, 0.14, 0.13, 0.09]) });                // 5 gaps × 7 seg × 2 = 70
+      // FOOT CAP — a down-facing disc closes the open lathe base (studio-low read; in-game the mirror
+      // occludes it below the waterline). The broad top is closed by the crown domes + summit knobs.
+      parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(0.28, 7), { y: 0.0, rx: Math.PI / 2 }) });     // 7
+      // BROKEN TWIN SUMMIT — two rock knobs of UNEQUAL height from the tapered top, ONE LEANING (kills the
+      // single-nub/smooth-cone read). Fat bases (r0.18+) → rock knobs, not thin fins. Tide-laddered → honey.
+      parts.push({ mat: 0, geo: frustumBetween([0.10, 0.84, 0.05], [0.015, 1.16, 0.11], 0.20, 0.06, 6) });    // taller horn, leans +z as it rises (12)
+      parts.push({ mat: 0, geo: frustumBetween([-0.15, 0.86, -0.05], [-0.17, 1.00, -0.02], 0.18, 0.12, 6) });  // broken blunt stub (12)
+      // GREEN SCRUB CROWN — 2 ROUNDED scrub blobs (low-poly icosa spheres, bake:'lily' → the 3-stop
+      // foliage), the third silhouette signal. Fable Stage-2 killed the flat pad twice (frisbee, then hat-
+      // brim): karst scrub is not a parasol — it is bushy vegetation CLINGING to the rock. So a green
+      // MOUND caps the summit (the twin peaks poke THROUGH it) and a second smaller bush hugs the upper
+      // shoulder flank, both squashed (sy<1 → sit low, not balls) with their bases sunk into the stone
+      // (occlusion weld). Rounded masses read as vegetation at cruise where a thin pad vanished edge-on.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.40, 0), { x: 0.02, z: 0.04, y: 0.82, sx: 1.06, sy: 0.70, sz: 0.94 }) });   // main scrub mound over the summit (peaks poke through the top)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: 0.22, z: 0.12, y: 0.72, sx: 1.02, sy: 0.74, sz: 0.90 }) });   // bush clinging to the upper +x shoulder flank (base sunk into the rock)
+      return mergeLagoonParts(parts);
+    },
+    // MID sea-stack, ~1.6:1 TALL + top-heavy (a fenglin tower rises but reads MASSIVE, not a rocket): r
+    // 7.5–11.5, h 13–19 → world ≈ 1:1.6. tilt 0 EXPLICIT (PLUMB-TIDE — the jade band is a level water
+    // stain). Draw r first, couple x so the inner edge clears the ±16 gate veil at the worst comp×sizeClass
+    // scale (the widest footprint is the 0.58 shoulder × sMax 1.18 × the 1.42 mother-island size class).
+    place: (side, rnd) => {
+      const r = 7.5 + rnd() * 4;
+      const p = { x: side * (17 + 0.95 * r + rnd() * 5), h: 13 + rnd() * 6, r, tilt: 0 };
+      if (HERO_SET.has('karstfang')) p.rotY = 0;   // debug: pin yaw so the twin summit + wound face down-lane
+      return p;
+    },
+  },
+
+  // figgate — FEATURE MID (nature ∩ civilization), the Ta Prohm money-shot (§7.3.3): a THICK-walled temple
+  // gateway CHUNK (two jambs + a lintel, doorway open THROUGH to the sky) with a strangler FIG seated on
+  // the lintel — dark roots cascade down both jambs to the water, a green parasol canopy crowns it. Three
+  // silhouette signals = "tree eating a temple gate": the rectangular doorway HOLE (civ) / the green CANOPY
+  // crown (nature) / the dark ROOTS draping the jambs (the strangling). FIREWALL vs the Sinking-Gates
+  // hazard (a bare free-standing arch): THICK + rectangular + canopy-crowned + root-draped + off-lane — a
+  // gate no player mistakes for the deadly frame. Composite bakes: temple sandstone gateway (bake:'temple')
+  // + dark fig wood/roots (bake:'root') + green canopy (bake:'lily') + a withheld gilt doorway-soffit reveal.
+  figgate: {
+    step: 61, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0.08, sMin: 0.9, sMax: 1.1 }, // feature mid: clusters into the archipelagos, off the open-mirror seam + empty in the breaths
+    build: () => {
+      const parts = [];
+      // GATEWAY CHUNK — thick masonry, PLUMB (temple ladder is position-keyed: moss-verdigris waterline /
+      // amber sandstone above). Two jambs + a lintel bridging them = a doorframe; the void BETWEEN the
+      // jambs, below the lintel, is the doorway — open front-to-back (a real through-hole → the occlusion-
+      // masked god-rays carve a shaft through it at the right yaw). Asymmetric (jamb heights differ + a
+      // broken wall stub) so it reads as RUIN, not a built arch.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.64, 0.34), { x: -0.35, y: 0.32 }) });                 // left jamb (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.72, 0.34), { x: 0.35, y: 0.36 }) });                  // right jamb — taller (asymmetric) (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(1.00, 0.20, 0.36), { y: 0.74 }) });                           // lintel — ends flush with the jamb outer edges (no beam protruding through the canopy) (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.34, 0.30), { x: 0.64, y: 0.17, z: -0.02, ry: 0.22 }) }); // broken wall stub off the right jamb (ruin chunk) (12)
+      // GILT DOORWAY-SOFFIT REVEAL — a SMALL gilt glint RECESSED inside the doorway at the top under the
+      // lintel (z set back behind the front plane, narrower than the opening). The withheld temple gold, a
+      // glint deep in the reveal when the sunset rakes through — NOT a lamp bar (Fable r1: shrunk + recessed).
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.24, 0.06, 0.10), { x: 0, y: 0.60, z: -0.03 }) });                           // (12)
+      // STRANGLER FIG — the Ta Prohm strangle (Fable r1: the fig must ACTUALLY strangle the gate, from
+      // ABOVE the lintel, in dark BARK-BROWN, not green strips leaned on the jambs). A squat wood COLLAR
+      // straddles the lintel top (the canopy welds into it — cures the lollipop/pinch), and every root
+      // springs from the collar, CRESTS OVER the lintel's front edge, and descends with a KNEE to a splayed
+      // foot at the water. bake:'wood' → dark bark (its own value zone, distinct from moss + canopy green).
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.02, 0.80, 0.0], [0.0, 1.04, 0.0], 0.22, 0.12, 5) });                     // collar straddling the lintel (10)
+      // CANOPY — a broad billowing leafy crown, ROUNDED squashed blobs (bake:'lily'), NOT flat pads. Two
+      // overlapping lobes (Fable r1: one convex blob read as "boulder on a table" — a crown needs overlap)
+      // welded low into the collar so it sprawls over the gate, the heavy-greenery signal.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.46, 0), { x: -0.06, z: 0.0, y: 1.08, sx: 1.24, sy: 0.62, sz: 1.12 }) });  // main broad crown (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.20, z: 0.12, y: 1.16, sx: 1.08, sy: 0.68, sz: 0.96 }) });  // overlapping lobe (billow) (20)
+      // ROOTS — bake:'wood' (dark bark). Each springs from the COLLAR (above the lintel), crests over the
+      // lintel FRONT edge, KNEES out over the jamb face at ~60% height, and splays at the foot in the water.
+      const rib = (pts, radii, seg = 3) => { for (let i = 0; i < pts.length - 1; i++) parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(pts[i], pts[i + 1], radii[i], radii[i + 1], seg) }); };
+      rib([[-0.14, 0.90, 0.12], [-0.30, 0.46, 0.25], [-0.35, 0.02, 0.21]], [0.06, 0.045, 0.09]);         // L front: over the lintel, knee proud, splayed foot (12)
+      rib([[-0.20, 0.86, 0.05], [-0.45, 0.42, 0.15], [-0.49, 0.02, 0.11]], [0.05, 0.038, 0.07], 2);      // L outer, thin (8)
+      rib([[0.15, 0.92, 0.12], [0.31, 0.48, 0.25], [0.37, 0.02, 0.21]], [0.06, 0.045, 0.09]);            // R front (12)
+      rib([[0.22, 0.88, 0.05], [0.47, 0.44, 0.15], [0.51, 0.02, 0.11]], [0.05, 0.038, 0.07], 2);         // R outer, thin (8)
+      return mergeLagoonParts(parts);
+    },
+    // MID feature, ~1.3:1 (gateway a touch taller than wide): r 9–13, h 12–17. tilt 0 EXPLICIT (PLUMB-TIDE
+    // — the moss waterline is a level stain). Draw r first, couple x so the inner edge clears the ±16 gate
+    // veil at the worst comp scale (sMax 1.1). No sizeClass (a gateway is one built size, not an island).
+    place: (side, rnd) => {
+      const r = 9 + rnd() * 4;
+      const p = { x: side * (17 + 0.9 * r + rnd() * 5), h: 12 + rnd() * 5, r, tilt: 0 };
+      if (HERO_SET.has('figgate')) p.rotY = 0;   // debug: pin yaw so the doorway faces down-lane
+      return p;
+    },
+  },
+
+  // mangrovehold — LOW COMMONS / nature (§7.3.4): a red-mangrove islet — a woody trunk + broad canopy
+  // SUSPENDED ABOVE THE WATER on a crinoline of arcing STILT ROOTS. The signature is the AIRGAP: water +
+  // the mirror double show THROUGH the cage of legs under the trunk — "a tree standing on legs over its
+  // reflection" says tropical lagoon and nothing else, and it's the scale cue (a low 4–7m islet beside a
+  // 40m karst). All bake:'wood' (bark) + bake:'lily' (canopy); no stone, no gilt (a nature commons).
+  // SPIDER-KILL (§7.5.4): legs arc DOWN-AND-OUT at UNEVEN azimuths, taper, FLARE at the foot; the broad
+  // canopy VISUAL mass outweighs the thin legs (a tree, not a spider); a world-radius floor on the legs
+  // keeps them from vanishing at chase distance.
+  mangrovehold: {
+    step: 29, biomes: lagoonV3, matIndex: 0, sizeClass: true, comp: { floor: 0.15, sMin: 0.8, sMax: 1.05 }, // low commons: scatters around the island heroes, 3 size classes, near-empty in the open-water breaths
+    build: () => {
+      const parts = [];
+      // CRINOLINE SKIRT — a flared concave collar where the prop-roots MERGE (Fable r3: six discrete limbs
+      // read as a hexapod no matter the arc — the viewer counts legs before reading curvature. Roots read
+      // via a MERGED skirt + DENSITY + CROSSING, which walking legs never do). A short lathe cone flaring
+      // concave from the canopy seat to an open rim; every root below springs from THIS, so nothing emerges
+      // from a "body". This also carries the mass/scale cue and survives chase distance (thin roots LOD out).
+      {
+        const prof = [new THREE.Vector2(0.14, 0.54), new THREE.Vector2(0.26, 0.40), new THREE.Vector2(0.44, 0.26)];  // WIDER flare (Fable r4: the rim must peek below the canopy's dark underside so the roots read as one organism)
+        parts.push({ mat: 0, bake: 'wood', geo: new THREE.LatheGeometry(prof, 7) });   // 2 gaps × 7 × 2 = 28
+      }
+      // PROUD CROSSING ROOTS — 5 roots spring from the skirt RIM and splay to feet PLANTED at the waterline
+      // (y0), routed so adjacent pairs CROSS (the un-fakeable "grown, not walking" signal — legs never cross,
+      // roots do). Welded up into the rim (interpenetrate, no joint gap); above the radius floor (no wire-
+      // shins). The GAPS between them, below the skirt, are the see-through AIRGAP + the mirror double.
+      // CONTINUITY WELD (Fable r4: m5's roots read as snapped sticks — the topology was right but the chains
+      // leaked at every joint). Each root is ONE unbroken chain: the top is BURIED 30%+ into the skirt
+      // collar; the two frusta OVERLAP at the knee with a fat shared radius (a root knuckle, never a butt-
+      // joint gap); the foot is driven THROUGH the waterline (y<0), planted not placed.
+      const root = (rimAz, footAz, R) => {
+        const rc = Math.cos(rimAz), rs = Math.sin(rimAz), fc = Math.cos(footAz), fs = Math.sin(footAz);
+        const p0 = [0.38 * rc, 0.37, 0.38 * rs];             // BURIED up inside the wider skirt collar
+        const p1 = [R * 0.80 * fc, 0.12, R * 0.80 * fs];     // knee — already angling to the FOOT azimuth (the crossing)
+        const p2 = [R * fc, -0.07, R * fs];                  // foot driven THROUGH the waterline (planted, not placed)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p0, p1, 0.058, 0.055, 3) }); // (6)
+        parts.push({ mat: 0, bake: 'wood', geo: frustumBetween(p1, p2, 0.062, 0.08, 3) });  // fat knee (0.062 > 0.055 → overlap weld) → flared foot (6)
+      };
+      root(0.35, 1.05, 0.52); root(1.30, 0.50, 0.50);   // pair A×B cross
+      root(2.55, 2.60, 0.54);                            // one near-radial
+      root(3.70, 4.35, 0.48); root(4.95, 4.10, 0.52);   // pair D×E cross
+      // CANOPY — a BROAD sheared green crown (bake:'lily'), the visual mass that outweighs the legs so it
+      // reads TREE not spider. Two overlapping squashed lobes (the figgate/karstfang law: rounded blobs +
+      // overlap, never a flat pad or one convex boulder), seated low so they weld to the trunk top.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.52, 0), { x: -0.02, z: 0.0, y: 0.70, sx: 1.22, sy: 0.62, sz: 1.14 }) });  // main broad canopy — seated on the skirt top (welds at y0.52) (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.38, 0), { x: 0.14, z: 0.10, y: 0.77, sx: 1.06, sy: 0.66, sz: 0.98 }) });  // overlapping lobe (merged, no pac-man notch) (20)
+      return mergeLagoonParts(parts);
+    },
+    // LOW islet, ~1:1 (broad canopy + splayed legs ≈ as wide as tall): r 4.5–7, h 4–7 (never crowds the
+    // horizon — a commons). tilt 0 EXPLICIT (the airgap reads best level; a tilt floats the islet + a
+    // missing tilt is a NaN quaternion). Draw r first, couple x so the inner edge clears ±16 at worst scale.
+    place: (side, rnd) => {
+      const r = 4.5 + rnd() * 2.5;
+      const p = { x: side * (16 + 0.75 * r + rnd() * 4), h: 4 + rnd() * 3, r, tilt: 0 };
+      if (HERO_SET.has('mangrovehold')) p.rotY = 0;
+      return p;
+    },
+  },
+
+  // prasat — THE HERO / civilization (§7.3.2): a drowned Angkor temple-mountain — two REDENTED stepped
+  // tiers rising to an OGIVAL lotus-bud tower, one corner collapsed, a withheld gilt doorway. The mandated
+  // LANDMARK: r16–26, h26–40 → it BREAKS THE HORIZON and dwarfs the dragon (the awe the biome was missing).
+  // Cruise read = the SILHOUETTE (redented temple-mountain + lotus-bud crown = "Angkor temple" at 400m);
+  // the Bayon faces are a close-up refinement (silhouette economics — invisible at cruise). Cheap-tells
+  // killed: NOT a wedding cake (tiers redented via 2 interpenetrating 45°-offset boxes/tier + one collapsed
+  // quadrant), NOT a box stack (ogival tower + lotus-bud finial), a doorway gives it a "why". bake:'temple'
+  // sandstone (moss waterline / amber crown); gilt ONLY in the recessed doorway reveal.
+  prasat: {
+    step: 167, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0, sMin: 1.0, sMax: 1.16 }, // HERO landmark: only in congregation peaks, never in the breaths; grows large at the peak
+    build: () => {
+      const parts = [];
+      const T = (g) => parts.push({ mat: 0, bake: 'temple', geo: g });   // temple sandstone
+      // REDENTED TIERS — each = 2 interpenetrating boxes (axis-aligned + 45°) → an 8-point redented Khmer
+      // plan (never a plain wedding-cake box). Two stepped tiers narrowing up; TIER 2 shifted off-centre so
+      // one back corner leaves a COLLAPSE gap.
+      T(xform(new THREE.BoxGeometry(0.86, 0.30, 0.86), { y: 0.15 }));                                   // tier 1 base (12)
+      T(xform(new THREE.BoxGeometry(0.72, 0.30, 0.72), { y: 0.15, ry: Math.PI / 4 }));                  // tier 1 redent (12)
+      T(xform(new THREE.BoxGeometry(0.58, 0.26, 0.58), { x: 0.03, z: -0.03, y: 0.43 }));                // tier 2 (12)
+      T(xform(new THREE.BoxGeometry(0.48, 0.26, 0.48), { x: 0.03, z: -0.03, y: 0.43, ry: Math.PI / 4 })); // tier 2 redent (12)
+      // COLLAPSED QUADRANT — a BOLD fallen dressed block at the foot (Fable r1: the collapse was timid — a
+      // detail, not a statement). Bigger + sheared, the corner that gave way → ruin, not wedding cake.
+      T(xform(new THREE.BoxGeometry(0.30, 0.22, 0.26), { x: -0.47, z: 0.36, y: 0.11, ry: 0.5, rz: 0.18 })); // (12)
+      // OGIVAL TOWER — carry the REDENT to the tip (Fable r1: the crown reverted to a plain box-stack). The
+      // WIDEST neck tier gets the same 2-interpenetrating-45°-boxes star as the base; then a single ogee
+      // tier tapers into the bud → the serrated Angkor edge runs the full height, no parallel-sided stack.
+      T(xform(new THREE.BoxGeometry(0.40, 0.18, 0.40), { x: 0.04, z: -0.04, y: 0.65 }));                    // tower tier a (12)
+      T(xform(new THREE.BoxGeometry(0.33, 0.18, 0.33), { x: 0.04, z: -0.04, y: 0.65, ry: Math.PI / 4 }));   // tower tier a REDENT (12)
+      T(xform(new THREE.BoxGeometry(0.22, 0.16, 0.22), { x: 0.04, z: -0.04, y: 0.84, ry: 0.25 }));          // tower tier b — ogee taper into the bud (12)
+      // LOTUS-BUD FINIAL — SEATED (Fable r1: was a "gem in a hat" — a pyramid floating on a shelf). A bulb
+      // + a cap whose base is NARROWER than the bulb and SUNK into it → one continuous convex close, a soft
+      // point (a lotus bud, not a rocket nose-cone).
+      T(xform(new THREE.IcosahedronGeometry(0.17, 0), { x: 0.04, z: -0.04, y: 1.00, sy: 1.12 }));           // bulb (20)
+      T(xform(new THREE.ConeGeometry(0.11, 0.20, 6), { x: 0.04, z: -0.04, y: 1.16 }));                      // cap: base r0.11 < bulb, sunk in, soft point (18)
+      // GILT DOORWAY REVEAL — a withheld gold doorway RECESSED into the base tier front face (set behind
+      // the face plane so it's the aperture address, the temple's "why", never an outer gilt panel).
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.17, 0.22, 0.10), { z: 0.40, y: 0.15 }) }); // (12)
+      return mergeLagoonParts(parts);
+    },
+    // HERO landmark, ~1.5:1 TALL (a temple-mountain towers): r 16–26, h 26–40 → world top ~40–50m BREAKS
+    // the horizon. tilt 0 EXPLICIT (PLUMB-TIDE + a hero stands plumb; a missing tilt is a NaN quaternion).
+    // Draw r first, couple x hard so even the biggest inner edge clears the ±16 gate veil.
+    place: (side, rnd) => {
+      const r = 16 + rnd() * 10;
+      const p = { x: side * (18 + 0.95 * r + rnd() * 6), h: 26 + rnd() * 14, r, tilt: 0 };
+      if (HERO_SET.has('prasat')) p.rotY = 0;   // debug: pin yaw so the doorway + collapse face down-lane
+      return p;
+    },
+  },
+
+  // lotusraft — LOW REST / nature (§7.3.5): a raft of flat lily pads flush with the mirror + STANDING lotus
+  // blooms and a seed-pod spear. Fills the flat near-water VOID (Fable in-game review: the lower third read
+  // as an empty teal plain) and brings the roster's SECOND warm hue — blush lotus blooms (bake:'bloom',
+  // NOT magenta: that lane is role-locked to danger bullets) — plus the vertical accent the flat pads lack.
+  // No stone, no gilt. The only prop that touches all three greens + the blush.
+  lotusraft: {
+    step: 19, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.14, sMin: 0.9, sMax: 1.06 }, // low rest commons: scatters over the open near-water, near-empty in the breaths
+    build: () => {
+      const parts = [];
+      // LILY PADS — paper-thin water-conforming discs (bake:'lily' → olive top), flush with the mirror.
+      // Varied sizes; the main pad gets a radial NOTCH (the Victoria-amazonica aerial signature).
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.36, 10, 0.55, 2 * Math.PI - 1.0), { y: 0.02, rx: -Math.PI / 2 }) }); // main pad, notched (rounder → organic pad, not a stone tile)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.24, 9), { x: 0.44, z: -0.16, y: 0.02, rx: -Math.PI / 2 }) });        // sibling pad (flush)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.16, 8), { x: -0.32, z: 0.30, y: 0.02, rx: -Math.PI / 2 }) });        // young pad (flush)
+      // LOTUS BLOOMS — upward-opening CUPS (Fable r1: downward cones read as toadstools; a lotus bloom is
+      // the OPPOSITE solid — petals flaring UP and OUT, widest at the top RIM, open center). Each = a thin
+      // green stem + an open petal cup (a frustum widening upward); plus one tighter closed BUD and one
+      // flat SEED POD for variety. Spread across the pad cluster (no clump). bake:'bloom' (rose-blush).
+      const bloom = (x, z, h, r, kind) => {   // 'cup' open petals / 'bud' closed pointed / 'pod' flat seed head
+        parts.push({ mat: 0, bake: 'lily', geo: frustumBetween([x, 0.0, z], [x, h, z], 0.018, 0.014, 2) });   // green stem
+        let g;
+        if (kind === 'cup') g = xform(new THREE.CylinderGeometry(r, r * 0.32, r * 1.5, 6, 1, true), { x, z, y: h + r * 0.75 });   // OPEN petal cup — wide rim UP
+        else if (kind === 'bud') g = xform(new THREE.ConeGeometry(r * 0.62, r * 2.2, 5), { x, z, y: h + r * 1.1 });                // closed pointed bud (teardrop, apex up)
+        else g = xform(new THREE.ConeGeometry(r * 1.0, r * 0.55, 6), { x, z, y: h + r * 0.28, rx: Math.PI });                      // flat seed pod (wide flat top)
+        parts.push({ mat: 0, bake: 'bloom', geo: g });
+      };
+      bloom(0.04, 0.10, 0.24, 0.062, 'cup');    // open cup, main pad
+      bloom(-0.16, -0.02, 0.19, 0.055, 'cup');  // open cup, main pad (left)
+      bloom(0.42, -0.14, 0.20, 0.05, 'bud');    // closed bud — moved to the RIGHT sibling pad (Fable: fix the clump)
+      bloom(-0.06, -0.22, 0.25, 0.052, 'pod');  // seed pod, front edge
+      return mergeLagoonParts(parts);
+    },
+    // LOW hugger, flush with the water: h ≤ ~1.3 world. tilt 0 EXPLICIT (a raft conforms to the water; a
+    // tilted raft is a floe, and a missing tilt is a NaN quaternion). Draw r first, couple x.
+    place: (side, rnd) => {
+      const r = 3.5 + rnd() * 3;
+      const p = { x: side * (15 + 0.72 * r + rnd() * 5), h: 0.9 + rnd() * 0.35, r, tilt: 0 };
+      if (HERO_SET.has('lotusraft')) p.rotY = 0;
+      return p;
+    },
+  },
+
+  // nagawall — BACKDROP / civilization (§7.3.6): a colossal half-drowned NAGA — the serpent body as a
+  // rhythmic run of masonry COIL-HUMPS arcing in and out of the water, ending in a fanned 7-head cobra
+  // HOOD reared against the sunset, the far end a broken stump. Round humps + the Khmer fan = "giant
+  // serpent" in ONE read; the kit's only long horizontal (it UNDERLINES the horizon, never walls). FIREWALL
+  // vs the drowned-footbridge hazard: no deck / piers / straight spans — round humps ONLY, far off-lane.
+  // Tide-laddered stone, plumb, NO gilt (hood eye-sockets a withheld Stage-2 option only).
+  nagawall: {
+    step: 101, biomes: lagoonV3, matIndex: 0, arrivalPark: true, oneSide: true, comp: { floor: 0 }, // rare backdrop EVENT: one side per congregation, fully parked in the breaths, never both horizons
+    build: () => {
+      const parts = [];
+      // COIL-HUMPS — a run of ROUND masonry coils (Fable r1: triangular sawteeth read as a dragon spine;
+      // a masonry naga coil is a SQUAT round ARCH, wider than tall). Each hump is a 4-point SINE arc → the
+      // two middle points sit high + close = a rounded CREST, never a peak; wider than tall. Contiguous,
+      // dipping to the waterline (y0) between coils, grows toward the head. Round tube ONLY (hazard firewall).
+      const hump = (xC, w, hp, r) => {
+        const P = (t) => [xC - w / 2 + t * w, hp * Math.sin(t * Math.PI), 0];   // sine arch: 0 at ends, hp mid
+        const pts = [P(0), P(0.36), P(0.64), P(1)], rr = [r * 0.82, r, r, r * 0.82];
+        for (let i = 0; i < 3; i++) parts.push({ mat: 0, geo: frustumBetween(pts[i], pts[i + 1], rr[i], rr[i + 1], 3) }); // 3 frusta × 3-seg = 18
+      };
+      const n = 5, w = 0.34, x0 = -0.68;
+      for (let i = 0; i < n; i++) { const t = i / (n - 1); hump(x0 + i * w, w, 0.28 + 0.08 * t, 0.09); }   // 5 × 18 = 90; w0.34 > hp0.36 → squat
+      // BROKEN STUMP — the tail end (−x): a low broken half-coil lost to the water (ruin, not a clean end).
+      parts.push({ mat: 0, geo: frustumBetween([-0.86, 0.0, 0.0], [-0.78, 0.16, 0.0], 0.06, 0.08, 4) });     // 8
+      // COBRA HOOD — a fanned 7-head Khmer naga hood REARED VERTICAL off the tallest coil (Fable r1: the
+      // hood was lying near-horizontal, reading as a floating plate). It now spreads SIDEWAYS (in Z,
+      // perpendicular to the body) and rises in Y → a broad upright fan from the lane, a thin sliver in top-
+      // plan. SCALLOPED rim (7 tips = 7 heads, 6 notches). Base seated ON the last crest. NO eyes (withheld).
+      {
+        const xLast = x0 + (n - 1) * w, hpLast = 0.28 + 0.08;   // the tallest coil's crest
+        const B = [xLast, hpLast, 0];
+        const heads = 7, spread = 0.56, tipY = hpLast + 0.80, notchDrop = 0.15, edgeFall = 0.40;   // Fable r1 free polish: hood +~22% so both name-test signals hold at backdrop distance
+        const rim = [];
+        for (let k = 0; k < 2 * heads - 1; k++) {
+          const u = k / (2 * heads - 2) - 0.5;
+          const isTip = (k % 2) === 0;
+          rim.push([xLast, tipY - Math.abs(u) * edgeFall - (isTip ? 0 : notchDrop), u * spread]);   // spread in Z, rise in Y → reared vertical fan
+        }
+        const v = [];
+        for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k], ...rim[k + 1]);     // front fan
+        for (let k = 0; k < rim.length - 1; k++) v.push(...B, ...rim[k + 1], ...rim[k]);     // back fan (reversed winding)
+        const hood = new THREE.BufferGeometry();
+        hood.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        hood.computeVertexNormals();
+        hood.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, geo: hood });   // (2·heads−2)·2 = 24
+      }
+      return mergeLagoonParts(parts);
+    },
+    // BACKDROP, LONG + LOW (~5:1 wide): r 60–100 (the length), h 10–16 (underlines, never walls). FAR
+    // off-lane: |x| ≥ 60 so the central third of the frame stays clear. tilt 0 EXPLICIT (PLUMB-TIDE).
+    place: (side, rnd) => {
+      const r = 60 + rnd() * 40;
+      const p = { x: side * (62 + 0.35 * r + rnd() * 14), h: 10 + rnd() * 6, r, tilt: 0 };
+      if (HERO_SET.has('nagawall')) p.rotY = 0;   // debug: pin yaw so the hood + humps face down-lane
+      return p;
+    },
+  },
+
+  // causeway — LANE-FRAMING NEAR-RAIL / civilization (§7.3.7, the Frozen-terrace / Caldera-flowlobe analog):
+  // a long, LOW, drowned Angkor GALLERY-CAUSEWAY running PARALLEL to the lane — a laterite stylobate deck +
+  // a broken lane-facing balustrade colonnade + a spine parapet, jungle-swallowed by a moss crest + a
+  // strangler-fig root, with JAGGED broken ends (no sawn termination — the colonnata law). THE horizontal
+  // REST mass the v3 kit lacked: every other Lagoon prop is a vertical POINT, so the breaths read as empty
+  // water with a rare spike. step 20 + floor 0.30 (the highest in the kit) keep a near-continuous low wall
+  // HUGGING the lane edge THROUGH the empty breaths → the flight corridor is always visibly walled, so the
+  // boundary READS and players stop flying blind into the outer barrier (the owner's gameplay report). LOW
+  // (h 5–8) so the open golden mirror + sky still breathe ABOVE it — it frames, never roofs. Bakes: temple
+  // (laterite foot / moss waterline / amber crown) + lily (moss crest) + wood (fig root). No gilt.
+  causeway: {
+    step: 20, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor in the kit hugs the edge through the breaths (Frozen terrace rhythm). NO sizeClass — a long-ρ prop can't absorb the ×1.42 bucket without invading the lane.
+    build: () => {
+      const parts = [];
+      // STYLOBATE DECK — built as THREE stacked HORIZONTAL SLABS, not one tall box (Fable r1 kill-shot: a tall
+      // box's side quad splits diagonally → the temple bake, keyed by per-TRIANGLE centroid Y, painted the two
+      // half-quads different bands = a fake diagonal "green tarp". Each slab sits ENTIRELY inside one band → a
+      // crisp HORIZONTAL waterline). Bands (bakeTempleLadder waterY 0, bandH 0.22): y<0 laterite / 0–0.10 the
+      // jade tide-stain / the tall body's side-tris (centroids 0.24 & 0.38) read all-amber above.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.10, 1.66), { y: -0.05 }) });         // laterite drowned foot, y −0.10→0.00 (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.64, 0.10, 1.70), { y: 0.05 }) });          // jade TIDE-STAIN, y 0.00→0.10, PROUD (0.64>0.60) = a stain ridge (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.42, 1.66), { y: 0.31 }) });          // amber deck body, y 0.10→0.52 (side-tri centroids 0.24/0.38 → clean amber) (12)
+      // SPINE PARAPET — a running wall on the FAR side from the lane (−x): the gallery's solid back (all amber).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.24, 0.42, 1.44), { x: -0.15, y: 0.63 }) }); // parapet, y 0.42→0.84 (12)
+      // RUINED COLONNADE — SLIM TAPERED columns (open-topped pentagonal shafts = snapped-off broken tops) on
+      // the LANE-facing edge (+x) in a post–GAP–post–post rhythm, VARIED heights + two leaning (Fable r1:
+      // square-section flat-top stubs read as crenellation, not columns; a tapered round shaft with a broken
+      // top reads as a weathered column). One bay (z −0.20) left OPEN with a FALLEN LINTEL toppled across it.
+      // (Fable r2 free polish: THICKER shafts so they read as solid limestone not thin cool fins, and the two
+      // leaners get a REAL 12–15° collapse lean — a 5° lean read as a render error at silhouette scale.)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.58, 5, 1, true), { x: 0.24, z: -0.62, y: 0.81 }) }); // tall column, y 0.52→1.10 (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.40, 5, 1, true), { x: 0.24, z: 0.18, y: 0.72, rz: 0.24 }) }); // broken short, collapsing (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.06, 0.10, 0.54, 5, 1, true), { x: 0.24, z: 0.60, y: 0.79, rz: -0.13 }) }); // column, leaning (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.13, 0.13, 0.46), { x: 0.22, z: -0.20, y: 0.60, rz: 0.42, ry: 0.12 }) }); // fallen lintel, toppled across the open bay (12)
+      // BROKEN END — no sawn termination: a proud jagged wall-stub at one end (amber). Kept inside |z|≤~0.95
+      // so ρ stays ~1.0 (lane-clearance). (The water-end fallen block was dropped for the moss-blob budget.)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.50, 0.20), { x: -0.06, z: -0.86, y: 0.35, ry: -0.16 }) }); // jagged wall stub, y 0.10→0.60 (12)
+      // DARK BAY OPENINGS — near-black doorway insets on the LANE-facing body face (+x) in the colonnade gaps:
+      // the shadowed gallery rhythm + the DARK VALUES the flat amber body lacked (Fable Stage-2 kill-shot — a
+      // featureless tan plane occupying the lower frame violates core→bloom→dark and reads as a plain slab at
+      // cruise). bake:'wood' → the near-black shadow value. The side-based rotY (below) faces these to the lane.
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: -0.42, y: 0.28 }) }); // bay doorway — near-black void (12)
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: 0.40, y: 0.28 }) });  // bay doorway — near-black void (12)
+      // JUNGLE SWALLOW — one MOSS clump of ROUNDED deformed blobs (icosahedra, non-uniform-scaled → a squashed
+      // irregular lump, NOT flat facet-plates: Fable r1 — octahedra read as green diamond kites), SAGGING over
+      // the lane-edge lip to break the crown line. bake:'lily' (3-stop green, lit top / shadow under).
+      // (Fable Stage-2 4.0: a tall smooth icosa read as a GREEN GEM/emerald, not moss. Fix: FLATTEN to a low
+      // mat (sy 0.32) hugging + slumping OVER the lane lip, and bake:'root' [upThresh 0.75 → mostly the dark
+      // fern/shadow greens] to kill the bright yellow-green "gem highlight" facet → matte shadowed jungle moss.)
+      parts.push({ mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.28, 0), { x: 0.24, z: -0.10, y: 0.54, sx: 1.25, sy: 0.32, sz: 1.15, ry: 0.6, rz: 0.2 }) }); // moss mat slumping over the lane lip (20)
+      return mergeLagoonParts(parts);
+    },
+    // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
+    // face WALLS the corridor, never blocks across it. ρ≈1.0 (Z-length dominates); couple x = 14.6 + 1.10·r
+    // so the inner edge holds ≥14.5 even at sMax (terrace precedent — a LOW prop may hug inside the ±16 gate
+    // veil, it never looms over a ring). Explicit tilt (a ruin leans a breath). r 7–11 → 3 broken-gallery
+    // lengths. TUNE the 1.10 to the propclearance-measured ρ.
+    place: (side, rnd) => {
+      const r = 7 + rnd() * 4;
+      const p = { x: side * (14.6 + 1.14 * r + rnd() * 3), h: 5 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      // SIDE-BASED rotY: the decorated LANE-face (+x: the colonnade + dark bays + sagging moss) always turns
+      // toward the flight lane, so every instance shows its gallery face — not the blank parapet back (the
+      // random 0/π flip meant half the causeways showed their back to the lane = the "plain slab" Stage-2 read).
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.22 - 0.11);
+      if (HERO_SET.has('causeway')) p.rotY = 0;   // debug: pin the face down-lane
+      return p;
+    },
+  },
+
+  // rampart — CONTINUOUS FAR MASSIF / civilization (§7.3.8, the glacierwall / riftwall analog the v3 kit
+  // lacked): a colossal drowned temple RAMPART — the Angkor Thom city wall / a long jungle-swallowed
+  // embankment — as stacked HORIZONTAL temple strata that UNDERLINE the horizon on BOTH sides at once, so the
+  // mid-ground is never spiky verticals against empty sky (the owner's "needs big expansive props to frame it"
+  // + it makes karstfang/prasat read colossal by contrast). Unlike nagawall (a rare ONE-side serpent EVENT),
+  // rampart is the always-present base layer: comp.floor 0.45 → mostly-continuous enclosure that only thins in
+  // the breaths. FAR off-lane + LOW-angle so it frames the horizon, never walls the sky. Bakes: temple
+  // (laterite/jade/amber) + lily (jungle crest). No gilt.
+  rampart: {
+    step: 70, biomes: lagoonV3, matIndex: 0, arrivalPark: true, comp: { floor: 0.45, sMin: 0.95, sMax: 1.06 }, // FAR massif: mostly-continuous enclosure on BOTH horizons (glacierwall/riftwall rhythm), thins in the breaths, parks the arrival seam
+    build: () => mergeLagoonParts([
+      // A long lane-parallel WALL whose sections are TALL and THIN — object aspect ~4:1 tall so they survive
+      // the (r,h,r) instance flatten (h/r≈0.7 halves world height: object 2:1 piers rendered as SQUAT mesas —
+      // Fable r2 3.0 "everything is wider than tall, a barge"). Sections run down-lane (Z), thin in X (a wall
+      // has a thin face), each a DIFFERENT height so the crown STEPS DOWN (tall→low→med→stub) = a broken
+      // rampart. Nothing skirts outward → no hull taper.
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 1.30, 0.52), { z: -0.62, y: 0.75 }) },            // section A — tallest, y 0.10→1.40 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 0.84, 0.50), { z: -0.16, y: 0.52, ry: 0.05 }) },  // section B — collapsed low bay, y 0.10→0.94 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 1.10, 0.50), { z: 0.34, y: 0.65, ry: -0.04 }) },  // section C — tall-med, y 0.10→1.20 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.32, 0.58, 0.44), { z: 0.80, y: 0.39, ry: 0.10 }) },   // section D — broken end stub, y 0.10→0.68 (12)
+      // DARK BAY OPENINGS — SIX identical near-black doorway voids at ~uniform pitch on the LANE face (planes,
+      // 2 tris each; single-sided +x, and the side-based rotY always turns +x to the lane so they read). The
+      // repeating gallery METER + true DARK values (Fable r4: 3 different-size mid-brown chips were punctuation,
+      // not rhythm, and read as paint not shadow — go near-black bake:'void', uniform size, more of them, at a
+      // regular beat). Placed on the section faces (not the gaps). value ≈ 0.12 = a doorway into shadow.
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.78, y: 0.36, ry: Math.PI / 2 }) }, // bay 1 (A) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.50, y: 0.36, ry: Math.PI / 2 }) }, // bay 2 (A) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.16, y: 0.36, ry: Math.PI / 2 }) }, // bay 3 (B) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.22, y: 0.36, ry: Math.PI / 2 }) },  // bay 4 (C) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.48, y: 0.36, ry: Math.PI / 2 }) },  // bay 5 (C) (2)
+      { mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.15, 0.42), { x: 0.175, z: 0.80, y: 0.31, ry: Math.PI / 2 }) },  // bay 6 (D, shorter) (2)
+      // FLUSH drowned base — a thin footprint-matched plinth (NOT a wider tapered under-plate: the hull tell);
+      // the darker plinth band at the waterline anchors the value structure.
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.40, 0.10, 1.80), { y: -0.05 }) },                     // laterite drowned foot, flush, y −0.10→0.00 (12)
+      { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.12, 1.82), { y: 0.06 }) },                      // jade tide stain, flush, y 0.00→0.12 (12)
+      // JUNGLE — TWO trees of overlapping icos, canopy centroid AT/below the crown line so the green OVERLAPS
+      // the crown edge and spills DOWN the lane face (Fable r4: single balls hovering on sticks = party-hats;
+      // draping = 2–3 overlapping clumps eating the crown). Only two of the six bays sprout a tree. bake:'lily'.
+      // (Fable Stage-2 4.0: smooth tall icosa canopies read as GREEN GEMS. bake:'root' [dark fern/shadow greens,
+      // no bright olive gem-facet] + FLATTER (sy ~0.5) low draped mats that overhang the crown edge, not ovoids.)
+      { mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: 0.16, z: -0.70, y: 1.28, sx: 1.15, sy: 0.5, sz: 1.2, ry: 0.5 }) },  // canopy mat draping A's crown (20)
+      { mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.24, z: -0.54, y: 1.02, sx: 1.05, sy: 0.7, sz: 1.05, ry: 1.4 }) }, // 2nd clump of the A canopy, spilling DOWN the face (20)
+      { mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: 0.17, z: 0.30, y: 1.06, sx: 1.15, sy: 0.55, sz: 1.15, ry: 0.9 }) },  // canopy mat draping C's crown (20)
+    ]),
+    // FAR backdrop, TALL LONG WALL (~3:1 tall face, ~5:1 long plan). rotY PINNED lane-parallel (nagawall/
+    // causeway pattern) so the long broken face runs DOWN-LANE and never foreshortens to a lump or rotates
+    // across the band; couple x so the propclearance ρ-inner still reads ≥ the gate veil ("ok"), while the
+    // real (pinned) X near-face sits FAR on the horizon (~35+). TALL h relative to r so the flatten leaves it
+    // vertical. Explicit tilt (a ruin leans a breath).
+    place: (side, rnd) => {
+      const r = 20 + rnd() * 10;
+      const p = { x: side * (20 + 1.0 * r + rnd() * 12), h: 16 + rnd() * 8, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      // SIDE-BASED rotY: the decorated LANE-face (+x object: the dark bays + drooping jungle) always turns
+      // toward the flight lane (a +side prop faces −x, a −side prop faces +x), so every instance shows its
+      // gallery face, never its blank back. ± a breath of jitter. (sungate's side-mirror pattern.)
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.24 - 0.12);
+      if (HERO_SET.has('rampart')) p.rotY = 0;   // debug: pin the face down-lane
+      return p;
+    },
+  },
+
   // TEMPEST REACH — HERO #1 (TEMPEST-REACH-BIBLE.md): stormprow, a storm-carved SHEARED WEDGE.
   // A layered wedge whose long dip-slope steps up out of the sea to ONE sharp crest, the whole
   // mass leaning visibly DOWN-WIND — a dark diagonal against the pale horizon slot. THE DIAGONAL
@@ -2018,41 +2717,11 @@ const ARCHETYPES = {
   // BARE — ONE material group (mat 0 = tempestStone), zero emissive/accent/gold. The carved read
   // is the baked wind-scour value ladder (pale wind-bitten scour / damp body / soaked belly). rotY
   // pinned so the local scour axis stays wind-aligned and every prow leans the SAME down-wind way.
+  // stormprow (LOW variant) — the long low hogback wall (Fable R3 aspect-lean split). SKEW 0.42 on the
+  // low aspect band (h 7–13, r 8–14) → world lean ~14–40° that reads as a natural dip-slope, not a topple.
   stormprow: {
-    step: 17, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.04, sMin: 0.90, sMax: 1.12 },
-    build: () => {
-      const parts = [];
-      // SKEWED SHEARED WEDGE (Fable device critique P1 — the real Minecraft fix). The lean is no longer
-      // a step-offset staircase (axis-aligned jags = the Minecraft read); it's a vertex SKEW applied about
-      // the base after positioning, so the windward face is ONE CONTINUOUS DIAGONAL of parallelogram faces
-      // catching light at the slope angle. Strata now stack ~vertically (small centerX progression) + taper
-      // to a small crest; skewX(SKEW) shears the whole stack downwind coherently. A small per-stratum ry
-      // twist keeps neighbours non-parallel (F6). [centerX, y, w, h, d, ry].
-      const SKEW = 0.62;
-      const strata = [
-        [-0.02, 0.09, 0.44, 0.20, 0.60,  0.05],   // 0 WATERLINE belly — narrow + recessed → undercut
-        [ 0.00, 0.28, 0.52, 0.20, 0.56, -0.07],   // 1 overhangs the belly (the storm undercut)
-        [ 0.02, 0.47, 0.44, 0.20, 0.48,  0.05],   // 2
-        [ 0.04, 0.65, 0.32, 0.19, 0.40, -0.06],   // 3
-        [ 0.06, 0.82, 0.16, 0.16, 0.28,  0.04],   // 4 CREST — sharp, small, far downwind (via the skew)
-      ];
-      for (const [x, y, w, h, d, ry] of strata) {
-        parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
-      }
-      // Protruding ledge slabs riding the windward DIAGONAL — thin, wider in z → the stratification tell,
-      // now proud of a continuous slope rather than a staircase. Skewed with the strata so they stay welded
-      // to the dip-slope; a crest splinter sharpens the peak.
-      const ledges = [
-        [-0.16, 0.20, 0.22, 0.05, 0.50,  0.10],
-        [-0.10, 0.40, 0.20, 0.05, 0.44, -0.12],
-        [-0.02, 0.60, 0.16, 0.045, 0.36,  0.09],
-        [ 0.06, 0.80, 0.10, 0.08, 0.26,  0.06],   // crest splinter
-      ];
-      for (const [x, y, w, h, d, ry] of ledges) {
-        parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
-      }
-      return mergeTempestParts(parts);
-    },
+    step: 22, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.04, sMin: 0.90, sMax: 1.12 },
+    build: () => buildStormprow(0.42),
     // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.68, measured from the
     // geometry) so the inner edge = |x| − ρ·r·sMax − lean HUGS the fatal side wall. The base course
     // kills laterally at |x| > laneHalfWidth (13), so the prows must SIT at that boundary to read as
@@ -2060,13 +2729,21 @@ const ARCHETYPES = {
     // player died in open water with no wall in sight. Base pulled 28→17 so the inner edge lands
     // ~15–17, just outside the 14.5 fairness floor: a tight walled corridor that MARKS the death line.
     // tilt leans AWAY from the lane (side*negative, sungate idiom); ALWAYS numeric (a missing tilt
-    // → NaN quaternion → invisible). rotY pinned 0 so the wedge diagonal reads broadside down-lane
-    // and the baked wind-scour stays aligned. ROOFLINE RHYTHM (Fable gate R1 fix #1): a ruler-flat
-    // wall of same-height wedges reads as a harbor breakwater — nothing in Tsushima/BotW gives an
-    // unbroken horizontal. `sel` picks ~1-in-4 as a HERO prow towering to h 20–32 (2–3× the low
-    // body h 7–13), so the crest-line breaks into a low-low-HIGH silhouette. Height is independent
-    // of x, so clearance is unaffected. CONSTANT 4 rnd() draws (r, x-jitter, sel, hv).
-    place: (side, rnd) => { const r = 8 + rnd() * 6; const x = side * (18 + 0.72 * r + rnd() * 3); const sel = rnd(); const hv = rnd(); const h = sel > 0.76 ? 20 + hv * 12 : 7 + hv * 6; const j = rnd(); return { x, h, r, tilt: side * -0.06, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },  // MIRROR the wedge per bank (Fable: the corridor becomes a balanced V, not one-way-tilted) + ±0.15 jitter so no two share a silhouette. inner edge still hugs |x|=13
+    // → NaN quaternion → invisible). LOW band only now (the tall heroes are a separate archetype with
+    // their own SKEW — see stormprowHero); trim tilt −0.06 → −0.04 so tilt+skew don't stack into a topple.
+    place: (side, rnd) => { const r = 8 + rnd() * 6; const x = side * (18 + 0.72 * r + rnd() * 3); const h = 7 + rnd() * 6; const j = rnd(); return { x, h, r, tilt: side * -0.04, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },  // MIRROR the wedge per bank (a balanced V) + ±0.15 jitter. low hogback aspect band → natural dip-slope lean
+  },
+
+  // stormprow HERO variant (Fable R3): the sparse TALL prows that break the roofline into low-low-HIGH.
+  // Tall/narrow aspect (h 20–32, r 8–12) needs a MUCH bigger SKEW (1.15) to reach the same natural 20–28°
+  // world lean — with the low variant's 0.42 a tall prow barely leaned (~13°) and read as a blocky tower.
+  // Same bare tempestStone build; step 68 ≈ the old ~1-in-4 hero rate. Mirrored + jittered like the low band.
+  stormprowHero: {
+    step: 68, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.02, sMin: 0.92, sMax: 1.14 },
+    build: () => buildStormprow(1.0),   // tall/narrow band (r/h ~0.27–0.5) → world lean ~15–27°; 1.15 leaned so far the crest invaded the lane
+    // x coupled to the big skew footprint (ρ≈1.05) so the leaning crest still clears the ±14.5 floor from the
+    // mirrored (into-lane) orientation. The hero sits a touch behind the low wall → natural depth layering.
+    place: (side, rnd) => { const r = 8 + rnd() * 3; const x = side * (15 + 1.3 * r + rnd() * 3); const h = 22 + rnd() * 8; const j = rnd(); return { x, h, r, tilt: side * -0.04, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },
   },
 
   // TEMPEST REACH — DEPTH BACK-RANK (Fable gate R1 fix #2). Pulling the near prow wall in to hug the
@@ -2133,8 +2810,10 @@ const ARCHETYPES = {
       // it has to survive to silhouette (Fable: "if the notch doesn't read, it doesn't exist"), so the
       // waist is much thinner than the foot AND the cap it carries — a real hourglass undercut.
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.15, 0.24, 0.20, 5), { y: 0.27 }) });
-      // The shaft — one tall tapering band, slightly offset (a downwind lean).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.21, 0.24, 0.52, 5), { y: 0.60, x: 0.04 }) });
+      // The shaft — TWO offset tapered bands with DIFFERENT ry (Fable R3: a single 5-gon cylinder reads
+      // as a machined pole/prism — the "blocky pillar" tell; two mis-rotated bands break the parallel edges).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.23, 0.26, 0.30, 5, 1, true), { y: 0.46, x: 0.02, z: 0.02, ry: 0.3 }) });   // lower band (open-ended — internal, caps hidden = 0 wasted tris)
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.19, 0.23, 0.30, 5, 1, true), { y: 0.72, x: 0.07, z: -0.03, ry: 0.9 }) });  // upper band — offset + rotated off the lower
       // THE MUSHROOM CAP — a WIDE hardened overhang (~1.5× the shaft), flared shadowed underside (the
       // down-facing lip AO-darkens into the wave-cut hollow) so it reads as a real overhang. Pushed OFF-AXIS
       // and made slightly ELLIPTICAL (sx 1.18) so it isn't a rotationally-clean "water tower" (Fable r2).
@@ -2147,6 +2826,11 @@ const ARCHETYPES = {
       const sockets = [[0.02, 0.27, 0.20, 0.075], [0.15, 0.30, 0.12, 0.055]];
       for (const [sx, sy, sz, ss] of sockets) addGoldSocket(parts, centers, sx, sy, sz, ss);
       const m = mergeTempestParts(parts);
+      // Gentle SEA-STACK BOW (Fable R3): a tall/narrow stack leans SUBTLY, not like a wedge — k 0.32 at this
+      // ~1:4 aspect ≈ a 4–9° world lean. Skew the merged geometry (flatShading → facets re-derive) + skew the
+      // gold-spill centers by the same shear so the bloom stays welded to its sockets. Mirror leans it AWAY.
+      skewX(m.geometry, 0.32);
+      for (const c of centers) c.x += 0.32 * c.y;
       bakeSocketSpill(m.geometry, centers);
       return m;
     },
@@ -2156,7 +2840,7 @@ const ARCHETYPES = {
     // hero prows) instead of a uniform mid-height picket. Pushed to inner ~28 (base 30) so the tall stacks
     // stand BEHIND the near death-wall as a distant rank — tall=far builds the rising amphitheatre, and
     // they stop looming at even height over the lane. x coupled to the ~0.75 cap footprint (·sMax 1.15).
-    place: (side, rnd) => { const r = 4 + rnd() * 5; const x = side * (30 + 0.68 * r + rnd() * 6); const big = rnd(); const hv = rnd(); const h = big > 0.67 ? 42 + hv * 14 : 22 + hv * 14; return { x, h, r, tilt: side * (rnd() * 0.05 - 0.02), rotY: (rnd() - 0.5) * 0.3 }; },
+    place: (side, rnd) => { const r = 4 + rnd() * 5; const x = side * (30 + 0.68 * r + rnd() * 6); const big = rnd(); const hv = rnd(); const h = big > 0.67 ? 42 + hv * 14 : 22 + hv * 14; const tj = rnd(); return { x, h, r, tilt: side * (tj * 0.05 - 0.02), rotY: (side > 0 ? 0 : Math.PI) + (rnd() - 0.5) * 0.3 }; },  // MIRROR the bow AWAY from the lane per bank (the tall rank leans outward, not over the corridor)
   },
 
   // TEMPEST REACH — THE LOW REST (bible §4 `stackgrave`): a scatter of stubby BROKEN stumps over a
@@ -2168,19 +2852,25 @@ const ARCHETYPES = {
     build: () => {
       const parts = [];
       // Wave-cut platform + an offset shelf slab — the broad low base (undercut reads at the platform lip).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.14, 6), { y: 0.07 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.07, 0.95), { y: 0.11, z: 0.08 }) });
-      // Broken stumps — short tapered cylinders that LEAN at varied angles (storm-snapped, not tidy
-      // pillars); the tilt + varied height + AO shading reads as a shattered field. 5-sided, cap-less.
-      const stumps = [[-0.32, 0.62, 0.10, 0.17, 0.22], [0.06, 1.00, -0.16, 0.20, -0.14], [0.36, 0.50, 0.22, 0.15, 0.26], [-0.12, 0.42, -0.30, 0.13, -0.28], [0.24, 0.74, -0.06, 0.16, 0.16]];
-      for (const [sx, top, sz, rad, lean] of stumps) {
+      // Wave-cut platform + an offset shelf slab — each ROTATED so their edges never align (Fable R3: a
+      // clean hex platform + a flush box shelf = the two-neat-stacked-layers "ziggurat" read). Shelf sheared.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.14, 6), { y: 0.07, ry: 0.35 }) });
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.50, 0.07, 0.95), { y: 0.11, z: 0.08, ry: 0.5 }), 0.3) });
+      // A broken-edge chunk knocked off the platform rim — breaks the clean hex silhouette.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.10, 0.20), { x: 0.50, y: 0.10, z: -0.24, ry: 0.7, rz: 0.2 }) });
+      // Broken stumps — each SKEWED at a varied angle (some AGAINST the wind: storm-snapped stumps fall any
+      // way). skewX replaces the old rz/rx tilt, which the (r,h,r) scale shears WRONG on this low-wide family
+      // (the exact aspect-lean bug from the prows). [x, top, z, radius, skew-k].
+      const stumps = [[-0.32, 0.62, 0.10, 0.17, 0.50], [0.06, 1.00, -0.16, 0.20, -0.35], [0.36, 0.50, 0.22, 0.15, 0.60], [-0.12, 0.42, -0.30, 0.13, -0.50], [0.24, 0.74, -0.06, 0.16, 0.40]];
+      for (const [sx, top, sz, rad, k] of stumps) {
         const h = top - 0.12;
-        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(rad * 0.78, rad, h, 5), { x: sx, y: 0.12 + h / 2, z: sz, rz: lean, rx: lean * 0.5 }) });
+        parts.push({ mat: 0, geo: skewX(xform(new THREE.CylinderGeometry(rad * 0.78, rad, h, 5), { x: sx, y: 0.12 + h / 2, z: sz, ry: k }), k) });
       }
       return mergeTempestParts(parts);
     },
-    // BROAD + LOW rest — r 9–13, h 3–5 world. x coupled to the ~0.66 platform footprint (·sMax 1.08).
-    place: (side, rnd) => { const r = 9 + rnd() * 4; return { x: side * (15 + 0.74 * r + rnd() * 5), h: 3 + rnd() * 2, r, tilt: 0, rotY: 0 }; },
+    // BROAD + LOW rest — r 9–13, h 3–5 world. x coupled to the skewed footprint (ρ≈0.80, up from the skewed
+    // stumps) so the inner edge still clears the 14.5 floor: base 16.5, coeff 0.9.
+    place: (side, rnd) => { const r = 9 + rnd() * 4; return { x: side * (16.5 + 0.9 * r + rnd() * 4), h: 3 + rnd() * 2, r, tilt: 0, rotY: 0 }; },
   },
 
   // TEMPEST REACH — THE DISTANT MASSIF (bible §4 `arcuswall`): DEFERRED to a future sky-shader pass.
@@ -2236,6 +2926,41 @@ const ARCHETYPES = {
     // a near-continuous ribbon; rotY random for variety. h 1.2–2.0 world (top well under laneMinY).
     place: (side, rnd) => { const r = 2.4 + rnd() * 1.6; return { x: side * (14.6 + rnd() * 1.2), h: 1.2 + rnd() * 0.8, r, tilt: 0, rotY: rnd() * Math.PI }; },
   },
+
+  // TEMPEST REACH — THE STORM ARCH (Fable R3 / owner ask): a wave-cut sea ARCH that RARELY frames the
+  // lane→eye axis — the Tsushima torii beat. Built on the sungate precedent: two piers (paired, mirrored to
+  // lean INTO the span) whose cantilevered crowns reach UP + toward centre and NEARLY meet high overhead —
+  // a BROKEN storm arch, never a closed lintel across the lane (the crowns meet ABOVE the flight band; the
+  // breach shows framed in the gap BELOW). BARE tempestStone, ZERO gold — the arch is the dark FRAME, the
+  // breach the bright PICTURE; they never compete. `overhead` exempts the high span from the lane rule
+  // (the player flies UNDER it). Rare (step 620) = an event. Registered LAST so no band's rnd stream shifts.
+  stormarch: {
+    step: 620, biomes: tempestNew, matIndex: 7, paired: true, deckSkim: 'park',
+    overhead: { unitY: 0.90, minWorldY: 21 },   // the crown span (above unit-y 0.90) is a canopy audited above world y 21 (clears the flight band); the piers below are the trunk, gate-safe at |x|~20. unitY·h_min = 0.90·26 = 23.4 ≥ 21.
+    build: () => {
+      const parts = [];
+      const K = 0.55;   // pier skew — leans the whole pier toward the gap (+x, mirrored inward by rotY)
+      // OUTER PIER — skewed storm strata, leaning into the span (the storm-carved language, not ice pylons).
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.46, 0.40, 0.56), { x: -0.30, y: 0.20, ry: 0.2 }), K) });
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.40, 0.40, 0.48), { x: -0.16, y: 0.56, ry: -0.15 }), K) });
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.32, 0.36, 0.42), { x: -0.02, y: 0.90, ry: 0.12 }), K) });
+      // CROWN ARM — cantilevers up + toward centre (+x), rising to a keystone that nearly meets its mirror
+      // high overhead; thick haunch → thin crown, plus one hanging broken voussoir so the opening is ragged.
+      // The crown arc rises from the pier top and reaches all the way to CENTRE, so the two mirrored arms
+      // MEET at the keystone → a closed arch overhead (not floating stubs). The arc only crosses into lane
+      // airspace at world y ≈ 36 (unit x 0.85·h), far above the flight ceiling — overhead-exempt.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.40, 0.50), { x: 0.32, y: 1.10, rz: -0.46 }) });   // haunch (thick, rising inward)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.60, 0.34, 0.42), { x: 0.82, y: 1.38, rz: -0.32 }) });   // lower arc — WIDE + overlapping its neighbours (a connected arch, not a bead chain)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.30, 0.36), { x: 1.34, y: 1.58, rz: -0.16 }) });   // upper arc
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.54, 0.26, 0.32), { x: 1.86, y: 1.66, rz: 0.0 }) });     // KEYSTONE at centre — meets its mirror → the arch closes solid
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.26, 0.22), { x: 1.20, y: 1.42, rz: 0.46 }) });    // hanging broken voussoir under the span (ragged opening)
+      return mergeTempestParts(parts);
+    },
+    // Piers gate-safe at |x| 21–24 (inner edge ≥ ~18, clear of the ±16 gate veil like sungate); tall
+    // (h 24–32) so the crown span meets ABOVE the flight band. The crown reaches unit x 1.18 → world
+    // |x| ~ 21 − 1.18·13 ≈ 6, so the two crowns nearly meet over the lane centre. rotY mirrors per bank.
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 2), h: 28 + rnd() * 6, r: 12 + rnd() * 1.5, tilt: 0, rotY: side > 0 ? Math.PI : 0 }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2261,6 +2986,15 @@ const FOAM_CFG = {
   wrackstone: { r: 0.6 },// Lost Lagoon foil rubble — a pale tide collar where the heap meets the mirror (clinker precedent)
   rootbastion: { r: 0.7 },// Lost Lagoon mid mass — waterline weld under the slumped stone (roots enter here)
   arcade: false,          // Lost Lagoon backdrop massif — no collar (a bright ring 75+ off-lane is an artifact)
+  karstfang: { r: 0.45 }, // Lost Lagoon v3 sea-stack — a thin jade tide collar where the notched foot meets the mirror
+  figgate: { rx: 0.62, rz: 0.30 },   // Lost Lagoon v3 gateway — elliptical collar wraps the wide thin footprint (roots + jambs enter the water)
+  mangrovehold: { r: 0.55 },         // Lost Lagoon v3 mangrove islet — a round jade tide collar where the crinoline of stilt-root feet meets the mirror (the jade anklet)
+  prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
+  lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
+  nagawall: false,                   // Lost Lagoon v3 naga backdrop — NO collar (a bright foam ring 60+ off-lane is an artifact; the arcade/riftwall precedent)
+  causeway: { rx: 0.30, rz: 1.0 },   // Lost Lagoon v3 lane-framing gallery — ELLIPTICAL collar wraps the long thin down-lane footprint (a round ring would float off the ends); the jade tide weld where the drowned deck meets the mirror
+  rampart: false,                    // Lost Lagoon v3 far massif — NO collar (a bright foam ring 30+ off-lane on the fog line is an artifact; the glacierwall/riftwall/arcade precedent — the jade tide-stain slab carries the waterline)
+
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
@@ -2276,12 +3010,14 @@ const FOAM_CFG = {
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
   stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
+  stormprowHero: { rx: 0.80, rz: 0.42 },   // tall hero variant — same wet-weld skirt (narrower rx since the base footprint is smaller-per-height)
   stormprowFar: false,   // distant back-rank on the fog line — a collar 30+ off-lane is a bright artifact
   tafonihold: { r: 0.62 },   // broad rounded boulder — round collar hugs the footprint
   stormstack: { r: 0.40 },   // thin pillar — narrow collar at the pinched foot
   stackgrave: { rx: 0.66, rz: 0.56 },   // broad low platform — wide near-round collar
   rainshaft: false,   // distant rain-smudge — a collar under it would be a bright artifact
   wrackline: { r: 1.35 },   // THE breakers — a wide bright foam ring IS this prop's job (marks the death line)
+  stormarch: { r: 0.7 },   // a wet-weld skirt at each pier foot (the arch grows from the heaving sea)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -2385,7 +3121,12 @@ export function propClearanceData() {
       const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
       samples.push(def.place(1, rnd));
     }
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, gate: !!def.gate, samples };
+    // Fable 88 lever-6: the per-instance size octave multiplies the render scale ON TOP of comp.sMax,
+    // so a "mother" instance is comp.sMax × maxOctave. Fold it into the effective sMax the clearance model
+    // audits — else the gate tests a smaller prop than the game draws (the mother cap would be unaudited).
+    const octaveMax = def.sizeOctave ? Math.max(...def.sizeOctave.map((o) => o[1])) : 1;
+    const sMaxEff = (def.comp ? def.comp.sMax : 1) * octaveMax;
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: sMaxEff, paired: !!def.paired, gate: !!def.gate, samples };
   });
 }
 
@@ -2493,6 +3234,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       sunDir: { value: new THREE.Vector3(-0.22, 0.1, -1).normalize() },
       feverMix: { value: 0 },
       feverWarm: { value: 0 },   // 0 = magenta Surge palette; 1 = FIERY (fire dragons) → the rebirth sky/aurora go warm ember instead of magenta
+      uSurgeWarm: { value: 0 },  // Fable 94: PER-BIOME ember-Surge override (0 = magenta as shipped). The Mire reserves magenta for DANGER telegraphs, so its Surge flares the horizon EMBER (skin-agnostic) AND zeroes the magenta sky-curtain (Canopy Law). 0 in every other biome → byte-identical.
       dimMix: { value: 0 },
       starMix: { value: 0 },
       // Per-biome DECK BIAS (Tempest): 0 = shipped gradient (byte-identical). >0 pulls the
@@ -2519,6 +3261,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
       // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
       uBreachMix: { value: 0 },
+      // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7): 0 = off → byte-identical in the other 6 biomes + all
+      // skins. A sourceless warm glow-column off the horizon — metabolic light, NOT a sun.
+      uShaft: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -2532,7 +3277,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
+      uniform float uSurgeWarm;   // Fable 94: per-biome ember-Surge override (0 = magenta shipped)
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
+      uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -2542,9 +3289,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
-        // Dragon Surge palette shift: magenta by default, or FIERY ember for fire dragons (feverWarm)
-        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), feverWarm);
-        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), feverWarm);
+        // Dragon Surge palette shift: magenta by default, FIERY ember for fire dragons (feverWarm) OR any
+        // biome that forces ember Surge (uSurgeWarm — the Mire, so magenta stays exclusive to danger).
+        float _fw = max(feverWarm, uSurgeWarm);
+        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), _fw);
+        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), _fw);
         // × (1 - uAuroraMix): the SURGE also shifts the whole sky GRADIENT toward magenta — the second
         // (bigger) half of the aurora-biome "color explosion". Suppress it too so the night sky + curtain
         // stay the spectacle during a boost (0 in every other biome → byte-identical).
@@ -2574,31 +3323,43 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _bAz = atan(d.z, d.x);                                            // fragment azimuth
           float _bSunAz = atan(sunDir.z, sunDir.x);                               // the world-locked breach azimuth
           float _dAz = atan(sin(_bAz - _bSunAz), cos(_bAz - _bSunAz));            // wrapped Δaz (−π..π)
-          float _elC = 0.035;                                                     // KISS THE SLOT: the lip meets the horizon band (a mid-deck hole reads as a moon)
+          float _elC = 0.11;                                                      // Fable R3: LIFT into the dark cloud deck. At 0.035 it kissed the PALE horizon slot → pale-on-pale → the "weird moon" read (a hole only reads punched in a DARK wall). The dark ring below now frames it against deck, not fog.
           // Raked almond (~4:1 wide:tall) — a SUBTLE eye low on the horizon. az half-width 0.20rad,
           // el half-width 0.042 (crisper 4:1); _rr is the elliptical radius so both the hole and its
           // frame are ALMOND, never a disc.
           float _nx = _dAz / 0.20;
           float _ny = (d.y - _elC - 0.14 * _dAz) / 0.042;                         // −0.14·Δaz = the rake
           float _rr = sqrt(_nx * _nx + _ny * _ny);
+          // TORN CLOUD LIPS (Fable breach finish): rag the rim radius with a 2-octave angular tear, biased
+          // to the TOP arc so the gold lower lip stays a clean sunlit edge. A torn rim is what a hole in a
+          // storm deck has — a moon doesn't. _rrT feeds the window feather + the dark ring (NOT the interior).
+          float _ang = atan(_ny, _nx);
+          float _tear = _rvN(_ang * 2.6 + 7.3) * 0.7 + _rvN(_ang * 6.1 + 2.9) * 0.3;   // 0..1 rag
+          float _topArc = smoothstep(-0.2, 0.8, _ny / max(_rr, 0.001));                 // 0 at the gold lip → 1 at the top
+          float _rrT = _rr + (_tear - 0.5) * 0.24 * _topArc;                            // ragged top rim only
           // (1) THE HOLE FIRST — interior gradient, tight feather (fully faded by _rr 1.0).
-          float _win = (1.0 - smoothstep(0.74, 1.0, _rr)) * uBreachMix;
+          float _win = (1.0 - smoothstep(0.74, 1.0, _rrT)) * uBreachMix;
           float _bT = clamp((d.y - (_elC - 0.042)) / 0.084, 0.0, 1.0);            // 0 at the bottom lip → 1 at the top
-          vec3 _bLow = vec3(0.83, 0.80, 0.72);                                    // warm-white #f2e8d0-class, L≈0.80 (the brightest thing the biome shows)
-          vec3 _bHigh = vec3(0.74, 0.77, 0.81);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
+          vec3 _bLow = vec3(0.98, 0.91, 0.74);                                    // Fable R3: HOTTER gold-white core (#fae8bd-class) — it must be the brightest AND warmest pixel in the frame
+          vec3 _bHigh = vec3(0.76, 0.79, 0.82);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
           vec3 _interior = mix(_bLow, _bHigh, _bT);
-          float _lip = smoothstep(0.16, 0.02, _bT);                              // thin GOLD lower lip (#ffd870), sun-facing, peaks at the bottom
-          _interior = mix(_interior, vec3(1.0, 0.847, 0.439), _lip * 0.60);
+          float _lip = smoothstep(0.24, 0.02, _bT);                              // GOLD lower lip (#ffd870), sun-facing — widened ~1.5× (Fable R3) so the warm break is unmissable
+          _interior = mix(_interior, vec3(1.0, 0.847, 0.439), _lip * 0.72);
           col = mix(col, _interior, _win);
           // (2) THE DARK MOVE, OVER the bloom (Fable r1: the ring must WIN): a tight ALMOND ring hugging
           // the rim (sharp onset at 1.0R, back to deck value by ~1.6R) → the darkest sky FRAMES the hole
           // (core→bloom→DARK). This is what makes it a breach in a wall, not a moon in the clouds.
-          float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.35, 1.65, _rr)) * uBreachMix;
+          float _bDark = smoothstep(0.98, 1.12, _rrT) * (1.0 - smoothstep(1.45, 1.95, _rrT)) * uBreachMix;   // Fable R3: widened the outer falloff so the dark frame merges deeper into the deck (a socket, not a ring). _rrT → the dark frame follows the torn rim.
           // Arc-bias (Fable r2 de-donut insurance): weak at the gold lip (bottom ~0.15×), strong at the
           // top (1.0×) so the dark frame CONNECTS UPWARD into the deck — a socket in the storm's wall, not
           // a floating dark ring/eclipse. _ny/_rr = sine of the ring arc angle (−1 bottom → +1 top).
           float _arcW = mix(0.15, 1.0, smoothstep(-1.0, 1.0, _ny / max(_rr, 0.001)));
-          col = mix(col, vec3(0.137, 0.165, 0.200), _bDark * 0.92 * _arcW);
+          col = mix(col, vec3(0.120, 0.145, 0.180), _bDark * 1.0 * _arcW);   // Fable R3: darker + stronger ring (0.92→1.0) so the hole reads as PUNCHED, not smudged
+          // FINGER WISPS (Fable): 2–3 tongues of the dark deck reaching ACROSS the upper hole where the tear
+          // runs deep — the deck visibly overlapping the breach. This is what finally kills the "moon" (moons
+          // have no cloud fingers across them). cloud.shadow violet, only in the upper window.
+          float _finger = smoothstep(0.62, 0.95, _rr) * step(0.72, _tear) * _topArc;
+          col = mix(col, vec3(0.114, 0.102, 0.180), _finger * 0.55 * uBreachMix);
         }
         // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
         // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
@@ -2644,6 +3405,20 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
         col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
                         + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
+        // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7, uShaft 0 = off → byte-identical): ONE sourceless warm
+        // glow-column rising off the ember horizon, OFF-CENTER of the corridor axis. Theology: the Mire has
+        // no sun — the brightest point is the ROOT at the waterline, decaying monotonically upward. Never a
+        // disc, never a floating core. Sits ON the fogFarColor-sunk horizon (haze lit from WITHIN the bog).
+        if (uShaft > 0.001) {
+          float _shAz = atan(sunDir.z, sunDir.x) + 0.62;          // ~35.5° off the corridor axis (screen-left third at cruise)
+          float _shDA = atan(sin(atan(d.z, d.x) - _shAz), cos(atan(d.z, d.x) - _shAz));
+          _shDA += 0.025 * sin(time * 0.07);                      // azimuth sway ±1.4°, ~90s — it leans, never travels
+          float _shW = exp(-(_shDA * _shDA) / 0.0256);            // gaussian column σ 0.16 rad (~18° FWHM) — no hard edge
+          float _shV = smoothstep(0.42, 0.02, h)                  // rooted at the horizon, gone by h=0.42
+                     * smoothstep(-0.02, 0.03, d.y);              // clean waterline seat (tiny sub-horizon bleed for reflection continuity)
+          float _shBr = 0.90 + 0.10 * sin(time * 0.13);           // breathe ±10%, ~48s — alive haze, not a decal
+          col += vec3(1.0, 0.66, 0.36) * (_shW * _shV * _shBr * 0.12 * uShaft);
+        }
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -2654,7 +3429,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // × (1 - uAuroraMix): in Aurora Shallows the CURTAIN is the sky spectacle — the magenta SURGE wash
         // on top of it is the "color explosion" the owner kept seeing (it is NOT the aurora eruption, which
         // is why cutting the eruption never fixed it). Suppress it here like the night-surge veil below.
-        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix);
+        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix) * (1.0 - uSurgeWarm);   // Fable 94: the Mire (uSurgeWarm 1) ZEROES the magenta Surge sky-curtain — a curtain is a sky-spectacle object, forbidden by the Canopy Law; the ember gradient carries the Surge read on its own
         // Starfield (night biomes): hashed cells in the upper dome, gently
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);
@@ -2697,6 +3472,65 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.add(hemi);
   initSkyProbe(scene, hemi); // N5 sky-IBL probe (dormant until enabled)
 
+  // GLOW-SPILL lights (Fable 96-A): the Mire's 2 hero-cluster spill PointLights, created ONCE at boot
+  // (fixed pool → NUM_POINT_LIGHTS compiles once, never mid-run) and parked at y −50 intensity 0 until
+  // updateMireSpill positions them in the Mire. Warm, budgeted; +2 light-loop slots (with the drake's, 3).
+  if (!mireSpillA0) {
+    mireSpillA0 = new THREE.PointLight(0xffa245, 0, 34, 2); mireSpillA0.position.set(0, -50, 0); // arch gate
+    mireSpillA1 = new THREE.PointLight(0xffb057, 0, 26, 2); mireSpillA1.position.set(0, -50, 0); // spire beacon
+  }
+  scene.add(mireSpillA0, mireSpillA1);
+
+  // Fable A1 ROOF-FROM-ABOVE: one camera-following horizontal shader quad at y10 — the mire's canopy seen
+  // from ABOVE (crown-dark cells + amber glow WELLING UP through the gap channels), with a lane corridor
+  // aperture so nothing occludes gameplay + the real under-canopy shows straight down. visible=false at
+  // cruise → zero draws → byte-identical. 900² so its fog-melted rim never reaches frame. NOT the drape
+  // (that stays the cruise ceiling); this is the main crown shelf BELOW the high lane.
+  if (!roof) {
+    const roofMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, depthTest: true, fog: true,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, roofUniforms]),
+      vertexShader: /* glsl */`
+        #include <fog_pars_vertex>
+        varying vec3 vWPos;
+        void main() {
+          vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */`
+        #include <fog_pars_fragment>
+        uniform float time, uRoofGate;
+        varying vec3 vWPos;
+        float _rhash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float _rvn(vec2 x){ vec2 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(_rhash(i), _rhash(i + vec2(1,0)), f.x), mix(_rhash(i + vec2(0,1)), _rhash(i + vec2(1,1)), f.x), f.y); }
+        void main() {
+          float n = _rvn(vWPos.xz * 0.042) * 0.65 + _rvn(vWPos.xz * 0.113) * 0.35;   // crown blobs ~24m
+          float g = smoothstep(0.52, 0.30, n);        // gap bloom (0 at crown edge → 1 mid-gap)
+          float core = smoothstep(0.30, 0.16, n);     // gap CORE (deepest holes glow hottest)
+          vec2 cell = floor(vWPos.xz * 0.042);
+          float ph = _rhash(cell) * 6.2832;
+          float breath = (0.88 + 0.12 * sin(time * 0.86 + ph)) * (0.94 + 0.06 * sin(time * 0.53 + ph * 2.7)); // desynced, irrational ratio
+          vec3 col = mix(vec3(0.070, 0.051, 0.024), vec3(0.141, 0.106, 0.063), _rvn(vWPos.xz * 0.31));  // crown tops #120d06→#241b10 (dead matter, never lit)
+          col = mix(col, vec3(0.969, 0.604, 0.180), g * breath * 0.85);          // #f79a2e living-amber gap bloom
+          col = mix(vec3(0.478, 0.259, 0.063), col, smoothstep(0.0, 0.25, g));   // decay rim toward #7a4210 at the gap edge — no hard lit onion-ring
+          col += vec3(1.0, 0.816, 0.439) * core * breath;                        // #ffd070 hot gap core (never white — the arch keeps the white-point)
+          float corridor = smoothstep(10.0, 26.0, abs(vWPos.x));                 // open over the lane, closed by |x|=26 — gameplay + the straight-down money shot
+          float a = uRoofGate * corridor * (n > 0.52 ? 0.90 : 0.78 + 0.10 * g);  // dense canopy, not a haze sheet
+          gl_FragColor = vec4(col, a);
+          #include <fog_fragment>
+        }`,
+    });
+    roof = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), roofMat);
+    roof.rotation.x = -Math.PI / 2;
+    roof.frustumCulled = false;
+    roof.renderOrder = -1;   // first transparent (after opaques) so the z-buffer sorts shelf-over-mirror; motes draw after
+    roof.visible = false;
+  }
+  scene.add(roof);
+
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
   for (const key of Object.keys(ARCHETYPES)) {
@@ -2732,6 +3566,9 @@ function makeBand(scene, def) {
   if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
+  // Fable 98 glow-drink: per-instance near-glow weight (mireVeil families read it for the emissive lift;
+  // reedveil carries it unused). Default 0 ⇒ +0 emissive ⇒ ladder look unchanged where no glow is near.
+  if (def.nearGlowLift) mesh.geometry.setAttribute('aGlowLift', new THREE.InstancedBufferAttribute(new Float32Array(perSide * 2), 1));
   // N10c: sibling foam mesh, same instance count — written at the same index in
   // writeMatrix so it recycles + parks in lockstep with the props.
   const foam = makeFoamMesh(perSide * 2);
@@ -2917,6 +3754,101 @@ function nearArchGate(dist) {
   return localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5);
 }
 
+// GLOW-SPILL near-glow value lift (Fable 96 mechanism C) — the mid-scene fix: a dark prop within a glow
+// cluster's reach DRINKS its light (lands at value-ladder step-4), a prop far from any glow stays step-6
+// black. Per-instance instanceColor MULTIPLIER, computed PURELY at placement (heroHash/mireComp only, no
+// rnd) → gold-determinism byte-identical; w=0 ⇒ WHITE identity ⇒ far/parked/other-biome instances untouched.
+// "Matter drinks light" made visible. Applied to the 4 dark Mire families (nearGlowLift), never the glows.
+const MIRE_LIFT = new THREE.Color(4.0, 3.3, 1.9);   // Fable 98 revise: ceiling ratio (warm R>G>B, blue held low) — a near-black base can only multiply so far; the spill LIGHTS carry the near-field
+const MIRE_SPIRE_X = 40;                              // representative glowspire flank x (place x ≈ 34–47); the falloff is soft so the mean suffices
+const _liftC = new THREE.Color();
+function _glowFalloff(d, dFull, dZero) { return Math.max(0, Math.min(1, (dZero - d) / (dZero - dFull))); }
+// PURE 0..1 near-glow weight for a dark prop at (x, dist, side): arch gate (kept peaks, x0), spire beacon
+// (kept troughs, parity flank), and the shroom/bloom chorus congregations (easement-zeroed). Same hashes the
+// gate/clearing/beacon already agree on, so the lift can never imply light where no organism was seated.
+function mireNearGlowW(x, dist, side) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;   // 300
+  let w = 0;
+  const pa = mireHeroClearPeak(dist, 0, 0.5);              // arch: kept peak covering dist (or NaN)
+  if (!Number.isNaN(pa)) w += _glowFalloff(Math.hypot(x, dist - (pa * period + HERO_PEAK_OFFSET)), 12, 34);
+  const ps = mireHeroClearPeak(dist, 150, 0.4);            // spire: kept trough beacon
+  if (!Number.isNaN(ps) && side === (((ps % 2) + 2) % 2 === 1 ? 1 : -1)) {
+    w += 0.8 * _glowFalloff(Math.hypot(Math.abs(x) - MIRE_SPIRE_X, dist - (ps * period + HERO_PEAK_OFFSET + 150)), 9, 26);
+  }
+  const local = ((dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+  if (!(local >= 1050 && local <= 1350)) w += 0.30 * mireComp(dist);   // chorus, easement-zeroed
+  return Math.min(1, w);
+}
+
+// GLOW-SPILL lights + mirror pools (Fable 96 A+B). Two boot-created PointLights (a FIXED pool → the
+// NUM_POINT_LIGHTS shaders compile once at load, never mid-run) that track the nearest kept arch gate +
+// spire beacon and physically spill warm light on the dark trunks as you fly the gate; plus up to 4 mirror
+// pools fed to the water. Analytic per frame from the along-track dist (same kept-peak hashes the gate /
+// clearing / beacon agree on) → zero scene queries, zero per-frame alloc, render-only. seamRamp gates the
+// whole thing to biome 4; outside the Mire the lights park at y −50 intensity 0 (pixel-identical: 0 radiance)
+// and uMirePoolK is 0 (byte-identical water). `?spill=0` parks them permanently for an A/B.
+const MIRE_SPILL_LIGHTS = 2;
+const _spillParked = (() => { try { return new URLSearchParams(location.search).get('spill') === '0'; } catch { return false; } })();
+let mireSpillA0 = null, mireSpillA1 = null;
+const _spillPools = [ { x: 0, z: 0, invR: 1 / 11, strength: 0 }, { x: 0, z: 0, invR: 1 / 11, strength: 0 },
+                      { x: 0, z: 0, invR: 1 / 7, strength: 0 }, { x: 0, z: 0, invR: 1, strength: 0 } ];
+// PURE per-cluster breath (Fable 96 §5): source, spill light, and pool of ONE organism share ONE pulse.
+// Irrational-feeling period spread → no two clusters sync (the metronome tell). Render-only (wall-clock t).
+function mireBreath(peakIdx, t) {
+  const T = 4.1 + 2.3 * heroHash(peakIdx ^ 0x9e37);
+  const ph = 6.2832 * heroHash(peakIdx ^ 0x85eb);
+  return 1 + 0.14 * Math.sin(t * 6.2832 / T + ph);
+}
+// Kept hero peaks (arch: shift 0 rare 0.5 / spire: shift 150 rare 0.4) in [dist−back, dist+ahead], nearest
+// first. Same keep test as mireHeroClearPeak so lights/pools sit exactly where a hero was seated.
+function keptMirePeaks(dist, shift, rare, back, ahead) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;
+  const out = [];
+  const pk0 = Math.round((dist - HERO_PEAK_OFFSET - shift) / period);
+  for (let pk = pk0 - 1; pk <= pk0 + 5; pk++) {
+    const Pd = pk * period + HERO_PEAK_OFFSET + shift;
+    if (Pd < dist - back || Pd > dist + ahead) continue;
+    const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+    const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+    const peakEase = pLocal >= 1050 && pLocal <= 1350;
+    if (localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < rare)) out.push({ pk, Pd });
+  }
+  out.sort((a, b) => a.Pd - b.Pd);
+  return out;
+}
+function updateMireSpill(dist, t) {
+  if (!mireSpillA0) return;
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const inMire = biomeIndexAt(Math.max(dist, 0)) === 4;
+  const seam = (inMire && !_spillParked)
+    ? THREE.MathUtils.smoothstep(local, 0, 40) * (1 - THREE.MathUtils.smoothstep(local, L - 40, L)) : 0;
+  for (const p of _spillPools) p.strength = 0;
+  if (seam < 0.001) {   // outside the Mire: park (0 radiance / +0 water) → byte-identical elsewhere
+    mireSpillA0.intensity = 0; mireSpillA1.intensity = 0;
+    mireSpillA0.position.y = -50; mireSpillA1.position.y = -50;
+    setMireWaterPools(_spillPools, 0);
+    return;
+  }
+  const arches = keptMirePeaks(dist, 0, 0.5, 15, 500);
+  const spires = keptMirePeaks(dist, 150, 0.4, 15, 400);
+  if (arches.length) {
+    const a0 = arches[0], br0 = mireBreath(a0.pk, t);
+    mireSpillA0.position.set(0, 6.0, -a0.Pd);
+    mireSpillA0.intensity = 14 * br0 * seam;   // Fable 98: 10→14 — buys the facing-side gradient on the near gate posts
+    _spillPools[0].z = -a0.Pd; _spillPools[0].strength = 0.42 * br0;   // Fable 98: 0.34→0.42
+    if (arches.length > 1) { const a1 = arches[1], br1 = mireBreath(a1.pk, t);
+      _spillPools[1].z = -a1.Pd; _spillPools[1].strength = 0.42 * br1; }
+  } else { mireSpillA0.intensity = 0; mireSpillA0.position.y = -50; }
+  if (spires.length) {
+    const s = spires[0], brs = mireBreath(s.pk, t), side = (((s.pk % 2) + 2) % 2 === 1) ? 1 : -1;
+    mireSpillA1.position.set(side * MIRE_SPIRE_X, 7.5, -s.Pd);
+    mireSpillA1.intensity = 10 * brs * seam;   // Fable 98: 7→10
+    _spillPools[2].x = side * MIRE_SPIRE_X; _spillPools[2].z = -s.Pd; _spillPools[2].strength = 0.28 * brs;   // Fable 98: 0.22→0.28
+  } else { mireSpillA1.intensity = 0; mireSpillA1.position.y = -50; }
+  setMireWaterPools(_spillPools, seam);
+}
+
 // --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
 // Inside a strait2 rock run the camera deck-skims (rings clamped y5–7) and the
 // composition law is WIDE+LOW: nothing may run off the top of the frame. The
@@ -2964,6 +3896,7 @@ function writeMatrix(band, i, d) {
   // Composition rhythm — FROZEN only, PURE (no rnd), evaluated AFTER the rotY init
   // so no rnd() call order changes. Parks off-beat instances and scales the rest.
   let k = 1;
+  let giantH = 1;   // Fable in-game review: a rare COLOSSAL karst class that punches the horizon — a HEIGHT-only boost (footprint stays lane-safe; only karstfang opts in via def.giant)
   if (active && bi === 2 && band.def.comp) {
     const g = frozenComp(d.dist);
     const c = band.def.comp;
@@ -3036,6 +3969,10 @@ function writeMatrix(band, i, d) {
     if (active && band.def.sizeClass) {
       const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
       k *= hc < 0.5 ? 0.62 : hc < 0.82 ? 1.0 : 1.42;
+      // COLOSSAL class (karstfang only): the top ~10% of the biggest bucket grow TALLER still — a height-
+      // only boost so a few monoliths break the horizon and dwarf the dragon (awe), while the XZ footprint
+      // stays at the 1.42 mother-island size that already clears the lane. Render-only, pure hash.
+      if (band.def.giant && hc >= 0.90) giantH = 1.5;
     }
   } else if (active && bi === 4) {
     // THE LUMEN MIRE composition (LUMEN-MIRE-BIBLE §2 / Fable PR-3 §4). PURE (no rnd), after the
@@ -3093,7 +4030,17 @@ function writeMatrix(band, i, d) {
         const c = band.def.comp;
         const density = c.floor + (1 - c.floor) * g;
         if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
-        else k = c.sMin + (c.sMax - c.sMin) * g;
+        else {
+          k = c.sMin + (c.sMax - c.sMin) * g;
+          // Fable 88 lever-6: per-instance SIZE OCTAVES break the "runway of identical lamps" — the
+          // congregation k gives every survivor the same size, so multiply it by a pure per-instance
+          // class (pups/adults/tall/rare-mother). `side` is in the hash → left/right flanks decorrelate
+          // (kills the mirror-pair tell for free). Render-scale only, no rnd → gold-determinism byte-identical.
+          if (band.def.sizeOctave) {
+            const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
+            for (const o of band.def.sizeOctave) { if (hc < o[0]) { k *= o[1]; break; } }
+          }
+        }
       }
     }
   } else if (active && bi === 7) {
@@ -3131,7 +4078,7 @@ function writeMatrix(band, i, d) {
     }
   }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK, d.r * k));
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK * giantH, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
@@ -3144,6 +4091,15 @@ function writeMatrix(band, i, d) {
   // Single-biome archetypes never allocate instanceColor — untouched.
   if (band.def.biomes.length > 1) {
     band.mesh.setColorAt(i, BIOME_TINTS[bi] ?? TINT_WHITE);
+  } else if (band.def.nearGlowLift) {
+    // Fable 96/98 mechanism C: dark Mire families DRINK nearby organism-glow. WRITE EVERY instance (WHITE at
+    // w=0) — the first setColorAt allocates a ZERO-filled buffer, so any unwritten instance would render
+    // BLACK; writeMatrix runs for every instance at build/recycle/reseed, so all are covered.
+    const w = active ? mireNearGlowW(d.x, d.dist, d.side) : 0;
+    _liftC.copy(TINT_WHITE).lerp(MIRE_LIFT, w);          // small warm DIFFUSE multiply (all 4 families)
+    band.mesh.setColorAt(i, _liftC);
+    const gl = band.mesh.geometry.getAttribute('aGlowLift');   // the main EMISSIVE lift (mireVeil families read it)
+    if (gl) { gl.setX(i, w); gl.needsUpdate = true; }
   }
 }
 
@@ -3242,6 +4198,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // --- Biome atmosphere lerp: sky, fog, lights, water all follow the seam.
   const env = computeEnv(playerDist);
   _godrayMul = env.godrayMul ?? 1;   // exposed for main.js's god-ray gate (seam-lerped)
+  _godrayBreak = env.godrayBreak ?? 0.35;   // per-biome sunburst-break (seam-lerped)
   if (env.godrayTint) _godrayTint.copy(env.godrayTint);   // per-biome shaft tint (seam-lerped)
   // ARENA (PR-A) — THE injection: blend the live env scratch toward the void palette (arenaSkin.js) BEFORE
   // the fan-out below, so sky uniforms, scene.fog, sun/hemi, setWaterTint AND updateAmbient all read the
@@ -3257,6 +4214,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  su.uShaft.value = env.horizonShaft ?? 0;   // Fable 90 lever-7: Lumen Mire horizon glow-column; 0 elsewhere → byte-identical sky
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
@@ -3298,12 +4256,26 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
     rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
     breach: env.breachMix || 0, // EYE-BREACH: the becalmed gold-lit patch of sea under the eye of the gale; 0 elsewhere = byte-identical
+    // Fable 85 reflection craft (Lumen Mire): anisotropic streak + glints + green-blob pull; 0 elsewhere = byte-identical mirror
+    reflStretch: env.reflStretch, reflGlint: env.reflGlint, reflGreenPull: env.reflGreenPull,
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
   });
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
+  // Fable 96 A+B: position the 2 spill lights + feed the mirror pools from the kept hero peaks (analytic;
+  // parks / 0 water outside the Mire → byte-identical elsewhere).
+  updateMireSpill(playerDist, time);
+  // Fable A1 ROOF-FROM-ABOVE: grow the canopy shelf as the camera climbs to the top of the lane. Gate 0 ⇒
+  // visible=false ⇒ zero draws ⇒ cruise + all other biomes byte-identical.
+  if (roof) {
+    const roofGate = THREE.MathUtils.smoothstep(camera.position.y, ROOF_ALT_LO, ROOF_ALT_HI) * (env.canopyRoof ?? 0);
+    roofUniforms.uRoofGate.value = roofGate;
+    roofUniforms.time.value = time;
+    roof.visible = roofGate > 0.003 && !arenaPropsGate;   // the arena heaven never grows a swamp floor
+    if (roof.visible) roof.position.set(camera.position.x, ROOF_Y, camera.position.z);
+  }
 
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
@@ -3316,6 +4288,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   const heavenWarm = Math.max(0, Math.min(1, arenaMix - 1));   // 0 in biome/void → 1 as the heaven settles
   feverWarmMix = damp(feverWarmMix, Math.max(feverWarmTarget, heavenWarm), 2.5, dt);   // FIERY (fire dragons / the heaven) vs magenta
   su.feverWarm.value = feverWarmMix;
+  su.uSurgeWarm.value = env.surgeWarm ?? 0;   // Fable 94: per-biome ember-Surge override (Mire = 1; seam-lerped; 0 elsewhere → byte-identical)
   su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
   sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;
