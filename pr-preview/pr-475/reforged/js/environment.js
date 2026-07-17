@@ -2342,24 +2342,32 @@ const ARCHETYPES = {
     step: 20, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor in the kit hugs the edge through the breaths (Frozen terrace rhythm). NO sizeClass — a long-ρ prop can't absorb the ×1.42 bucket without invading the lane.
     build: () => {
       const parts = [];
-      // STYLOBATE DECK — the raised laterite causeway base, long down-lane (Z), driven THROUGH the waterline
-      // (spans object y −0.10→0.42 → laterite drowned foot / moss waterline / amber crown from the temple bake).
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.52, 1.66), { y: 0.16 }) });          // deck (12)
-      // SPINE PARAPET — a lower running wall on the FAR side from the lane (−x): the gallery's solid back.
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.44, 1.42), { x: -0.14, y: 0.60 }) }); // parapet (12)
-      // BALUSTRADE — a continuous low rail on the LANE-facing edge (+x) + 3 proud posts (the colonnade rhythm;
-      // one bay left OPEN as a ruin gap). The naga-balustrade echo (ties to nagawall) at causeway scale.
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.12, 0.22, 1.42), { x: 0.24, y: 0.50 }) });  // rail (12)
-      for (const z of [-0.56, 0.06, 0.60]) parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.15), { x: 0.24, z, y: 0.66 }) }); // 3 posts (36)
-      // BROKEN ENDS — no sawn termination: one end steps down to a half-fallen offset chunk, the other ends
-      // on a proud jagged stub. Kept inside |z|≤~0.95 so ρ stays ~1.0 (the lane-clearance coupling).
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.50, 0.30, 0.28), { z: 0.80, y: 0.11, ry: 0.22, rz: 0.06 }) }); // fallen end step (12)
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 0.46, 0.22), { x: -0.06, z: -0.80, y: 0.30, ry: -0.16 }) }); // jagged end stub (12)
-      // JUNGLE SWALLOW — a moss crest draped over the parapet (bake:'lily' → the 3-stop green) + a strangler-
-      // fig root creeping down the deck face into the water (bake:'wood'). The greenery the owner asked for.
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: -0.04, z: -0.34, y: 0.74, sy: 0.5 }) }); // moss lump (20)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.19, 0), { x: 0.02, z: 0.42, y: 0.72, sy: 0.5 }) });   // moss lump (20)
-      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.02, 0.78, -0.30], [0.16, 0.02, -0.48], 0.05, 0.09, 3) });                // fig root (6)
+      // STYLOBATE DECK — built as THREE stacked HORIZONTAL SLABS, not one tall box (Fable r1 kill-shot: a tall
+      // box's side quad splits diagonally → the temple bake, keyed by per-TRIANGLE centroid Y, painted the two
+      // half-quads different bands = a fake diagonal "green tarp". Each slab sits ENTIRELY inside one band → a
+      // crisp HORIZONTAL waterline). Bands (bakeTempleLadder waterY 0, bandH 0.22): y<0 laterite / 0–0.10 the
+      // jade tide-stain / the tall body's side-tris (centroids 0.24 & 0.38) read all-amber above.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.10, 1.66), { y: -0.05 }) });         // laterite drowned foot, y −0.10→0.00 (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.64, 0.10, 1.70), { y: 0.05 }) });          // jade TIDE-STAIN, y 0.00→0.10, PROUD (0.64>0.60) = a stain ridge (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.42, 1.66), { y: 0.31 }) });          // amber deck body, y 0.10→0.52 (side-tri centroids 0.24/0.38 → clean amber) (12)
+      // SPINE PARAPET — a running wall on the FAR side from the lane (−x): the gallery's solid back (all amber).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.24, 0.42, 1.44), { x: -0.15, y: 0.63 }) }); // parapet, y 0.42→0.84 (12)
+      // RUINED COLONNADE — SLIM tall columns on the LANE-facing edge (+x) in a post–GAP–post–post rhythm (Fable
+      // r1: chunky-square stubs read as crenellation/bunker; slim + tall + a missing bay reads as a ruined
+      // gallery). One bay (z −0.20) left OPEN with a FALLEN LINTEL toppled across it (the collapse beat).
+      for (const z of [-0.62, 0.18, 0.60]) parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.11, 0.54, 0.12), { x: 0.24, z, y: 0.79 }) }); // 3 slim columns, y 0.52→1.06 (36)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.13, 0.13, 0.46), { x: 0.22, z: -0.20, y: 0.60, rz: 0.42, ry: 0.12 }) }); // fallen lintel, toppled across the open bay (12)
+      // BROKEN ENDS — no sawn termination: a proud jagged wall-stub at one end (amber), a moss-covered fallen
+      // block half-sunk at the water at the other. Kept inside |z|≤~0.95 so ρ stays ~1.0 (lane-clearance).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.50, 0.20), { x: -0.06, z: -0.86, y: 0.35, ry: -0.16 }) }); // jagged wall stub, y 0.10→0.60 (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.12, 0.26), { x: 0.02, z: 0.86, y: 0.04, ry: 0.22 }) }); // fallen block at the tide, y −0.02→0.10 (12)
+      // JUNGLE SWALLOW — a MOSS CREST clumped along the parapet crown as a crest-LINE (bake:'lily' 3-stop
+      // green), varied sizes, one spilling over the lane edge. Octahedra (8 tris, flattened) not icosahedra
+      // (20) — a squashed moss cushion reads the same at cruise for ⅖ the budget. The greenery the owner asked
+      // for (the moss carries the green; the strangler-fig root was dropped — sub-pixel at cruise, Fable r1).
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.OctahedronGeometry(0.30, 0), { x: -0.02, z: -0.30, y: 0.86, sy: 0.6 }) }); // moss crest lump (8)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.OctahedronGeometry(0.24, 0), { x: 0.12, z: 0.40, y: 0.84, sy: 0.6 }) });   // moss crest lump, spilling lane-side (8)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.OctahedronGeometry(0.18, 0), { x: -0.10, z: 0.12, y: 0.86, sy: 0.65 }) });  // moss crest lump, small (8)
       return mergeLagoonParts(parts);
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
@@ -2369,7 +2377,7 @@ const ARCHETYPES = {
     // lengths. TUNE the 1.10 to the propclearance-measured ρ.
     place: (side, rnd) => {
       const r = 7 + rnd() * 4;
-      const p = { x: side * (14.6 + 1.10 * r + rnd() * 3), h: 5 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      const p = { x: side * (14.6 + 1.14 * r + rnd() * 3), h: 5 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
       p.rotY = (rnd() < 0.5 ? 0 : Math.PI) + (rnd() * 0.26 - 0.13);   // lane-parallel ± a breath (a gallery is a straight line, scattered a little)
       if (HERO_SET.has('causeway')) p.rotY = 0;   // debug: pin the long face down-lane
       return p;
