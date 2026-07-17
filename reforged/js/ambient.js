@@ -27,8 +27,10 @@ function moteDepthFadeShader(shader) {
 
 const COUNT = 1200;
 const BOX = { x: 80, y: 50, z: 160 };
-const feverColor = new THREE.Color(0xff9aee);
+const feverColor = new THREE.Color(0xff9aee);         // magenta Surge mote tint (shipped default)
+const feverWarmColor = new THREE.Color(0xffcf6a);     // Fable 97: EMBER Surge motes for biomes that reserve magenta for danger (the Mire) — "the organisms surge too", never pink
 const tmpColor = new THREE.Color();
+const _feverTint = new THREE.Color();
 
 let points = null;
 let positions = null;
@@ -142,8 +144,11 @@ export function createAmbient(scene) {
 }
 
 export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix = 0) {
-  // Lerped biome look + fever tint override.
-  tmpColor.copy(env.ambColor).lerp(feverColor, feverMix);
+  // Lerped biome look + fever tint override. Fable 97: per-biome surgeWarm lerps the fever mote target
+  // from magenta → ember (Mire), so the Surge motes flare amber-hot, not pink — magenta stays exclusive to
+  // the danger telegraph. surgeWarm 0 elsewhere → _feverTint = feverColor → byte-identical.
+  _feverTint.copy(feverColor).lerp(feverWarmColor, env.surgeWarm ?? 0);
+  tmpColor.copy(env.ambColor).lerp(_feverTint, feverMix);
   points.material.color.copy(tmpColor);
   // Boss-time mote budget: compose (not stomp) on top of the biome/fever look —
   // motes step back so bullets own the near-centre extremes. Zero term at
