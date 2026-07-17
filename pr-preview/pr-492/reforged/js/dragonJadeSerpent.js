@@ -142,7 +142,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   // ── BODY WEB-FANS — a row of broad radiating pleated koi fans, mounted BY THE FRAME ────
   const cLeadF = new THREE.Color(model.finLeadColor ?? 0x116b45);
   const cMidF = new THREE.Color(model.finMidColor ?? 0x2f9e77);
-  const cTipF = new THREE.Color(cRim);
+  const cTipF = new THREE.Color(model.fanTipColor ?? 0xbdf5d0);   // GREEN-leaning pale mint (not the cyan accent) — the fans must pass the one-word GREEN test (Fable gate r3)
   const emitFan = (f, s, R, tiltUp) => {
     // fan frame: radial-out = flank-outward (±B) blended up (Nn); spread = along the body (T)
     const ex = f.B.clone().multiplyScalar(s).addScaledVector(f.Nn, tiltUp).normalize();
@@ -170,7 +170,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         normals.push(ey.x, ey.y, ey.z);
         const c = cMidF.clone().lerp(cTipF, Math.min(1, Math.pow(u, 0.68)));  // pale-mint dominant toward the arc
         if (u < 0.24) c.lerp(cLeadF, (0.24 - u) / 0.24 * 0.92);             // deep-emerald root/hub (the DARK tier)
-        if (fold < 0) c.lerp(cLeadF, 0.32 * (0.3 + 0.7 * u));               // emerald pleat-valley ribs — strong radiating fold lines (the reference's pleats)
+        if (fold < 0) c.lerp(cLeadF, 0.2 * (0.3 + 0.7 * u));                // emerald pleat-valley ribs — softer so the fan reads as pleated gradient, not hard blue/green stripes
         if (u > 0.9 || edge > 0.9) c.lerp(cLeadF, 0.55);                    // dark emerald RIM (outer arc + fan sides) → the fan reads a crisp edge even edge-on (Fable gate r2)
         else if (rb > 0 && u > 0.8) c.lerp(colCrest, (u - 0.8) / 0.2 * 0.35);
         colors.push(c.r, c.g, c.b);
@@ -274,12 +274,13 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   geo.setIndex(indices);
 
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, vertexColors: true, side: THREE.DoubleSide, flatShading: true,   // FACETED low-poly read (reference is planes, not a smooth glossy tube)
-    roughness: def.bodyRoughness ?? 0.55, metalness: def.bodyMetalness ?? 0.02,
-    envMapIntensity: def.bodyEnvIntensity ?? 0.5,
-    emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.1,
+    color: 0xffffff, vertexColors: true, side: THREE.DoubleSide, flatShading: true,   // MATTE, FLAT-SHADED paper-craft jade (reference is faceted planes, not a glossy tube)
+    roughness: def.bodyRoughness ?? 0.95, metalness: 0.0,
+    envMapIntensity: def.bodyEnvIntensity ?? 0.12,   // low env so the cool studio light can't gloss the tube OR tint the fans teal (Fable gate r3)
+    emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.08,
   });
-  applyFresnelRim(bodyMat, cRim, { intensity: model.bodyRim ?? 0.3, power: 3.0 });
+  // no fresnel rim — the reference read is matte flat-shaded, and the rim highlight was washing
+  // out the dorsal stripe at grazing angles (Fable gate r3).
   bodyMat.userData.baseEmissive = cBody;
   bodyMat.userData.baseIntensity = model.bodyGlow ?? 0.1;
 
@@ -293,7 +294,8 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   // crown ×1.95, and on the mid-jade body hue that blows out to chartreuse/khaki on the muzzle
   // (Fable gate r2) — a darker base makes ×1.95 land back at mid-jade, keeping the whole head green.
   const headBodyMat = bodyMat.clone();
-  headBodyMat.color.set(model.headColor ?? 0x137a49);   // mid-jade so the head matches the body value (×1.95 crown lands green, not chartreuse)
+  headBodyMat.color.set(model.headColor ?? 0x1a9459);   // BODY-value mid-jade so the head reads the same green as the body (Fable gate r3: head was near-black)
+  headBodyMat.roughness = 0.95; headBodyMat.envMapIntensity = 0.12;   // matte, so no warm-light olive patch on the muzzle
 
   // ── travelling-wave data (dragon.js flexes the tube each frame) ───────────────────────
   // Lateral swim added along GLOBAL x + a vertical share along y, keyed to the z position, on
