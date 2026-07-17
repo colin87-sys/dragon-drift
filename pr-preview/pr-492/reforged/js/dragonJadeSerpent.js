@@ -107,12 +107,13 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       if (sn >= 0.05) tmp.copy(colBody);
       else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
       else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
-      // DORSAL CREST RIBBON (a≈π/2): a bright pale-seafoam spine line, nose→tail — one of the
-      // reference's 3 signature reads, so paint it strong + wide enough to register at any angle.
+      // DORSAL CREST RIBBON (a≈π/2) as a crisp 3-BAND spine (reference identity, ~40% of the read):
+      // a HARD bright pale-mint stripe bounded by dark-emerald flanks (not a soft gradient), nose→tail.
       const dA = Math.abs(a - Math.PI / 2);
-      if (rb > 0 && dA < 0.55) {
-        const taper = f.t < 0.85 ? 1 : Math.max(0.4, 1 - (f.t - 0.85) * 3);
-        tmp.lerp(colCrest, Math.min(1, rb * 1.0) * taper * Math.pow(1 - dA / 0.55, 0.5));
+      if (rb > 0 && sn > 0.1) {
+        const taper = f.t < 0.9 ? 1 : Math.max(0.4, 1 - (f.t - 0.9) * 4);
+        if (dA < 0.24) tmp.copy(colBody).lerp(colCrest, rb * taper);          // bright pale-mint spine stripe
+        else if (dA < 0.5) tmp.copy(colBody).lerp(colShadow, 0.45 * rb);      // dark-emerald flanks framing it
       }
       colors.push(tmp.r, tmp.g, tmp.b);
     }
@@ -170,7 +171,8 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         const c = cMidF.clone().lerp(cTipF, Math.min(1, Math.pow(u, 0.68)));  // pale-mint dominant toward the arc
         if (u < 0.24) c.lerp(cLeadF, (0.24 - u) / 0.24 * 0.92);             // deep-emerald root/hub (the DARK tier)
         if (fold < 0) c.lerp(cLeadF, 0.32 * (0.3 + 0.7 * u));               // emerald pleat-valley ribs — strong radiating fold lines (the reference's pleats)
-        if (rb > 0 && u > 0.82) c.lerp(colCrest, (u - 0.82) / 0.18 * 0.4);
+        if (u > 0.9 || edge > 0.9) c.lerp(cLeadF, 0.55);                    // dark emerald RIM (outer arc + fan sides) → the fan reads a crisp edge even edge-on (Fable gate r2)
+        else if (rb > 0 && u > 0.8) c.lerp(colCrest, (u - 0.8) / 0.2 * 0.35);
         colors.push(c.r, c.g, c.b);
       }
       rows.push(row);
@@ -187,10 +189,11 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     const finScale = model.bodyFinScale ?? 4.4;
     const tiltUp = model.bodyFinTilt ?? 1.1;                        // how much the fan tips up vs straight out
     for (let k = 0; k < nFan; k++) {
-      const ft = 0.2 + 0.62 * (nFan > 1 ? k / (nFan - 1) : 0);
+      const kf = nFan > 1 ? k / (nFan - 1) : 0;
+      const ft = 0.22 + 0.62 * kf;
       const fi = Math.min(N - 1, Math.max(0, Math.round(ft * (N - 1))));
       const f = frames[fi];
-      const R = f.r * finScale * (1 - 0.28 * f.t) * bodyFins;        // proportional to local girth, tapering aft
+      const R = f.r * finScale * (1 - 0.58 * kf) * bodyFins;         // HIERARCHY: shoulder fan is the hero, stepping down to ~0.42× at the tail (reference law)
       for (const s of [-1, 1]) emitFan(f, s, R, tiltUp);
     }
   }
@@ -202,7 +205,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     const cBlade = colBody.clone().lerp(new THREE.Color(cRim), 0.62);
     const cLeaf = colBody.clone().lerp(new THREE.Color(cRim), 0.94);
     if (rb > 0) cLeaf.lerp(colCrest, rb * 0.4);
-    const Llen = leadR * (2.2 + 4.6 * caudal);
+    const Llen = leadR * (1.7 + 3.4 * caudal);   // modest fork — the tail is NOT the hero (Fable gate r2: shoulder fan stays the hero)
     const nU = 8, nV = 4;
     for (const s of [-1, 1]) {
       // leaf axis: mostly BACK (T) with a modest out (±B) + up (Nn) — trails aft, does NOT cross the body
@@ -234,20 +237,22 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         indices.push(a, e, b, a, d, e);
       }
     }
-    // whisker streamers — 3 thin tapering filaments trailing aft from the fork (reference)
+    // whisker streamers — 3 curved filaments of DIFFERENT lengths (reference's calligraphic trail,
+    // not a fork of straight equal wires). Lengths ≈1.0 / 0.72 / 0.5, spread laterally, each bows.
     const cWhisk = colBody.clone().lerp(new THREE.Color(cRim), 0.5);
-    for (let wI = 0; wI < 3; wI++) {
-      const s = wI === 1 ? 0 : (wI === 0 ? -1 : 1);
-      const D = fN.T.clone().multiplyScalar(1.0).addScaledVector(fN.B, s * 0.14).addScaledVector(fN.Nn, -0.18).normalize();
+    const whiskSpec = [[-0.28, 1.0, 1.0], [0.05, 0.72, -1.0], [0.3, 0.5, 1.0]];   // [lateral spread, lengthMul, bendDir]
+    for (const [spread, lenMul, bendDir] of whiskSpec) {
+      const s = Math.sign(spread) || 1;
+      const D = fN.T.clone().multiplyScalar(1.0).addScaledVector(fN.B, spread * 0.5).addScaledVector(fN.Nn, -0.16).normalize();
       const Wd = new THREE.Vector3().crossVectors(D, fN.Nn).normalize();
-      const Wlen = Llen * (1.25 - Math.abs(s) * 0.15);
-      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.5).addScaledVector(fN.B, s * fN.r * 0.18);
+      const Wlen = Llen * 1.5 * lenMul;
+      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.5).addScaledVector(fN.B, spread * fN.r);
       const nUw = 9, rowsW = [];
       for (let iu = 0; iu <= nUw; iu++) {
         const u = iu / nUw;
-        const w = leadR * 0.06 * Math.pow(1 - u, 0.7) + 0.006;
-        const bend = Math.sin(u * Math.PI * 0.8) * Wlen * 0.08;
-        const C = B0.clone().addScaledVector(D, u * Wlen).addScaledVector(Wd, bend * s).addScaledVector(fN.Nn, -Math.pow(u, 1.4) * Wlen * 0.08);
+        const w = leadR * 0.055 * Math.pow(1 - u, 0.7) + 0.006;
+        const bend = Math.sin(u * Math.PI * 0.9) * Wlen * 0.13 * bendDir;   // a clear single curve, varied per filament
+        const C = B0.clone().addScaledVector(D, u * Wlen).addScaledVector(Wd, bend).addScaledVector(fN.Nn, -Math.pow(u, 1.4) * Wlen * 0.1);
         const c = cWhisk.clone().lerp(new THREE.Color(cRim), u * 0.5);
         const r0 = positions.length / 3;
         positions.push(C.x - Wd.x * w, C.y - Wd.y * w, C.z - Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b);
@@ -283,10 +288,12 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   group.add(body);
 
   // The shared head builder paints the koi skull from `mats.bodyMat.color` — but the body mesh's
-  // material.color is WHITE (its hue lives in the vertex colours), which would paint a WHITE head
-  // (the Fable gate's #1 offender). Hand the head a jade-COLOURED sibling so the skull reads jade.
+  // material.color is WHITE (its hue lives in the vertex colours), which would paint a WHITE head.
+  // Hand the head a jade-COLOURED sibling. Use a DARKER emerald base: the skull lifts its dorsal
+  // crown ×1.95, and on the mid-jade body hue that blows out to chartreuse/khaki on the muzzle
+  // (Fable gate r2) — a darker base makes ×1.95 land back at mid-jade, keeping the whole head green.
   const headBodyMat = bodyMat.clone();
-  headBodyMat.color.set(cBody);
+  headBodyMat.color.set(model.headColor ?? 0x137a49);   // mid-jade so the head matches the body value (×1.95 crown lands green, not chartreuse)
 
   // ── travelling-wave data (dragon.js flexes the tube each frame) ───────────────────────
   // Lateral swim added along GLOBAL x + a vertical share along y, keyed to the z position, on
