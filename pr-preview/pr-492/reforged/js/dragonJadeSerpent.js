@@ -142,7 +142,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   // ── BODY WEB-FANS — a row of broad radiating pleated koi fans, mounted BY THE FRAME ────
   const cLeadF = new THREE.Color(model.finLeadColor ?? 0x116b45);
   const cMidF = new THREE.Color(model.finMidColor ?? 0x2f9e77);
-  const cTipF = new THREE.Color(model.fanTipColor ?? 0xbdf5d0);   // GREEN-leaning pale mint (not the cyan accent) — the fans must pass the one-word GREEN test (Fable gate r3)
+  const cTipF = new THREE.Color(model.fanTipColor ?? 0xa6ecc2);   // SATURATED pale green-mint (not pale-cyan) — stays green even under cool studio ambient (Fable gate r4)
   const emitFan = (f, s, R, tiltUp) => {
     // fan frame: radial-out = flank-outward (±B) blended up (Nn); spread = along the body (T)
     const ex = f.B.clone().multiplyScalar(s).addScaledVector(f.Nn, tiltUp).normalize();
@@ -168,11 +168,11 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
           P0.y + ex.y * lx + ey.y * ly + ez.y * lz,
           P0.z + ex.z * lx + ey.z * ly + ez.z * lz);
         normals.push(ey.x, ey.y, ey.z);
-        const c = cMidF.clone().lerp(cTipF, Math.min(1, Math.pow(u, 0.68)));  // pale-mint dominant toward the arc
-        if (u < 0.24) c.lerp(cLeadF, (0.24 - u) / 0.24 * 0.92);             // deep-emerald root/hub (the DARK tier)
-        if (fold < 0) c.lerp(cLeadF, 0.2 * (0.3 + 0.7 * u));                // emerald pleat-valley ribs — softer so the fan reads as pleated gradient, not hard blue/green stripes
-        if (u > 0.9 || edge > 0.9) c.lerp(cLeadF, 0.55);                    // dark emerald RIM (outer arc + fan sides) → the fan reads a crisp edge even edge-on (Fable gate r2)
-        else if (rb > 0 && u > 0.8) c.lerp(colCrest, (u - 0.8) / 0.2 * 0.35);
+        // ONE green hue ramp: deep-emerald root → mid-jade → pale-seafoam tip (Fable gate r4: the
+        // fans must be a single green ramp — NO hue alternation). Pleat + rim contrast is VALUE ONLY.
+        const c = cLeadF.clone().lerp(cMidF, Math.min(1, u * 1.9)).lerp(cTipF, Math.max(0, (u - 0.55) / 0.45));
+        if (fold < 0) c.multiplyScalar(0.82);                              // receding pleat spokes — DARKER same hue (value, not a teal)
+        if (u > 0.92 || edge > 0.92) c.multiplyScalar(0.68);              // dark rim (value) → crisp edge even edge-on
         colors.push(c.r, c.g, c.b);
       }
       rows.push(row);
@@ -275,9 +275,9 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
 
   const bodyMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, side: THREE.DoubleSide, flatShading: true,   // MATTE, FLAT-SHADED paper-craft jade (reference is faceted planes, not a glossy tube)
-    roughness: def.bodyRoughness ?? 0.95, metalness: 0.0,
-    envMapIntensity: def.bodyEnvIntensity ?? 0.12,   // low env so the cool studio light can't gloss the tube OR tint the fans teal (Fable gate r3)
-    emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.08,
+    roughness: def.bodyRoughness ?? 0.98, metalness: 0.0,
+    envMapIntensity: def.bodyEnvIntensity ?? 0.0,   // ZERO env reflection → no cool sheen band on the tube, no teal tint on the pale fan tips (Fable gate r4)
+    emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.2,   // green self-illumination floor so shadowed fan facets stay GREEN under cool ambient, never drift teal (Fable gate r4)
   });
   // no fresnel rim — the reference read is matte flat-shaded, and the rim highlight was washing
   // out the dorsal stripe at grazing angles (Fable gate r3).
@@ -295,7 +295,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   // (Fable gate r2) — a darker base makes ×1.95 land back at mid-jade, keeping the whole head green.
   const headBodyMat = bodyMat.clone();
   headBodyMat.color.set(model.headColor ?? 0x1a9459);   // BODY-value mid-jade so the head reads the same green as the body (Fable gate r3: head was near-black)
-  headBodyMat.roughness = 0.95; headBodyMat.envMapIntensity = 0.12;   // matte, so no warm-light olive patch on the muzzle
+  headBodyMat.roughness = 0.98; headBodyMat.envMapIntensity = 0.0;   // matte, no env sheen/olive patch
 
   // ── travelling-wave data (dragon.js flexes the tube each frame) ───────────────────────
   // Lateral swim added along GLOBAL x + a vertical share along y, keyed to the z position, on
