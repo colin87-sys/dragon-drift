@@ -2775,6 +2775,95 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // aqueduct — FAR-MASSIF MARCHING ARCHES (DROWNED-FORUM-BUILD-SHEET §3 #3, PR-4). The monumental horizon
+  // element: a TWO-TIER arcade of ROUND sky-through arches, the top tier SMALLER + MORE numerous (the single
+  // most Roman cue), marching into the fog toward the sun. Real pierced holes (arcade technique), ZERO glow
+  // (its only light is the sky through the bays), ONE material group, shared tide ladder. Drowning told
+  // LEFT→RIGHT: the upper tier dies FIRST, then a lower bay breaks, then pier stumps step down into the water
+  // (last one drowned below the tide line). Fable pre-assessed. ≤150 tris.
+  aqueduct: {
+    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.45, sMin: 0.95, sMax: 1.06 },
+    build: () => {
+      // WORLD-ASPECT DESIGN (the arcade a1 law): the (r,h,r) placement scale multiplies object-x by r and
+      // object-y by h INDEPENDENTLY (r≈100, h≈18.5 → h/r≈0.185), so a WORLD-semicircular arch must be an
+      // ELLIPSE in object space (vertical semi-axis (r/h)≈5.4× the horizontal). Design in WORLD units, divide
+      // by the nominal (R_NOM,H_NOM); place() couples h=0.185·r so every instance keeps ROUND arches.
+      const R_NOM = 100, H_NOM = 18.5;
+      const wx = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
+      const zf = 0.05, zb = -0.05;   // single-sided FRONT (+z) face + jamb returns for hole THICKNESS — you see SKY through the bays, never a back wall
+      const TIDE = 2.2;              // world tide line → edge-loop split so the jade band is dead-level on every wet pier
+      const v = [];
+      const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
+      // FRONT pier column (world coords), split at the tide band (edge loop for a crisp ladder).
+      const pierF = (xL, xR, yTop) => {
+        const l = wx(xL), r = wx(xR), yt = wy(yTop);
+        if (yTop > TIDE) { const yb = wy(TIDE); q([l, 0, zf], [r, 0, zf], [r, yb, zf], [l, yb, zf]); q([l, yb, zf], [r, yb, zf], [r, yt, zf], [l, yt, zf]); }
+        else q([l, 0, zf], [r, 0, zf], [r, yt, zf], [l, yt, zf]);
+      };
+      // ROUND-ARCH SPANDREL (front): nseg quads from the elliptical arc UP to the level string course `top`.
+      const archF = (cx, spring, S, rise, top, nseg, kFrom = 0, kTo = nseg) => {
+        const cxo = wx(cx), spo = wy(spring), topo = wy(top);
+        const pt = (a) => [cxo - wx(S) * Math.cos(a), spo + wy(rise) * Math.sin(a), zf];
+        for (let k = kFrom; k < kTo; k++) { const p0 = pt(Math.PI * k / nseg), p1 = pt(Math.PI * (k + 1) / nseg); q(p0, p1, [p1[0], topo, zf], [p0[0], topo, zf]); }
+      };
+      // JAMB RETURN (front→back) at a hole edge (water→spring) → the hole reads as thick masonry, not paper.
+      const jambF = (X, yTop) => { const x = wx(X), yt = wy(yTop); q([x, 0, zf], [x, yt, zf], [x, yt, zb], [x, 0, zb]); };
+      // up-facing TOP CAP (stumps + the level courses need a plan read).
+      const capF = (xL, xR, y) => { const l = wx(xL), r = wx(xR), yo = wy(y); q([l, yo, zf], [r, yo, zf], [r, yo, zb], [l, yo, zb]); };
+
+      // ── LOWER TIER: 5 intact piers + 4 round bays. module 9.2 (pier 2.2 + span 7.0), spring 4.8, rise 3.5
+      // (= span/2 → true semicircle), string course 10.4.
+      const LP = 2.2, LSPAN = 7.0, LMOD = 9.2, LSPRING = 4.8, LRISE = 3.5, LTOP = 10.4, OFF = -34;
+      for (let i = 0; i < 5; i++) { const xl = OFF + i * LMOD; pierF(xl, xl + LP, LTOP); }
+      for (let j = 0; j < 4; j++) { const bx = OFF + j * LMOD + LP; archF(bx + LSPAN / 2, LSPRING, LSPAN / 2, LRISE, LTOP, 4); jambF(bx, LSPRING); jambF(bx + LSPAN, LSPRING); }
+      // DECAY (left→right): pier5 broken shorter + a half-arch springer stub off pier4 (no crown) + 3 stumps.
+      const p5x = OFF + 5 * LMOD;
+      pierF(p5x, p5x + LP, 7.4);
+      archF(OFF + 4 * LMOD + LP + LSPAN / 2, LSPRING, LSPAN / 2, LRISE, 9.0, 4, 0, 2);   // left 2 segs only = a ragged springer stub
+      const stump = (x, w, yTop, cap) => { pierF(x, x + w, yTop); if (cap) capF(x, x + w, yTop); };
+      stump(p5x + LMOD * 0.85, LP, 5.6, true);    // nearest stump keeps its top cap (plan read)
+      stump(p5x + LMOD * 1.5, LP * 0.9, 3.4, false);
+      stump(p5x + LMOD * 2.1, LP * 0.8, 1.6, false);   // below TIDE 2.2 → an all-drowned stump
+
+      // ── UPPER TIER: 7 piers + 6 SMALLER round bays. module 4.6 (= LMOD/2 → every other upper pier lands over
+      // a lower pier), pier 1.1, span 3.5, base 10.4, spring 12.5, rise 1.75, specus base 16.0. Survives over
+      // lower bays 0..2 only (upper dies FIRST), ending RAGGED (last pier + bay shorter) over bay 3.
+      const UP = 1.1, USPAN = 3.5, UMOD = 4.6, UBASE = 10.4, USPRING = 12.5, URISE = 1.75, UTOP = 16.0;
+      const UOFF = OFF + LP / 2 - UP / 2;   // center upper pier0 over lower pier0
+      for (let i = 0; i < 7; i++) { const xl = UOFF + i * UMOD, yt = i < 6 ? UTOP : 14.4; const l = wx(xl), r = wx(xl + UP), b = wy(UBASE), tp = wy(yt); q([l, b, zf], [r, b, zf], [r, tp, zf], [l, tp, zf]); }
+      for (let j = 0; j < 6; j++) { const cx = UOFF + j * UMOD + UP + USPAN / 2, top = j < 5 ? UTOP : 14.4; archF(cx, USPRING, USPAN / 2, URISE, top, 3); }
+
+      // ── LEVEL COURSES (the ruler-line the eye reads marching into fog). String course under the upper tier +
+      // a SPECUS band on top of the upper tier with ONE NOTCH (a bite over bay 3 — kills the plumb-whole tell).
+      const specL = UOFF, specR = UOFF + 6 * UMOD, notchL = UOFF + 3 * UMOD, notchR = UOFF + 3 * UMOD + USPAN * 0.6;
+      q([wx(specL), wy(UTOP), zf], [wx(notchL), wy(UTOP), zf], [wx(notchL), wy(17.0), zf], [wx(specL), wy(17.0), zf]);
+      q([wx(notchR), wy(UTOP), zf], [wx(specR), wy(UTOP), zf], [wx(specR), wy(17.0), zf], [wx(notchR), wy(17.0), zf]);
+      capF(specL, notchL, 17.0); capF(notchR, specR, 17.0);
+
+      // ── WALL END CAP (left) + FLUSH drowned stylobate strip (footprint-flush → no hull skirt at the worm's-eye).
+      { const x0 = wx(OFF); q([x0, 0, zb], [x0, 0, zf], [x0, wy(LTOP), zf], [x0, wy(LTOP), zb]); }
+      { const xa = wx(OFF - 1), xb = wx(p5x + LMOD * 2.1 + LP), y0 = 0; q([xa, y0, zb], [xb, y0, zb], [xb, y0, zf], [xa, y0, zf]); }
+
+      const wall = new THREE.BufferGeometry();
+      wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+      wall.computeVertexNormals();
+      wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+      return mergeLagoonParts([{ mat: 0, geo: wall, bake: 'forum' }], { forum: true, forumWaterY: 0.12 });
+    },
+    // FAR off-lane horizon massif (arcade/rampart rhythm): comp floor 0.45 (mostly-continuous, thins in the
+    // breaths), foam:false, ZERO glow. r 90–125, h COUPLED to r (round arches), inner edge ~80–105 (never near
+    // the lane; the center third stays empty for the gate). Yaw side-based + ONE-SIGNED jitter ≤ ±20° so the
+    // diagonal always swings the decaying far end AWAY from the lane → perspective recession into the fog.
+    place: (side, rnd) => {
+      const r = 90 + rnd() * 35;
+      const h = 0.185 * r * (0.97 + 0.06 * rnd());   // couple h to r → every instance keeps ROUND arches (independent draws swing roundness ±40%)
+      const p = { x: side * (30 + 0.55 * r + rnd() * 14), h, r, tilt: side * (0.015 + rnd() * 0.02) };
+      p.rotY = (side > 0 ? Math.PI : 0) + side * rnd() * 0.32;
+      if (HERO_SET.has('aqueduct')) p.rotY = 0;   // debug: face the studio camera
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2824,6 +2913,7 @@ const FOAM_CFG = {
   triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
   viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
+  aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
