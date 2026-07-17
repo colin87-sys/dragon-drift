@@ -27,6 +27,11 @@ export const ICONS = {
   feat:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 2.2l2.6 4.1 2.6-4.1"/><circle cx="9" cy="11" r="3.9"/></svg>',
   rush:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"/></svg>',
   weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
+  // PILOT tab glyphs (menu-header consistency pass): the ✈/«» dingbats get
+  // line-icon replacements — an open logbook for FLIGHT LOG, a medal rosette
+  // for TITLES (FEATS reuses `feat` above). Same 18-grid, 1.6 stroke style.
+  log:      '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.4C7.8 3.3 6 3 3.4 3.2v10.4c2.6-.2 4.4.1 5.6 1.2 1.2-1.1 3-1.4 5.6-1.2V3.2C12 3 10.2 3.3 9 4.4z"/><path d="M9 4.4v10.4"/></svg>',
+  laurel:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="6.8" r="4"/><path d="M6.7 10.2l-1.3 5 3.6-2 3.6 2-1.3-5"/></svg>',
   play:     '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M7 4.8c0-1 1.1-1.6 2-1.1l11 6.3c.9.5.9 1.8 0 2.3L9 18.6c-.9.5-2-.1-2-1.1z"/></svg>',
   // U7 — emoji eviction: the platform-variable glyphs (🔒 ♪ 🪶 🔥 ☀ ⟲ ◀▶‹›✕)
   // get consistent line-icon replacements in the established style.
