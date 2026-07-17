@@ -314,9 +314,14 @@ function makeMats() {
   // the travertine→algae→slate tide ladder into one flat grey-green through the gold-umber fog (Fable
   // Stage-2 3.8). A LOWER, cooler emissive (@0.15) keeps the drowned base genuinely dark and the band
   // separation intact at fog distance, while still lifting the stone off pure black in the low dusk sun.
+  // ladderEmissive folds vColor INTO emissive (totalEmissiveRadiance *= vColor), so the tide bands only
+  // survive BACKLIGHT (flying into the low dusk sun) through this floor: too LOW (@0.15) and the shadowed
+  // near-faces crush to a charcoal silhouette with no bands (Fable Stage-2 round-10). A warm-cream base at
+  // @0.24 carries the bleached crown as creamy travertine even backlit, while the pushed-apart band values
+  // keep the drowned slate base dark and distinct — visible AND separated, the balance the ladder needs.
   mats.forumStone = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.66, metalness: 0.04,
-    emissive: 0x6f7360, emissiveIntensity: 0.15,
+    emissive: 0xbcb492, emissiveIntensity: 0.24,
   }), true);
   // GILT accent — ancient temple gold, seen ONLY inside recessed aperture reveals (arch intrados,
   // oculus rim, belfry). vertexColors OFF so it ignores the tide bake on shared geometry.
