@@ -669,7 +669,7 @@ const _FRM_DROWN = [0.050, 0.160, 0.198]; // deep wet slate-teal drowned base (t
 // story underwater and the visible above-water pier reads all-bleached (Fable Stage-2 3.5 note). Lifting the
 // plane to ~38% object height puts the wet-stained drowned zone + algae line on the VISIBLE flank — the
 // lower third of the pier ABOVE the water carries the "this drowned" record, where the player actually sees it.
-function bakeForumLadder(geo, waterY = 0.38, bandH = 0.04, tiltX = 0.11) {
+function bakeForumLadder(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
@@ -2628,16 +2628,17 @@ const ARCHETYPES = {
     build: () => {
       const parts = [];
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine tide ladder
-      // PIERS — two chunky blocks, full height to the cornice line (y0.70), 0.40 deep (the tunnel depth).
-      // Span (hole) = 0.40 (x ±0.20); pier width 0.30 → pier/span = 0.75 (§11.1 no croquet-hoop).
-      S(xform(new THREE.BoxGeometry(0.30, 0.70, 0.40), { x: -0.35, y: 0.35 }));   // left pier (12)
-      S(xform(new THREE.BoxGeometry(0.30, 0.70, 0.40), { x: 0.35, y: 0.35 }));    // right pier (12)
-      // IMPOST SPRINGERS — a projecting horizontal ledge on each pier at the arch springing (y0.465), where
-      // the arch's weight lands on the pier. The classic triumphal-arch tell that reads as MASONRY, not a
-      // spike: Stage-2 r3 showed proud vertical pilasters foreshorten into dark fins from a ¾ vantage; a
-      // horizontal impost never does, and it frames the bay + articulates the otherwise-blank pier. (24)
-      S(xform(new THREE.BoxGeometry(0.34, 0.05, 0.44), { x: -0.35, y: 0.465 }));   // left impost (12)
-      S(xform(new THREE.BoxGeometry(0.34, 0.05, 0.44), { x: 0.35, y: 0.465 }));    // right impost (12)
+      // PIERS — pier width 0.30, span (hole) 0.40 → pier/span 0.75 (§11.1 no croquet-hoop), 0.40 deep (the
+      // tunnel). Each pier is SPLIT into a lower + upper box at the tide line (y0.44): the seam is a real
+      // geometric EDGE, so the per-vertex tide bake reads a HARD drowned/algae→travertine COURSE there — a
+      // plain full-height box has no vertices at the waterline, so the bake could only smooth into a
+      // fog-washed gradient (Fable Stage-2 3.9: "one flat khaki, no ladder"). Lower box = drowned base rising
+      // to the algae line at the seam; upper box = bleached crown. The crisp value-structure articulates the
+      // pier (replacing the impost springers — a blank slab is no longer the risk once the ladder reads). (48)
+      S(xform(new THREE.BoxGeometry(0.30, 0.34, 0.40), { x: -0.35, y: 0.17 }));   // left pier, drowned base (12)
+      S(xform(new THREE.BoxGeometry(0.30, 0.36, 0.40), { x: -0.35, y: 0.52 }));   // left pier, bleached crown (seam=tide line y0.34) (12)
+      S(xform(new THREE.BoxGeometry(0.30, 0.34, 0.40), { x: 0.35, y: 0.17 }));    // right pier, drowned base (12)
+      S(xform(new THREE.BoxGeometry(0.30, 0.36, 0.40), { x: 0.35, y: 0.52 }));    // right pier, bleached crown (12)
       // FRONT ARCH RING — a half-torus of chunky voussoirs springing at y0.48, apex y0.68 (arc 0→π = the top
       // half). tube 0.05 → the ring outer laps onto the pier imposts (the arch springs from the piers). (36)
       S(xform(new THREE.TorusGeometry(0.20, 0.05, 3, 6, Math.PI), { y: 0.48, z: 0.15 }));
@@ -2671,7 +2672,7 @@ const ARCHETYPES = {
     place: (side, rnd) => {
       const h = 17 + rnd() * 6;
       const r = h * 1.15 + rnd() * 3;
-      const p = { x: side * (18 + 0.95 * r + rnd() * 7), h, r, tilt: side * (0.05 + rnd() * 0.045) };
+      const p = { x: side * (18 + 0.95 * r + rnd() * 7), h, r, tilt: side * (0.07 + rnd() * 0.05) };   // bradyseism lean ~4–7° (the crisp tide seam is baked level; the instance tilt supplies the subsidence angle)
       // Front (+z object: arch ring, pilasters, gilt soffit) faces UP-LANE toward the approaching player, a
       // breath turned inward toward the lane → a ¾-front on approach (a processional arch is met head-on, not
       // side-on). (Round-6 fix: the old Math.PI turned the money face DOWN-lane, so both the player on approach
