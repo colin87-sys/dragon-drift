@@ -571,6 +571,15 @@ function bakeFlatColor(geo, rgb) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// Per-VERTEX tide colour by WORLD Y (the block is already world-positioned) — Fable polish: the ramp runs
+// THROUGH each block so a tall base course gradients instead of hard-cutting to a dark plinth. One jitter
+// per block keeps the faint course read.
+function bakeForumByY(geo, jit) {
+  const pos = geo.attributes.position, n = pos.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const s = forumStoneCol(pos.getY(i), jit); col[i * 3] = s[0]; col[i * 3 + 1] = s[1]; col[i * 3 + 2] = s[2]; }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 function buildForumMasonry(group, o, X, TOP) {
   const rnd = mulberry32((Math.floor(o.dist * 8.1) ^ 0x51ed3c9b) >>> 0);
   const gL = o.gapX - o.gapW, gR = o.gapX + o.gapW, gB = o.gapY - o.gapH, gT = o.gapY + o.gapH;
@@ -611,7 +620,7 @@ function buildForumMasonry(group, o, X, TOP) {
       const zJit = (rnd() - 0.5) * 0.4;                                                   // subtle relief seam only
       const g = new THREE.BoxGeometry(bw, ch, 3.0 + Math.abs(zJit)).toNonIndexed();
       g.translate(cx, cy, zJit * 0.3);
-      bakeFlatColor(g, forumStoneCol(cy, 0.96 + rnd() * 0.08));                           // tide ladder + FAINT jitter (coursing is garnish)
+      bakeForumByY(g, 0.96 + rnd() * 0.08);                                                // per-vertex world-Y gradient (runs through the block) + faint jitter
       blocks.push(g);
     }
   }
@@ -631,7 +640,7 @@ function buildForumMasonry(group, o, X, TOP) {
     const g = new THREE.BoxGeometry(3.4, vLen, 3.8).toNonIndexed();
     g.rotateZ(th - Math.PI / 2);                            // long axis radial
     g.translate(vx, vy, 0.9);
-    bakeFlatColor(g, forumStoneCol(vy, 0.97 + (k % 2) * 0.06));   // travertine crown + faint alternation
+    bakeForumByY(g, 0.97 + (k % 2) * 0.06);   // per-vertex world-Y gradient + faint alternation
     vgeo.push(g);
   }
   blocks.push(...vgeo);
