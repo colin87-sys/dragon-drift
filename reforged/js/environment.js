@@ -730,7 +730,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
-  if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g); stone.push(g); }
+  if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : (opts.forum ? propMats.forumStone : propMats.lagoonStone)); }
