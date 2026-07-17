@@ -78,6 +78,15 @@
   --t-stagger: 40ms;    /* sibling reveal step; cap ~12 individually staggered items */
   --ease-in: cubic-bezier(0.55, 0.06, 0.68, 0.19);   /* exits only */
 
+  /* WELCOME+HUB §0 — asymmetric notification motion, ALIASED onto the shipped
+     --t-* family (audit-blocker 5: one duration vocabulary, no parallel --dur-*).
+     exit/enter ratio = 0.59 (≤0.66). --ease-spring is the ONE rationed overshoot. */
+  --t-card-enter: 340ms;                        /* card/element entrance */
+  --t-card-exit:  200ms;                         /* 0.59× enter — exits accelerate */
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1); /* decelerate (Material-emphasized) */
+  --ease-exit:  cubic-bezier(0.3, 0, 0.8, 0.15); /* accelerate */
+  --track-caps-tight: 0.10em;                    /* pill/chip caps */
+
   /* -- ACCESSIBILITY (wired in U14; defined now so HUD CSS references them) */
   --hud-scale: 1;
   --hud-alpha: 1;
@@ -247,6 +256,21 @@ body.app-loaded > canvas { opacity: 1; }
 @keyframes combo-rage { 0%,100%{transform:translateX(0) scale(1)} 25%{transform:translateX(-1.5px) scale(1.04)} 75%{transform:translateX(1.5px) scale(1.04)} }
 .combo-x.combo-pop { animation: combo-pop 0.3s ease-out; }
 @keyframes combo-pop { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }
+/* GAUNTLET-FOLLOW GUARD (owner bug 2026-07-17). This container's transform is OWNED by
+   ui.gauntletFollow — main.js projects the dragon each frame and gauntletFollow writes an
+   inline `translate(calc(-50% + Xpx), -50%) scale(...)` so the cluster rides under the
+   dragon. A *running CSS animation* that sets `transform` outranks an inline transform
+   (animations are a higher cascade origin), so it silently overrides the follow in the
+   RENDERED output while `el.style.transform` still reads the tracking value — the follow
+   looks fine to any harness sampling the inline style, but on screen the cluster freezes.
+   The gauntlet wears `.combo` + `data-tier` (for .gauntlet-x visibility + gem tint), which
+   made the legacy combo-badge rules `.combo[data-tier="4"/"5"]` apply `combo-rage`
+   (a translateX+scale shake) to the whole cluster → at DRAGON SURGE (fever ⇒ tier 5) the
+   gauntlet snapped to centre and pulsed in place instead of following. Keep the followed
+   container animation-FREE; Surge/combo emphasis lives on inner children (g-ignite,
+   gem-blaze, surge-flash, the .gauntlet-x colour ramp). Specificity (0,3,0) > the legacy
+   (0,2,0); `animation` is not inherited, so child animations are untouched. */
+.stamina-arc.combo[data-tier] { animation: none; }
 
 /* Chain chip (H2 §B.4): gold, appears from 2, pops per link, and a hairline
    underline fills in CELLS OF FIVE. A live chain is a decision window — it is
@@ -2655,11 +2679,12 @@ body.splash-open #hud { display: none; }
 #splash .splash-vignette, #splash .splash-embers {
   position: absolute; inset: 0; pointer-events: none;
 }
-/* Purple sky wash, top-heavy, fading out above the dragon. */
+/* WELCOME+HUB §1.1 — warm EMBERLINE ink wash (was pre-EMBERLINE purple), top-heavy,
+   fading out above the dragon so the live scene stays visible & alive (MENU LAW). */
 #splash .splash-sky {
   background: linear-gradient(180deg,
-    rgba(54,22,92,0.88) 0%, rgba(58,26,98,0.46) 26%,
-    rgba(40,18,72,0.12) 44%, transparent 58%);
+    rgba(var(--scrim-ink),0.72) 0%, rgba(var(--scrim-ink),0.40) 26%,
+    rgba(var(--scrim-ink),0.10) 44%, transparent 58%);
 }
 /* Warm gold horizon glow behind the dragon. */
 #splash .splash-horizon {
@@ -2668,18 +2693,43 @@ body.splash-open #hud { display: none; }
   animation: splash-horizon-breathe 6s ease-in-out infinite;
 }
 @keyframes splash-horizon-breathe { 0%,100% { opacity: 0.82; } 50% { opacity: 1; } }
-/* Purple edge vignette + a darker base so the CTA/tagline stay legible. */
+/* WELCOME+HUB §1.1 — ASYMMETRIC scrim (warm ink): heavy behind the wordmark (top)
+   and under the CTA (foot), CLEAR through the dragon third (≤0.10, ~36–62%), plus a
+   warm edge vignette. The world behind stays alive; no backdrop-filter over canvas. */
 #splash .splash-vignette {
   background:
-    radial-gradient(ellipse at 50% 46%, transparent 36%, rgba(28,8,52,0.5) 84%, rgba(18,4,38,0.85) 100%),
-    linear-gradient(0deg, rgba(20,6,42,0.92) 0%, rgba(20,6,42,0.34) 16%, transparent 34%);
+    linear-gradient(180deg,
+      rgba(var(--scrim-ink),0.66) 0%, rgba(var(--scrim-ink),0.30) 18%, transparent 36%,
+      transparent 62%, rgba(var(--scrim-ink),0.34) 82%, rgba(var(--scrim-ink),0.66) 100%),
+    radial-gradient(ellipse at 50% 50%, transparent 46%, rgba(var(--scrim-ink),0.40) 88%, rgba(var(--scrim-ink),0.70) 100%);
+}
+/* WELCOME+HUB §1.2a — the SIGNATURE IGNITE spectacle (CSS layer): a one-shot GOLD
+   dawn-break light-shaft rake that blooms ONCE co-timed with the wordmark resolve,
+   then settles to a static rest. Transform/opacity/gradient only — zero assets, no
+   blur filter, no backdrop-filter. (The committed 3D dragon layers — wingbeat / rim
+   lift / camera push — land in the next increment; this is their accompaniment.) */
+#splash .splash-godray {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0;
+  background:
+    radial-gradient(ellipse 48% 66% at 50% 40%,
+      rgba(255,214,132,0.92), rgba(255,182,92,0.30) 42%, transparent 72%),
+    conic-gradient(from 208deg at 50% 34%,
+      transparent 0deg, rgba(255,206,120,0.26) 18deg, transparent 42deg,
+      transparent 318deg, rgba(255,206,120,0.22) 342deg, transparent 360deg);
+}
+#splash.show .splash-godray { animation: splash-godray 1.7s var(--ease-out) 1.05s backwards; }
+@keyframes splash-godray {
+  0%   { opacity: 0;    transform: scale(0.90); }
+  26%  { opacity: 0.62; transform: scale(1.03); }  /* a sharp gold FLARE, co-timed with the dragon ignite */
+  100% { opacity: 0.16; transform: scale(1.0); }   /* static rest ≤0.18 */
 }
 
 /* Drifting embers rising up the frame. */
 #splash .splash-ember {
   position: absolute; bottom: -10px; border-radius: 50%;
-  background: radial-gradient(circle, #ffe6a8, #ff9a3c 60%, transparent 72%);
-  box-shadow: 0 0 8px rgba(255,180,90,0.8);
+  /* WELCOME+HUB §1.4 — soft radial IS the glow; box-shadow evicted (glow-strip tell at
+     16×, mobile paint cost). */
+  background: radial-gradient(circle, #ffe6a8, #ff9a3c 58%, rgba(255,150,60,0.35) 76%, transparent 88%);
   animation-name: splash-ember-rise; animation-timing-function: linear; animation-iteration-count: infinite;
 }
 @keyframes splash-ember-rise {
@@ -2693,19 +2743,24 @@ body.splash-open #hud { display: none; }
 #splash .splash-top { position: relative; z-index: 2; margin-top: 4px; }
 #splash .splash-title {
   margin: 0; font-family: var(--font-display); font-weight: 400;
-  font-size: clamp(54px, 21vw, 116px); line-height: 0.9; letter-spacing: 0.045em;
+  /* WELCOME+HUB §1.2 — display tracking → --track-disp (0.16em); size is the sanctioned
+     wordmark exception (kept). */
+  /* vw trimmed 21→16.5 so the wider --track-disp (0.16em) tracking no longer clips "DRAGON"
+     at the left edge on narrow portrait phones (the display tracking law is held; size flexes). */
+  font-size: clamp(48px, 16.5vw, 112px); line-height: 0.9; letter-spacing: var(--track-disp);
   background:
     linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.85) 50%, transparent 62%),
     linear-gradient(180deg, #fff6dd, #ffd86a 55%, #ff9a3c);
   background-size: 250% 100%, 100% 100%;
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 28px rgba(255,190,80,0.5)) drop-shadow(0 3px 6px rgba(0,0,0,0.7));
+  filter: drop-shadow(0 0 24px rgba(255,190,80,0.45)) drop-shadow(0 3px 6px rgba(0,0,0,0.7));
   /* Slow sheen sweep + an out-of-phase glow-breath — alive but premium-calm. */
   animation: wordmark-shine 7s ease-in-out infinite, splash-title-glow 5.5s ease-in-out infinite;
 }
+/* WELCOME+HUB §1.2 — glow-breath capped ≤28px blur / ≤0.5 opacity (was a 42px onion tell). */
 @keyframes splash-title-glow {
-  0%, 100% { filter: drop-shadow(0 0 22px rgba(255,188,80,0.42)) drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
-  50%      { filter: drop-shadow(0 0 42px rgba(255,206,112,0.72)) drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(255,188,80,0.40)) drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
+  50%      { filter: drop-shadow(0 0 26px rgba(255,206,112,0.48)) drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
 }
 #splash .splash-slogan {
   margin: 8px 0 0; font-family: 'Rajdhani', sans-serif; font-style: italic; font-weight: 600;
@@ -2772,7 +2827,7 @@ body.splash-open #hud { display: none; }
   #splash { padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px
             calc(env(safe-area-inset-bottom, 0px) + 12px); }
   #splash .splash-title br { display: none; }
-  #splash .splash-title { font-size: clamp(30px, 12vh, 58px); letter-spacing: 0.1em; }
+  #splash .splash-title { font-size: clamp(30px, 12vh, 58px); letter-spacing: var(--track-disp); }
   #splash .splash-slogan { font-size: clamp(12px, 4.5vh, 16px); letter-spacing: 0.14em; margin-top: 4px; }
   #splash .splash-top { margin-top: 0; }
   #splash .splash-bottom { max-width: 340px; gap: 8px; }
@@ -2861,11 +2916,84 @@ body.splash-open #hud { display: none; }
   100% { opacity: 0;    transform: scale(1.6); }
 }
 
+/* ===== WELCOME+HUB §2 — the returning-player idle-reward POP-IN ===== */
+/* Asymmetric scrim: heavy behind the card (foot), light over the dragon (top). */
+#reward-scrim {
+  position: fixed; inset: 0; z-index: 40; pointer-events: auto; opacity: 0;
+  background: linear-gradient(180deg,
+    rgba(var(--scrim-ink),0.08) 0%, rgba(var(--scrim-ink),0.18) 42%,
+    rgba(var(--scrim-ink),0.58) 70%, rgba(var(--scrim-ink),0.80) 100%);
+  transition: opacity var(--t-card-enter) var(--ease-enter);
+}
+#reward-scrim.show { opacity: 1; }
+/* The card seats in the lower band so the dragon holds center (HUB COMPOSITION LAW / §2.3).
+   THE ONE PANEL RECIPE: warm-glass fill + 1 hairline + 1 inner top highlight + 1 soft shadow.
+   A reward modal's BODY is opaque — a near-solid warm base under the glass tint so the hub CTA
+   never bleeds through it. */
+#reward-card {
+  position: fixed; left: 50%; bottom: 13%; z-index: 41; width: min(420px, 86vw);
+  padding: 20px 22px 16px; border-radius: var(--r-l); text-align: left;
+  background: linear-gradient(rgba(23,16,10,0.985), rgba(19,13,8,0.99)), var(--panel-fill);
+  border: var(--panel-line);
+  box-shadow: var(--panel-inner), var(--panel-shadow);
+  opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.90);
+  transition: opacity var(--t-card-enter) var(--ease-enter),
+              transform var(--t-card-enter) var(--ease-enter);
+}
+#reward-card.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.0); }
+#reward-card.landed { animation: rc-settle 220ms var(--ease-spring); }  /* the ONE rationed overshoot */
+#reward-card.leaving {
+  opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.98);
+  transition: opacity var(--t-card-exit) var(--ease-exit), transform var(--t-card-exit) var(--ease-exit);
+}
+@keyframes rc-settle { 0% { transform: translateX(-50%) scale(1.0); } 55% { transform: translateX(-50%) scale(1.03); } 100% { transform: translateX(-50%) scale(1.0); } }
+.rc-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  opacity: 0; transform: translateY(10px);
+  animation: rc-row-in 260ms var(--ease-enter) forwards; animation-delay: calc(120ms + var(--i) * 100ms);
+}
+@keyframes rc-row-in { to { opacity: 1; transform: translateY(0); } }
+.rc-row + .rc-row { margin-top: 12px; }
+.rc-label {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: var(--fs-label);
+  letter-spacing: var(--track-caps-tight); text-transform: uppercase; color: var(--rf-ink-2);
+}
+.rc-val { display: inline-flex; align-items: baseline; gap: 8px; }
+.rc-sigil {
+  font-size: var(--fs-title); color: #ffce6a; opacity: 0.28;
+  filter: drop-shadow(0 0 0 rgba(255,206,106,0));
+}
+#reward-card.landed .rc-sigil { animation: rc-sigil 400ms var(--ease-spring) forwards; }
+@keyframes rc-sigil {
+  0%   { opacity: 0.28; transform: scale(1.0); filter: drop-shadow(0 0 4px rgba(255,206,106,0.2)); }
+  55%  { opacity: 1;    transform: scale(1.08); filter: drop-shadow(0 0 18px rgba(255,206,106,0.5)); }
+  100% { opacity: 1;    transform: scale(1.0); filter: drop-shadow(0 0 10px rgba(255,206,106,0.35)); }
+}
+.rc-amount {
+  font-family: var(--font-display); font-weight: 400; font-size: var(--fs-display);
+  color: #ffce6a; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; line-height: 1;
+}
+.rc-sub { margin: 12px 0 0; font-family: 'Rajdhani', sans-serif; font-size: var(--fs-body); color: var(--rf-ink-2); }
+.rc-dismiss {
+  margin: 14px 0 0; text-align: center; font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  font-size: var(--fs-micro); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--rf-ink-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  #reward-scrim, #reward-card { transition: opacity 160ms linear; }
+  #reward-card { transform: translateX(-50%); }
+  #reward-card.show { transform: translateX(-50%); }
+  #reward-card.landed { animation: none; }
+  .rc-row { animation: none; opacity: 1; transform: none; }
+  #reward-card.landed .rc-sigil { animation: none; opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember,
   #splash .splash-slogan, #splash .splash-tag, #splash .splash-begin { animation: none; }
   #splash .splash-slogan, #splash .splash-tag, #splash .splash-begin { opacity: 1; }
   #splash.armed .splash-cta { animation: none; }
+  /* WELCOME+HUB §1.2a — the ignite spectacle collapses to its static rest (no swell). */
+  #splash .splash-godray, #splash.show .splash-godray { animation: none; opacity: 0.16; }
   #launch-flash.fire { animation: none; }
 }
 
