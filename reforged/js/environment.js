@@ -2184,6 +2184,54 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // causeway — LANE-FRAMING NEAR-RAIL / civilization (§7.3.7, the Frozen-terrace / Caldera-flowlobe analog):
+  // a long, LOW, drowned Angkor GALLERY-CAUSEWAY running PARALLEL to the lane — a laterite stylobate deck +
+  // a broken lane-facing balustrade colonnade + a spine parapet, jungle-swallowed by a moss crest + a
+  // strangler-fig root, with JAGGED broken ends (no sawn termination — the colonnata law). THE horizontal
+  // REST mass the v3 kit lacked: every other Lagoon prop is a vertical POINT, so the breaths read as empty
+  // water with a rare spike. step 20 + floor 0.30 (the highest in the kit) keep a near-continuous low wall
+  // HUGGING the lane edge THROUGH the empty breaths → the flight corridor is always visibly walled, so the
+  // boundary READS and players stop flying blind into the outer barrier (the owner's gameplay report). LOW
+  // (h 5–8) so the open golden mirror + sky still breathe ABOVE it — it frames, never roofs. Bakes: temple
+  // (laterite foot / moss waterline / amber crown) + lily (moss crest) + wood (fig root). No gilt.
+  causeway: {
+    step: 20, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor in the kit hugs the edge through the breaths (Frozen terrace rhythm). NO sizeClass — a long-ρ prop can't absorb the ×1.42 bucket without invading the lane.
+    build: () => {
+      const parts = [];
+      // STYLOBATE DECK — the raised laterite causeway base, long down-lane (Z), driven THROUGH the waterline
+      // (spans object y −0.10→0.42 → laterite drowned foot / moss waterline / amber crown from the temple bake).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.52, 1.66), { y: 0.16 }) });          // deck (12)
+      // SPINE PARAPET — a lower running wall on the FAR side from the lane (−x): the gallery's solid back.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.44, 1.42), { x: -0.14, y: 0.60 }) }); // parapet (12)
+      // BALUSTRADE — a continuous low rail on the LANE-facing edge (+x) + 3 proud posts (the colonnade rhythm;
+      // one bay left OPEN as a ruin gap). The naga-balustrade echo (ties to nagawall) at causeway scale.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.12, 0.22, 1.42), { x: 0.24, y: 0.50 }) });  // rail (12)
+      for (const z of [-0.56, 0.06, 0.60]) parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.15), { x: 0.24, z, y: 0.66 }) }); // 3 posts (36)
+      // BROKEN ENDS — no sawn termination: one end steps down to a half-fallen offset chunk, the other ends
+      // on a proud jagged stub. Kept inside |z|≤~0.95 so ρ stays ~1.0 (the lane-clearance coupling).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.50, 0.30, 0.28), { z: 0.80, y: 0.11, ry: 0.22, rz: 0.06 }) }); // fallen end step (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 0.46, 0.22), { x: -0.06, z: -0.80, y: 0.30, ry: -0.16 }) }); // jagged end stub (12)
+      // JUNGLE SWALLOW — a moss crest draped over the parapet (bake:'lily' → the 3-stop green) + a strangler-
+      // fig root creeping down the deck face into the water (bake:'wood'). The greenery the owner asked for.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: -0.04, z: -0.34, y: 0.74, sy: 0.5 }) }); // moss lump (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.19, 0), { x: 0.02, z: 0.42, y: 0.72, sy: 0.5 }) });   // moss lump (20)
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.02, 0.78, -0.30], [0.16, 0.02, -0.48], 0.05, 0.09, 3) });                // fig root (6)
+      return mergeLagoonParts(parts);
+    },
+    // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
+    // face WALLS the corridor, never blocks across it. ρ≈1.0 (Z-length dominates); couple x = 14.6 + 1.10·r
+    // so the inner edge holds ≥14.5 even at sMax (terrace precedent — a LOW prop may hug inside the ±16 gate
+    // veil, it never looms over a ring). Explicit tilt (a ruin leans a breath). r 7–11 → 3 broken-gallery
+    // lengths. TUNE the 1.10 to the propclearance-measured ρ.
+    place: (side, rnd) => {
+      const r = 7 + rnd() * 4;
+      const p = { x: side * (14.6 + 1.10 * r + rnd() * 3), h: 5 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      p.rotY = (rnd() < 0.5 ? 0 : Math.PI) + (rnd() * 0.26 - 0.13);   // lane-parallel ± a breath (a gallery is a straight line, scattered a little)
+      if (HERO_SET.has('causeway')) p.rotY = 0;   // debug: pin the long face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2215,6 +2263,7 @@ const FOAM_CFG = {
   prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
   lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
   nagawall: false,                   // Lost Lagoon v3 naga backdrop — NO collar (a bright foam ring 60+ off-lane is an artifact; the arcade/riftwall precedent)
+  causeway: { rx: 0.30, rz: 1.0 },   // Lost Lagoon v3 lane-framing gallery — ELLIPTICAL collar wraps the long thin down-lane footprint (a round ring would float off the ends); the jade tide weld where the drowned deck meets the mirror
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
