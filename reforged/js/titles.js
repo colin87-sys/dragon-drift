@@ -6,13 +6,13 @@ import { saveData, persist } from './save.js';
 
 export const TITLES = [
   // Pilot level milestones (every 5 levels)
-  { id: 'skylark',      name: 'Skylark',        source: 'Pilot level 5' },
-  { id: 'cloudcarver',  name: 'Cloud Carver',   source: 'Pilot level 10' },
-  { id: 'stormrider',   name: 'Storm Rider',    source: 'Pilot level 15' },
-  { id: 'emberlord',    name: 'Ember Lord',     source: 'Pilot level 20' },
-  { id: 'skysovereign', name: 'Sky Sovereign',  source: 'Pilot level 25' },
-  { id: 'mythwing',     name: 'Mythwing',       source: 'Pilot level 30' },
-  { id: 'lightbringer', name: 'Lightbringer',   source: 'Pilot level 40' },
+  { id: 'skylark',      name: 'Skylark',        source: 'Drifter level 5' },
+  { id: 'cloudcarver',  name: 'Cloud Carver',   source: 'Drifter level 10' },
+  { id: 'stormrider',   name: 'Storm Rider',    source: 'Drifter level 15' },
+  { id: 'emberlord',    name: 'Ember Lord',     source: 'Drifter level 20' },
+  { id: 'skysovereign', name: 'Sky Sovereign',  source: 'Drifter level 25' },
+  { id: 'mythwing',     name: 'Mythwing',       source: 'Drifter level 30' },
+  { id: 'lightbringer', name: 'Lightbringer',   source: 'Drifter level 40' },
   // Feats
   { id: 'goldwing',     name: 'Goldwing',       source: 'Feat: Golden Thread' },
   { id: 'slipstream',   name: 'Slipstream',     source: 'Feat: Flow State' },
