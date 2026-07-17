@@ -2698,33 +2698,35 @@ const ARCHETYPES = {
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine (tide ladder by world Y)
       // STYLOBATE — a long stepped plinth under the colonnade (z-long); the tide ladder drowns its foot. (12)
       S(xform(new THREE.BoxGeometry(0.22, 0.09, 1.02), { x: 0.26, y: 0.045 }));
-      // TABERNAE WALL (2nd register) — two z-long boxes at DIFFERENT heights (a collapse dip at the decayed
-      // +z end), set BACK at x0.10 so a shadow gap separates it from the colonnade (x0.26). Top ~75% col height.
-      S(xform(new THREE.BoxGeometry(0.10, 0.42, 0.62), { x: 0.10, y: 0.31, z: -0.18 }));            // wall A — tall (12)
-      S(xform(new THREE.BoxGeometry(0.10, 0.26, 0.40), { x: 0.10, y: 0.23, z: 0.32, ry: 0.05 }));   // wall B — collapse dip, decayed end (12)
-      // TABERNAE DOORWAYS — recessed panels on the wall front face (x0.151, facing +x → the lane after the
+      // TABERNAE WALL (2nd register) — a LOWER backdrop set BACK at x0.05 (a wide shadow gap to the colonnade
+      // at x0.28) so the colonnade is the dominant front rhythm and clearly rises ABOVE the wall crown (Stage-1:
+      // a tall wall swallowed the columns). Two z-long boxes at different heights (a collapse dip, decayed +z end).
+      S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.64), { x: 0.05, y: 0.26, z: -0.18 }));            // wall A (12)
+      S(xform(new THREE.BoxGeometry(0.09, 0.22, 0.40), { x: 0.05, y: 0.20, z: 0.32, ry: 0.05 }));   // wall B — collapse dip (12)
+      // TABERNAE DOORWAYS — recessed panels on the wall front face (x0.10, facing +x → the lane after the
       // side-based rotY; single-sided planes built ry+π/2 per the winding rule). 2 Pompeian-red fresco, 1 dark. (6)
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.30, 0.16), { x: 0.151, z: -0.32, y: 0.21, ry: Math.PI / 2 }) });  // door 1 — red fresco
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.30, 0.16), { x: 0.151, z: -0.02, y: 0.21, ry: Math.PI / 2 }) });  // door 2 — red fresco
-      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.24, 0.15), { x: 0.151, z: 0.26, y: 0.18, ry: Math.PI / 2 }) });   // door 3 — dark (faded)
-      // COLONNADE — a 9-position grid (spacing ~0.14), only some survive. Tapered 5-sided shafts (pentagon
-      // reads round flat-shaded; taper = entasis); the 2 hero columns get a square ABACUS (the #1 "column over
-      // fence-post" tell). Broken shafts end OPEN (a snapped top). Everything leans 2–4° a different way.
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.28, 0.16), { x: 0.101, z: -0.32, y: 0.19, ry: Math.PI / 2 }) });  // door 1 — red fresco
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.28, 0.16), { x: 0.101, z: -0.02, y: 0.19, ry: Math.PI / 2 }) });  // door 2 — red fresco
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.22, 0.14), { x: 0.101, z: 0.26, y: 0.17, ry: Math.PI / 2 }) });   // door 3 — dark (faded)
+      // COLONNADE — the DOMINANT front rhythm: CHUNKY Tuscan columns (Fable: 6:1 chunky, not spindly), 9-position
+      // grid, uneven survival. Tapered 5-sided shafts (pentagon reads round flat-shaded; taper = entasis); the 2
+      // hero columns get a square ABACUS (the #1 "column over fence-post" tell). Broken shafts end OPEN (a snapped
+      // top). Everything leans 2–4° a different way. Column crown (~0.72) rises well above the wall (~0.43).
       const col = (z, h, rB, rT, lean, cap) => {
-        parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.26, z, y: 0.09 + h / 2, rz: lean }) });   // shaft (10)
-        if (cap) parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.09, 0.035, 0.09), { x: 0.26, z, y: 0.09 + h + 0.015, rz: lean }) });   // square abacus (12)
+        parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.28, z, y: 0.09 + h / 2, rz: lean }) });   // shaft (10)
+        if (cap) parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.115, 0.04, 0.115), { x: 0.28, z, y: 0.09 + h + 0.018, rz: lean }) });   // square abacus (12)
       };
-      col(-0.44, 0.55, 0.042, 0.033, 0.03, true);    // full — hero (carries the architrave)
-      col(-0.30, 0.55, 0.042, 0.033, -0.02, true);   // full — hero (carries the architrave)
-      col(-0.16, 0.37, 0.041, 0.034, 0.05, false);   // broken tall (~⅔)
-      col(-0.02, 0.27, 0.041, 0.036, -0.06, false);  // broken (~½)
+      col(-0.44, 0.63, 0.058, 0.046, 0.03, true);    // full — hero (carries the architrave)
+      col(-0.30, 0.63, 0.058, 0.046, -0.02, true);   // full — hero (carries the architrave)
+      col(-0.16, 0.44, 0.056, 0.047, 0.05, false);   // broken tall (~⅔)
+      col(-0.02, 0.32, 0.056, 0.049, -0.06, false);  // broken (~½)
       // gap at z 0.12 (a fallen drum lies below — the missing column)
-      col(0.26, 0.18, 0.042, 0.037, 0.09, false);    // broken short
-      col(0.42, 0.10, 0.046, 0.041, 0.05, false);    // knee stump
+      col(0.26, 0.22, 0.058, 0.051, 0.09, false);    // broken short
+      col(0.42, 0.13, 0.062, 0.055, 0.05, false);    // knee stump
       // ARCHITRAVE FRAGMENT — one beam bridging the 2 hero columns (z −0.44..−0.30), tilted ~4° (a ruin). (12)
-      S(xform(new THREE.BoxGeometry(0.07, 0.05, 0.24), { x: 0.26, z: -0.37, y: 0.665, rz: 0.06 }));
+      S(xform(new THREE.BoxGeometry(0.09, 0.055, 0.26), { x: 0.28, z: -0.37, y: 0.745, rz: 0.055 }));
       // FALLEN DRUM — a half-submerged pentagon drum by the empty position (proves the missing column). (10)
-      S(xform(new THREE.CylinderGeometry(0.046, 0.046, 0.10, 5, 1, true), { x: 0.31, z: 0.12, y: 0.05, rx: Math.PI / 2, rz: 0.35 }));
+      S(xform(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 5, 1, true), { x: 0.33, z: 0.12, y: 0.06, rx: Math.PI / 2, rz: 0.35 }));
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.10 });   // low waterline (a near-rail sits AT the water)
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π) so the colonnade WALLS the corridor,
