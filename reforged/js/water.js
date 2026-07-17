@@ -93,6 +93,12 @@ const sharedUniforms = {
   uReflStretch: { value: 0 },
   uReflGlint: { value: 0 },
   uReflGreenPull: { value: 0 },
+  // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
+  // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
+  // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
+  uMirePoolK: { value: 0 },
+  uMirePools: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] }, // xz world center, invR, strength
+  uMirePoolCol: { value: new THREE.Color(0xff9a33) },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -182,6 +188,7 @@ const fragmentShader = /* glsl */`
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   uniform vec3 uHeroPos, uHeroCol; uniform float uHeroPool; // Fable 75: player light-pool on the mirror (0 = shipped)
   uniform float uReflStretch, uReflGlint, uReflGreenPull;    // Fable 85: reflection craft (0 = shipped)
+  uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
@@ -401,6 +408,15 @@ const fragmentShader = /* glsl */`
     vec2 _hd = (vWorldPos.xz - uHeroPos.xz) * vec2(2.4, 0.5);   // Fable 77: z 0.9→0.5 (world ~4.8:1 down-lane) — perspective foreshortens the z-axis, so 0.9 compressed to a ~1:1 disc on screen; 0.5 lands a true ~2:1 vertical reflection streak
     float _hp = exp(-dot(_hd, _hd) / 70.0);   // ~8.4m 1/e half-width
     col += uHeroCol * (_hp * uHeroPool * 0.38);
+    // GLOW-SPILL POOLS (Fable 96-B): the Mire's hero glow clusters answered on the mirror. Same z-anisotropy
+    // as the hero pool (perspective foreshortens z → a vertical streak, never a disc). Empty slot strength 0 =
+    // +0; uMirePoolK 0 in the other 6 biomes ⇒ the whole loop is exactly +0 ⇒ byte-identical shipped water.
+    if (uMirePoolK > 0.001) {
+      for (int i = 0; i < 4; i++) {
+        vec2 _md = (vWorldPos.xz - uMirePools[i].xy) * vec2(2.0, 0.55) * uMirePools[i].z;
+        col += uMirePoolCol * (exp(-dot(_md, _md)) * uMirePools[i].w * uMirePoolK);
+      }
+    }
 
     // Rain LAYER B — SPLASH RINGS: the rain LANDS. Two offset hashed grids (~1.1m, ~1.7m cells, no
     // regularity) of expanding rings, faded out beyond ~55m (sub-pixel = shimmer). Welds sky to sea.
@@ -727,6 +743,21 @@ export function setWaterHeroPool(pos, col, k) {
   if (pos) u.uHeroPos.value.copy(pos);
   if (col) u.uHeroCol.value.copy(col);
   u.uHeroPool.value = k || 0;
+}
+
+// GLOW-SPILL POOLS (Fable 96-B): feed the Mire's hero glow-cluster pools to the mirror each frame. `pools`
+// is an array of up to 4 {x, z, invR, strength}; `k` is the master (0 = shipped water, seam-ramped). Written
+// through the LIVE material uniforms (the clone-trap). Empty/short arrays leave the rest at strength 0 = +0.
+export function setMireWaterPools(pools, k) {
+  if (!water) return;
+  const u = water.material.uniforms;
+  const arr = u.uMirePools.value;
+  for (let i = 0; i < 4; i++) {
+    const p = pools && pools[i];
+    if (p) arr[i].set(p.x, p.z, p.invR, p.strength);
+    else arr[i].set(0, 0, 1, 0);   // strength 0 → contributes exactly +0
+  }
+  u.uMirePoolK.value = k || 0;
 }
 
 // Rec.709 relative luminance heuristic → a murkier (darker-deep) biome absorbs faster.
