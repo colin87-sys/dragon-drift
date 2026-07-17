@@ -223,6 +223,10 @@ export const BIOMES = [
     // glints (0.7), and a mirror-side pull that tames the green catch-ring's reflection (0.8, the ring
     // itself untouched). Consumed by water.js via setWaterTint. 0 elsewhere → other biomes byte-identical.
     reflStretch: 0.85, reflGlint: 0.7, reflGreenPull: 0.8,
+    // Fable 90 HORIZON SHAFT: one sourceless warm glow-column off the ember horizon (light that TRAVELS,
+    // not light that is placed). Metabolic, off-center, breathes — never a sun. Consumed by the sky shader
+    // (su.uShaft). 0/absent elsewhere → byte-identical sky in every other biome.
+    horizonShaft: 1.0,
     // Fable 79 HERO BACKLIT-RIM: the drake reads too small at cruise against the bright ember horizon.
     // Backlight its silhouette edge in the Mire's own identity amber (the mote/lantern hue) so it reads
     // as a NatGeo backlit animal — the edge takes the sky's colour, not its own. Body cruise = 0.5+0.55
@@ -440,6 +444,9 @@ const env = {
   // water anisotropic reflection streaks + drifting glints + a mirror-side green-blob pull. Consumed by
   // water.js via setWaterTint. (Fable 85.)
   reflStretch: 0, reflGlint: 0, reflGreenPull: 0,
+  // Horizon shaft (OPTIONAL; 0 everywhere by default → byte-identical sky). A biome may raise one
+  // sourceless warm glow-column off its horizon. Consumed by the sky shader (su.uShaft). (Fable 90.)
+  horizonShaft: 0,
   // Hero backlit-rim lever (OPTIONAL; 0 everywhere by default → byte-identical rim, all skins).
   // A biome with a bright horizon may backlight the dragon's silhouette edge in the horizon's own
   // colour. Consumed by dragon.js's rim block via environment.js getHeroRim(). (Fable 79.)
@@ -521,6 +528,7 @@ export function computeEnv(dist) {
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
   env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
   env.propAerial = lerp(a.propAerial ?? 0, b.propAerial ?? 0, ts);
+  env.horizonShaft = lerp(a.horizonShaft ?? 0, b.horizonShaft ?? 0, ts);
   env.reflStretch = lerp(a.reflStretch ?? 0, b.reflStretch ?? 0, ts);
   env.reflGlint = lerp(a.reflGlint ?? 0, b.reflGlint ?? 0, ts);
   env.reflGreenPull = lerp(a.reflGreenPull ?? 0, b.reflGreenPull ?? 0, ts);

@@ -2136,6 +2136,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
       // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
       uBreachMix: { value: 0 },
+      // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7): 0 = off → byte-identical in the other 6 biomes + all
+      // skins. A sourceless warm glow-column off the horizon — metabolic light, NOT a sun.
+      uShaft: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -2150,6 +2153,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
+      uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -2261,6 +2265,20 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
         col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
                         + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
+        // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7, uShaft 0 = off → byte-identical): ONE sourceless warm
+        // glow-column rising off the ember horizon, OFF-CENTER of the corridor axis. Theology: the Mire has
+        // no sun — the brightest point is the ROOT at the waterline, decaying monotonically upward. Never a
+        // disc, never a floating core. Sits ON the fogFarColor-sunk horizon (haze lit from WITHIN the bog).
+        if (uShaft > 0.001) {
+          float _shAz = atan(sunDir.z, sunDir.x) + 0.62;          // ~35.5° off the corridor axis (screen-left third at cruise)
+          float _shDA = atan(sin(atan(d.z, d.x) - _shAz), cos(atan(d.z, d.x) - _shAz));
+          _shDA += 0.025 * sin(time * 0.07);                      // azimuth sway ±1.4°, ~90s — it leans, never travels
+          float _shW = exp(-(_shDA * _shDA) / 0.0256);            // gaussian column σ 0.16 rad (~18° FWHM) — no hard edge
+          float _shV = smoothstep(0.42, 0.02, h)                  // rooted at the horizon, gone by h=0.42
+                     * smoothstep(-0.02, 0.03, d.y);              // clean waterline seat (tiny sub-horizon bleed for reflection continuity)
+          float _shBr = 0.90 + 0.10 * sin(time * 0.13);           // breathe ±10%, ~48s — alive haze, not a decal
+          col += vec3(1.0, 0.66, 0.36) * (_shW * _shV * _shBr * 0.12 * uShaft);
+        }
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -2847,6 +2865,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  su.uShaft.value = env.horizonShaft ?? 0;   // Fable 90 lever-7: Lumen Mire horizon glow-column; 0 elsewhere → byte-identical sky
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
