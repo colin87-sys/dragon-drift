@@ -18,12 +18,22 @@ const COLOR_KEYS = [
   'skyTop', 'skyMid', 'skyHorizon', 'sunGlow', 'fogColor', 'fogFarColor',
   'lightSun', 'hemiSky', 'hemiGround', 'waterDeep', 'waterShallow', 'ambColor', 'faunaColor',
   'cloudLit', 'cloudShadow',   // N9 sky-cloud tints (biome graphics stream) — the arena owns them so biome clouds can't drift through the void/heaven
+  'godrayTint',   // god-ray shaft tint (Lost Lagoon atmosphere stream) — arena owns it (inert while godrayMul 0, but the schema demands a deliberate value)
+  'propAerialColor',   // prop aerial-perspective haze tint — inert while propAerial 0; each arena table sets it to its own fogFarColor (the biome's own fallback), so it's in-family if ever lerped
+  'heroRimColor',   // biome-scoped hero (player-dragon) rim-light tint — inert while heroRim 0; each arena table sets it to its own fogFarColor (the biome fallback)
 ];
 const SCALAR_KEYS = [
   'fogNear', 'fogFar', 'fogFarMix', 'lightSunI', 'waveAmp',
   'ambFall', 'ambSway', 'ambSize', 'ambOpacity', 'faunaScale', 'faunaFlap',
-  'starMix', 'whaleMix', 'flybyMix',
+  'starMix', 'whaleMix', 'flybyMix', 'auroraMix',   // auroraMix (aurora sky-splice) — the arena OWNS it so the biome curtain can't rise inside the void/heaven (the Godhead Detonation is no aurora night)
   'atmosHeightK', 'atmosInscatter', 'cloudAmount',   // N8 atmosphere + N9 cloud coverage — arena zeroes them (a clean authored sky, no biome clouds/scatter leaking in)
+  'godrayMul', 'godrayBreak',   // biome shared god-ray shaft fan (Mul) + storm shaft break-up amount (Break) — arena zeroes both: the detonation is a MID-ANNULUS event (owner law), its divine light authored by the Godhead Star / heavenRays, NOT the biome's sun-shafts crossing the parry corridor. godrayBreak is inert while godrayMul 0, but the schema demands a deliberate value
+  'cloudForce', 'deckBias', 'stormSea', 'windX', 'windZ', 'rainMix',   // Tempest storm-weather channels (cloud/deck/sea/wind/rain) — arena zeroes them all: the Godhead Detonation is no storm, the sea drops to the haze-deck, the sky is authored (no biome rain/wind/swell leaking through the void/heaven)
+  'moteDepthFade', 'breachMix',   // moteDepthFade = biome opt-in far-mote depth-dim (scratch default 0); arena keeps 0 to preserve its authored mask-dust mote look. breachMix = biome sky-breach almond window + water gold patch; arena zeroes it (the authored void/heaven has no biome breach)
+  'propAerial',   // biome prop aerial-perspective haze strength (scratch default 0); arena zeroes it — it renders no biome lane-props subject to it (its FLYBY debris is arena-owned)
+  'heroRim',   // biome-scoped hero (player-dragon) rim-light strength (scratch default 0, biome opt-in); arena keeps 0 to preserve the shipped dragon look — a dramatic arena hero-rim would be an owner art call, not silent merge-maintenance
+  'reflStretch', 'reflGlint', 'reflGreenPull', 'horizonShaft',   // Mire water-reflection craft (stretch/glint/green-pull) + horizon light-shaft — arena zeroes them all: it authors its own water (the sea drops to the haze-deck) and its own sky/horizon (the detonation + Godhead Star); no biome reflection styling or horizon shaft crossing the parry corridor
+  'surgeWarm', 'canopyRoof',   // Mire Surge-sky ember wash + camera-following canopy-shelf shader — arena zeroes both: it authors its own sky entirely (the detonation void/heaven), no biome surge-wash or canopy roof
 ];
 export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 
@@ -39,8 +49,15 @@ export const VOID_HEX = {
   waterDeep: 0x0a061c, waterShallow: 0x1c1236, waveAmp: 0.15,
   ambColor: 0xcfc2ee, ambFall: -0.45, ambSway: 0.4, ambSize: 0.4, ambOpacity: 0.9,
   faunaColor: 0xcfc2ee, faunaScale: 0, faunaFlap: 0,
-  starMix: 1, whaleMix: 0, flybyMix: 0,
+  starMix: 1, whaleMix: 0, flybyMix: 0, auroraMix: 0,   // no aurora curtain in the hollow
   cloudAmount: 0, cloudLit: 0x0d0618, cloudShadow: 0x050208, atmosHeightK: 0, atmosInscatter: 0,   // no biome clouds/scatter in the hollow
+  godrayMul: 0, godrayBreak: 0, godrayTint: 0xffe6b8,   // sun GONE → no shafts in the hollow (break/tint inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm in the hollow — the sea drops to the haze-deck, no rain/wind/swell
+  moteDepthFade: 0, breachMix: 0,   // mask-dust motes keep their authored (undimmed) look; no biome sky-breach window in the hollow
+  propAerial: 0, propAerialColor: 0x241640,   // no biome-prop aerial haze in the hollow (tint = void fogFarColor, inert)
+  heroRim: 0, heroRimColor: 0x241640,   // no biome hero-rim on the dragon in the hollow (tint = void fogFarColor, inert)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft in the hollow — the sea is the authored void water
+  surgeWarm: 0, canopyRoof: 0,   // no biome surge-wash or canopy roof in the hollow — the sky is authored
 };
 
 // THE FLOOD — the S1→S2 crack mid-palette: the hollow LEAKING through the reopened tear. Overexpose
@@ -55,8 +72,15 @@ export const FLOOD_HEX = {
   waterDeep: 0x8a7cb8, waterShallow: 0xd8ccf0, waveAmp: 0.3,
   ambColor: 0xffffff, ambFall: 0, ambSway: 0.5, ambSize: 0.4, ambOpacity: 0.6,
   faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
-  starMix: 0, whaleMix: 0, flybyMix: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0, auroraMix: 0,
   cloudAmount: 0, cloudLit: 0xe8dcff, cloudShadow: 0xcfc2f2, atmosHeightK: 0, atmosInscatter: 0,
+  godrayMul: 0, godrayBreak: 0, godrayTint: 0xffe6b8,   // no biome shafts through the flood flash (break/tint inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm weather through the flood flash
+  moteDepthFade: 0, breachMix: 0,   // no mote depth-dim / no sky-breach window through the flood flash
+  propAerial: 0, propAerialColor: 0xe8dcff,   // no prop aerial haze through the flood flash (tint = flood fogFarColor, inert)
+  heroRim: 0, heroRimColor: 0xe8dcff,   // no biome hero-rim through the flood flash (tint = flood fogFarColor, inert)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft through the flood flash
+  surgeWarm: 0, canopyRoof: 0,   // no biome surge-wash or canopy roof through the flood flash
 };
 
 // THE FIRSTBORN SKY (PR-K, the cosmos pivot) — "Behind the Mask There Was Never a Building." The owner
@@ -90,8 +114,16 @@ export const HEAVEN_HEX = {
   waterDeep: 0x1a1638, waterShallow: 0x6a4850, waveAmp: 0.12,                           // HAZE-DECK that ANSWERS the blast (I2): deep stays dim violet (the broad fairness-safe rest), but the LIT wave faces warm to a rose-gold ember + a hair more churn → the detonation relights the sea's reflection column WITHOUT a full gold mirror
   ambColor: 0xffe9c0, ambFall: -0.10, ambSway: 0.45, ambSize: 0.5, ambOpacity: 0.85,    // STARDUST (the mote pool re-skinned — zero new draws): star-white-gold, weightless slow RISE
   faunaColor: 0xffe9c0, faunaScale: 0, faunaFlap: 0,
-  starMix: 1.0, whaleMix: 0, flybyMix: 0,                                               // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free)
+  starMix: 1.0, whaleMix: 0, flybyMix: 0, auroraMix: 0,                                 // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free); no aurora curtain — the detonation IS the sky-light
+
   cloudAmount: 0.5, cloudLit: 0xe89a6a, cloudShadow: 0x1c1434, atmosHeightK: 0, atmosInscatter: 0,   // ROILING DETONATION GAS: the FBM cloud band IGNITED (amount .35→.5, hotter gold-rose); unlit gas sinks into the vault
+  godrayMul: 0, godrayBreak: 0, godrayTint: 0xffe6b8,   // NO biome sun-shaft fan: the detonation is a MID-ANNULUS event (owner law) — divine light is the Godhead Star + heavenRays, not shafts flooding the dark parry corridor (break inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm in the firstborn sky — the detonation's sea is the authored haze-deck, not a wind-combed storm sea
+  moteDepthFade: 0, breachMix: 0,   // the firstborn sky's motes keep their authored look; the detonation is the sky-event, not a biome sky-breach window
+  propAerial: 0, propAerialColor: 0x352b52,   // no biome-prop aerial haze in the firstborn sky (tint = heaven fogFarColor, inert)
+  heroRim: 0, heroRimColor: 0x352b52,   // no biome hero-rim in the firstborn sky (tint = heaven fogFarColor, inert) — an arena hero-rim would be an owner art call
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft in the firstborn sky — the detonation + Godhead Star ARE the horizon light, authored not biome-shafted
+  surgeWarm: 0, canopyRoof: 0,   // no biome surge-wash or canopy roof in the firstborn sky — the detonation IS the sky treatment, authored
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
@@ -104,8 +136,15 @@ export const GOLD_FLOOD_HEX = {
   waterDeep: 0xc0a878, waterShallow: 0xffe9bf, waveAmp: 0.4,
   ambColor: 0xffffff, ambFall: 0.2, ambSway: 0.3, ambSize: 0.45, ambOpacity: 0.7,
   faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
-  starMix: 0, whaleMix: 0, flybyMix: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0, auroraMix: 0,
   cloudAmount: 0, cloudLit: 0xfff0c8, cloudShadow: 0xc0a878, atmosHeightK: 0, atmosInscatter: 0,
+  godrayMul: 0, godrayBreak: 0, godrayTint: 0xffe6b8,   // the unveil bloom is authored, not a biome shaft fan (break/tint inert)
+  cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,   // no storm weather in the gold-flood unveil
+  moteDepthFade: 0, breachMix: 0,   // no mote depth-dim / no sky-breach window in the gold-flood unveil
+  propAerial: 0, propAerialColor: 0xfff0c8,   // no prop aerial haze in the gold-flood unveil (tint = gold-flood fogFarColor, inert)
+  heroRim: 0, heroRimColor: 0xfff0c8,   // no biome hero-rim in the gold-flood unveil (tint = gold-flood fogFarColor, inert)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft in the gold-flood unveil
+  surgeWarm: 0, canopyRoof: 0,   // no biome surge-wash or canopy roof in the gold-flood unveil
 };
 
 // The void's bullet-band override: the default dark band 0x8f0a3c (L .164) FAILS all four void
