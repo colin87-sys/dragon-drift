@@ -251,7 +251,7 @@ export const DRAGONS = {
       // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
       // stacked spheres that read as an "astral worm." The tail is the tapering rear of
       // this same tube (parts.tail:'none'), continuous by construction.
-      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 8, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // faceted low-poly cross-section (reference reads as planes, not a smooth glossy tube)
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 8, bodyGlow: 0.2, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // faceted low-poly; green emissive floor holds jade under cool ambient (no teal drift)
       bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
       bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
