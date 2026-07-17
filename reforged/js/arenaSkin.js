@@ -32,6 +32,7 @@ const SCALAR_KEYS = [
   'moteDepthFade', 'breachMix',   // moteDepthFade = biome opt-in far-mote depth-dim (scratch default 0); arena keeps 0 to preserve its authored mask-dust mote look. breachMix = biome sky-breach almond window + water gold patch; arena zeroes it (the authored void/heaven has no biome breach)
   'propAerial',   // biome prop aerial-perspective haze strength (scratch default 0); arena zeroes it — it renders no biome lane-props subject to it (its FLYBY debris is arena-owned)
   'heroRim',   // biome-scoped hero (player-dragon) rim-light strength (scratch default 0, biome opt-in); arena keeps 0 to preserve the shipped dragon look — a dramatic arena hero-rim would be an owner art call, not silent merge-maintenance
+  'reflStretch', 'reflGlint', 'reflGreenPull', 'horizonShaft',   // Mire water-reflection craft (stretch/glint/green-pull) + horizon light-shaft — arena zeroes them all: it authors its own water (the sea drops to the haze-deck) and its own sky/horizon (the detonation + Godhead Star); no biome reflection styling or horizon shaft crossing the parry corridor
 ];
 export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 
@@ -54,6 +55,7 @@ export const VOID_HEX = {
   moteDepthFade: 0, breachMix: 0,   // mask-dust motes keep their authored (undimmed) look; no biome sky-breach window in the hollow
   propAerial: 0, propAerialColor: 0x241640,   // no biome-prop aerial haze in the hollow (tint = void fogFarColor, inert)
   heroRim: 0, heroRimColor: 0x241640,   // no biome hero-rim on the dragon in the hollow (tint = void fogFarColor, inert)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft in the hollow — the sea is the authored void water
 };
 
 // THE FLOOD — the S1→S2 crack mid-palette: the hollow LEAKING through the reopened tear. Overexpose
@@ -75,6 +77,7 @@ export const FLOOD_HEX = {
   moteDepthFade: 0, breachMix: 0,   // no mote depth-dim / no sky-breach window through the flood flash
   propAerial: 0, propAerialColor: 0xe8dcff,   // no prop aerial haze through the flood flash (tint = flood fogFarColor, inert)
   heroRim: 0, heroRimColor: 0xe8dcff,   // no biome hero-rim through the flood flash (tint = flood fogFarColor, inert)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft through the flood flash
 };
 
 // THE FIRSTBORN SKY (PR-K, the cosmos pivot) — "Behind the Mask There Was Never a Building." The owner
@@ -116,6 +119,7 @@ export const HEAVEN_HEX = {
   moteDepthFade: 0, breachMix: 0,   // the firstborn sky's motes keep their authored look; the detonation is the sky-event, not a biome sky-breach window
   propAerial: 0, propAerialColor: 0x352b52,   // no biome-prop aerial haze in the firstborn sky (tint = heaven fogFarColor, inert)
   heroRim: 0, heroRimColor: 0x352b52,   // no biome hero-rim in the firstborn sky (tint = heaven fogFarColor, inert) — an arena hero-rim would be an owner art call
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft in the firstborn sky — the detonation + Godhead Star ARE the horizon light, authored not biome-shafted
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
@@ -135,6 +139,7 @@ export const GOLD_FLOOD_HEX = {
   moteDepthFade: 0, breachMix: 0,   // no mote depth-dim / no sky-breach window in the gold-flood unveil
   propAerial: 0, propAerialColor: 0xfff0c8,   // no prop aerial haze in the gold-flood unveil (tint = gold-flood fogFarColor, inert)
   heroRim: 0, heroRimColor: 0xfff0c8,   // no biome hero-rim in the gold-flood unveil (tint = gold-flood fogFarColor, inert)
+  reflStretch: 0, reflGlint: 0, reflGreenPull: 0, horizonShaft: 0,   // no biome reflection craft / horizon shaft in the gold-flood unveil
 };
 
 // The void's bullet-band override: the default dark band 0x8f0a3c (L .164) FAILS all four void
