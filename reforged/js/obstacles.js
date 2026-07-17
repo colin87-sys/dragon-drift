@@ -546,17 +546,23 @@ function buildGate(o) {
   // KEYSTONE toll telegraph at the apex + a gilt coffered SOFFIT strip at the bay's lintel. Decorative only
   // — it sits OUTSIDE the collider bay (which stays gapX/Y/W/H), so it never narrows the safe route.
   if (forum) {
-    const R = o.gapW + 0.5;                       // ring centreline just outside the bay half-width
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.5, 4, 10, Math.PI), forumGateMats.gilt);
-    ring.position.set(o.gapX, top, 0.2);          // springs at the bay lintel, arcs over the opening
+    const R = o.gapW + 0.8;                        // arch ring centreline just outside the bay
+    const gz = 0.7;                                // proud of the wall face so the gilt order reads in relief
+    // Gilt PILASTERS flanking the bay + a bold gilt voussoir RING over it = a framed arched PORTAL (not a
+    // window in a slab). Springs at the bay lintel.
+    for (const s of [-1, 1]) {
+      const pil = new THREE.Mesh(new THREE.BoxGeometry(0.7, H + 1.0, 0.9), forumGateMats.gilt);
+      pil.position.set(o.gapX + s * (o.gapW + 0.45), o.gapY, gz);
+      group.add(pil);
+    }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.7, 4, 12, Math.PI), forumGateMats.gilt);
+    ring.position.set(o.gapX, top, gz);
     group.add(ring);
-    const soffit = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, 0.5, 0.6), forumGateMats.gilt);
-    soffit.position.set(o.gapX, top - 0.3, 0.25); // gilt lintel/soffit under the arch
-    group.add(soffit);
-    const key = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 0.7), forumGateMats.toll);
-    key.position.set(o.gapX, top + R - 0.3, 0.3); // magenta keystone at the apex — the toll telegraph
+    // Magenta KEYSTONE at the apex — the toll telegraph (role-locked danger).
+    const key = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.0, 1.1), forumGateMats.toll);
+    key.position.set(o.gapX, top + R - 0.4, gz + 0.2);
     group.add(key);
-    group.userData.tollKey = key;                 // pulsed in updateObstacles (approach telegraph)
+    group.userData.tollKey = key;
   }
 
   // Layer 4 — core-glow locator: a faint additive fill of the OPENING so the
