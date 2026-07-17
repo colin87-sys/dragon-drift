@@ -2737,8 +2737,8 @@ const ARCHETYPES = {
     // never blocks across it. High comp.floor hugs the edge. Couple x so the inner edge holds ≥14.5 (causeway
     // precedent — a low prop may hug inside the ±16 gate veil). Explicit tilt (a ruin leans a breath).
     place: (side, rnd) => {
-      const r = 8 + rnd() * 5;
-      const p = { x: side * (14.6 + 1.14 * r + rnd() * 3), h: 6 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      const r = 9 + rnd() * 5;   // Fable scale-up (owner: near-rail read too small): r sub-proportional to the h bump so the x-coupling doesn't refund the presence by pushing it off-lane
+      const p = { x: side * (14.6 + 1.14 * r + rnd() * 3), h: 9 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };   // h 6–9 → 9–12 (×1.4): columns gain height WITH girth (h scales the whole prop), so it reads as a STREET, not a nub. Target hierarchy hero 20 : rail 10.5 : foil 5.25 (4:2:1)
       // SIDE-BASED rotY: the decorated LANE-face (+x object: the colonnade + doorways) always turns to the lane.
       p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.20 - 0.10);
       if (HERO_SET.has('viamarina')) p.rotY = 0;   // debug: pin the colonnade face down-lane
@@ -2788,8 +2788,8 @@ const ARCHETYPES = {
     // low h so the stump-capital reads proud over a flat rubble field, never a tower. FREE rotY — a rubble heap
     // has no facing, and random spin kills the copy-paste tell down the lane (viamarina Stage-2 note).
     place: (side, rnd) => {
-      const r = 4 + rnd() * 2.5;
-      const p = { x: side * (16 + 0.7 * r + rnd() * 4), h: 3 + rnd() * 1.5, r, tilt: side * (rnd() * 0.10 - 0.05) };
+      const r = 5 + rnd() * 3;   // Fable scale-up: scatter field proportional to the bigger coins; x floor stays clear of the ±16 gate veil
+      const p = { x: side * (16 + 0.7 * r + rnd() * 4), h: 4.5 + rnd() * 1.5, r, tilt: side * (rnd() * 0.10 - 0.05) };   // h 3–4.5 → 4.5–6 (×1.4, hard ceiling 6): the stump+capital now reads at skim distance; above 6 it stops being rubble and becomes a mid-prop
       // Fable df4 Stage-2 note: turn the LOUD side/¾ face (the sliced-column profile down the fall line) toward
       // the lane, and keep the weak down-the-length view off the approach → fall line ≈ lane-parallel. A generous
       // ±0.6rad jitter (plus per-instance r/h/x/tilt spread) keeps a COMMON foil from reading copy-paste.
