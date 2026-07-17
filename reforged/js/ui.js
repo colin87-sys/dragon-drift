@@ -2850,13 +2850,19 @@ function wireScreenButtons(type) {
   if (pilot) pilot.onclick = stop(() => ui.showScreen('pilot'));
   const chipTitle = q('#chip-title');
   if (chipTitle) chipTitle.onclick = stop(() => { pilotTab = 'titles'; ui.showScreen('pilot'); });
-  const back = q('#btn-back');
-  if (back) back.onclick = stop(() => {
+  // #btn-back is the topbar ✕ every meta screen shares; #btn-back2 is the
+  // optional bottom "← BACK" on the long scrolling screens (settings, pilot).
+  // Both routes honor the pause→subscreen return path.
+  const goBack = stop(() => {
     uiSound.back();
     // BACK from a pause-opened subscreen returns to the pause overlay.
     if (returnScreen === 'pause') ui.showPauseOverlay();
     else ui.showScreen(returnScreen);
   });
+  const back = q('#btn-back');
+  if (back) back.onclick = goBack;
+  const back2 = q('#btn-back2');
+  if (back2) back2.onclick = goBack;
 
   if (type === 'shop') {
     const hint = q('#shop-hint');
@@ -3190,12 +3196,6 @@ function wireScreenButtons(type) {
     const selectSeg = (btn) => {
       for (const o of btn.parentElement.querySelectorAll('.seg-btn')) o.classList.toggle('sel', o === btn);
     };
-    const back2 = q('#btn-back2');
-    if (back2) back2.onclick = stop(() => {
-      uiSound.back();
-      if (returnScreen === 'pause') ui.showPauseOverlay();
-      else ui.showScreen(returnScreen);
-    });
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-track]')) {
       btn.onclick = stop(() => {
         music.setTrack(Number(btn.dataset.track));
