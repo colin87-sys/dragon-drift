@@ -870,22 +870,29 @@ cameraCtl.init(camera, player);
 // --- Boot-time return triggers ---
 // A long absence earns a small tailwind gift. lastSeen always updates.
 let bootHasNotice = false; // a returning-pilot notice → show the hub, not the splash
+let bootReward = null;      // WELCOME+HUB §2 — payload for the returning-player reward pop-in
 {
   const today = todayUTC();
+  // §2.2 — the pre-reward wallet baseline. The gambit refund is ALREADY credited at load
+  // (save.js:186), so subtract it back; the welcome-back gift is added below. The card +
+  // topbar count up preTotal → finalTotal off one shared clock (no invisible new→new tick).
+  const preTotal = saveData.embers - (gambitSunsetRefund > 0 ? gambitSunsetRefund : 0);
+  const rows = [];
   if (saveData.lastSeen) {
     const gapDays = Math.floor((Date.parse(today) - Date.parse(saveData.lastSeen)) / 86400000);
     if (gapDays > CONFIG.welcomeBackGapDays) {
       saveData.embers += CONFIG.welcomeBackGift;
-      ui.setStartNotice(`Tailwind while you were away: +◆${CONFIG.welcomeBackGift}. The sky kept your seat.`);
+      rows.push({ label: 'Tailwind banked', amount: CONFIG.welcomeBackGift });   // §2.5 — no more "sky kept your seat"
       bootHasNotice = true;
     }
   }
   saveData.lastSeen = today;
   persist();
   if (gambitSunsetRefund > 0) {
-    ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
+    rows.push({ label: 'Gauntlet stake returned', amount: gambitSunsetRefund });
     bootHasNotice = true;
   }
+  if (rows.length) bootReward = { rows, preTotal, finalTotal: saveData.embers };
 }
 // Backfill any pilot-level titles already earned (retroactive — covers levels
 // reached before a title existed, or before the per-level grant ran).
@@ -940,6 +947,9 @@ if (firstTimePilot) {
   showSplash();
 } else {
   ui.showScreen('start');
+  // WELCOME+HUB §2 — after the hub assembles, play the idle-reward pop-in (replaces the
+  // flat welcome-back/refund notice). Delay lets the hero stagger settle first.
+  if (bootReward) setTimeout(() => ui.showRewardCard(bootReward), 620);
 }
 
 // First-ever launch: a one-time cinematic fly-in to the soaring dragon, then the

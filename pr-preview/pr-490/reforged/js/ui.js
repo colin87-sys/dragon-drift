@@ -2483,6 +2483,83 @@ export const ui = {
     startNotice = text;
   },
 
+  // WELCOME+HUB §2 — the returning-player IDLE-REWARD POP-IN (replaces the flat
+  // setStartNotice line). A choreographed premium reward card over the hub: asymmetric
+  // scrim → warm-glass card enters → the amount COUNTS UP (topbar wallet ticks on the SAME
+  // clock, §2.2) → a single GOLD sigil blooms once on the land → tap to dismiss (never
+  // auto-timeouts an actioned reward). Consolidated multi-row for gift+refund on one boot.
+  //   opts: { rows: [{label, amount}], preTotal, finalTotal, sub }
+  showRewardCard(opts) {
+    if (!opts || !opts.rows || !opts.rows.length) return;
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('reward-scrim')?.remove();
+    document.getElementById('reward-card')?.remove();
+
+    const scrim = document.createElement('div');
+    scrim.id = 'reward-scrim';
+    const card = document.createElement('div');
+    card.id = 'reward-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-label', 'Reward');
+    card.tabIndex = -1;
+    const rowsHtml = opts.rows.map((r, i) => `
+      <div class="rc-row" style="--i:${i}">
+        <span class="rc-label">${r.label}</span>
+        <span class="rc-val"><span class="rc-sigil" aria-hidden="true">${EMBER_ICON}</span><b class="rc-amount" data-final="${r.amount}" aria-live="polite">0</b></span>
+      </div>`).join('');
+    card.innerHTML = `<div class="rc-body">${rowsHtml}${opts.sub ? `<p class="rc-sub">${opts.sub}</p>` : ''}</div><p class="rc-dismiss">tap to continue</p>`;
+    document.body.appendChild(scrim);
+    document.body.appendChild(card);
+
+    // §2.2 — the wallet is already mutated at boot; show the PRE-gift baseline until the
+    // count-up ticks it to the stored value (both driven off tweenNum's one clock).
+    const topbarB = document.querySelector('.hero-wallet .meta-chip b');
+    if (topbarB) topbarB.textContent = Number(opts.preTotal || 0).toLocaleString();
+
+    const prevFocus = document.activeElement;
+    requestAnimationFrame(() => { scrim.classList.add('show'); card.classList.add('show'); });
+    card.focus();
+
+    const finishBeat = () => {
+      card.classList.add('landed');                 // the ONE spring + sigil bloom (CSS)
+      if (topbarB) topbarB.textContent = Number(opts.finalTotal || 0).toLocaleString();
+      try { uiSound.confirm(); } catch (e) {}
+    };
+    const startCount = () => {
+      const amountEls = card.querySelectorAll('.rc-amount');
+      const dur = reduce ? 0 : 820;
+      const step = reduce ? 0 : 100;                 // row stagger
+      amountEls.forEach((el, i) => {
+        const to = Number(el.dataset.final) || 0;
+        const last = i === amountEls.length - 1;
+        setTimeout(() => tweenNum(el, 0, to, { dur, onDone: last ? finishBeat : undefined }), i * step);
+      });
+      // Topbar ticks preTotal→finalTotal over the whole window, off the shared tween clock.
+      if (topbarB) tweenNum(topbarB, opts.preTotal || 0, opts.finalTotal || 0, { dur: dur + (amountEls.length - 1) * step });
+    };
+    if (reduce) startCount(); else setTimeout(startCount, 360);   // after the card enters
+
+    let dismissed = false;
+    const dismiss = (e) => {
+      if (e) e.stopPropagation();                    // never leak the tap to main.js tap-to-fly
+      if (dismissed) return;
+      dismissed = true;
+      if (topbarB) topbarB.textContent = Number(opts.finalTotal || 0).toLocaleString();
+      scrim.classList.remove('show');
+      card.classList.remove('show');
+      card.classList.add('leaving');
+      document.removeEventListener('keydown', onKey);
+      try { uiSound.back(); } catch (e2) {}
+      setTimeout(() => { scrim.remove(); card.remove(); }, 260);
+      if (prevFocus && prevFocus.focus) prevFocus.focus();
+    };
+    const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dismiss(); } };
+    scrim.addEventListener('pointerdown', dismiss);
+    card.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', onKey);
+  },
+
   hideScreen() {
     pauseSubscreen = false;
     // U13 exit ritual: nothing pops — the panel fades out at --t-exit/--ease-in.

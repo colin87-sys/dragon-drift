@@ -29,12 +29,12 @@ export function clamp(v, min, max) {
 // an instant set under prefers-reduced-motion (and for no-op changes). fmt owns
 // the presentation (defaults to the locale-grouped wallet style). Stops silently
 // if the element leaves the DOM mid-tween (screen re-render).
-export function tweenNum(el, from, to, { dur = 420, fmt = (n) => Math.round(n).toLocaleString('en-US') } = {}) {
+export function tweenNum(el, from, to, { dur = 420, fmt = (n) => Math.round(n).toLocaleString('en-US'), onDone } = {}) {
   if (!el) return;
   from = Number(from) || 0;
   to = Number(to) || 0;
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (from === to || reduced) { el.textContent = fmt(to); return; }
+  if (from === to || reduced) { el.textContent = fmt(to); onDone && onDone(); return; }
   const t0 = performance.now();
   const step = (now) => {
     if (!el.isConnected) return;
@@ -42,6 +42,7 @@ export function tweenNum(el, from, to, { dur = 420, fmt = (n) => Math.round(n).t
     const e = 1 - Math.pow(1 - k, 3);
     el.textContent = fmt(from + (to - from) * e);
     if (k < 1) requestAnimationFrame(step);
+    else onDone && onDone();   // fires on the count-up's landing frame (reward-card sigil bloom)
   };
   requestAnimationFrame(step);
 }

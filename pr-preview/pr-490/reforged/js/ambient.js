@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { bindAtmosphere, chainBeforeCompile } from './atmosphere.js';
+import { ROOF_ALT_LO, ROOF_ALT_HI } from './environment.js';   // Fable A1: SAME altitude window as the canopy roof (used at runtime → cyclic import safe)
 
 // MOTE DEPTH-FADE (Fable 70) — a per-biome lever (default 0 = byte-identical, the godrayMul pattern).
 // PointsMaterial attenuates SIZE with distance but not ALPHA, so a far mote stays as bright as a near
@@ -18,6 +19,24 @@ function moteDepthFadeShader(shader) {
     .replace('#include <opaque_fragment>', '\tfloat _mdf = clamp((vMoteDepth - 20.0) / 90.0, 0.0, 1.0);\n\tdiffuseColor.a *= mix(1.0, 1.0 - _mdf * _mdf, moteDepthFade);\n#include <opaque_fragment>');
 }
 
+// Fable A1 HIGH-ALTITUDE MOTE TREATMENT — size octaves + a canopy-hugging stratum, both hung on one uniform,
+// both exact-identity at 0 (the moteDepthFade pattern). At the money shot the confetti compresses into a
+// living firefly stratum on the canopy floor (big/small octaves break the uniform-dot read) with a sparse
+// scatter above the drake ("you are above the world's light"). uMoteAlt 0 → every mix(1,·,0) ≡ 1 → cruise +
+// other biomes bit-identical.
+const _moteAlt = { value: 0 };
+const _moteCamY = { value: 0 };
+function moteAltShader(shader) {
+  shader.uniforms.uMoteAlt = _moteAlt;
+  shader.uniforms.uCamY = _moteCamY;
+  shader.vertexShader = shader.vertexShader
+    .replace('void main() {', 'attribute float aMoteSize;\nuniform float uMoteAlt;\nvarying float vWY;\nvoid main() {')
+    .replace('gl_PointSize = size;', 'gl_PointSize = size * mix(1.0, aMoteSize, uMoteAlt);\n\tvWY = position.y;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('void main() {', 'uniform float uMoteAlt, uCamY;\nvarying float vWY;\nvoid main() {')
+    .replace('#include <opaque_fragment>', '\tfloat _band = mix(0.18, 1.0, smoothstep(8.0, 13.0, vWY)) * mix(1.0, 0.35, smoothstep(uCamY + 4.0, uCamY + 14.0, vWY));\n\tdiffuseColor.a *= mix(1.0, _band, uMoteAlt);\n#include <opaque_fragment>');
+}
+
 // Atmosphere particles wrapped around the camera — snow in Frozen Reach,
 // leaves in the Sanctuary, dust in the Wastes, RISING embers in the Caldera,
 // spores in the Mire, star motes in the Shallows. One pool, the behaviour
@@ -27,8 +46,10 @@ function moteDepthFadeShader(shader) {
 
 const COUNT = 1200;
 const BOX = { x: 80, y: 50, z: 160 };
-const feverColor = new THREE.Color(0xff9aee);
+const feverColor = new THREE.Color(0xff9aee);         // magenta Surge mote tint (shipped default)
+const feverWarmColor = new THREE.Color(0xffcf6a);     // Fable 97: EMBER Surge motes for biomes that reserve magenta for danger (the Mire) — "the organisms surge too", never pink
 const tmpColor = new THREE.Color();
+const _feverTint = new THREE.Color();
 
 let points = null;
 let positions = null;
@@ -61,17 +82,26 @@ export function createAmbient(scene) {
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  // Fable A1 mote SIZE OCTAVES: a pure per-index class (spore dust / firefly / lantern / rare lantern-moth)
+  // — read only at altitude (× uMoteAlt), byte-identical at cruise. ~36 of 1200 are the rare 2.4× moths.
+  const moteSize = new Float32Array(COUNT);
+  for (let i = 0; i < COUNT; i++) {
+    const h = Math.abs(Math.sin(i * 127.1) * 43758.5453) % 1;
+    moteSize[i] = h < 0.55 ? 0.62 : h < 0.87 ? 1.0 : h < 0.97 ? 1.55 : 2.40;
+  }
+  geo.setAttribute('aMoteSize', new THREE.BufferAttribute(moteSize, 1));
   points = new THREE.Points(
     geo,
-    // N8 PR B: motes join the atmosphere (Points run the fog chunk); identity off.
-    chainBeforeCompile(bindAtmosphere(new THREE.PointsMaterial({
+    // N8 PR B: motes join the atmosphere (Points run the fog chunk); identity off. Fable A1 adds the
+    // altitude size-octave + stratum, chained after the depth-fade (both idempotent identities at 0).
+    chainBeforeCompile(chainBeforeCompile(bindAtmosphere(new THREE.PointsMaterial({
       size: 0.4,
       map: makeGlowTexture('255,255,255'),
       transparent: true,
       opacity: 0.75,
       depthWrite: false,
       color: 0xffffff,
-    })), moteDepthFadeShader)
+    })), moteDepthFadeShader), moteAltShader)
   );
   points.frustumCulled = false;
   scene.add(points);
@@ -142,8 +172,11 @@ export function createAmbient(scene) {
 }
 
 export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix = 0) {
-  // Lerped biome look + fever tint override.
-  tmpColor.copy(env.ambColor).lerp(feverColor, feverMix);
+  // Lerped biome look + fever tint override. Fable 97: per-biome surgeWarm lerps the fever mote target
+  // from magenta → ember (Mire), so the Surge motes flare amber-hot, not pink — magenta stays exclusive to
+  // the danger telegraph. surgeWarm 0 elsewhere → _feverTint = feverColor → byte-identical.
+  _feverTint.copy(feverColor).lerp(feverWarmColor, env.surgeWarm ?? 0);
+  tmpColor.copy(env.ambColor).lerp(_feverTint, feverMix);
   points.material.color.copy(tmpColor);
   // Boss-time mote budget: compose (not stomp) on top of the biome/fever look —
   // motes step back so bullets own the near-centre extremes. Zero term at
@@ -151,6 +184,8 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
   points.material.opacity = (env.ambOpacity + feverMix * 0.2) * (1 - 0.55 * bossMix);
   points.material.size = env.ambSize * (1 - 0.25 * bossMix);
   moteFadeUniform.value = env.moteDepthFade ?? 0;   // Fable 70: per-biome far-mote depth fade (0 = byte-identical)
+  _moteAlt.value = THREE.MathUtils.smoothstep(camera.position.y, ROOF_ALT_LO, ROOF_ALT_HI) * (env.canopyRoof ?? 0);  // Fable A1: high-altitude size-octave + stratum (0 at cruise → byte-identical)
+  _moteCamY.value = camera.position.y;
 
   const speedDrift = Math.max(0, playerSpeed - 35) * 0.5 * dt;
   const cx = camera.position.x;
