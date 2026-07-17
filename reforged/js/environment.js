@@ -495,6 +495,17 @@ function bakeWood(geo, upThresh = 0.45) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// PR-7/8 (Fable rampart r4): the VOID bake — near-black warm shadow for doorway/bay OPENINGS cut into a
+// temple-wall face. A gallery's repeating dark bays are the value structure (core→bloom→dark) a flat amber
+// wall lacks; a mid-brown (bake:'wood') read as paint chips — this drops to ~value 0.12 so the openings read
+// as true shadowed voids at cruise distance. Flat solid fill (an opening has no internal light).
+const _VOID = [0.129, 0.096, 0.075];   // 0x211812 near-black warm — a doorway into shadow (Fable target ~#241a12)
+function bakeSolid(geo, rgb) {
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i * 3] = rgb[0]; col[i * 3 + 1] = rgb[1]; col[i * 3 + 2] = rgb[2]; }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 function bakeBloom(geo, upThresh = 0.2) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -521,13 +532,14 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
     else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
+    else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
     else if (p.bake === 'temple') temple.push(g);                        // tagged → temple sandstone ladder (PR-0)
     else if (p.bake === 'bloom') bloom.push(g);                          // tagged → lotus blush bloom (PR-0)
     else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
@@ -540,6 +552,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (root.length) { const g = root.length > 1 ? mergeGeometries(root) : root[0]; bakeLilyFoliage(g, 0.75); stone.push(g); }
   if (wood.length) { const g = wood.length > 1 ? mergeGeometries(wood) : wood[0]; bakeWood(g); stone.push(g); }
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
+  if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {
@@ -2222,13 +2235,16 @@ const ARCHETYPES = {
       // BROKEN END — no sawn termination: a proud jagged wall-stub at one end (amber). Kept inside |z|≤~0.95
       // so ρ stays ~1.0 (lane-clearance). (The water-end fallen block was dropped for the moss-blob budget.)
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.50, 0.20), { x: -0.06, z: -0.86, y: 0.35, ry: -0.16 }) }); // jagged wall stub, y 0.10→0.60 (12)
-      // JUNGLE SWALLOW — a MOSS cluster of ROUNDED deformed blobs (icosahedra, non-uniform-scaled → squashed
-      // irregular lumps, NOT flat facet-plates: Fable r1 kill-shot — octahedra rendered as green diamond
-      // "kites", the same clean-geometric-plane tell as the dead jade wedge). One blob SAGGING over the lane-
-      // edge lip to break the crown line; ~15% deck coverage. bake:'lily' (3-stop green, lit top / shadow under).
-      // (Fable r2 free polish: ry rotation so the icosa top-plan silhouette stops resolving as a clean hexagon.)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.17, z: -0.10, y: 0.62, sx: 1.15, sy: 0.7, sz: 0.9, ry: 0.6, rz: 0.3 }) }); // main clump, sagging over the lane lip (20)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.15, 0), { x: -0.03, z: -0.32, y: 0.86, sx: 1.1, sy: 0.75, sz: 1.0, ry: 1.1, rx: 0.35 }) });  // smaller clump on the crown (20)
+      // DARK BAY OPENINGS — near-black doorway insets on the LANE-facing body face (+x) in the colonnade gaps:
+      // the shadowed gallery rhythm + the DARK VALUES the flat amber body lacked (Fable Stage-2 kill-shot — a
+      // featureless tan plane occupying the lower frame violates core→bloom→dark and reads as a plain slab at
+      // cruise). bake:'wood' → the near-black shadow value. The side-based rotY (below) faces these to the lane.
+      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: -0.42, y: 0.28 }) }); // bay doorway — near-black void (12)
+      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.BoxGeometry(0.06, 0.30, 0.15), { x: 0.30, z: 0.40, y: 0.28 }) });  // bay doorway — near-black void (12)
+      // JUNGLE SWALLOW — one MOSS clump of ROUNDED deformed blobs (icosahedra, non-uniform-scaled → a squashed
+      // irregular lump, NOT flat facet-plates: Fable r1 — octahedra read as green diamond kites), SAGGING over
+      // the lane-edge lip to break the crown line. bake:'lily' (3-stop green, lit top / shadow under).
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: 0.18, z: -0.10, y: 0.62, sx: 1.2, sy: 0.85, sz: 1.0, ry: 0.6, rz: 0.35 }) }); // moss sagging over the lane lip (20)
       return mergeLagoonParts(parts);
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
@@ -2239,8 +2255,11 @@ const ARCHETYPES = {
     place: (side, rnd) => {
       const r = 7 + rnd() * 4;
       const p = { x: side * (14.6 + 1.14 * r + rnd() * 3), h: 5 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
-      p.rotY = (rnd() < 0.5 ? 0 : Math.PI) + (rnd() * 0.26 - 0.13);   // lane-parallel ± a breath (a gallery is a straight line, scattered a little)
-      if (HERO_SET.has('causeway')) p.rotY = 0;   // debug: pin the long face down-lane
+      // SIDE-BASED rotY: the decorated LANE-face (+x: the colonnade + dark bays + sagging moss) always turns
+      // toward the flight lane, so every instance shows its gallery face — not the blank parapet back (the
+      // random 0/π flip meant half the causeways showed their back to the lane = the "plain slab" Stage-2 read).
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.22 - 0.11);
+      if (HERO_SET.has('causeway')) p.rotY = 0;   // debug: pin the face down-lane
       return p;
     },
   },
@@ -2265,22 +2284,27 @@ const ARCHETYPES = {
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 0.84, 0.50), { z: -0.16, y: 0.52, ry: 0.05 }) },  // section B — collapsed low bay, y 0.10→0.94 (12)
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 1.10, 0.50), { z: 0.34, y: 0.65, ry: -0.04 }) },  // section C — tall-med, y 0.10→1.20 (12)
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.32, 0.58, 0.44), { z: 0.80, y: 0.39, ry: 0.10 }) },   // section D — broken end stub, y 0.10→0.68 (12)
-      // DARK BAY OPENINGS — near-black doorway insets flush on the LANE-facing face (+x), at a regular pitch
-      // down the length: the repeating shadowed bay rhythm + the DARK VALUES the flat amber face lacked (Fable
-      // r3 + causeway Stage-2 kill-shot: a featureless tan plane violates core→bloom→dark; a gallery needs dark
-      // openings readable at 400m). bake:'wood' → the near-black shadow value. Placement-rotY faces these to
-      // the lane so they always read (side-based rotY, below).
-      { mat: 0, bake: 'wood', geo: xform(new THREE.BoxGeometry(0.10, 0.62, 0.16), { x: 0.14, z: -0.62, y: 0.52 }) },     // bay on A (12)
-      { mat: 0, bake: 'wood', geo: xform(new THREE.BoxGeometry(0.10, 0.40, 0.16), { x: 0.14, z: -0.16, y: 0.40 }) },     // bay on B (12)
-      { mat: 0, bake: 'wood', geo: xform(new THREE.BoxGeometry(0.10, 0.54, 0.16), { x: 0.14, z: 0.34, y: 0.46 }) },      // bay on C (12)
+      // DARK BAY OPENINGS — SIX identical near-black doorway voids at ~uniform pitch on the LANE face (planes,
+      // 2 tris each; single-sided +x, and the side-based rotY always turns +x to the lane so they read). The
+      // repeating gallery METER + true DARK values (Fable r4: 3 different-size mid-brown chips were punctuation,
+      // not rhythm, and read as paint not shadow — go near-black bake:'void', uniform size, more of them, at a
+      // regular beat). Placed on the section faces (not the gaps). value ≈ 0.12 = a doorway into shadow.
+      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.78, y: 0.36, ry: Math.PI / 2 }) }, // bay 1 (A) (2)
+      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.50, y: 0.36, ry: Math.PI / 2 }) }, // bay 2 (A) (2)
+      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: -0.16, y: 0.36, ry: Math.PI / 2 }) }, // bay 3 (B) (2)
+      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.22, y: 0.36, ry: Math.PI / 2 }) },  // bay 4 (C) (2)
+      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.52), { x: 0.175, z: 0.48, y: 0.36, ry: Math.PI / 2 }) },  // bay 5 (C) (2)
+      { mat: 0, bake: 'void', geo: xform(new THREE.PlaneGeometry(0.15, 0.42), { x: 0.175, z: 0.80, y: 0.31, ry: Math.PI / 2 }) },  // bay 6 (D, shorter) (2)
       // FLUSH drowned base — a thin footprint-matched plinth (NOT a wider tapered under-plate: the hull tell);
-      // a darker plinth band at the waterline anchors the value structure (Fable Stage-2).
+      // the darker plinth band at the waterline anchors the value structure.
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.40, 0.10, 1.80), { y: -0.05 }) },                     // laterite drowned foot, flush, y −0.10→0.00 (12)
       { mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.12, 1.82), { y: 0.06 }) },                      // jade tide stain, flush, y 0.00→0.12 (12)
-      // JUNGLE — rounded deformed-icosa clumps DROOPING DOWN the lane-face past the crown line (Fable r3: not
-      // "party hats" perched on top — the green must break the stone silhouette downward). bake:'lily'.
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: 0.20, z: -0.60, y: 1.14, sx: 1.0, sy: 1.5, sz: 1.1, ry: 0.5, rz: 0.3 }) }, // canopy spilling DOWN pier A's lane face (20)
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.18, 0), { x: 0.18, z: 0.30, y: 0.96, sx: 1.0, sy: 1.4, sz: 1.05, ry: 1.1 }) },            // canopy spilling down section C's face (20)
+      // JUNGLE — TWO trees of overlapping icos, canopy centroid AT/below the crown line so the green OVERLAPS
+      // the crown edge and spills DOWN the lane face (Fable r4: single balls hovering on sticks = party-hats;
+      // draping = 2–3 overlapping clumps eating the crown). Only two of the six bays sprout a tree. bake:'lily'.
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: 0.15, z: -0.70, y: 1.30, sx: 1.1, sy: 1.1, sz: 1.15, ry: 0.5 }) },  // tree on A — canopy straddling the crown (20)
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.20, 0), { x: 0.22, z: -0.56, y: 1.08, sx: 1.05, sy: 1.35, sz: 1.0, ry: 1.4 }) }, // 2nd clump of the A tree, spilling DOWN the face (20)
+      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.21, 0), { x: 0.16, z: 0.30, y: 1.08, sx: 1.1, sy: 1.2, sz: 1.05, ry: 0.9 }) },   // tree on C, straddling its crown (20)
     ]),
     // FAR backdrop, TALL LONG WALL (~3:1 tall face, ~5:1 long plan). rotY PINNED lane-parallel (nagawall/
     // causeway pattern) so the long broken face runs DOWN-LANE and never foreshortens to a lump or rotates
