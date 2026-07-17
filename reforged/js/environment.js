@@ -2766,8 +2766,12 @@ const ARCHETYPES = {
     // has no facing, and random spin kills the copy-paste tell down the lane (viamarina Stage-2 note).
     place: (side, rnd) => {
       const r = 4 + rnd() * 2.5;
-      const p = { x: side * (16 + 0.7 * r + rnd() * 4), h: 3 + rnd() * 1.5, r, tilt: side * (rnd() * 0.10 - 0.05), rotY: rnd() * Math.PI * 2 };
-      if (HERO_SET.has('drumfall')) p.rotY = 0.6;   // debug: a ¾ angle so the stump, capital + break faces all read
+      const p = { x: side * (16 + 0.7 * r + rnd() * 4), h: 3 + rnd() * 1.5, r, tilt: side * (rnd() * 0.10 - 0.05) };
+      // Fable df4 Stage-2 note: turn the LOUD side/¾ face (the sliced-column profile down the fall line) toward
+      // the lane, and keep the weak down-the-length view off the approach → fall line ≈ lane-parallel. A generous
+      // ±0.6rad jitter (plus per-instance r/h/x/tilt spread) keeps a COMMON foil from reading copy-paste.
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 1.2 - 0.6);
+      if (HERO_SET.has('drumfall')) p.rotY = Math.PI;   // debug: pin the loud sliced-column profile toward the lane camera
       return p;
     },
   },
