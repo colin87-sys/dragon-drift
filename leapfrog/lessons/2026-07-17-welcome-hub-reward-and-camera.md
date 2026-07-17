@@ -42,11 +42,24 @@ The complaint was a `cameraController.js` framing-rig problem, not CSS. Two fixe
   stays 55 and the shop pose (sx,sy,sz radius 12.5) is untouched — only the *hub* (`w=0`) end moved. The
   intro-glide fov had a hardcoded `58`; retarget it to `HUB_FOV` so the cinematic settles to the new hub.
 
-**Gotcha:** the dragon now reads a bit *small/distant* — the safe uncropped framing trades hero-size for
-guaranteed no-clip. Size above "uncropped" is owner taste (one-line `HUB_R` tune on the preview), so ship
-the safe framing and let the owner pull it tighter rather than guess-and-clip via slow headless renders.
+**A FIXED radius can't serve the roster — the owner caught it immediately.** The first pass used a tuned
+constant (`HUB_R 13`) verified only on the STARTER. The owner asked "check it against one of the biggest
+dragons" — and phoenix (scale 1.18 × **wingScale 1.34**, the widest) at apex form clipped its wingtips at
+BOTH frame edges. The lesson: any hub-framing verified on one dragon is unverified — test the widest
+(phoenix) and the flagship (tempest) at APEX form, in PORTRAIT (the tight axis), because that's the
+worst case.
 
-**Deferred (needs the §0.5.e measure spike + owner iteration):** the dynamic `Box3.setFromObject` fit
-(recompute on resize), the 8-yaw skyFraction calibration sweep, and drag-to-rotate. The bounded sway +
-tuned constants deliver the two actual complaints now; the machinery makes it robust across every dragon
-later.
+**The fix = the dynamic per-dragon `Box3` fit (no longer deferred).** `dragon.js` exports
+`getDragonFitSpan()` — a `Box3` measured over the dragon's **meshes only** (`traverse` + `expandByObject`,
+skipping FX sprites so a glow/aura can't inflate the fit), cached per build (a dirty flag set in
+`createDragon`; `updateDragon` runs before the camera each frame so the group is already scaled to
+`model.scale` when first read, ×1.1 wing-flap margin). `cameraController.hubFitRadius(span, aspect)` then
+solves the distance that frames the dragon on BOTH axes — width needs more distance in portrait
+(horizontal FOV = `aspect × vertical`), clamped `[11, 30]`. Result: phoenix's wingspan clears with margin,
+the starter is sized heroically (the min-clamp fixes the earlier "too small"), every form self-fits — and
+it re-fits free on resize/orientation (the fit reads live `camera.aspect`).
+
+**Still deferred (lower value):** the 8-yaw skyFraction calibration sweep and drag-to-rotate — the fit +
+bounded sway deliver the actual complaints. **Verification gotcha:** software-WebGL headless renders are
+~60-90s/frame; use a run_in_background waiter that exits on the last file OR the process dying (a naive
+`until [ -f png ]` hangs forever if the render crashes).

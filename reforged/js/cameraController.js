@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { damp } from './util.js';
 import { CONFIG } from './config.js';
+import { getDragonFitSpan } from './dragon.js';
 
 // Chase camera: smooth follow, FOV widens on speed, shakes on damage/crash,
 // kicks harder on boost start, tightens during fever.
@@ -43,11 +44,20 @@ const DEATH_DUR = 0.45;
 // Start-screen showcase orbit
 let showcaseAngle = 0;
 let swayT = 0;   // WELCOME+HUB §3.3 — clock for the bounded idle SWAY (replaces the 360° turntable)
-// Hub framing (WELCOME+HUB §3.1/§3.2): a composed near-portrait hero read of the dragon —
-// pulled back + a touch narrower than the old radius-10.5/fov-58 orbit so the wings never clip.
-const HUB_R = 13.0;      // orbit radius (was 10.5 — the crop was here)
+// Hub framing (WELCOME+HUB §3.1/§3.2): a composed hero read of the dragon. The distance is
+// FIT PER-DRAGON from its measured span (getDragonFitSpan) so no form clips (phoenix/tempest
+// have huge wingspans) and the starter isn't dwarfed — a fixed radius can't serve both.
 const HUB_FOV = 46;      // showcase FOV (was 58 — tighter hero read, still holds the ring-course fill)
 const HUB_SWAY = 0.24;   // ±~14° yaw sway (≤ ±15° ceiling, ≥ ±6° floor)
+const HUB_R_MIN = 11, HUB_R_MAX = 30;
+// Solve the camera distance that frames a dragon of the given span within HUB_FOV, on BOTH axes
+// (width needs more distance in portrait, where the horizontal FOV is narrow). Cheap trig.
+function hubFitRadius(span, aspect) {
+  const tanV = Math.tan(HUB_FOV * 0.5 * Math.PI / 180);
+  const distH = span.halfH / (0.66 * tanV);                         // dragon fills ~66% of frame HEIGHT
+  const distW = span.halfW / (0.80 * tanV * Math.max(0.4, aspect)); // ~80% of frame WIDTH (side margin)
+  return Math.min(HUB_R_MAX, Math.max(HUB_R_MIN, Math.max(distH, distW)));
+}
 // U12a — menu-as-camera-shot: the hub-orbit ↔ shop-static framing swap is a
 // short DOLLY (eased over ~--t-screen), never a hard cut. shopW blends the two
 // EXISTING framings; wasShowcase gates the ease to showcase↔showcase frames
@@ -217,10 +227,11 @@ export const cameraCtl = {
       // the dragon into empty sky. The sway freezes as the shop static framing takes over (×(1-w)).
       swayT += dt * (1 - w);
       showcaseAngle = HUB_SWAY * Math.sin(swayT * 0.098);                   // ±~14°, ~64s period
+      const hubR = hubFitRadius(getDragonFitSpan(), camera.aspect || 1);    // §3.2 per-dragon fit (no clip)
       const px = player.position.x, py = player.position.y, pz = player.position.z;
-      const hx = px + Math.sin(showcaseAngle) * HUB_R;                      // hub hero pose (pulled back — no crop)
+      const hx = px + Math.sin(showcaseAngle) * hubR;                       // hub hero pose (fit — no crop)
       const hy = py + 2.6 + Math.sin(swayT * 0.062 + 1.0) * 0.9;            // gentle independent vertical float (liveliness)
-      const hz = pz + Math.cos(showcaseAngle) * HUB_R;
+      const hz = pz + Math.cos(showcaseAngle) * hubR;
       const sx = px + Math.sin(0.32) * 12.5;                                // shop static pose (gentle 3/4) — byte-identical
       const sy = py + 2.1;
       const sz = pz + Math.cos(0.32) * 12.5;
