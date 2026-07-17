@@ -15,6 +15,13 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 const _mkParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const SKYFORGED = _mkParams.get('skyforged') !== '0';
+// THE DROWNED FORUM (DROWNED-FORUM-BUILD-SHEET §4): under ?props=forum the biome-0 Phase Gate is reskinned
+// into a SINKING TRIUMPHAL ARCH — the collider (collision.js, pure gapX/Y/W/H math) is BYTE-IDENTICAL, only
+// the mesh changes: the deadly fresnel veil becomes travertine masonry, with a gilt arch ring + a magenta
+// keystone toll telegraph over the safe bay. Every safe-route affordance (aperture frame, corner brackets,
+// core glow, beacon) is kept untouched so fairness is identical. Off (or non-forum biome) → the shipped gate.
+const PROPS_FORUM = _mkParams.get('props') === 'forum';
+let forumGateMats = null;   // { stone, gilt, toll } — built in initObstacles
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -298,6 +305,14 @@ export function initObstacles(s) {
     flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.8, side: THREE.DoubleSide,
     glint: 0.35, glintSharp: 44, lipGlow: 0.6,
   }));
+  // Drowned Forum gate skin (§4) — shared, opaque, plain THREE.Fog-tinted (fog:true default). The stone is
+  // a warm travertine; the gilt is the withheld gold of the soffit/arch ring; the toll is the role-locked
+  // danger magenta (0xff2b6a) that telegraphs the descending hazard on the keystone.
+  forumGateMats = {
+    stone: new THREE.MeshStandardMaterial({ color: 0xc9ba93, roughness: 0.74, metalness: 0.03, flatShading: true, emissive: 0x28221a, emissiveIntensity: 0.28 }),
+    gilt: new THREE.MeshStandardMaterial({ color: 0xffd28a, roughness: 0.42, metalness: 0.12, emissive: 0xffb040, emissiveIntensity: 0.9 }),
+    toll: new THREE.MeshStandardMaterial({ color: 0xff2b6a, roughness: 0.5, emissive: 0xff2b6a, emissiveIntensity: 1.5 }),
+  };
 }
 
 // PR-4 Phase Gate aperture FRAME (Skyforged): a closed rounded-rectangle faceted sweep replacing
@@ -451,6 +466,7 @@ function buildGate(o) {
   const group = new THREE.Group();
   group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
   const bi = biomeIndexAt(o.dist);
+  const forum = PROPS_FORUM && bi === 0;   // reskin the biome-0 gate as the sinking triumphal arch (§4)
   const skin = PHASE_SKINS[bi];
   const veilMat = veilMats[bi];
   const edgeMat = edgeMats[bi];
@@ -466,10 +482,12 @@ function buildGate(o) {
   const W = o.gapW * 2;
   const H = o.gapH * 2;
 
-  // Layer 3 — translucent phase field (veil panels around the aperture).
+  // Layer 3 — the DEADLY barrier around the aperture. Shipped: a translucent fresnel veil. Forum: opaque
+  // travertine MASONRY (the sunken arch body) — same regions, so the safe bay is unchanged; the side/top
+  // masses sit off the centre lane so the through-view down the bay is preserved.
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), veilMat);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, forum ? 2.4 : T), forum ? forumGateMats.stone : veilMat);
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
   };
@@ -514,6 +532,23 @@ function buildGate(o) {
       bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5); // horizontal leg
       bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5); // vertical leg
     }
+  }
+
+  // Forum arch dressing (§4): a round GILT voussoir ring springing from the bay's top corners + a magenta
+  // KEYSTONE toll telegraph at the apex + a gilt coffered SOFFIT strip at the bay's lintel. Decorative only
+  // — it sits OUTSIDE the collider bay (which stays gapX/Y/W/H), so it never narrows the safe route.
+  if (forum) {
+    const R = o.gapW + 0.5;                       // ring centreline just outside the bay half-width
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.5, 4, 10, Math.PI), forumGateMats.gilt);
+    ring.position.set(o.gapX, top, 0.2);          // springs at the bay lintel, arcs over the opening
+    group.add(ring);
+    const soffit = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, 0.5, 0.6), forumGateMats.gilt);
+    soffit.position.set(o.gapX, top - 0.3, 0.25); // gilt lintel/soffit under the arch
+    group.add(soffit);
+    const key = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 0.7), forumGateMats.toll);
+    key.position.set(o.gapX, top + R - 0.3, 0.3); // magenta keystone at the apex — the toll telegraph
+    group.add(key);
+    group.userData.tollKey = key;                 // pulsed in updateObstacles (approach telegraph)
   }
 
   // Layer 4 — core-glow locator: a faint additive fill of the OPENING so the
