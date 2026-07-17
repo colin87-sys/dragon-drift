@@ -2765,8 +2765,8 @@ const ARCHETYPES = {
     // low h so the stump-capital reads proud over a flat rubble field, never a tower. FREE rotY — a rubble heap
     // has no facing, and random spin kills the copy-paste tell down the lane (viamarina Stage-2 note).
     place: (side, rnd) => {
-      const r = 6 + rnd() * 3;   // r 6-9 (scatter field proportional to the taller coins; x floor stays clear of the ±16 gate veil)
-      const p = { x: side * (16 + 0.7 * r + rnd() * 4), h: 7 + rnd() * 2, r, tilt: side * (rnd() * 0.10 - 0.05) };   // PORTRAIT scale-up: h 4.5–6 → 7–9 (×1.55, HARD ceiling 9 — above that the foil stops being quiet rubble). All presence from h, NOT proximity: taller+closer would clip the fallen column at wave-skim altitude. No glow, ever.
+      const r = 6 + rnd() * 3;   // r 6-9 (scatter field proportional to the taller coins)
+      const p = { x: side * (13 + 0.7 * r + rnd() * 4), h: 7 + rnd() * 2, r, tilt: side * (rnd() * 0.10 - 0.05) };   // PORTRAIT scale-up: h 4.5–6 → 7–9 (×1.55, HARD ceiling 9, no glow). x base 16→13 KICKS the foil ~3 units INTO the open channel water off the viamarina rail line (Fable: at the column feet it silhouette-merges into base rubble; ~3u of clear water buys the "distinct fallen column" read). Inner edge stays clear of the flight lane (≥~14.5) because 13 + 0.7·6 = 17.2 center at r_min.
       // Fable df4 Stage-2 note: turn the LOUD side/¾ face (the sliced-column profile down the fall line) toward
       // the lane, and keep the weak down-the-length view off the approach → fall line ≈ lane-parallel. A generous
       // ±0.6rad jitter (plus per-instance r/h/x/tilt spread) keeps a COMMON foil from reading copy-paste.
