@@ -30,6 +30,10 @@ export function godrayMul() { return _godrayMul; }
 // Per-biome god-ray shaft tint (seam-lerped; shipped warm-white = byte-identical). Read by main.js.
 const _godrayTint = new THREE.Color(1.0, 0.9, 0.72);
 export function godrayTint() { return _godrayTint; }
+// Per-biome sunburst-BREAK strength (seam-lerped; default 0.35 = subtle crepuscular bundles everywhere,
+// a shared quality upgrade). Tempest ramps it up so the storm-light reads as broken bundles, not a fan.
+let _godrayBreak = 0.35;
+export function godrayBreak() { return _godrayBreak; }
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -3249,6 +3253,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // --- Biome atmosphere lerp: sky, fog, lights, water all follow the seam.
   const env = computeEnv(playerDist);
   _godrayMul = env.godrayMul ?? 1;   // exposed for main.js's god-ray gate (seam-lerped)
+  _godrayBreak = env.godrayBreak ?? 0.35;   // per-biome sunburst-break (seam-lerped)
   if (env.godrayTint) _godrayTint.copy(env.godrayTint);   // per-biome shaft tint (seam-lerped)
   // ARENA (PR-A) — THE injection: blend the live env scratch toward the void palette (arenaSkin.js) BEFORE
   // the fan-out below, so sky uniforms, scene.fog, sun/hemi, setWaterTint AND updateAmbient all read the

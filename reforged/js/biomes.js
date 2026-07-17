@@ -323,8 +323,9 @@ export const BIOMES = [
     // pours through — so ramp the shared fan UP (0.05 → 0.42) and the bright almond interior (below)
     // auto-becomes the occlusion-mask source. v1 = a fixed prominent value (the progress-arc growth is a
     // follow-on). Byte-identical elsewhere (godrayMul only lerps at biome 7's seams).
-    godrayMul: 0.50,   // the gold shafts are half the awe — +~20% presence under the darker bruised deck (was 0.42)
-    godrayTint: C(0xffd28a),   // warm sun-gold — the shafts falling from the breach are the leaked sun, not cold haze
+    godrayMul: 0.30,   // Fable gate R2: 0.50 made the shafts DOMINATE as a cheap sunburst; dial to "felt not shouting"
+    godrayBreak: 0.55,   // ramp the sunburst-break up — storm-light reads as broken crepuscular bundles, not a clean fan
+    godrayTint: C(0xffe6bd),   // paler, grey-broken storm-filtered sunlight (was saccharine amber 0xffd28a which pushed the wedges violet); the GOLD statement belongs to the sockets, not the sky
     // EYE-BREACH gate (the still axle): a fixed prominent 1.0 in Tempest, 0 elsewhere = byte-identical.
     // Drives env.breachMix → the sky-shader almond window + the water calm/gold patch. World-locked to
     // the sun azimuth (atan2(sunDir.z, sunDir.x)); the sun DISC is never shown (a centerless brightness).
@@ -431,6 +432,9 @@ const env = {
   // God-ray shaft tint (OPTIONAL; the shipped warm-white default → byte-identical).
   // A biome may warm/cool the residual shafts. Consumed by main.js's god-ray gate.
   godrayTint: new THREE.Color(1.0, 0.9, 0.72),
+  // God-ray sunburst-break strength (OPTIONAL; 0.35 default = subtle crepuscular bundles everywhere,
+  // a shared premium upgrade). A storm biome ramps it up so shafts read as broken bundles, not a fan.
+  godrayBreak: 0.35,
   // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
   // Consumed by skyClouds.js via applySkyClouds(env).
   cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(), cloudForce: 0, deckBias: 0, stormSea: 0, windX: 0, windZ: 0, rainMix: 0,
@@ -502,6 +506,7 @@ export function computeEnv(dist) {
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
   env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
   env.godrayMul = lerp(a.godrayMul ?? 1, b.godrayMul ?? 1, ts);
+  env.godrayBreak = lerp(a.godrayBreak ?? 0.35, b.godrayBreak ?? 0.35, ts);
   env.godrayTint.lerpColors(a.godrayTint ?? GODRAY_TINT_DEF, b.godrayTint ?? GODRAY_TINT_DEF, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
   // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.

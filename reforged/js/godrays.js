@@ -106,9 +106,11 @@ export const GodRaysShader = {
     uIntensity: { value: 0.0 },
     uTint: { value: new THREE.Vector3(1.0, 0.9, 0.72) },
     uSamples: { value: 40.0 },
-    uDensity: { value: 0.85 },
-    uDecay: { value: 0.96 },
+    uDensity: { value: 0.62 },   // PREMIUM (Fable): march reaches ~60% of the way, not the full frame (was 0.85 = edge-to-edge sunburst)
+    uDecay: { value: 0.94 },     // shafts FADE by march-end (end-illum ~0.08) instead of persisting (was 0.96)
     uWeight: { value: 1.05 },
+    uTime: { value: 0.0 },       // slow drift for the crepuscular bundles (visual only)
+    uBreak: { value: 0.35 },     // per-biome sunburst-break strength (0 = clean radial; higher = broken into bundles)
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -118,13 +120,17 @@ export const GodRaysShader = {
     uniform sampler2D tDiffuse;
     uniform sampler2D tMask;
     uniform vec2 uSunUv;
-    uniform float uIntensity, uSamples, uDensity, uDecay, uWeight;
+    uniform float uIntensity, uSamples, uDensity, uDecay, uWeight, uTime, uBreak;
     uniform vec3 uTint;
     varying vec2 vUv;
+    // Interleaved gradient noise — cheap, well-distributed per-pixel dither (kills the march banding
+    // that reads as clean geometric wedges = the "vaporwave sunburst" cheap tell).
+    float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
     void main() {
       vec4 scene = texture2D(tDiffuse, vUv);
-      vec2 delta = (uSunUv - vUv) * (uDensity / uSamples);
-      vec2 coord = vUv;
+      vec2 dvec  = uSunUv - vUv;
+      vec2 delta = dvec * (uDensity / uSamples);
+      vec2 coord = vUv + delta * ign(gl_FragCoord.xy);   // DITHERED start (full one-step jitter) → the noise averages over the taps into smooth gradients, not razor bands
       float illum = 1.0;
       float shaft = 0.0;
       for (int i = 0; i < MAX_SAMPLES; i++) {
@@ -134,6 +140,14 @@ export const GodRaysShader = {
         illum *= uDecay;
       }
       shaft *= uWeight / uSamples;
+      shaft = shaft / (1.0 + 1.5 * shaft);   // soft knee — no shaft can blow to a neon band (all biomes)
+      // Break the clean radial SUNBURST into drifting crepuscular BUNDLES, and CONFINE the light near the
+      // source (real storm-light dies mid-frame, it doesn't span edge-to-edge). Two incommensurate sines on
+      // the angle around the sun, drifting glacially (never strobes); confinement fades before the frame edge.
+      float ang = atan(dvec.y, dvec.x);
+      float bundles = 0.55 + 0.45 * sin(ang * 9.0 + uTime * 0.11) * sin(ang * 17.0 - uTime * 0.05);
+      shaft *= mix(1.0, bundles, uBreak);
+      shaft *= smoothstep(1.05, 0.18, length(dvec));
       // Fade near the frame edges so the radial march can't smear a hard seam.
       vec2 e = smoothstep(vec2(0.0), vec2(0.14), vUv) * smoothstep(vec2(0.0), vec2(0.14), 1.0 - vUv);
       vec3 col = scene.rgb + uTint * shaft * uIntensity * (e.x * e.y);
