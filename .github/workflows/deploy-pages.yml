@@ -1,12 +1,24 @@
 name: Deploy Pages
 
-# Single source of truth for the live site now that Pages Source = "GitHub
-# Actions". One deployment serves the WHOLE site, so we assemble it from two
-# places and publish it as one artifact:
+# Single source of truth for the live site. One deployment serves the WHOLE site,
+# so we assemble it from two places and publish it as one artifact:
 #   • production  → checked out fresh from `master` (the repo root IS the site)
-#   • PR previews → the `pr-preview/` tree that pr-preview.yml still maintains on
-#                   the `gh-pages` branch (that branch is now just a preview store,
-#                   no longer served directly).
+#   • PR previews → the `pr-preview/` tree that pr-preview.yml maintains on the
+#                   `gh-pages` branch (that branch is a preview STORE only — it is
+#                   never served directly once Pages Source = "GitHub Actions").
+#
+# ⚠️  REQUIRES repo Settings → Pages → Source = "GitHub Actions".
+#   This is NOT optional and cannot be set from a workflow file. If Source is left
+#   on "Deploy from a branch: gh-pages", GitHub also runs its built-in
+#   "pages build and deployment" (pages-build-deployment) on EVERY push to
+#   gh-pages — and the PR-preview action pushes there on every PR open/sync/close.
+#   That builder deploys to the SAME github-pages environment but OUTSIDE this
+#   workflow's `pages` concurrency group, so it:
+#     (a) RACES this workflow — the loser dies with
+#         `HTTP 400: … due to in progress deployment. Please cancel <id> first`; and
+#     (b) when it WINS, publishes the gh-pages branch ROOT — a stale full-site
+#         snapshot — OVER the fresh master deploy.
+#   Net effect: merges to master stop going live. See .github/PAGES-DEPLOYMENT.md.
 #
 # Triggers:
 #   • push to master            → production changed, redeploy.
