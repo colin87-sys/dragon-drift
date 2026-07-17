@@ -36,6 +36,22 @@ position, so a full semicircular ring can hang its flank off the wall edge into 
 structural lie the eye flags at cruise. Clamp the fan to the span the wall actually covers (`backed(vx,vy)`):
 near the lane edge it becomes a clean broken HALF-arch (ruin-appropriate), never a levitating fan.
 
+**MATCH THE MASONRY GRAMMAR TO THE SCALE — research it, don't eyeball it (owner: "not the same city").**
+The gate first read as a different building from the hero even with the same material, because it used SMALL
+running-bond blocks = **opus latericium** (thin brick FACING over concrete — a HOUSE technique). A monumental
+gate / triumphal arch was built in **opus quadratum**: a handful of LARGE squared ashlar blocks, joints as
+VALUE only (a dark mortar GAP is the loudest brick tell — kill it, blocks TOUCH), ~5–6 blocks across the
+whole span not 12+, ~5 courses, 70% smooth mass / 30% faint coursing so it reads like the hero's smooth
+travertine piers. The one-city test is a HARD gate; when two props share a biome, they must share the
+construction technique, not just the palette. (Fable art-direction consult + a quick web search on Roman wall
+types settled it — a monument is quadratum, a house is latericium/reticulatum.)
+
+**ERODE A HEIGHT, NEVER PUNCH HOLES (kills the AI-slop floaters + battlement teeth).** Random per-block
+erosion leaves floaters (a removed block below orphans the one above) and, with gaps, reads as crenellation
+teeth. Instead erode a CONTIGUOUS broken-top HEIGHT profile per fixed x-column that steps by whole courses —
+every surviving block still sits on the course below (attached by construction) and touches its neighbours
+(a clean stepped ruin edge, not teeth). Zero tolerance: if a block's mass doesn't connect, it doesn't spawn.
+
 **Keep 100% of the safe-route affordances — fairness isn't the place to be creative.** The reskin only swaps
 the deadly barrier's material/geometry and warm-retints the cyan Sanctuary affordances (frame/brackets/core/
 beacon → gilt); it never removes or narrows them. The arch dressing sits OUTSIDE the fixed collider bay.
