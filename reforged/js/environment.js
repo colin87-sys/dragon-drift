@@ -298,7 +298,7 @@ function makeMats() {
   // keep the drowned slate base dark and distinct — visible AND separated, the balance the ladder needs.
   mats.forumStone = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.66, metalness: 0.04,
-    emissive: 0xbcb492, emissiveIntensity: 0.24,
+    emissive: 0xbcb492, emissiveIntensity: 0.28,
   }), true);
   // GILT accent — ancient temple gold, seen ONLY inside recessed aperture reveals (arch intrados,
   // oculus rim, belfry). vertexColors OFF so it ignores the tide bake on shared geometry.
@@ -634,7 +634,7 @@ function bakeBloom(geo, upThresh = 0.2) {
 // saturated slate-teal drowned base, so the three-band separation survives the gold-umber haze at distance.
 const _FRM_TRAV = [0.960, 0.900, 0.770];  // creamy sun-bleached travertine crown (warm, bright — still under HOLLOWGATE white)
 const _FRM_ALGAE = [0.230, 0.300, 0.170]; // saturated dark-olive algae line (NOT leafy green; the narrow band)
-const _FRM_DROWN = [0.050, 0.160, 0.198]; // deep wet slate-teal drowned base (the cool anchor, dropped in value)
+const _FRM_DROWN = [0.115, 0.255, 0.295]; // wet slate-teal drowned base — MID value (not near-black): the emissive fold must carry it as TEAL when the front face is backlit, or it crushes to black (Fable Stage-2)
 // The tide ladder is keyed to ONE tilted waterline PLANE (key = vy − tiltX·vx), evaluated PER-VERTEX so the
 // stain line wraps CONTINUOUSLY around every face at a single consistent angle — the fix for the Fable
 // Stage-2 3.1 note: a per-FACE key quantized the tilt into hard chevron wedges ("dazzle-camo") and ate the
@@ -663,7 +663,7 @@ function bakeForumLadder(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
         col[o] = Math.min(1, _FRM_TRAV[0] * (1 + 0.05 * t)) * uf; col[o + 1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; col[o + 2] = _FRM_TRAV[2] * (1 + 0.04 * t) * uf;
       } else if (key < waterY) {
         const t = Math.min(1, (waterY - key) / 0.5);
-        const f = 1 - 0.42 * t;   // drop the drowned base harder toward the wet shadow core (band separation vs fog)
+        const f = 1 - 0.18 * t;   // only a gentle deepen toward the wet core — a hard drop crushes the backlit base to black
         col[o] = _FRM_DROWN[0] * f; col[o + 1] = _FRM_DROWN[1] * f; col[o + 2] = _FRM_DROWN[2] * f;
       } else {
         col[o] = _FRM_ALGAE[0]; col[o + 1] = _FRM_ALGAE[1]; col[o + 2] = _FRM_ALGAE[2];   // narrow hard algae line
