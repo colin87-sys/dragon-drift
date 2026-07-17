@@ -75,7 +75,7 @@ const SPECS = {
     architecture: 'silk fin lobes',
     wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
     separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
-    triTargets: [2550, 3680, 5200],              // §5d ~targets. Apex bumped for the GLOW-UP spend (the "Jade Ascendant" pass: moon-tail veiltail + rayed fins + dew gems + pearl-line + triple streamers), still well under the 6000/form ceiling. The koiSerpent body itself stays a lean vertex-wave tube.
+    triTargets: [2550, 3900, 5300],              // AAA v2 (B4): re-pinned for THE GRAND FAN-BLOOM (caudal fan replaces the moonTail strips, net +228 at f1/f2) + apex lyre gems (+16). f1 4,458 = 1.14×, f2 5,396 = 1.02×; the ×[0.8,1.2] band is the law. Still well under the 6000/form ceiling; the koiSerpent body itself stays a lean vertex-wave tube.
     // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
     headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
     // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32

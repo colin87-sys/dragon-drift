@@ -256,7 +256,8 @@ export const DRAGONS = {
       bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
       bodyWaveSpeed: 3.2,                 // cruise wave rate (dragon.js eases it up with speed)
-      bodyArcY: 0.14,                     // resting vertical S (line-of-action)
+      bodyArcY: 0.14,                     // resting vertical S (line-of-action) — ladders 0.14→0.16→0.19 per form (§3a.C)
+      crestColor: 0xbdf5d0,               // P4 — the dorsal crest ribbon paint (diffuse only); nullable caudalBloom/crestRibbon dials accrete per-form below
       // silk-fin fans beat SYMMETRICALLY in flight (dragon.js): the N lobes fire L_i↔R_i
       // together with a small inboard→outboard lag (a living koi-fin beat, both fans in sync).
       lobeBeatAmp: 0.3, lobeBeatLag: 0.5,
@@ -293,6 +294,7 @@ export const DRAGONS = {
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
         moonTail: 0.15,                    // GLOW-UP ladder: the tiniest veiltail NUB on the pup, so the tail grows pup-nub → bud → full veiltail across the three forms (same dragon growing, not a leap)
+        crestRibbon: 0.2,                  // AAA: a faint nape hint of the dorsal crest ribbon (§5 ladder) — paint only, byte-identical geometry
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
         colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
           wingEmissive: 0x9ff0c8, scales: 0x9fe6c4, horn: 0xcfe8c0,
@@ -306,6 +308,8 @@ export const DRAGONS = {
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 3, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
         moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
+        caudalBloom: 0.35,                 // AAA §5: the fan BUDS (split barely dimples) — ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
+        crestRibbon: 0.55, bodyArcY: 0.16, bodyWaveAmpY: 0.18,   // AAA §5: the ribbon becomes a line; the vertical swim share deepens (rear-visible majesty, lateral amp untouched)
         rayRelief: 0.5,                    // GLOW-UP ladder: the silk STARTS to ray at Kindled ("lobes unfurl") — a partial pre-echo of the apex's full koi-fin rays, so f1 reads as the adolescent stage of the SAME rayed silk, not a plain smaller dragon. (Dew gems stay apex-exclusive — the coronation reward.)
         tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
@@ -322,6 +326,8 @@ export const DRAGONS = {
         lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
         rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
+        caudalBloom: 1.0,                  // AAA §5: THE GRAND FAN-BLOOM — 3-blade split caudal fan (the hero). ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
+        crestRibbon: 1.0, bodyArcY: 0.19, bodyWaveAmpY: 0.24,   // AAA §5: full seafoam ribbon; the deepest vertical swim share the rear cam reads
         tipGems: 1,                        // GLOW-UP apex: pearl-light hierarchy — fin-tip dew gems (bloom-safe opaque mint emissive; the pearl stays the hero bloom).
         lobeFlareBoost: 1.25, bodyWaveAmp: 0.9, waveBreath: 0.12,   // GLOW-UP motion: fan blooms harder on boost, a deeper swim, a slow breathing meander.
         streamerCount: 3,                  // GLOW-UP: a third staggered streamer pair reads as continuous river-current
