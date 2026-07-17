@@ -4,7 +4,9 @@
 //   node tools/_forumscene.mjs [tag]  →  reforged-captures/forumscene-<tag>-*.png
 import { writeFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
-const VIEW = { width: 1460, height: 760 };
+// PORTRAIT by default (the real mobile play surface — the owner plays 9:19.5; a landscape capture
+// misjudges side-prop scale badly). Set FORUMSCENE_LANDSCAPE=1 for the old wide frame.
+const VIEW = process.env.FORUMSCENE_LANDSCAPE ? { width: 1460, height: 760 } : { width: 720, height: 1480 };
 const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({ v:2, embers:50, stats:{runs:5}, skins:{owned:['azure'],equipped:'azure'}, flags:{seenFirstSurge:true,hintsSeen:9}, settings:{reticle:false} }))`;
 const tag = process.argv[2] || 's1';
 const { page, done, errors } = await boot({ query: `?biome=0&debug&props=forum`, viewport: VIEW, deviceScaleFactor: 1.3, initScript: save });

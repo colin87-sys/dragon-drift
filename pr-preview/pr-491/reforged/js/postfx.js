@@ -141,6 +141,10 @@ export function setGodRaySun(uvX, uvY, intensity) {
 export function setGodRayTint(c) {
   if (postfx.godRayPass) postfx.godRayPass.uniforms.uTint.value.set(c.r, c.g, c.b);
 }
+// Per-biome sunburst-BREAK strength (env-driven; default 0.35 = subtle bundles everywhere, Tempest 0.55).
+// Higher = the radial shafts break into drifting crepuscular bundles instead of a clean geometric sunburst.
+let _grBreak = 0.35;
+export function setGodRayBreak(k) { _grBreak = k; }
 // ARENA (PR-B): THE UNVEILED HEAVEN swells the god-rays (the #1 holy carrier — a gallery of light
 // shafts). Bounded by a HARD authored cap so the boosted shafts never lift the effective bullet-
 // background luminance past the fairness bar (the byte-space contrast gate can't see the shader's
@@ -458,6 +462,8 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
       const gu = postfx.godRayPass.uniforms;
       gu.uSunUv.value.set(_grSunX, _grSunY);
       gu.uIntensity.value = inten;
+      gu.uBreak.value = _grBreak;
+      gu.uTime.value = performance.now() * 0.001;   // glacial bundle drift (visual only)
       postfx.godRayPass.enabled = inten > 0.004;
     } else {
       postfx.godRayPass.enabled = false;

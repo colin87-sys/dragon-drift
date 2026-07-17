@@ -161,7 +161,7 @@ are suggested coprime primes — tune at placement.
 | **PR-1 ✅ DONE** | **Atmosphere substrate:** water/fog/sky/mote/foliage constants (§2D), the tide-ladder re-stop (§2A), fresco/terracotta zone paints + `verdigrisBronze` into the material kit, mosaic-decal plumbing on the foam system. **Blind test: must read as a NEW biome vs current captures before any prop lands.** | Transforms 100% of pixels; proves the palette before geometry spends on it |
 | **PR-2 ✅ DONE** | **HERO: `triumphgate`** (studio → in-context gate, Fable 4.3), then reskin the Sinking-Gates hazard with it (colliders identical, skin only — opus-quadratum rebuild, Fable 4.3) | Owner's archway ask closed; identity proven; hazard payoff same breath |
 | **PR-3 ✅ DONE** | **`viamarina` + `drumfall`** (near-rail + foil) — both two-stage Fable-gated: viamarina Stage-1 4.3 / Stage-2 4.3; drumfall Stage-1 4.4 / Stage-2 4.3 | Owner's "weird stone things" closed; the lane frame is what the player sees most |
-| **PR-4** | **`aqueduct` + `pinisle`** (far massif + Lorrain frame) | The processional composes end-to-end — **first full money-shot capture** |
+| **PR-4 ✅ DONE** | **`aqueduct` + `pinisle`** (far massif + Lorrain frame) — both in-context Fable-gated: aqueduct 4.5 (round-arch far-massif), pinisle 4.4 (near-black stone-pine repoussoir) | The processional composes end-to-end — **first full money-shot capture** |
 | **PR-5** | **`pantheon` retint + `forumfield` + `roofline`** | Population; the mosaic read-through + domestic-order beats |
 | **PR-6** | **`colossus` + `portico` + `pharos`** | Statues, temple, the distant light |
 | **PR-7** | **`arena` (+ `nymphaeum` stretch)** — built LAST, most practiced hand | The crown; the amphitheater-hush money shot |
