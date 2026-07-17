@@ -617,13 +617,19 @@ function bakeBloom(geo, upThresh = 0.2) {
 const _FRM_TRAV = [0.918, 0.875, 0.784];  // 0xeadfc8 sun-bleached travertine crown (never whiter — HOLLOWGATE stays palest)
 const _FRM_ALGAE = [0.263, 0.310, 0.227]; // 0x434f3a browner algae-crust tide line (NOT leafy green)
 const _FRM_DROWN = [0.078, 0.200, 0.231]; // 0x14333b wet slate-teal drowned base (the cool anchor)
-function bakeForumLadder(geo, waterY = 0.16, bandH = 0.06) {
+// waterY 0.28: the drowned/tide zone must own the LOWER THIRD of a pier, not a thin line at the foot, or
+// the vast bleached crown reads as uniform "Caesars-Palace" fresh marble (Fable Stage-2 2.7 FAIL). tiltX
+// bakes a DIAGONAL waterline straight into the vColor (key = yc − tiltX·xc), so the band crosses every face
+// at an angle regardless of the instance tilt — the bradyseism law (§1) made unmissable and the flat-cut
+// waterline (§11.9) killed in the same pass, zero extra tris (Fable's own highest-leverage fix).
+function bakeForumLadder(geo, waterY = 0.28, bandH = 0.05, tiltX = 0.10) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const s = [0, 0, 0];
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
-    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    const xc = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3 - tiltX * xc;   // tilted waterline key (diagonal band)
     if (yc > waterY + bandH) {
       // BLEACH crown — value structure (core→bloom→dark): brighten toward a sunlit top + an undercut
       // self-shadow on down-faces (arch soffit / cornice belly), so a pier reads dark-tide → bright crown.
@@ -2594,16 +2600,19 @@ const ARCHETYPES = {
       // top let the eye see up into the cornice/attic stack = a jumble; this closes the tunnel into a clean
       // arched passage. Its underside IS the coffered soffit; the gilt coffer recesses into it. (12)
       S(xform(new THREE.BoxGeometry(0.44, 0.04, 0.44), { y: 0.685 }));
-      // GILT SOFFIT COFFER — the withheld gold, ONLY in a recessed square in the soffit (the aperture
-      // address / the one distant light; §2C ≤4/13 archetypes carry glow). mat 1 = gilt. (12)
-      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.16, 0.03, 0.16), { y: 0.66 }) });
+      // GILT SOFFIT COFFER — the withheld gold, ONLY as a SMALL recessed glint in the soffit (§2C ≤4/13
+      // carry glow). Owner Stage-2 note: the earlier wide square read as a flat glowing BAR (§11.7 flat-tape);
+      // shrunk to a small coffer set UP against the soffit so the surrounding stone frames it — a glint, not
+      // a lamp. mat 1 = gilt. (12)
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.10, 0.02, 0.11), { y: 0.668 }) });
       // CORNICE — the projecting entablature ledge running the FULL width above the arch (the single
       // strongest "Roman" horizontal tell): it separates the arch level from the attic. Proud front & back. (12)
       S(xform(new THREE.BoxGeometry(1.02, 0.05, 0.44), { y: 0.725 }));
-      // ATTIC CAP — the solid crowning block (0.30 of H, §110). SHIFTED −x + a lower broken step on +x = one
-      // shoulder sheared away (§11.3 asymmetry; nothing whole, every pediment loses a corner). (24)
-      S(xform(new THREE.BoxGeometry(0.78, 0.30, 0.40), { x: -0.06, y: 0.90 }));   // attic main (12)
-      S(xform(new THREE.BoxGeometry(0.18, 0.16, 0.40), { x: 0.40, y: 0.83 }));    // broken shoulder remnant, lower (12)
+      // ATTIC CAP — the solid crowning block (0.30 of H, §110), a breath off-plumb (ruin lean). One shoulder
+      // is a DIAGONAL FRACTURE (Fable Stage-2: the neat step read as whole): the +x remnant is sheared and
+      // tipped, sliding toward the sea (§11.3 — nothing plumb, every pediment loses a corner). (24)
+      S(xform(new THREE.BoxGeometry(0.74, 0.30, 0.40), { x: -0.10, y: 0.90, rz: -0.035 }));   // attic main, leaning (12)
+      S(xform(new THREE.BoxGeometry(0.22, 0.15, 0.40), { x: 0.40, y: 0.80, rz: -0.42 }));      // sheared corner remnant, tipped seaward (12)
       return mergeLagoonParts(parts);   // → 144 tris, 2 groups (forum stone + gilt)
     },
     // HERO scale, WIDER than tall (~1.15:1 world = r:h). The opening (world ~0.40·r wide × 0.48·h tall) stays
