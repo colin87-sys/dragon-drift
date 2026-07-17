@@ -2864,6 +2864,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
     rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
     breach: env.breachMix || 0, // EYE-BREACH: the becalmed gold-lit patch of sea under the eye of the gale; 0 elsewhere = byte-identical
+    // Fable 85 reflection craft (Lumen Mire): anisotropic streak + glints + green-blob pull; 0 elsewhere = byte-identical mirror
+    reflStretch: env.reflStretch, reflGlint: env.reflGlint, reflGreenPull: env.reflGreenPull,
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
