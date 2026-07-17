@@ -3,10 +3,10 @@
 // Robust playing-state start; health pinned; hazards cleared for a clean read.  node tools/_lagoonfly.mjs [tag]
 import { writeFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
-const VIEW = { width: 1180, height: 2040 };   // portrait, ~ the owner's phone crop (the light-axis composition reads best tall)
+const VIEW = { width: 1000, height: 1560 };   // portrait, ~ the owner's phone crop (the light-axis composition reads best tall); sized so headless GPU readback doesn't stall
 const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({ v:2, embers:50, stats:{runs:5}, skins:{owned:['azure'],equipped:'azure'}, flags:{seenFirstSurge:true,hintsSeen:9}, settings:{reticle:false} }))`;
 const tag = process.argv[2] || 'v3';
-const { page, done, errors } = await boot({ query: '?biome=0&debug', viewport: VIEW, deviceScaleFactor: 1.3, initScript: save });
+const { page, done, errors } = await boot({ query: '?biome=0&debug', viewport: VIEW, deviceScaleFactor: 1.0, initScript: save });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.waitForFunction(() => window.__dd && window.__dd.game, { timeout: 15000 }).catch(() => {});
 for (let a = 0; a < 12; a++) {
@@ -24,7 +24,7 @@ const dists = [340, 470, 610, 760, 900, 1050];   // sweep across breaths + congr
 for (let i = 0; i < dists.length; i++) {
   await page.evaluate((d) => { window.__dd.player.dist = d; }, dists[i]);
   await page.waitForTimeout(360);
-  writeFileSync(`reforged-captures/lagoonfly-${tag}-${String(i).padStart(2, '0')}.png`, await page.screenshot());
+  writeFileSync(`reforged-captures/lagoonfly-${tag}-${String(i).padStart(2, '0')}.png`, await page.screenshot({ animations: 'disabled', timeout: 12000 }));
 }
 await page.evaluate(() => clearInterval(window.__pin));
 await done().catch(() => {});
