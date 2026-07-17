@@ -17,6 +17,11 @@ import { setWaterReflectionSuspended } from './water.js';
 export const GODRAY_MAX_SAMPLES = 48;
 
 let occRT = null, blackMat = null;
+// SOFT MASK (Fable device R2): the binary occlusion mask gives razor shaft EDGES that the radial march
+// can never soften (the march blurs ALONG a ray, not across occluder silhouettes). Blur the mask once
+// into blurRT (a quarter-res 4-tap tent) before the march samples it → ~10px of penumbra on every shaft
+// boundary → no more countable solid-edged bands. Runs inside the 1/3 mask duty-cycle → ~free on tier 0.
+let blurRT = null, blurMat = null, blurScene = null, blurCam = null;
 let _renderer = null, _scene = null, _camera = null, _sky = null;
 let _enabled = false;
 // N11 — mask render scale, now per-tier: tier0 keeps 0.5 (half-res, shipped), tier1
@@ -37,16 +42,48 @@ export function initGodRays(renderer, scene, camera, sky) {
     depthBuffer: true, stencilBuffer: false,
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
   });
+  // Blur target (no depth) + a fullscreen 4-tap tent that softens the mask edges.
+  blurRT = new THREE.WebGLRenderTarget(2, 2, {
+    depthBuffer: false, stencilBuffer: false,
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  });
+  blurMat = new THREE.ShaderMaterial({
+    uniforms: { tSrc: { value: occRT.texture }, uTexel: { value: new THREE.Vector2(1, 1) } },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tSrc; uniform vec2 uTexel; varying vec2 vUv;
+      void main() {
+        vec2 o = uTexel * 1.25;              // diagonal tent; bilinear widens it for free
+        float m = texture2D(tSrc, vUv + vec2( o.x,  o.y)).r
+                + texture2D(tSrc, vUv + vec2(-o.x,  o.y)).r
+                + texture2D(tSrc, vUv + vec2( o.x, -o.y)).r
+                + texture2D(tSrc, vUv + vec2(-o.x, -o.y)).r;
+        gl_FragColor = vec4(vec3(m * 0.25), 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
+  blurScene = new THREE.Scene();
+  blurScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blurMat));
+  blurCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   resizeGodRays();
 }
 
 export function setGodRaysReady(on) { _enabled = on && !!occRT; }
-export function godRayTexture() { return occRT ? occRT.texture : null; }
+export function godRayTexture() { return blurRT ? blurRT.texture : null; }   // the march samples the SOFTENED mask
 
 export function resizeGodRays() {
   if (!occRT) return;
   occRT.setSize(Math.max(96, Math.floor(window.innerWidth * _maskScale)),
                 Math.max(96, Math.floor(window.innerHeight * _maskScale)));
+  // Blur at HALF the mask scale (tier0: 0.5 mask → 0.25 blur); the 96px floor carries over.
+  if (blurRT) {
+    const bw = Math.max(96, Math.floor(window.innerWidth * _maskScale * 0.5));
+    const bh = Math.max(96, Math.floor(window.innerHeight * _maskScale * 0.5));
+    blurRT.setSize(bw, bh);
+    blurMat.uniforms.uTexel.value.set(1 / bw, 1 / bh);
+  }
 }
 
 // Render the sky=white / geometry=black mask. Called once per frame, right
@@ -80,6 +117,9 @@ export function renderGodRayMask() {
   setWaterReflectionSuspended(true); // sea draws black; skip its mirror render
   r.setRenderTarget(occRT);
   r.render(_scene, _camera);
+  // Soften the mask (blur occRT → blurRT) in the SAME duty-cycle branch → the march samples soft edges.
+  r.setRenderTarget(blurRT);
+  r.render(blurScene, blurCam);
   // restore everything the main render relies on
   setWaterReflectionSuspended(false);
   r.setRenderTarget(pTarget);
@@ -91,6 +131,8 @@ export function renderGodRayMask() {
 
 export function disposeGodRays() {
   if (occRT) { occRT.dispose(); occRT = null; }
+  if (blurRT) { blurRT.dispose(); blurRT = null; }
+  if (blurMat) { blurMat.dispose(); blurMat = null; }
   if (blackMat) { blackMat.dispose(); blackMat = null; }
   _enabled = false;
 }
@@ -144,10 +186,17 @@ export const GodRaysShader = {
       // Break the clean radial SUNBURST into drifting crepuscular BUNDLES, and CONFINE the light near the
       // source (real storm-light dies mid-frame, it doesn't span edge-to-edge). Two incommensurate sines on
       // the angle around the sun, drifting glacially (never strobes); confinement fades before the frame edge.
-      float ang = atan(dvec.y, dvec.x);
-      float bundles = 0.55 + 0.45 * sin(ang * 9.0 + uTime * 0.11) * sin(ang * 17.0 - uTime * 0.05);
+      float ang  = atan(dvec.y, dvec.x);
+      float dist = length(dvec);
+      // RADIAL SHEAR (Fable device R2): drift the bundle phase with distance from the source so lobe edges
+      // CURVE instead of raying out as straight countable spokes — that geometric straightness is what read
+      // "vector-graphic." Non-integer freqs (5.3/12.7) kill the even 4–5 beat; the higher floor (0.70, amp
+      // 0.30) keeps gaps to ~0.67× (modulation, never on/off wedges) so no band is individually traceable.
+      float ph = dist * 2.6;
+      float bundles = 0.70 + 0.30 * sin(ang * 5.3 + ph + uTime * 0.11)
+                           * sin(ang * 12.7 - ph * 0.6 - uTime * 0.05);
       shaft *= mix(1.0, bundles, uBreak);
-      shaft *= smoothstep(1.05, 0.18, length(dvec));
+      shaft *= smoothstep(1.05, 0.18, dist);
       // Fade near the frame edges so the radial march can't smear a hard seam.
       vec2 e = smoothstep(vec2(0.0), vec2(0.14), vUv) * smoothstep(vec2(0.0), vec2(0.14), 1.0 - vUv);
       vec3 col = scene.rgb + uTint * shaft * uIntensity * (e.x * e.y);
