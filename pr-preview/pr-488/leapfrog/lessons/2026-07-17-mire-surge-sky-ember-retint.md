@@ -29,9 +29,11 @@ Re-tint keeps the beat AND deepens identity. **Suppress when you have a replacem
   frame from the fever meter, so setting the flag in a headless capture doesn't stick. The built-in seam is
   **`?debug=fever`** (main.js: forces `feverActive` + refills `feverTimer` every frame) — use that to capture
   a real Surge sky, not flag-poking.
-- Fable scoped the fix to the sky GRADIENT + CURTAIN only. The fever also tints the motes/particles pinkish
-  (a separate system) and drives the boss danger vignette — both left ALONE (the vignette IS the magenta
-  danger channel we're protecting; touching it would break the grammar we re-tinted the sky to restore).
+- Fable's first pass scoped the fix to the sky GRADIENT + CURTAIN; the gate (97) then flagged the residual
+  fever MOTE pink (`feverColor 0xff9aee`) as a cheap fast-follow — routed through the SAME `env.surgeWarm`
+  (`_feverTint = lerp(feverColor, feverWarmColor 0xffcf6a, surgeWarm)`) so the Mire's Surge motes flare
+  amber-hot, not pink. Now "magenta appears nowhere decoratively" is 100% delivered (sky + motes). The boss
+  danger vignette is left ALONE on purpose — it IS the magenta danger channel we re-tinted the sky to protect.
 
 **What it unlocks.** A reusable per-biome `surgeWarm` lever — any biome that reserves magenta for another
 meaning (or just wants a warm power beat) can flip its Surge sky ember without touching the game-wide default.
