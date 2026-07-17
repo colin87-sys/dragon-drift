@@ -1,49 +1,61 @@
-# Drowned Forum PR-2 — the `triumphgate` hero (the identity-prover) + the forum bakes land
+# Drowned Forum PR-2 — the `triumphgate` hero (Fable 2.7 → 4.3 PASS), and the tide-ladder-on-a-box law
 
-**What we did.** Built the Drowned Forum's WAVE-A hero — a Roman **triumphal arch** — appended at the END
-of `ARCHETYPES` behind `biomes: forumV1` (spawns only under `?props=forum`, gold-determinism untouched).
-This is also where the material-kit the PR-1 lesson deferred finally lands, beside its first consumer: two
-new bakes on the shared lagoon merge path — `bake:'forum'` (the §2A re-stopped tide ladder: travertine
-crown / narrow hard algae line / drowned slate-teal, `waterY 0.16` so the feet drown) and `bake:'fresco'`
-(§2B Pompeian red). 144 tris, 2 groups (forum stone + gilt). Gilt lives ONLY in a recessed soffit coffer.
+**What we did.** Built the Forum's WAVE-A hero — a sunken-Roman TRIUMPHAL ARCH — appended at the END of
+`ARCHETYPES` behind `biomes: forumV1` (spawns only under `?props=forum`; determinism byte-identical). 144
+tris, 2 material groups. Landed the material kit beside its first consumer (per the PR-1 lesson): a
+re-stopped forum tide ladder (`bake:'forum'`), a Pompeian-red fresco (`bake:'fresco'`), and a dedicated
+`forumStone` material. Gated it through the FULL two-stage Fable process — studio form → in-context over
+water — and iterated **13 rounds / 5 Fable gates** from 2.7 to a 4.3 PASS. The trajectory is the lesson.
 
-**The reusable pattern — a new bake is ~15 lines on an existing merge path, not a new material.**
-The forum stone reuses `lagoonStone` (white + vertexColors + warm emissive) and `gilt`; only the vColor
-STOPS change. Add the stops + a `bakeX(geo)` (copy `bakeTideLadder`'s structure), a `bake:'x'` tag arm in
-`mergeLagoonParts`'s dispatch, and one `if (xB.length) …` bake-then-push line. Zero new draw calls, zero
-determinism surface (props are render-only), coexists with every other kit. A whole geology in 2 material
-groups.
+**The arch anatomy at ≤150 tris** (the reusable Roman-arch recipe): two piers (split, see below) + a
+half-torus voussoir ring `TorusGeometry(R, tube, 3, 6, π)` springing at 50% H + a clean box SOFFIT capping
+the bay (a coffered tunnel of real depth, never a flat cut) + a full-width projecting CORNICE (the single
+strongest "Roman" horizontal tell) + a solid ATTIC cap with one shoulder a dropped/yawed fracture + a small
+recessed GILT coffer (mat 1) in the soffit. Pier ≥ ¾ span (no croquet-hoop). That silhouette name-tests
+"triumphal arch" unprompted.
 
-**The Stage-1→Stage-2 gate earned its keep — three defects only the in-context water render exposed:**
+**THE BIG LAW — a position-keyed value ladder needs VERTICES at its band boundaries.**
+The tide ladder (travertine crown / algae line / drowned slate-teal base) is a per-vertex vColor bake. On a
+plain full-height pier BOX there are no vertices between the foot and the top, so the bake can only
+INTERPOLATE corner-to-corner → a smooth gradient that the dusk fog washes to one flat khaki (Fable stalled
+at 3.5–3.9 on exactly this: "no ladder, Caesars-Palace white"). The fix that broke through: **SPLIT the pier
+into two stacked boxes at the tide line** — the seam is a real geometric edge, so the bake reads a crisp
+drowned→crown COURSE there. Traded the engaged pilasters to pay for it (the crisp value-structure now
+articulates the pier, so a blank-slab read is no longer the risk). **Any box prop that must show a horizontal
+material band — waterline, strata, a painted register — needs an edge loop / a box seam AT the band, or the
+band won't read.** (The lathe / jitter-lathe props get this for free from their many rings; boxes don't.)
 
-1. **The blank pier face reads as a "plain slab" (§11.4) at close range.** The studio's flat card hides it;
-   over the water at ~30m the bare travertine trapezoid dominates. Articulation is mandatory for a hero.
-2. **A stack of parts at the opening top = a "jumble."** Round-1/2 had the cornice (full-width, full-depth),
-   keystone, gilt and ring all converging at the bay top; looking *through* the arch you saw up into that
-   stack as broken shards. Fix: a clean **soffit** box caps the bay at the apex → the tunnel becomes a clean
-   arched passage and the gilt coffer recesses into a real ceiling. **Rule: an arch you can see through needs
-   its ceiling modelled as one clean surface, not left as the underside of whatever masonry sits above.**
-3. **THE TECHNIQUE-CEILING CATCH (the sheet's convergence protocol, proven): proud vertical pilasters
-   foreshorten into dark SPIKES.** A thin tall box (0.10×0.60×0.05) proud on the pier face reads fine head-on
-   but from the ¾ vantage the player actually gets, it collapses to a thin dark vertical fin — a sci-fi
-   spike, not a Roman column. Per the protocol, a 3rd attempt at the same topology is a technique ceiling, so
-   we CHANGED TECHNIQUE: a **horizontal impost springer ledge** (where the arch weight lands on the pier)
-   articulates the pier + frames the bay and CANNOT foreshorten into a spike (a horizontal ledge reads as
-   masonry from every yaw). **Reusable law: prefer HORIZONTAL articulation (imposts, cornices, string-
-   courses) over proud vertical strips on props seen from a low ¾ cruise cam — verticals spike, horizontals
-   don't.**
+**Per-VERTEX, not per-FACE, for a TILTED band.** First attempt keyed the tilt per-face
+(`key = faceCentroidY − tiltX·faceCentroidX`); the box's two triangles per quad split the diagonal into hard
+CHEVRON WEDGES ("dazzle-camo," Fable 3.1). Water doesn't stain in chevrons. Keying per-VERTEX against ONE
+tilted plane makes the stain wrap continuously. And once the crisp read comes from a geometric SEAM, drop the
+baked tilt to near-level and let the **instance `tilt`** (bradyseism lean ~4–7°) supply the angle — cleaner
+than fighting the triangulation.
 
-**The other gotcha: pin the money face for an off-lane landmark.** The arch carries its detail (impost,
-gilt soffit, arch ring) on the object +z face; a landmark scatter sits far off-lane (the player passes it,
-never through it), so `place()` pins `rotY = (side>0?π:0)+jitter` (the wall-prop side-based idiom) to turn
-that face lane-ward and double it in the calm-water mirror. Random yaw would show the blank back half the time.
+**`ladderEmissive` carries the ladder in BACKLIGHT — so the drowned stop must be MID, not near-black.**
+Flying into the low dusk sun, the near/front pier face is backlit; diffuse ≈ 0, so the bands survive ONLY
+through the emissive fold (`totalEmissiveRadiance *= vColor`). Two calibrations mattered: (1) don't borrow
+`lagoonStone` — its warm emissive (@0.26, tuned for the jade band) lifts the forum's dark base toward cream
+and clips the crown; a dedicated `forumStone` (0xbcb492 @0.28) is right. (2) A deep near-black drowned stop
+crushes to pure black backlit; a **mid slate-teal** stop holds its hue in shadow. Dark-for-separation and
+light-enough-to-not-crush is the needle — mid-teal + a gentle base-darken threaded it.
 
-**Deferred (silhouette economics + budget):** engaged round half-columns and the fresco niche came out in the
-convergence — the name test (piers ≥¾ span + round arch + cornice + attic + broken shoulder + coffered
-tunnel) holds on the mass at cruise, and 144/150 tris left no room. Candidates for a Fable-round refine once
-the owner signs off the read. **The hazard reskin (Sinking-Gates → Sinking Triumphal Arch, colliders
-byte-identical) is the NEXT step — the sheet orders it AFTER the hero is proven; it reskins the `gate`
-obstacle's fresnel frame (obstacles.js `PHASE_SKINS`/`gateFrameMats`), not this archetype mesh.**
+**The capture yaw MUST match the money face, or you gate the wrong side for rounds.** `_forumclose`'s cam
+sits up-lane; the first `rotY` pin (=π) turned the decorated front DOWN-lane, so every Fable frame judged the
+blank back ("off-centre opening, absent gilt" — all artifacts of shooting the wrong face). Pin the money
+face toward the approaching player (`rotY ≈ ±0.32`, front greets up-lane), and harden the capture pin (revert
+crash/damage state each tick) or the parked player collides and you get red-flash / "CRASHED" frames.
+**Verify the capture is showing the face you designed before trusting a critic's read.**
 
-**Verify:** `HERO=triumphgate node tools/_forumclose.mjs` (in-context) + `_cwstudio.mjs t triumphgate 22 19`
-(form). envcount 144 tris / budgets green; gold-determinism, biomecycle, bulletcontrast, propclearance, tricount green.
+**Process note (the owner's question that reset this):** the two-stage Fable gate is not optional garnish —
+self-gating "looks solid to me" shipped a 2.7. Spawn the harsh critic (`model: fable`) per checkpoint, attach
+the PNG by absolute path, ask for /5 + the single biggest failure + the one highest-leverage fix, and LOOP.
+It converged 2.7 → 3.1 → 3.5 → 3.8 → 3.9 → 4.3, each round spending on exactly the cited failure. The owner
+still outranks it, but the number keeps you honest.
+
+**What it unlocks.** The forum stone kit (ladder + fresco + `forumStone` + gilt) is proven; the next WAVE-A
+props (`viamarina`, `drumfall`, `aqueduct`…) reuse it. **Still open for PR-2:** the Sinking-Gates HAZARD
+reskin (the shipped `gate` fresnel-veil obstacle → the descending triumphal arch, colliders byte-identical).
+
+**Verify:** `?biome=0&debug&props=forum&hero=triumphgate` (tools/_forumclose.mjs); envcount 144 tris,
+gold-determinism / biomecycle / bulletcontrast / propclearance / tricount all green.
