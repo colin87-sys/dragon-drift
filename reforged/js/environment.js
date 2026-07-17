@@ -624,8 +624,11 @@ const _FRM_DROWN = [0.078, 0.200, 0.231]; // 0x14333b wet slate-teal drowned bas
 // a NARROW band at the plane = the hard algae line; above = sun-bleached travertine (value-structured toward
 // the crown). tiltX 0.11 ≈ 6° = believable subsidence (§1 bradyseism + §11.9 no flat cut), zero extra tris.
 // The undercut self-shadow stays per-FACE (needs the geometric normal) — computed once, applied to the 3
-// crown verts. waterY 0.26 → the drowned/tide zone owns the lower ~third of a pier (not a thin foot line).
-function bakeForumLadder(geo, waterY = 0.26, bandH = 0.045, tiltX = 0.11) {
+// crown verts. waterY 0.38: the object base sits AT the world water, so a LOW plane hides the whole tide
+// story underwater and the visible above-water pier reads all-bleached (Fable Stage-2 3.5 note). Lifting the
+// plane to ~38% object height puts the wet-stained drowned zone + algae line on the VISIBLE flank — the
+// lower third of the pier ABOVE the water carries the "this drowned" record, where the player actually sees it.
+function bakeForumLadder(geo, waterY = 0.38, bandH = 0.04, tiltX = 0.11) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
@@ -2613,7 +2616,10 @@ const ARCHETYPES = {
       // is a DIAGONAL FRACTURE (Fable Stage-2: the neat step read as whole): the +x remnant is sheared and
       // tipped, sliding toward the sea (§11.3 — nothing plumb, every pediment loses a corner). (24)
       S(xform(new THREE.BoxGeometry(0.70, 0.30, 0.40), { x: -0.14, y: 0.90, rz: -0.03 }));    // attic main — its +x end (x0.21) stops SHORT of the pier (x0.50): the corner is gone (12)
-      S(xform(new THREE.BoxGeometry(0.26, 0.12, 0.40), { x: 0.40, y: 0.775, rz: -0.55 }));    // the sheared corner block, dropped + tipped steeply seaward = fallen masonry, not a neat step (12)
+      // The sheared corner block — dropped low against the pier + tipped AND yawed OFF-AXIS so it reads as
+      // fallen masonry askew, not a symmetric gable/pediment perched on top (Fable Stage-2: the tidy peak
+      // read as a chapel roof). (12)
+      S(xform(new THREE.BoxGeometry(0.24, 0.11, 0.34), { x: 0.44, y: 0.72, rz: -0.62, ry: 0.5 }));
       return mergeLagoonParts(parts);   // → 144 tris, 2 groups (forum stone + gilt)
     },
     // HERO scale, WIDER than tall (~1.15:1 world = r:h). The opening (world ~0.40·r wide × 0.48·h tall) stays
