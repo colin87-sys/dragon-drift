@@ -2262,7 +2262,10 @@ const ARCHETYPES = {
       // JUNGLE SWALLOW — one MOSS clump of ROUNDED deformed blobs (icosahedra, non-uniform-scaled → a squashed
       // irregular lump, NOT flat facet-plates: Fable r1 — octahedra read as green diamond kites), SAGGING over
       // the lane-edge lip to break the crown line. bake:'lily' (3-stop green, lit top / shadow under).
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: 0.18, z: -0.10, y: 0.62, sx: 1.2, sy: 0.85, sz: 1.0, ry: 0.6, rz: 0.35 }) }); // moss sagging over the lane lip (20)
+      // (Fable Stage-2 4.0: a tall smooth icosa read as a GREEN GEM/emerald, not moss. Fix: FLATTEN to a low
+      // mat (sy 0.32) hugging + slumping OVER the lane lip, and bake:'root' [upThresh 0.75 → mostly the dark
+      // fern/shadow greens] to kill the bright yellow-green "gem highlight" facet → matte shadowed jungle moss.)
+      parts.push({ mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.28, 0), { x: 0.24, z: -0.10, y: 0.54, sx: 1.25, sy: 0.32, sz: 1.15, ry: 0.6, rz: 0.2 }) }); // moss mat slumping over the lane lip (20)
       return mergeLagoonParts(parts);
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
@@ -2320,9 +2323,11 @@ const ARCHETYPES = {
       // JUNGLE — TWO trees of overlapping icos, canopy centroid AT/below the crown line so the green OVERLAPS
       // the crown edge and spills DOWN the lane face (Fable r4: single balls hovering on sticks = party-hats;
       // draping = 2–3 overlapping clumps eating the crown). Only two of the six bays sprout a tree. bake:'lily'.
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: 0.15, z: -0.70, y: 1.30, sx: 1.1, sy: 1.1, sz: 1.15, ry: 0.5 }) },  // tree on A — canopy straddling the crown (20)
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.20, 0), { x: 0.22, z: -0.56, y: 1.08, sx: 1.05, sy: 1.35, sz: 1.0, ry: 1.4 }) }, // 2nd clump of the A tree, spilling DOWN the face (20)
-      { mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.21, 0), { x: 0.16, z: 0.30, y: 1.08, sx: 1.1, sy: 1.2, sz: 1.05, ry: 0.9 }) },   // tree on C, straddling its crown (20)
+      // (Fable Stage-2 4.0: smooth tall icosa canopies read as GREEN GEMS. bake:'root' [dark fern/shadow greens,
+      // no bright olive gem-facet] + FLATTER (sy ~0.5) low draped mats that overhang the crown edge, not ovoids.)
+      { mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: 0.16, z: -0.70, y: 1.28, sx: 1.15, sy: 0.5, sz: 1.2, ry: 0.5 }) },  // canopy mat draping A's crown (20)
+      { mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.24, z: -0.54, y: 1.02, sx: 1.05, sy: 0.7, sz: 1.05, ry: 1.4 }) }, // 2nd clump of the A canopy, spilling DOWN the face (20)
+      { mat: 0, bake: 'root', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: 0.17, z: 0.30, y: 1.06, sx: 1.15, sy: 0.55, sz: 1.15, ry: 0.9 }) },  // canopy mat draping C's crown (20)
     ]),
     // FAR backdrop, TALL LONG WALL (~3:1 tall face, ~5:1 long plan). rotY PINNED lane-parallel (nagawall/
     // causeway pattern) so the long broken face runs DOWN-LANE and never foreshortens to a lump or rotates
