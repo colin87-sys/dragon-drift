@@ -2816,13 +2816,15 @@ const ARCHETYPES = {
       // (= span/2 → true semicircle), string course 10.4.
       const LP = 2.2, LSPAN = 7.0, LMOD = 9.2, LSPRING = 4.8, LRISE = 3.5, LTOP = 10.4, OFF = -34;
       for (let i = 0; i < 5; i++) { const xl = OFF + i * LMOD; pierF(xl, xl + LP, LTOP); }
-      for (let j = 0; j < 4; j++) { const bx = OFF + j * LMOD + LP; archF(bx + LSPAN / 2, LSPRING, LSPAN / 2, LRISE, LTOP, 4); jambF(bx, LSPRING); jambF(bx + LSPAN, LSPRING); }
-      // DECAY (left→right): pier5 broken shorter + a half-arch springer stub off pier4 (no crown) + 3 stumps.
+      // nseg=5 (ODD) → the crown falls MID-segment, not on a vertex → a true ROUND semicircle. (nseg=4 put a
+      // vertex at the crown → a pointed/gothic apex, the arch kill-condition — Fable aq gate.)
+      for (let j = 0; j < 4; j++) { const bx = OFF + j * LMOD + LP; archF(bx + LSPAN / 2, LSPRING, LSPAN / 2, LRISE, LTOP, 5); jambF(bx, LSPRING); jambF(bx + LSPAN, LSPRING); }
+      // DECAY (left→right): pier5 broken shorter (no arch off it → a cleanly broken bay), then 3 pier stumps.
+      // (No floating springer-stub half-arch — an unsupported slab over the stumps is a cheap tell, Fable aq.)
       const p5x = OFF + 5 * LMOD;
       pierF(p5x, p5x + LP, 7.4);
-      archF(OFF + 4 * LMOD + LP + LSPAN / 2, LSPRING, LSPAN / 2, LRISE, 9.0, 4, 0, 2);   // left 2 segs only = a ragged springer stub
       const stump = (x, w, yTop, cap) => { pierF(x, x + w, yTop); if (cap) capF(x, x + w, yTop); };
-      stump(p5x + LMOD * 0.85, LP, 5.6, true);    // nearest stump keeps its top cap (plan read)
+      stump(p5x + LMOD * 0.85, LP, 5.6, false);
       stump(p5x + LMOD * 1.5, LP * 0.9, 3.4, false);
       stump(p5x + LMOD * 2.1, LP * 0.8, 1.6, false);   // below TIDE 2.2 → an all-drowned stump
 
@@ -2841,8 +2843,8 @@ const ARCHETYPES = {
       q([wx(notchR), wy(UTOP), zf], [wx(specR), wy(UTOP), zf], [wx(specR), wy(17.0), zf], [wx(notchR), wy(17.0), zf]);
       capF(specL, notchL, 17.0); capF(notchR, specR, 17.0);
 
-      // ── WALL END CAP (left) + FLUSH drowned stylobate strip (footprint-flush → no hull skirt at the worm's-eye).
-      { const x0 = wx(OFF); q([x0, 0, zb], [x0, 0, zf], [x0, wy(LTOP), zf], [x0, wy(LTOP), zb]); }
+      // ── FLUSH drowned stylobate strip (footprint-flush → no hull skirt at the worm's-eye). (Wall end cap
+      // dropped for budget — a far massif's end is lost in fog; the pierced front face carries the read.)
       { const xa = wx(OFF - 1), xb = wx(p5x + LMOD * 2.1 + LP), y0 = 0; q([xa, y0, zb], [xb, y0, zb], [xb, y0, zf], [xa, y0, zf]); }
 
       const wall = new THREE.BufferGeometry();
