@@ -301,7 +301,7 @@ export const BIOMES = [
       sun: C(0x9c8f76),      // the hidden sun warmed to agree with the slot; still NO disc
       // N9 clouds: the heaviest deck in the cycle — the SHADOW is committed dark VIOLET (deck family; the
       // dark underside makes the cloud read as SOLID storm mass), lit tops held BELOW the slot's value.
-      cloud: { amount: 0.80, lit: C(0xb5ab98), shadow: C(0x1d1a2e), force: true }, // lit faces catch slot light (warm pale grey); shadow = deck violet. force: the storm deck is the biome identity
+      cloud: { amount: 0.80, lit: C(0x9a99a6), shadow: C(0x1d1a2e), force: true }, // Fable gate R2: lit was 0xb5ab98 (warm) × amount 0.80 = warm painted across the LARGEST sky surface → the whole cloud field fused with the slot into one warm mass (the rationing inverted). Cooled to violet-grey (same L≈0.60) → lit cloud reads as storm-cloud in weak COOL daylight; warmth snaps back to ONLY slot/breach/rays/road/gold. shadow = deck violet. force: the storm deck is the biome identity
     },
     fog: { color: C(0x494c60), near: 55, far: 360 },  // INDIGO-slate near haze (was grey-slate 0x44505a) — violet/teal is the bruise pairing over the teal sea; L≈0.30 unchanged so danger/bullets still clear it
     // Dual-fog (§5.2) INVERTED: the far field goes PALE rain-veil silver — the only biome whose far
