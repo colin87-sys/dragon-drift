@@ -1690,7 +1690,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           const sl = streamerLen * (1 - s * 0.16);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
-          const strip = new THREE.Mesh(streamerGeo(sl, 1.08 * ws, side * 0.8 + s * 0.5), streamerMat);   // BROAD veil ribbon → reads as mass, not hairline wire (Fable gate r1: widened 0.88→1.08 to clear the ≥2px thin-thread floor §8.9); streamerMat=finMatRear unless streamerPulse (§3b.1)
+          const strip = new THREE.Mesh(streamerGeo(sl, 0.96 * ws, side * 0.8 + s * 0.5), streamerMat);   // veil ribbon: eased 1.08→0.96 (Fable gate r2: the 1.08 out-massed the hero caudal fan — inverted the hierarchy); still clears the ≥2px thin-thread floor via the softer taper below; streamerMat=finMatRear unless streamerPulse (§3b.1)
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
