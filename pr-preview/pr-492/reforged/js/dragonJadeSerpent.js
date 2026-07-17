@@ -147,17 +147,19 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     const ez = f.T.clone();
     const ey = new THREE.Vector3().crossVectors(ex, ez).normalize();          // fan face normal
     const P0 = f.p.clone().addScaledVector(f.B, s * f.r * OVAL_W * 0.7).addScaledVector(f.Nn, f.r * 0.15);
-    const nRf = 3, nAf = 8, hubF = 0.14;
-    const halfArc = Math.min(0.95, model.fanSpread ?? 0.66);
+    const nRf = 3, nAf = 10, hubF = 0.14;
+    const halfArc = model.fanSpread ?? 0.9;                          // wide sector → a broad rounded fan
     const pleatAmp = (model.fanPleat ?? 0.08) * R;
+    const cup = (model.fanCup ?? 0.14) * R;                          // gentle cup so the fan isn't a flat sail
     const rows = [];
     for (let i = 0; i <= nRf; i++) {
       const u = i / nRf; const row = [];
       for (let j = 0; j <= nAf; j++) {
         const af = j / nAf, fold = (j % 2) * 2 - 1;
-        const lx = R * (hubF + (1 - hubF) * u);                       // radial length (out)
-        const lz = (af - 0.5) * 2 * (R * halfArc * (0.05 + 0.95 * u)); // chord (opens wide at the arc)
-        const ly = pleatAmp * fold * Math.sin(u * Math.PI);           // interior pleat ridges, smooth rim
+        const edge = Math.abs(af - 0.5) * 2;                          // 0 centre → 1 fan edge
+        const lx = R * (hubF + (1 - hubF) * u) * (1 - 0.28 * edge * edge);   // ROUND the outer corners → a fan, not a triangle
+        const lz = (af - 0.5) * 2 * (R * halfArc * (0.08 + 0.92 * u));       // chord (opens wide + rounded at the arc)
+        const ly = pleatAmp * fold * Math.sin(u * Math.PI) + cup * Math.sin(u * Math.PI * 0.5) * (1 - edge * 0.5);   // pleat ridges + a gentle overall cup
         row.push(positions.length / 3);
         positions.push(
           P0.x + ex.x * lx + ey.x * ly + ez.x * lz,
