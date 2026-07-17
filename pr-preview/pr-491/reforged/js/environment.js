@@ -2770,19 +2770,18 @@ const ARCHETYPES = {
       // and FLARES up to 0.165, capped by a compact abacus sitting directly on it. The flare IS the trumpet. (28)
       S(xform(new THREE.CylinderGeometry(0.165, 0.122, 0.10, 8, 1, true), { x: 0, z: -0.34, y: 0.45, rz: 0.03 }));   // echinus flare (base 0.40 = stub top; 8-sided reads round) (16)
       S(xform(new THREE.BoxGeometry(0.20, 0.05, 0.20), { x: 0, z: -0.34, y: 0.525, rz: 0.03 }));                      // abacus slab, seated on the echinus (12) → capital 28
-      // ON-END COIN — THE fix that converts "crates" → "column" (Fable df2): one drum stood STEEPLY on end so
-      // its round 8-sided BREAK FACE is presented to the ¾ camera. 8 sells round; this single circular face is
-      // the cue that says "sliced Doric shaft", not shipwreck rubble. CLOSED. (32)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.22, 8, 1, false), { x: 0.03, z: -0.10, y: 0.15, rz: 0.42, ry: 0.2 }));
-      // LYING DRUM A — down flat, axis ALONG the fall line (rx π/2 → round break face points ±z down the trail).
-      // Lying side-profile is a rectangle regardless of segment count, so 6 is fine here — spend the round-ness
-      // on the on-end coin above where the circular face actually shows. CLOSED. (24)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.27, 6, 1, false), { x: -0.01, z: 0.09, y: R, rx: Math.PI / 2, ry: 0.05 }));
-      // LYING DRUM B — the next coin along the trail, rolled a touch off-line (ry) so it doesn't re-stack. (20)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.24, 5, 1, false), { x: 0.07, z: 0.30, y: R, rx: Math.PI / 2, ry: -0.22 }));
-      // STRAY DRUM — one coin rolled CLEAR off the line (+x) and half-buried (y sunk below R): the "scattered"
-      // tell that says these did not fall neatly — the tide took the rest. (20)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.20, 5, 1, false), { x: 0.30, z: 0.34, y: 0.10, rx: Math.PI / 2 + 0.12, ry: 0.7, rz: 0.3 }));
+      // TWO ON-END COINS present a round BREAK FACE at BOTH ends of the trail — the cue that converts "crates"
+      // → "sliced column" (Fable df3: one round coin near the stump didn't convert the far half; the tail still
+      // read as a pallet spill). The studio front-¾ camera sits toward (+x,+y,+z), so a coin stood steeply on
+      // end with a small rz/ry lean cants its 8-sided top face straight at that camera family, unoccluded.
+      // COIN 1 — near the stump (the proven df3 orientation Fable praised). CLOSED, 8-sided (8 sells round). (32)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.22, 8, 1, false), { x: 0.05, z: -0.09, y: 0.15, rz: 0.42, ry: 0.2 }));
+      // COIN 2 — a flat lying coin mid-trail, axis along the fall line (rx π/2), its +z round end down-trail
+      // toward the camera. Lying profile is a rectangle regardless of segment count, so 6 is fine here. (24)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.27, 6, 1, false), { x: -0.02, z: 0.12, y: R, rx: Math.PI / 2, ry: 0.05 }));
+      // COIN 3 — a SECOND on-end coin at the FAR end of the scatter, rolled off-line (+x) as it toppled, its
+      // round face canting back at the camera so the tail reads as column too, not crates. CLOSED, 8-sided. (32)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.21, 8, 1, false), { x: 0.12, z: 0.33, y: 0.15, rz: 0.55, ry: -0.35 }));
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.14 });   // the level tide stain cuts THROUGH the low coins at one world Y (drowned foot / travertine crown on each) — "a waterline that ignores them"
     },
     // LOW WIDE foil scatter (wrackstone rhythm): draw r first, couple x → inner ≥16 (clears the ±16 gate veil);
