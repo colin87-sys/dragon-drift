@@ -38,6 +38,20 @@ export const CLOUD_HEAD = /* glsl */`
       s += a * _cvNoise(p); norm += a; p *= 2.03; a *= 0.5;
     }
     return s / norm;   // normalized to [0,1] so cloud cores can saturate (any octave count)
+  }
+  // Shared cloud-coverage read (0 = clear sky, →uCloudAmount = solid core) for a view dir.
+  // FACTORED OUT of CLOUD_BODY's cCov math VERBATIM so the god-ray "negative of the clouds"
+  // gap-field registers pixel-for-pixel with the visible deck. The sky itself does NOT call
+  // this (CLOUD_BODY still computes cCov inline, unchanged), so the sky stays byte-identical —
+  // this is a pure addition, dead-code-eliminated wherever unused. time is a param (not a
+  // uniform) so CLOUD_HEAD adds no new sky uniform. Keep this math IN LOCKSTEP with CLOUD_BODY.
+  float _cloudCov(vec3 d, float h, float time){
+    vec2 cuv = vec2(atan(d.z, d.x) * 0.6, d.y * 2.1) + vec2(time * 0.006 + uCloudDrift + time * uCloudWindCrawl, 0.0);
+    vec2 warp = uCloudWarp * 0.35 * vec2(_cFbm(cuv * 1.3 + 11.3), _cFbm(cuv * 1.3 + 47.7));
+    float n = _cFbm(cuv * 1.7 + warp);
+    float band = smoothstep(0.03, 0.22, h) * (1.0 - smoothstep(0.48, 0.72, h));
+    float shape = smoothstep(0.40, 0.72, n);
+    return shape * band * uCloudAmount;
   }`;
 
 // GLSL spliced INTO main(), after the dual-fog sink and BEFORE the sun disc (so the
@@ -83,6 +97,10 @@ export const cloudUniforms = {
   uCloudWindCrawl: { value: 0 },
   uCloudOctaves: { value: 3 },
   uCloudWarp:    { value: 1 },
+  // Sky animation clock, mirrored into the god-ray gap-field so the "negative of the clouds"
+  // carve drifts in lockstep with the visible deck. Shared BY REFERENCE with godrays.js's
+  // gapMat; the sky uses its OWN `time` uniform, so this is an unused extra on the sky (ignored).
+  uCloudTime:    { value: 0 },
 };
 
 // World-parallax rate: how fast the cloud field slides past as the player flies.
@@ -117,6 +135,8 @@ export function applySkyClouds(env, playerDist, time) {
   // Storm wind-crawl: the deck keeps moving when the player hovers, along the wind. ~0.010 rad/s, gated
   // by rainMix so it is Tempest-only and crossfades the seam (0 elsewhere = byte-identical).
   cloudUniforms.uCloudWindCrawl.value = 0.010 * (env.rainMix || 0);
+  // Mirror the sky clock so the god-ray gap-field's cloud read drifts in register with the deck.
+  cloudUniforms.uCloudTime.value = time;
 }
 
 // --- JS FBM port (god-ray coupling only; NOT the probe) ----------------------
