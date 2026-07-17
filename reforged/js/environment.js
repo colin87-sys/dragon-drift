@@ -2110,6 +2110,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       sunDir: { value: new THREE.Vector3(-0.22, 0.1, -1).normalize() },
       feverMix: { value: 0 },
       feverWarm: { value: 0 },   // 0 = magenta Surge palette; 1 = FIERY (fire dragons) → the rebirth sky/aurora go warm ember instead of magenta
+      uSurgeWarm: { value: 0 },  // Fable 94: PER-BIOME ember-Surge override (0 = magenta as shipped). The Mire reserves magenta for DANGER telegraphs, so its Surge flares the horizon EMBER (skin-agnostic) AND zeroes the magenta sky-curtain (Canopy Law). 0 in every other biome → byte-identical.
       dimMix: { value: 0 },
       starMix: { value: 0 },
       // Per-biome DECK BIAS (Tempest): 0 = shipped gradient (byte-identical). >0 pulls the
@@ -2152,6 +2153,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
+      uniform float uSurgeWarm;   // Fable 94: per-biome ember-Surge override (0 = magenta shipped)
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform vec2 uStormFlashDir;
@@ -2163,9 +2165,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
-        // Dragon Surge palette shift: magenta by default, or FIERY ember for fire dragons (feverWarm)
-        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), feverWarm);
-        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), feverWarm);
+        // Dragon Surge palette shift: magenta by default, FIERY ember for fire dragons (feverWarm) OR any
+        // biome that forces ember Surge (uSurgeWarm — the Mire, so magenta stays exclusive to danger).
+        float _fw = max(feverWarm, uSurgeWarm);
+        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), _fw);
+        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), _fw);
         // × (1 - uAuroraMix): the SURGE also shifts the whole sky GRADIENT toward magenta — the second
         // (bigger) half of the aurora-biome "color explosion". Suppress it too so the night sky + curtain
         // stay the spectacle during a boost (0 in every other biome → byte-identical).
@@ -2289,7 +2293,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // × (1 - uAuroraMix): in Aurora Shallows the CURTAIN is the sky spectacle — the magenta SURGE wash
         // on top of it is the "color explosion" the owner kept seeing (it is NOT the aurora eruption, which
         // is why cutting the eruption never fixed it). Suppress it here like the night-surge veil below.
-        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix);
+        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix) * (1.0 - uSurgeWarm);   // Fable 94: the Mire (uSurgeWarm 1) ZEROES the magenta Surge sky-curtain — a curtain is a sky-spectacle object, forbidden by the Canopy Law; the ember gradient carries the Surge read on its own
         // Starfield (night biomes): hashed cells in the upper dome, gently
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);
@@ -2927,6 +2931,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   const heavenWarm = Math.max(0, Math.min(1, arenaMix - 1));   // 0 in biome/void → 1 as the heaven settles
   feverWarmMix = damp(feverWarmMix, Math.max(feverWarmTarget, heavenWarm), 2.5, dt);   // FIERY (fire dragons / the heaven) vs magenta
   su.feverWarm.value = feverWarmMix;
+  su.uSurgeWarm.value = env.surgeWarm ?? 0;   // Fable 94: per-biome ember-Surge override (Mire = 1; seam-lerped; 0 elsewhere → byte-identical)
   su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
   sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;
