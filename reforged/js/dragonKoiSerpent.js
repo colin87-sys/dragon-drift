@@ -280,9 +280,12 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
             rowIdx.push(positions.length / 3);
             positions.push(P0[0] + ex[0] * lx + ey[0] * ly + ez[0] * lz, P0[1] + ex[1] * lx + ey[1] * ly + ez[1] * lz, P0[2] + ex[2] * lx + ey[2] * ly + ez[2] * lz);
             normals.push(ey[0], ey[1], ey[2]);
-            const c = cLeadF.clone().lerp(cMidF, Math.min(1, u * 2.4)).lerp(cTipF, Math.max(0, (u - 0.7) / 0.3));
-            if (fold < 0) c.lerp(cLeadF, 0.32 * (0.4 + 0.6 * u));   // deepen receding pleat spokes → ribs read
-            if (rb > 0 && u > 0.86) c.lerp(colCrest, (u - 0.86) / 0.14 * 0.4);
+            // PALE-mint dominant (the reference fans are bright, not dark emerald): emerald only
+            // at the very hub, mid-jade briefly, then pale mint across most of the blade.
+            const c = cMidF.clone().lerp(cTipF, Math.min(1, Math.pow(u, 0.72)));
+            if (u < 0.16) c.lerp(cLeadF, (0.16 - u) / 0.16 * 0.8);   // deep-emerald hub only
+            if (fold < 0) c.lerp(cMidF, 0.2 * (0.4 + 0.6 * u));      // subtle rib shading (mid-jade, not dark)
+            if (rb > 0 && u > 0.86) c.lerp(colCrest, (u - 0.86) / 0.14 * 0.5);
             colors.push(c.r, c.g, c.b);
           }
           rows.push(rowIdx);

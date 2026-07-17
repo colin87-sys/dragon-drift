@@ -1624,7 +1624,10 @@ function buildSilkFinWings(def, model, attach, giM) {
 
     const lobePivots = [];
     const elements = [];
-    for (let i = 0; i < N; i++) {
+    // finsOnBody: the koi web-fans are emitted into the TORSO (dragonJadeSerpent) mounted by the
+    // spine frame, so silkFinWings builds ZERO wing lobes here — it's kept only for the chin pearl.
+    const nLobes = (model.finsOnBody ?? 0) ? 0 : N;
+    for (let i = 0; i < nLobes; i++) {
       const t = N > 1 ? i / (N - 1) : 0;
       const len = maxLen * lenMulFor(i);
       const wRoot = (0.44 + 0.12 * Math.sin(t * Math.PI)) * len;   // MODERATE koi ray chord — 4 distinct lobes, body stays the hero (gate rework dir 1/3)
