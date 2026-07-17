@@ -1945,6 +1945,9 @@ const ARCHETYPES = {
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
     step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.25, glow: true }, // sMax 1.25 (Fable 68): peak survivors SWELL into a thicket-event instead of the grove reading flat
+    // Fable 88 lever-6 SIZE OCTAVES (pup / adult / tall / rare mother): a colony reads as many pups, some
+    // adults, one matriarch — not street lighting. EV≈0.95 (mass stays put); peak k = 1.25×1.90 ≈ 2.4 towers.
+    sizeOctave: [[0.44, 0.58], [0.78, 1.00], [0.93, 1.45], [1.0, 1.90]],
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
@@ -1972,6 +1975,12 @@ const ARCHETYPES = {
   // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
     step: 37, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true }, // step 37 prime (Fable 68): coprime with shroom 45 + all Mire steps, kills the gcd-9 lattice co-beat
+    // Fable 88 lever-6 SIZE OCTAVES — glowbloom is DENSE near-lane ground filler (base inner ≈14.9, right at
+    // the ±14.5 clearance floor), so it cannot take an UPSIZE class without invading the lane (propclearance
+    // octave-aware gate). Its variance skews DOWNWARD instead — small/mid/full — max 1.0× so the effective
+    // sMax is byte-unchanged and clearance holds; the dramatic upward "mother" variance lives on glowshroom
+    // (placed further out). Still breaks the runway (mostly-smaller blooms with some full-size).
+    sizeOctave: [[0.45, 0.70], [0.80, 0.90], [1.0, 1.00]],
     build: () => {
       const parts = [];
       const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
@@ -2318,6 +2327,54 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // causeway — LANE-FRAMING NEAR-RAIL / civilization (§7.3.7, the Frozen-terrace / Caldera-flowlobe analog):
+  // a long, LOW, drowned Angkor GALLERY-CAUSEWAY running PARALLEL to the lane — a laterite stylobate deck +
+  // a broken lane-facing balustrade colonnade + a spine parapet, jungle-swallowed by a moss crest + a
+  // strangler-fig root, with JAGGED broken ends (no sawn termination — the colonnata law). THE horizontal
+  // REST mass the v3 kit lacked: every other Lagoon prop is a vertical POINT, so the breaths read as empty
+  // water with a rare spike. step 20 + floor 0.30 (the highest in the kit) keep a near-continuous low wall
+  // HUGGING the lane edge THROUGH the empty breaths → the flight corridor is always visibly walled, so the
+  // boundary READS and players stop flying blind into the outer barrier (the owner's gameplay report). LOW
+  // (h 5–8) so the open golden mirror + sky still breathe ABOVE it — it frames, never roofs. Bakes: temple
+  // (laterite foot / moss waterline / amber crown) + lily (moss crest) + wood (fig root). No gilt.
+  causeway: {
+    step: 20, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor in the kit hugs the edge through the breaths (Frozen terrace rhythm). NO sizeClass — a long-ρ prop can't absorb the ×1.42 bucket without invading the lane.
+    build: () => {
+      const parts = [];
+      // STYLOBATE DECK — the raised laterite causeway base, long down-lane (Z), driven THROUGH the waterline
+      // (spans object y −0.10→0.42 → laterite drowned foot / moss waterline / amber crown from the temple bake).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.52, 1.66), { y: 0.16 }) });          // deck (12)
+      // SPINE PARAPET — a lower running wall on the FAR side from the lane (−x): the gallery's solid back.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.26, 0.44, 1.42), { x: -0.14, y: 0.60 }) }); // parapet (12)
+      // BALUSTRADE — a continuous low rail on the LANE-facing edge (+x) + 3 proud posts (the colonnade rhythm;
+      // one bay left OPEN as a ruin gap). The naga-balustrade echo (ties to nagawall) at causeway scale.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.12, 0.22, 1.42), { x: 0.24, y: 0.50 }) });  // rail (12)
+      for (const z of [-0.56, 0.06, 0.60]) parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.15), { x: 0.24, z, y: 0.66 }) }); // 3 posts (36)
+      // BROKEN ENDS — no sawn termination: one end steps down to a half-fallen offset chunk, the other ends
+      // on a proud jagged stub. Kept inside |z|≤~0.95 so ρ stays ~1.0 (the lane-clearance coupling).
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.50, 0.30, 0.28), { z: 0.80, y: 0.11, ry: 0.22, rz: 0.06 }) }); // fallen end step (12)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.34, 0.46, 0.22), { x: -0.06, z: -0.80, y: 0.30, ry: -0.16 }) }); // jagged end stub (12)
+      // JUNGLE SWALLOW — a moss crest draped over the parapet (bake:'lily' → the 3-stop green) + a strangler-
+      // fig root creeping down the deck face into the water (bake:'wood'). The greenery the owner asked for.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: -0.04, z: -0.34, y: 0.74, sy: 0.5 }) }); // moss lump (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.19, 0), { x: 0.02, z: 0.42, y: 0.72, sy: 0.5 }) });   // moss lump (20)
+      parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.02, 0.78, -0.30], [0.16, 0.02, -0.48], 0.05, 0.09, 3) });                // fig root (6)
+      return mergeLagoonParts(parts);
+    },
+    // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
+    // face WALLS the corridor, never blocks across it. ρ≈1.0 (Z-length dominates); couple x = 14.6 + 1.10·r
+    // so the inner edge holds ≥14.5 even at sMax (terrace precedent — a LOW prop may hug inside the ±16 gate
+    // veil, it never looms over a ring). Explicit tilt (a ruin leans a breath). r 7–11 → 3 broken-gallery
+    // lengths. TUNE the 1.10 to the propclearance-measured ρ.
+    place: (side, rnd) => {
+      const r = 7 + rnd() * 4;
+      const p = { x: side * (14.6 + 1.10 * r + rnd() * 3), h: 5 + rnd() * 3, r, tilt: side * (rnd() * 0.03 - 0.015) };
+      p.rotY = (rnd() < 0.5 ? 0 : Math.PI) + (rnd() * 0.26 - 0.13);   // lane-parallel ± a breath (a gallery is a straight line, scattered a little)
+      if (HERO_SET.has('causeway')) p.rotY = 0;   // debug: pin the long face down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2349,6 +2406,7 @@ const FOAM_CFG = {
   prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
   lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
   nagawall: false,                   // Lost Lagoon v3 naga backdrop — NO collar (a bright foam ring 60+ off-lane is an artifact; the arcade/riftwall precedent)
+  causeway: { rx: 0.30, rz: 1.0 },   // Lost Lagoon v3 lane-framing gallery — ELLIPTICAL collar wraps the long thin down-lane footprint (a round ring would float off the ends); the jade tide weld where the drowned deck meets the mirror
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
@@ -2465,7 +2523,12 @@ export function propClearanceData() {
       const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
       samples.push(def.place(1, rnd));
     }
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, gate: !!def.gate, samples };
+    // Fable 88 lever-6: the per-instance size octave multiplies the render scale ON TOP of comp.sMax,
+    // so a "mother" instance is comp.sMax × maxOctave. Fold it into the effective sMax the clearance model
+    // audits — else the gate tests a smaller prop than the game draws (the mother cap would be unaudited).
+    const octaveMax = def.sizeOctave ? Math.max(...def.sizeOctave.map((o) => o[1])) : 1;
+    const sMaxEff = (def.comp ? def.comp.sMax : 1) * octaveMax;
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: sMaxEff, paired: !!def.paired, gate: !!def.gate, samples };
   });
 }
 
@@ -2599,6 +2662,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
       // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
       uBreachMix: { value: 0 },
+      // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7): 0 = off → byte-identical in the other 6 biomes + all
+      // skins. A sourceless warm glow-column off the horizon — metabolic light, NOT a sun.
+      uShaft: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -2613,6 +2679,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
+      uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -2724,6 +2791,20 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
         col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
                         + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
+        // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7, uShaft 0 = off → byte-identical): ONE sourceless warm
+        // glow-column rising off the ember horizon, OFF-CENTER of the corridor axis. Theology: the Mire has
+        // no sun — the brightest point is the ROOT at the waterline, decaying monotonically upward. Never a
+        // disc, never a floating core. Sits ON the fogFarColor-sunk horizon (haze lit from WITHIN the bog).
+        if (uShaft > 0.001) {
+          float _shAz = atan(sunDir.z, sunDir.x) + 0.62;          // ~35.5° off the corridor axis (screen-left third at cruise)
+          float _shDA = atan(sin(atan(d.z, d.x) - _shAz), cos(atan(d.z, d.x) - _shAz));
+          _shDA += 0.025 * sin(time * 0.07);                      // azimuth sway ±1.4°, ~90s — it leans, never travels
+          float _shW = exp(-(_shDA * _shDA) / 0.0256);            // gaussian column σ 0.16 rad (~18° FWHM) — no hard edge
+          float _shV = smoothstep(0.42, 0.02, h)                  // rooted at the horizon, gone by h=0.42
+                     * smoothstep(-0.02, 0.03, d.y);              // clean waterline seat (tiny sub-horizon bleed for reflection continuity)
+          float _shBr = 0.90 + 0.10 * sin(time * 0.13);           // breathe ±10%, ~48s — alive haze, not a decal
+          col += vec3(1.0, 0.66, 0.36) * (_shW * _shV * _shBr * 0.12 * uShaft);
+        }
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -3160,7 +3241,17 @@ function writeMatrix(band, i, d) {
         const c = band.def.comp;
         const density = c.floor + (1 - c.floor) * g;
         if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
-        else k = c.sMin + (c.sMax - c.sMin) * g;
+        else {
+          k = c.sMin + (c.sMax - c.sMin) * g;
+          // Fable 88 lever-6: per-instance SIZE OCTAVES break the "runway of identical lamps" — the
+          // congregation k gives every survivor the same size, so multiply it by a pure per-instance
+          // class (pups/adults/tall/rare-mother). `side` is in the hash → left/right flanks decorrelate
+          // (kills the mirror-pair tell for free). Render-scale only, no rnd → gold-determinism byte-identical.
+          if (band.def.sizeOctave) {
+            const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
+            for (const o of band.def.sizeOctave) { if (hc < o[0]) { k *= o[1]; break; } }
+          }
+        }
       }
     }
   }
@@ -3305,6 +3396,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  su.uShaft.value = env.horizonShaft ?? 0;   // Fable 90 lever-7: Lumen Mire horizon glow-column; 0 elsewhere → byte-identical sky
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
@@ -3346,6 +3438,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
     rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
     breach: env.breachMix || 0, // EYE-BREACH: the becalmed gold-lit patch of sea under the eye of the gale; 0 elsewhere = byte-identical
+    // Fable 85 reflection craft (Lumen Mire): anisotropic streak + glints + green-blob pull; 0 elsewhere = byte-identical mirror
+    reflStretch: env.reflStretch, reflGlint: env.reflGlint, reflGreenPull: env.reflGreenPull,
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,

@@ -85,6 +85,14 @@ const sharedUniforms = {
   uHeroPos: { value: new THREE.Vector3() },
   uHeroCol: { value: new THREE.Color(0) },
   uHeroPool: { value: 0 },
+  // REFLECTION CRAFT (Fable 85): three default-0 per-biome levers that turn the black mirror from a
+  // uniform brown smear into the biome's signature — anisotropic streak-stretch + luma-keyed 3-tap
+  // streak under glow sources, sparse drifting amber glints, and a hue-keyed pull that tames the green
+  // catch-ring's mirror-blob (the RING itself is never touched — it's a game-wide gameplay signal). All
+  // 0 elsewhere → the other 6 biomes byte-identical. MUST live here or they vanish on the tier rebuild.
+  uReflStretch: { value: 0 },
+  uReflGlint: { value: 0 },
+  uReflGreenPull: { value: 0 },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -173,6 +181,8 @@ const fragmentShader = /* glsl */`
   uniform float uBreachMix;  // EYE-BREACH calm/gold patch at the eye's foot (0 = shipped)
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   uniform vec3 uHeroPos, uHeroCol; uniform float uHeroPool; // Fable 75: player light-pool on the mirror (0 = shipped)
+  uniform float uReflStretch, uReflGlint, uReflGreenPull;    // Fable 85: reflection craft (0 = shipped)
+  const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -250,10 +260,33 @@ const fragmentShader = /* glsl */`
 
     vec3 refl;
     #ifdef USE_REFLECTION
-      vec2 distort = N.xz * (0.42 + 1.1 * uStormSea);   // STORMSEA: scatter the mirror sample → the clean reflection lane shatters into broken speckle
+      // Fable 85 §1a — ANISOTROPIC distort: crisp side-to-side, long down-lane (a real black-water
+      // mirror is not an isotropic blob). At uReflStretch 0 → dAniso vec2(1.0) → identical to shipped.
+      float dBase = 0.42 + 1.1 * uStormSea;
+      vec2 dAniso = mix(vec2(1.0), vec2(0.35, 2.6), uReflStretch);   // x=lateral, y=N.z=down-lane
+      vec2 distort = N.xz * dBase * dAniso;   // STORMSEA: scatter the mirror sample → the clean reflection lane shatters into broken speckle
       vec4 proj = vUvProj;
       proj.xy += distort * proj.w;
       refl = texture2DProj(tDiffuse, proj).rgb;
+      // Fable 85 §1b — luma-keyed 3-tap down-lane streak: ONLY bright glow sources smear into a vertical
+      // streak (dark trunks stay crisp). 2 extra taps, inside the branch → the other 6 biomes pay zero.
+      if (uReflStretch > 0.001) {
+        vec4 sOff = vec4(0.0, 0.018 * proj.w, 0.0, 0.0);   // down-lane in proj space
+        vec3 s1 = texture2DProj(tDiffuse, proj + sOff).rgb;
+        vec3 s2 = texture2DProj(tDiffuse, proj + sOff * 2.333).rgb;
+        refl += uReflStretch * (s1 * smoothstep(0.35, 0.90, dot(s1, LUMA)) * 0.55
+                              + s2 * smoothstep(0.45, 1.00, dot(s2, LUMA)) * 0.30);
+        refl /= 1.0 + uReflStretch * 0.45;   // renormalize — streak, don't brighten
+      }
+      // Fable 85 §3 — green mirror-blob fix, MIRROR side only: hue-keyed pull on the SAMPLED colour so
+      // the saturated green catch-ring reflection reads as glow-on-water, not a glitch. Cyan flow decals
+      // (b≈g) and the amber scene (r>g) key to 0. The ring mesh/HUD colour is never touched.
+      if (uReflGreenPull > 0.001) {
+        float rLuma = dot(refl, LUMA);
+        float greenExcess = refl.g - max(refl.r, refl.b);   // >0 only for green-dominant pixels
+        float gpk = uReflGreenPull * smoothstep(0.04, 0.25, greenExcess);
+        refl = mix(refl, rLuma * vec3(1.08, 0.90, 0.62), gpk);   // toward amber-tinted luma
+      }
     #else
       // Analytic sky reflection + cheap sparkle glints.
       vec3 R = reflect(-V, N);
@@ -273,6 +306,16 @@ const fragmentShader = /* glsl */`
     // MATTE IT DOWN: an overcast storm sea is dull, not chrome — dim the reflected sample + cap the
     // mirror at ~55% even at grazing angles so the dark water body always owns ≥45%.
     refl *= mix(1.0, 0.55, uStormSea);
+    // Fable 85 §2 — sparse drifting amber glints: ~8–12 lozenge sparkles on the black mirror, hash-
+    // varied twinkle (no metronome), never white/green (gameplay hues stay exclusive). 0 → skipped.
+    if (uReflGlint > 0.001) {
+      vec2 gp = vWorldPos.xz * vec2(2.2, 0.9);          // cells compressed in x → lozenge glints
+      gp.y -= time * 0.55;                              // drift down-lane, matches the water flow
+      float gk = hash(floor(gp));
+      float tw = 0.5 + 0.5 * sin(time * (1.8 + 4.5 * gk) + gk * 6.2831);   // per-glint twinkle
+      float g = step(0.985, gk) * tw * tw;             // tw² = sharp on-pulse, long dark gap
+      refl += uReflGlint * g * vec3(1.0, 0.80, 0.50) * 1.4 * (0.3 + 0.7 * fresnel);
+    }
     vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0) * (1.0 - 0.45 * uStormSea));
 
     // Golden sun streak: compress the normal's x so the highlight stretches
@@ -650,12 +693,15 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull }) {
   if (!water) return;
   const u = water.material.uniforms;
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical
+  u.uReflStretch.value = reflStretch || 0;   // Fable 85 reflection craft; 0 elsewhere → byte-identical mirror
+  u.uReflGlint.value = reflGlint || 0;
+  u.uReflGreenPull.value = reflGreenPull || 0;
   if (deep) u.deepColor.value.copy(deep);
   if (shallow) u.shallowColor.value.copy(shallow);
   if (sun) u.sunColor.value.copy(sun);
