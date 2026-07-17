@@ -133,6 +133,9 @@ const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
   : urlParams.has('ribcage') ? 'spine'
   : urlParams.has('flowrun') ? 'flow' : null;
 let previewLaunchPending = !!PREVIEW_CANYON;
+// Preview convenience: ?reward forces the returning-player idle-reward POP-IN (§2) over the
+// hub on boot, so it can be eyeballed on the PR preview without an aged save. No-op otherwise.
+const PREVIEW_REWARD = urlParams.has('reward');
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
 // Graphics effects: apply the player's saved Settings choices; a URL flag (?tm=,
@@ -893,6 +896,11 @@ let bootReward = null;      // WELCOME+HUB §2 — payload for the returning-pla
     bootHasNotice = true;
   }
   if (rows.length) bootReward = { rows, preTotal, finalTotal: saveData.embers };
+  if (!bootReward && PREVIEW_REWARD) {
+    const pre = saveData.embers;   // preview only — not persisted, resets on reload
+    bootReward = { rows: [{ label: 'Tailwind banked', amount: 100 }, { label: 'Gauntlet stake returned', amount: 250 }], preTotal: pre, finalTotal: pre + 350, sub: 'Welcome back, pilot.' };
+    bootHasNotice = true;   // route to the hub (not the splash) so the card can play
+  }
 }
 // Backfill any pilot-level titles already earned (retroactive — covers levels
 // reached before a title existed, or before the per-level grant ran).
