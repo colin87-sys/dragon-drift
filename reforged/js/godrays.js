@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { setWaterReflectionSuspended } from './water.js';
+import { CLOUD_HEAD, cloudUniforms } from './skyClouds.js';
 
 // Occlusion-masked god-rays (the "done right" version).
 //
@@ -25,6 +26,19 @@ let occRT = null, blackMat = null;
 //   (1) TENT 1.5  → (2) TENT 3.25  — two Kawase iterations → ~16 full-res texels of penumbra so no residual
 //       shaft edge survives as a countable line, judged at the owner's 1-stop-darker exposure.
 let blurRT = null, blur2RT = null, erodeMat = null, tentMat = null, blurScene = null, blurCam = null, blurMesh = null;
+// NEGATIVE-OF-THE-CLOUDS (owner direction): instead of softening a binary mask forever, CARVE the light
+// field itself with the cloud coverage. gapMat paints the mask BACKGROUND as `1 - uCarve*cloudCov(viewDir)`
+// — the sky's own gap-field — BEFORE the black occluders draw on top. The existing radial march then streams
+// shafts through the cloud GAPS and blocks them under cloud BODIES, so the shafts are curved, organic, and
+// uncountable (the deck is the modulation, not a sine). Same principle as the Godhead emergent-cross /
+// Embertide negative-relief: an emergent feature must be gated by the SAME field as the substance it emerges
+// from. Only active where clouds are visible (uCloudAmount>0); every other biome keeps the byte-identical
+// white-background path. Escape hatch: ?carve=0.
+let gapMat = null;
+let _carve = true;
+if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('carve') === '0') _carve = false;
+export function setGodRayCarve(on) { _carve = !!on; }
+const _cr = new THREE.Vector3(), _cu = new THREE.Vector3(), _cf = new THREE.Vector3();
 let _renderer = null, _scene = null, _camera = null, _sky = null;
 let _enabled = false;
 // N11 — mask render scale, now per-tier: tier0 keeps 0.5 (half-res, shipped), tier1
@@ -83,6 +97,38 @@ export function initGodRays(renderer, scene, camera, sky) {
       }`,
     depthTest: false, depthWrite: false,
   });
+  // GAP-FIELD — paints the light field as `1 - uCarve*cloudCov(viewDir)`. Reconstructs the world view dir
+  // per pixel from the camera basis (uCamRight/uCamUp/uCamFwd already fold tan(fov/2)·aspect), matching the
+  // sky dome's own `normalize(position)` dir so the carve registers with the visible clouds. Shares the cloud
+  // uniform OBJECTS by reference so amount/drift/warp/octaves/time stay in lockstep with the deck.
+  gapMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uCloudAmount: cloudUniforms.uCloudAmount,
+      uCloudDrift: cloudUniforms.uCloudDrift,
+      uCloudWindCrawl: cloudUniforms.uCloudWindCrawl,
+      uCloudOctaves: cloudUniforms.uCloudOctaves,
+      uCloudWarp: cloudUniforms.uCloudWarp,
+      uCloudTime: cloudUniforms.uCloudTime,
+      uCarve: { value: 0.85 },   // how deeply cloud bodies bite into the light field (1 = fully dark under core)
+      uCamRight: { value: new THREE.Vector3() },
+      uCamUp: { value: new THREE.Vector3() },
+      uCamFwd: { value: new THREE.Vector3() },
+    },
+    vertexShader: _vs,
+    fragmentShader: /* glsl */`
+      ${CLOUD_HEAD}
+      uniform vec3 uCamRight, uCamUp, uCamFwd;
+      uniform float uCloudTime, uCarve;
+      varying vec2 vUv;
+      void main() {
+        vec2 ndc = vUv * 2.0 - 1.0;
+        vec3 d = normalize(uCamFwd + ndc.x * uCamRight + ndc.y * uCamUp);
+        float h = clamp(d.y, 0.0, 1.0);
+        float cov = _cloudCov(d, h, uCloudTime);
+        gl_FragColor = vec4(vec3(1.0 - uCarve * cov), 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
   blurScene = new THREE.Scene();
   blurMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), erodeMat);
   blurScene.add(blurMesh);
@@ -134,11 +180,33 @@ export function renderGodRayMask() {
   // layer 1 don't punch flickery holes in the mask.
   if (_sky) _sky.visible = false;
   _scene.overrideMaterial = blackMat;
-  _scene.background = _white;
   _camera.layers.set(0);
   setWaterReflectionSuspended(true); // sea draws black; skip its mirror render
   r.setRenderTarget(occRT);
-  r.render(_scene, _camera);
+  const carving = _carve && gapMat && cloudUniforms.uCloudAmount.value > 0.0001;
+  if (carving) {
+    // TWO-RENDER carve: (1) paint the cloud gap-field as the light background via the ortho quad, then
+    // (2) draw the black occluders ON TOP without clearing color. The sky region is thus the cloud
+    // negative (bright gaps, dark cloud bodies) and geometry silhouettes still punch black.
+    const e = _camera.matrixWorld.elements;
+    const th = Math.tan((_camera.fov * 0.5) * Math.PI / 180.0);
+    _cr.set(e[0], e[1], e[2]).multiplyScalar(th * _camera.aspect);   // camera right · tan(fov/2)·aspect
+    _cu.set(e[4], e[5], e[6]).multiplyScalar(th);                    // camera up · tan(fov/2)
+    _cf.set(-e[8], -e[9], -e[10]);                                   // camera forward (−Z world axis)
+    gapMat.uniforms.uCamRight.value.copy(_cr);
+    gapMat.uniforms.uCamUp.value.copy(_cu);
+    gapMat.uniforms.uCamFwd.value.copy(_cf);
+    _scene.background = null;
+    blurMesh.material = gapMat;
+    r.render(blurScene, blurCam);        // fill occRT with the gap-field (no depth interaction)
+    const pAutoClearColor = r.autoClearColor;
+    r.autoClearColor = false;            // keep the gap-field; occluders overwrite black where drawn
+    r.render(_scene, _camera);           // depth still auto-clears → occluders self-sort correctly
+    r.autoClearColor = pAutoClearColor;
+  } else {
+    _scene.background = _white;
+    r.render(_scene, _camera);
+  }
   // SOFTEN the mask in-branch: erode (close leaks) → tent 1.5 → tent 3.25, ping-ponging blurRT/blur2RT.
   erodeMat.uniforms.tSrc.value = occRT.texture;   // (0) erode occRT → blur2RT
   blurMesh.material = erodeMat;
@@ -163,6 +231,7 @@ export function disposeGodRays() {
   if (blur2RT) { blur2RT.dispose(); blur2RT = null; }
   if (erodeMat) { erodeMat.dispose(); erodeMat = null; }
   if (tentMat) { tentMat.dispose(); tentMat = null; }
+  if (gapMat) { gapMat.dispose(); gapMat = null; }
   if (blackMat) { blackMat.dispose(); blackMat = null; }
   _enabled = false;
 }

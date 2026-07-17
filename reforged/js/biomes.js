@@ -355,8 +355,8 @@ export const BIOMES = [
     // pours through — so ramp the shared fan UP (0.05 → 0.42) and the bright almond interior (below)
     // auto-becomes the occlusion-mask source. v1 = a fixed prominent value (the progress-arc growth is a
     // follow-on). Byte-identical elsewhere (godrayMul only lerps at biome 7's seams).
-    godrayMul: 0.19,   // Fable R3 (device): the owner ruled the rays are ATMOSPHERE not statement (the breach disc carries the eye-catch) — go faint (floor ~0.16 before the tint dies)
-    godrayBreak: 0.32,   // dropped from 0.55 — less lobe structure; what modulation remains is a slow smooth drift, not countable bundles
+    godrayMul: 0.22,   // Fable R3 (device): the rays are ATMOSPHERE not statement. NEGATIVE-OF-CLOUDS: the carve breaks the shafts up (less continuous light), so a hair more base intensity keeps the crepuscular pour readable
+    godrayBreak: 0.0,   // NEGATIVE-OF-CLOUDS: the CLOUD DECK is now the shaft modulation (occlusion-mask carve), so kill the artificial sine bundles entirely — no double-modulation, no countable lobes
     godrayTint: C(0xffe6bd),   // paler, grey-broken storm-filtered sunlight (was saccharine amber 0xffd28a which pushed the wedges violet); the GOLD statement belongs to the sockets, not the sky
     // EYE-BREACH gate (the still axle): a fixed prominent 1.0 in Tempest, 0 elsewhere = byte-identical.
     // Drives env.breachMix → the sky-shader almond window + the water calm/gold patch. World-locked to
