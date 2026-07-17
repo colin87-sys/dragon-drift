@@ -179,7 +179,7 @@ export const cameraCtl = {
       let pushZ = 0;
       if (splashPushT > 0) {
         splashPushT = Math.max(0, splashPushT - dt);
-        pushZ = Math.sin((1 - splashPushT / SPLASH_PUSH_DUR) * Math.PI) * 0.85;
+        pushZ = Math.sin((1 - splashPushT / SPLASH_PUSH_DUR) * Math.PI) * 1.3;
       }
       camera.position.set(
         player.position.x + sx,

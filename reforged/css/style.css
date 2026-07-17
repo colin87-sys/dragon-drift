@@ -2702,10 +2702,10 @@ body.splash-open #hud { display: none; }
       transparent 0deg, rgba(255,206,120,0.26) 18deg, transparent 42deg,
       transparent 318deg, rgba(255,206,120,0.22) 342deg, transparent 360deg);
 }
-#splash.show .splash-godray { animation: splash-godray 1.6s var(--ease-out) 1.0s backwards; }
+#splash.show .splash-godray { animation: splash-godray 1.7s var(--ease-out) 1.05s backwards; }
 @keyframes splash-godray {
-  0%   { opacity: 0;    transform: scale(0.96); }
-  40%  { opacity: 0.44; }                          /* peak ∈ [0.32,0.50] */
+  0%   { opacity: 0;    transform: scale(0.90); }
+  26%  { opacity: 0.62; transform: scale(1.03); }  /* a sharp gold FLARE, co-timed with the dragon ignite */
   100% { opacity: 0.16; transform: scale(1.0); }   /* static rest ≤0.18 */
 }
 
@@ -2730,7 +2730,9 @@ body.splash-open #hud { display: none; }
   margin: 0; font-family: var(--font-display); font-weight: 400;
   /* WELCOME+HUB §1.2 — display tracking → --track-disp (0.16em); size is the sanctioned
      wordmark exception (kept). */
-  font-size: clamp(54px, 21vw, 116px); line-height: 0.9; letter-spacing: var(--track-disp);
+  /* vw trimmed 21→16.5 so the wider --track-disp (0.16em) tracking no longer clips "DRAGON"
+     at the left edge on narrow portrait phones (the display tracking law is held; size flexes). */
+  font-size: clamp(48px, 16.5vw, 112px); line-height: 0.9; letter-spacing: var(--track-disp);
   background:
     linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.85) 50%, transparent 62%),
     linear-gradient(180deg, #fff6dd, #ffd86a 55%, #ff9a3c);
