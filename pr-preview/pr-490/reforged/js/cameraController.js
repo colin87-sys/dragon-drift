@@ -42,6 +42,12 @@ const DEATH_DUR = 0.45;
 
 // Start-screen showcase orbit
 let showcaseAngle = 0;
+let swayT = 0;   // WELCOME+HUB §3.3 — clock for the bounded idle SWAY (replaces the 360° turntable)
+// Hub framing (WELCOME+HUB §3.1/§3.2): a composed near-portrait hero read of the dragon —
+// pulled back + a touch narrower than the old radius-10.5/fov-58 orbit so the wings never clip.
+const HUB_R = 13.0;      // orbit radius (was 10.5 — the crop was here)
+const HUB_FOV = 46;      // showcase FOV (was 58 — tighter hero read, still holds the ring-course fill)
+const HUB_SWAY = 0.24;   // ±~14° yaw sway (≤ ±15° ceiling, ≥ ±6° floor)
 // U12a — menu-as-camera-shot: the hub-orbit ↔ shop-static framing swap is a
 // short DOLLY (eased over ~--t-screen), never a hard cut. shopW blends the two
 // EXISTING framings; wasShowcase gates the ease to showcase↔showcase frames
@@ -206,19 +212,22 @@ export const cameraCtl = {
       const w = shopW;
       // The orbit slows to a stop as the shop framing takes over and resumes as
       // it releases — angle continuity, so neither edge of the ease can snap.
-      showcaseAngle += dt * 0.3 * (1 - w);
-      // Blend the two poses in WORLD space (orbit angles don't lerp cleanly).
+      // WELCOME+HUB §3.3 — BOUNDED idle sway instead of a full 360° turntable: the camera
+      // arcs within ±HUB_SWAY of dead-ahead (down the ring course), so it NEVER swings behind
+      // the dragon into empty sky. The sway freezes as the shop static framing takes over (×(1-w)).
+      swayT += dt * (1 - w);
+      showcaseAngle = HUB_SWAY * Math.sin(swayT * 0.098);                   // ±~14°, ~64s period
       const px = player.position.x, py = player.position.y, pz = player.position.z;
-      const hx = px + Math.sin(showcaseAngle) * 10.5;                       // hub orbit pose
-      const hy = py + 2.6 + Math.sin(showcaseAngle * 0.6) * 1.2;
-      const hz = pz + Math.cos(showcaseAngle) * 10.5;
-      const sx = px + Math.sin(0.32) * 12.5;                                // shop static pose (gentle 3/4)
+      const hx = px + Math.sin(showcaseAngle) * HUB_R;                      // hub hero pose (pulled back — no crop)
+      const hy = py + 2.6 + Math.sin(swayT * 0.062 + 1.0) * 0.9;            // gentle independent vertical float (liveliness)
+      const hz = pz + Math.cos(showcaseAngle) * HUB_R;
+      const sx = px + Math.sin(0.32) * 12.5;                                // shop static pose (gentle 3/4) — byte-identical
       const sy = py + 2.1;
       const sz = pz + Math.cos(0.32) * 12.5;
       const ox = hx + (sx - hx) * w;
       const oy = hy + (sy - hy) * w;
       const oz = hz + (sz - hz) * w;
-      let fovTarget = 58 + (55 - 58) * w;
+      let fovTarget = HUB_FOV + (55 - HUB_FOV) * w;                         // hub HUB_FOV → shop 55 (shop endpoint unchanged)
       if (introT > 0 && !shopMode) {
         // Glide in from a low/wide/far pose; the offset decays to nothing as the
         // orbit takes over. damp() keeps it buttery and frame-rate independent.
@@ -229,7 +238,7 @@ export const cameraCtl = {
         smoothPos.y = damp(smoothPos.y, oy - e * 3.0,  3.2, dt);
         smoothPos.z = damp(smoothPos.z, oz + e * 10.0, 3.2, dt);
         camera.position.copy(smoothPos);
-        fovTarget = 58 + e * 16;          // start wide (cinematic), narrow to 58
+        fovTarget = HUB_FOV + e * 28;     // start wide (cinematic ~74), narrow to the hub HUB_FOV
       } else {
         camera.position.set(ox, oy, oz);
         smoothPos.copy(camera.position);
