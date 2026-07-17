@@ -1364,7 +1364,9 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 .death-cause { color: #ff9a8a; font-size: 14px; letter-spacing: 3px; margin: -4px 0 10px; opacity: 0.9; }
 .newbest   { color: #ffd86a; font-size: 20px; letter-spacing: 4px; margin-bottom: 8px;
   text-shadow: 0 0 16px rgba(255,200,90,0.9); animation: pulse 1.2s ease-in-out infinite; }
-.challenge     { color: #ff9a5a; font-size: 16px; letter-spacing: 2px; margin: 6px 0 10px; }
+/* WELCOME+HUB §5.5 — the cheap tell fixed: token size + em tracking, calm ink (not gilded),
+   tabular so the score doesn't jitter. GOLD stays withheld; the record beat is .won (jade). */
+.challenge     { color: var(--rf-ink-2); font-size: var(--fs-body); letter-spacing: var(--track-body); font-variant-numeric: tabular-nums; margin: 6px 0 10px; }
 .challenge.won { color: var(--tone-jade-hi); text-shadow: 0 0 14px color-mix(in srgb, var(--tone-jade) 70%, transparent); }
 .sub.gap       { color: #ffd86a; }
 
@@ -2611,7 +2613,10 @@ body[data-qtier="2"] .speedlines { display: none; }
   background: rgba(40, 26, 18, 0.55); border: var(--panel-line);
   box-shadow: var(--panel-inner);
   transition: transform var(--t-micro) var(--ease-out), background var(--t-micro), border-color var(--t-micro); }
-.hero-rail-btn svg { width: 20px; height: 20px; color: #ffd9ac; }
+/* WELCOME+HUB §5.3 — rail icons resting in CALM ink (gold withheld to TAKE OFF + currency, ≤10%);
+   gold warms up only on hover/focus, so the standing hub holds the 60/30/10 accent budget. */
+.hero-rail-btn svg { width: 20px; height: 20px; color: var(--rf-ink-2); transition: color var(--t-micro); }
+.hero-rail-btn:hover svg, .hero-rail-btn:focus-visible svg { color: #ffd9ac; }
 .hero-rail-btn:hover { background: rgba(70, 44, 24, 0.7); border-color: var(--rf-stroke-hi);
   transform: translateY(-3px); }
 .hero-rail-btn:active { transform: scale(0.95); }
