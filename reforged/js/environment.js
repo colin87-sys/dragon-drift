@@ -758,7 +758,16 @@ const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevin
 // off-vision ("not what I had in mind at all"), so the new kit leads and the old two rosters are opt-in.
 // ?props=v2 restores the retired v2 kit, ?props=v1 the legacy Sanctuary/Wastes props (both for A/B only).
 const PROPS_V2 = _envParams.get('props') === 'v2';
-const lagoonV3 = (PROPS_V1 || PROPS_V2) ? [] : [0];  // v3 jungle-drowned-temple kit — DEFAULT (karstfang + roster as it lands)
+// THE DROWNED FORUM (DROWNED-FORUM-BUILD-SHEET.md) — the sunken-Pompeii Biome-0 revamp. Same A/B
+// idiom, one step further out: `?props=forum` swaps biome 0 to the NEW Roman kit (and the matching
+// gold-on-water atmosphere — biomes.js reads the same flag), while the shipped v3 jungle roster stays
+// DEFAULT until the PR-8 flip. `forumV1` is the forum kit's whitelist — EMPTY of archetypes in PR-1
+// (no forum props exist yet), so `?props=forum` renders biome 0 as pure water/sky/motes: exactly the
+// blank canvas the atmosphere blind-test wants (§5 PR-1). Forum archetypes append at the END of
+// ARCHETYPES with `biomes: forumV1` as each WAVE lands (PR-2 onward), keeping gold-determinism green.
+const PROPS_FORUM = _envParams.get('props') === 'forum';
+const lagoonV3 = (PROPS_V1 || PROPS_V2 || PROPS_FORUM) ? [] : [0];  // v3 jungle-drowned-temple kit — DEFAULT (karstfang + roster as it lands); parked under ?props=forum
+const forumV1 = PROPS_FORUM ? [0] : [];  // Drowned Forum kit — opt-in via ?props=forum (archetypes land PR-2 onward)
 const lagoonNew = PROPS_V2 ? [0] : [];   // retired v2 drowned-Greco ruins — opt-in via ?props=v2
 const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins — opt-in via ?props=v1
 
