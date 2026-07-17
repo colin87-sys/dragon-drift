@@ -46,8 +46,10 @@ for (const a of data) {
   let innerMin = Infinity, worstTop = 0, overheadBad = false;
   // Authored-orientation props (paired hero = sungate) always turn their small
   // gap-facing side (xMax) toward the lane, NOT the full random-rotY ρ. OVERHEAD roofs
-  // (drape) measure lane reach from the sub-unitY trunk band (rhoLane) only.
-  const facing = a.gate ? a.apertureHalf : a.paired ? a.xMax : (a.overhead ? a.rhoLane : a.rho);
+  // (drape) measure lane reach from the sub-unitY trunk band (rhoLane) only. OVERHEAD wins
+  // over PAIRED when both are set (stormarch is a paired arch WITH an overhead crown span):
+  // pairing only governs distance-alignment; the crown clearance is legitimately the trunk.
+  const facing = a.gate ? a.apertureHalf : a.overhead ? a.rhoLane : a.paired ? a.xMax : a.rho;
   for (const s of a.samples) {
     const top = s.h * a.yMax;
     // For an overhead roof, the geometry that can invade the flight band is the trunk,

@@ -2193,6 +2193,41 @@ const ARCHETYPES = {
     // a near-continuous ribbon; rotY random for variety. h 1.2–2.0 world (top well under laneMinY).
     place: (side, rnd) => { const r = 2.4 + rnd() * 1.6; return { x: side * (14.6 + rnd() * 1.2), h: 1.2 + rnd() * 0.8, r, tilt: 0, rotY: rnd() * Math.PI }; },
   },
+
+  // TEMPEST REACH — THE STORM ARCH (Fable R3 / owner ask): a wave-cut sea ARCH that RARELY frames the
+  // lane→eye axis — the Tsushima torii beat. Built on the sungate precedent: two piers (paired, mirrored to
+  // lean INTO the span) whose cantilevered crowns reach UP + toward centre and NEARLY meet high overhead —
+  // a BROKEN storm arch, never a closed lintel across the lane (the crowns meet ABOVE the flight band; the
+  // breach shows framed in the gap BELOW). BARE tempestStone, ZERO gold — the arch is the dark FRAME, the
+  // breach the bright PICTURE; they never compete. `overhead` exempts the high span from the lane rule
+  // (the player flies UNDER it). Rare (step 620) = an event. Registered LAST so no band's rnd stream shifts.
+  stormarch: {
+    step: 620, biomes: tempestNew, matIndex: 7, paired: true, deckSkim: 'park',
+    overhead: { unitY: 0.90, minWorldY: 21 },   // the crown span (above unit-y 0.90) is a canopy audited above world y 21 (clears the flight band); the piers below are the trunk, gate-safe at |x|~20. unitY·h_min = 0.90·26 = 23.4 ≥ 21.
+    build: () => {
+      const parts = [];
+      const K = 0.55;   // pier skew — leans the whole pier toward the gap (+x, mirrored inward by rotY)
+      // OUTER PIER — skewed storm strata, leaning into the span (the storm-carved language, not ice pylons).
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.46, 0.40, 0.56), { x: -0.30, y: 0.20, ry: 0.2 }), K) });
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.40, 0.40, 0.48), { x: -0.16, y: 0.56, ry: -0.15 }), K) });
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.32, 0.36, 0.42), { x: -0.02, y: 0.90, ry: 0.12 }), K) });
+      // CROWN ARM — cantilevers up + toward centre (+x), rising to a keystone that nearly meets its mirror
+      // high overhead; thick haunch → thin crown, plus one hanging broken voussoir so the opening is ragged.
+      // The crown arc rises from the pier top and reaches all the way to CENTRE, so the two mirrored arms
+      // MEET at the keystone → a closed arch overhead (not floating stubs). The arc only crosses into lane
+      // airspace at world y ≈ 36 (unit x 0.85·h), far above the flight ceiling — overhead-exempt.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.40, 0.50), { x: 0.32, y: 1.10, rz: -0.46 }) });   // haunch (thick, rising inward)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.60, 0.34, 0.42), { x: 0.82, y: 1.38, rz: -0.32 }) });   // lower arc — WIDE + overlapping its neighbours (a connected arch, not a bead chain)
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.30, 0.36), { x: 1.34, y: 1.58, rz: -0.16 }) });   // upper arc
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.54, 0.26, 0.32), { x: 1.86, y: 1.66, rz: 0.0 }) });     // KEYSTONE at centre — meets its mirror → the arch closes solid
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.16, 0.26, 0.22), { x: 1.20, y: 1.42, rz: 0.46 }) });    // hanging broken voussoir under the span (ragged opening)
+      return mergeTempestParts(parts);
+    },
+    // Piers gate-safe at |x| 21–24 (inner edge ≥ ~18, clear of the ±16 gate veil like sungate); tall
+    // (h 24–32) so the crown span meets ABOVE the flight band. The crown reaches unit x 1.18 → world
+    // |x| ~ 21 − 1.18·13 ≈ 6, so the two crowns nearly meet over the lane centre. rotY mirrors per bank.
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 2), h: 28 + rnd() * 6, r: 12 + rnd() * 1.5, tilt: 0, rotY: side > 0 ? Math.PI : 0 }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2240,6 +2275,7 @@ const FOAM_CFG = {
   stackgrave: { rx: 0.66, rz: 0.56 },   // broad low platform — wide near-round collar
   rainshaft: false,   // distant rain-smudge — a collar under it would be a bright artifact
   wrackline: { r: 1.35 },   // THE breakers — a wide bright foam ring IS this prop's job (marks the death line)
+  stormarch: { r: 0.7 },   // a wet-weld skirt at each pier foot (the arch grows from the heaving sea)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
