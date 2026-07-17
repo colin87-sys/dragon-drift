@@ -293,7 +293,7 @@ export const DRAGONS = {
       // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
       { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
-        bodyGirth: 0.6, bodyLength: 2.0,   // chubby river-pup — but already a long-ish koi so the fins read proportional
+        bodyGirth: 0.6, bodyLength: 1.6,   // chubby river-pup — but already a long-ish koi so the fins read proportional
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 2, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
@@ -308,7 +308,7 @@ export const DRAGONS = {
       // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
       { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
-        bodyGirth: 0.48, bodyLength: 2.6,   // lengthening river-serpent — long + slim so the web-fans sit proportional
+        bodyGirth: 0.48, bodyLength: 1.5,   // lengthening river-serpent — long + slim so the web-fans sit proportional
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 2, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
@@ -328,7 +328,7 @@ export const DRAGONS = {
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
       { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.74, eyeShape: 0.78,   // bigger jade koi head, BLUNT short muzzle (Fable gate r3: kill the crocodilian profile)
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.2, hornCount: 2,
-        bodyGirth: 0.46, bodyLength: 3.2,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube
+        bodyGirth: 0.46, bodyLength: 1.5,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 0,   // pearlStage 0: drop the chin pearl entirely — it read as a floating blob under the jaw and isn't a reference feature (Fable gate r2)
         bodyFins: 1.0, bodyFinCount: 6, caudalFork: 1.0, bodyReach: 14,    // full ROW of broad koi web-fans down a LONG serpent + the grand leaf-fork tail (IMG_7739)
