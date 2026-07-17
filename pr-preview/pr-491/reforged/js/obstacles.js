@@ -573,7 +573,11 @@ function buildForumMasonry(group, o, X, TOP) {
       const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW - mortar), bw = br - bl;
       if (bw <= 0.5) continue;
       const cx = (bl + br) / 2;
-      if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                          // the safe bay — leave clear
+      // Carve an ARCH-TOPPED opening: the rectangular safe bay PLUS a semicircle above it (radius gapW),
+      // so the masonry opening itself is arched (not a square hole) and the voussoir ring has a recess to
+      // frame. Collider stays the rectangle (the arched top is bonus clearance above the safe route).
+      if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                          // rectangular bay
+      if (cy > gT && Math.hypot(cx - o.gapX, cy - gT) < o.gapW + 0.2) continue;          // arched top
       // erode the crown CONTIGUOUSLY from the top edge in (probability grows with height) — no floating confetti
       const fromTop = (TOP - cy1) / courseH;                                             // 0 at the crown → grows down
       if (fromTop < 2.2 && rnd() < 0.5 - fromTop * 0.22) continue;
@@ -585,24 +589,27 @@ function buildForumMasonry(group, o, X, TOP) {
       blocks.push(g);
     }
   }
-  // VOUSSOIRS — a real semicircular ring of wedge blocks springing from the bay's TOP CORNERS (Rin=gapW),
-  // radiating outward (2× course height), ALTERNATING value so the ring reads as an arch; the magenta
-  // keystone is seated at the apex (th=π/2), not orphaned on the crown (Fable 3.7 miss).
-  const Rin = o.gapW, rMid = Rin + 1.7, nV = 9;
-  for (let k = 0; k < nV; k++) {
-    if (k === (nV - 1) / 2) continue;                       // leave the apex slot for the keystone
-    const th = Math.PI * (k + 0.5) / nV;
-    const g = new THREE.BoxGeometry(2.3, 3.3, 3.2).toNonIndexed();
-    g.rotateZ(th - Math.PI / 2);                            // long axis points radially (a voussoir)
-    g.translate(o.gapX + Math.cos(th) * rMid, gT + Math.sin(th) * rMid, 0.4);
-    bakeFlatColor(g, (k % 2) ? _FGT_VALS[5] : _FGT_VALS[2]);
-    blocks.push(g);
-  }
   const merged = mergeGeometries(blocks, false);
   blocks.forEach((b) => b.dispose());
   group.add(new THREE.Mesh(merged, forumGateMats.stone));
-  const key = new THREE.Mesh(new THREE.BoxGeometry(2.3, 3.6, 3.5), forumGateMats.toll);
-  key.position.set(o.gapX, gT + rMid, 0.55);               // seated at the voussoir apex above the bay
+  // VOUSSOIRS — the ring reads in GEOMETRY, not value (value dies backlit, Fable 3.8): wedge blocks framing
+  // the arched opening, extruded PROUD of the wall (z ≈ +1.4 in front) so the ring survives as relief even
+  // when the whole gate silhouettes against the sun. Springs from the bay's top corners (Rin=gapW). Its own
+  // proud mesh (in front of the merged wall). The magenta keystone plugs the apex, touching the arch.
+  const Rin = o.gapW, rMid = Rin + 1.3, nV = 9, vgeo = [];
+  for (let k = 0; k < nV; k++) {
+    if (k === (nV - 1) / 2) continue;                       // apex slot → the keystone
+    const th = Math.PI * (k + 0.5) / nV;
+    const g = new THREE.BoxGeometry(2.5, 3.8, 3.6).toNonIndexed();
+    g.rotateZ(th - Math.PI / 2);                            // long axis radial (a voussoir wedge)
+    g.translate(o.gapX + Math.cos(th) * rMid, gT + Math.sin(th) * rMid, 1.5);   // PROUD of the wall face
+    bakeFlatColor(g, (k % 2) ? _FGT_VALS[5] : _FGT_VALS[2]);
+    vgeo.push(g);
+  }
+  group.add(new THREE.Mesh(mergeGeometries(vgeo, false), forumGateMats.stone));
+  vgeo.forEach((b) => b.dispose());
+  const key = new THREE.Mesh(new THREE.BoxGeometry(2.6, 4.0, 4.0), forumGateMats.toll);
+  key.position.set(o.gapX, gT + rMid, 1.7);                // plugs the ring apex, proud, touching the arch
   group.add(key);
   group.userData.tollKey = key;
 }
