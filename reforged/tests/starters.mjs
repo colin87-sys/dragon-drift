@@ -321,6 +321,39 @@ for (const [key, spec] of Object.entries(SPECS)) {
     ok(sL >= 0.24 && sL <= 0.55, `${key}: apex body is VIVID mid-value jade, not near-black moss (sRGB L ${sL.toFixed(2)} in [0.24,0.55])`);
     ok(hueDist(sH, 150) <= 25, `${key}: apex body hue is GREEN (${sH.toFixed(0)}° within ±25° of 150°)`);
   }
+  if (key === 'jade') {
+    // ── AAA v2 ladder (§8.10): the BLOSSOMING verb — every rung a cruise-visible category add ──
+    const cr = per.map((p) => p.m.crestRibbon ?? 0);
+    ok(cr[0] < cr[1] && cr[1] < cr[2], `${key}: crestRibbon monotonic ↑ (${cr.join('→')})`);
+    const cbl = per.map((p) => p.m.caudalBloom ?? 0);
+    ok(cbl[0] === 0 && cbl[0] < cbl[1] && cbl[1] < cbl[2], `${key}: caudalBloom {0,…} monotonic ↑ (${cbl.join('→')})`);
+    const lb = per.map((p) => p.m.lobeBreath ?? 0);
+    ok(lb[0] <= lb[1] && lb[1] < lb[2], `${key}: lobeBreath monotonic ↑ (${lb.join('→')})`);
+    const arc = per.map((p) => p.m.bodyArcY ?? 0.14);
+    ok(arc[0] < arc[1] && arc[1] < arc[2], `${key}: bodyArcY (vertical swim share) monotonic ↑ (${arc.join('→')})`);
+    const ampY = per.map((p) => p.m.bodyWaveAmpY ?? 0.16);
+    ok(ampY[0] <= ampY[1] && ampY[1] < ampY[2], `${key}: bodyWaveAmpY monotonic ↑ (${ampY.join('→')})`);
+    // pearl-chain: apex is the 5-link coronation (pearl + dew + satellite + lyre + streamer);
+    // the count rises monotonically (the bead's own mat is unpublished below stage 2 — shipped,
+    // so f0/f1 publish 0 tickable chain mats).
+    const link = per.map((p) => (p.parts.pearlMat ? 1 : 0) + (p.parts.tipGemMat ? 1 : 0) + (p.parts.pearlChainMats?.length ?? 0));
+    ok(link[0] <= link[1] && link[1] < link[2] && link[2] === 5, `${key}: pearl-chain links ↑ to the 5-link apex coronation (${link.join('→')})`);
+    // lyre gems ride the wave (waveRiders §4.5) at apex ONLY — the detach-safe seating.
+    ok((per[2].parts.waveRiders?.length ?? 0) === 2 && (per[0].parts.waveRiders?.length ?? 0) === 0,
+      `${key}: lyre gems = 2 waveRiders at apex, none at f0`);
+    // fever fields (§4.4) — jade is a cool dragon; the default fever palette is magenta.
+    ok(DRAGONS[key].feverEye != null, `${key}: feverEye set (the REAL magenta-leak fix)`);
+    ok(DRAGONS[key].feverWing != null, `${key}: feverWing set (inert hygiene, documented)`);
+    ok(Array.isArray(DRAGONS[key].feverWash), `${key}: feverWash set`);
+    // B3: every apex spineMat carries the userData stamps (else the reset loop → white @1.0).
+    const sm = buildDragonModel(per[2].def, {}).materials.spineMats;
+    let unstamped = 0; for (const mm of sm) if (mm.userData.baseEmissive == null || mm.userData.baseIntensity == null) unstamped++;
+    ok(unstamped === 0, `${key}: all ${sm.length} apex spineMats userData-stamped (B3)`);
+    // B1: the pearl-chain plumbing is forwarded through the PREVIEW return too (the missed drop).
+    const pv = buildDragonModel(per[2].def, { preview: true }).parts;
+    ok(pv.pearlChainMats?.length === 3 && pv.waveRiders?.length === 2 && !!pv.pearlMat && !!pv.tipGemMat,
+      `${key}: pearl-chain forwarded through BOTH orchestrator returns (B1)`);
+  }
 }
 
 // ── SOLAR SOVEREIGN (SSSR premium, 4 forms) — the CP2 "withheld-regalia" coronation ladder ───────
