@@ -4,14 +4,14 @@ import { CONFIG } from './config.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { biomeIndexAt, computeEnv } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
-import { setWaterTint } from './water.js';
+import { setWaterTint, setMireWaterPools } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
 import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
-import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
+import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, chainBeforeCompile } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
 import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
@@ -64,6 +64,12 @@ let sceneRef = null;
 let rnd = null;
 let bands = [];
 let feverMix = 0;
+// Fable A1 ROOF-FROM-ABOVE altitude gate (camera y): the canopy shelf + high-mote treatment resolve over the
+// top ~2.5m of the climb. Exported so ambient.js uses the SAME window (the two files can't drift).
+export const ROOF_ALT_LO = 23.5, ROOF_ALT_HI = 26.0;
+const ROOF_Y = 10.0;
+let roof = null;
+const roofUniforms = { time: { value: 0 }, uRoofGate: { value: 0 } };
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
 let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
 // ARENA (PR-A): while THE UNMASKED's void owns the sky, the biome PROP bands (monoliths etc.) must go
@@ -276,6 +282,23 @@ function makeMats() {
     ...opts, color: 0x241b10, vertexColors: true, roughness: 0.7, metalness: 0.05,
     emissive: 0x2a1c0e, emissiveIntensity: 0.5,
   }), true);
+  // Fable 98 GLOW-DRINK (mechanism C emissive fallback): a near-black base can't multiply up under the
+  // 0.2 sun, so the per-instance near-glow weight drives EMISSIVE (light-independent) instead — a warm add
+  // that lands the mid-scene trunks near a glow at step-4 while far/parked trunks (aGlowLift 0) stay black.
+  // Per-instance `aGlowLift` attribute (written in writeMatrix); ONLY the 3 mireVeil families carry it, so
+  // this material never shares a program with the other ladder mats (unique cache key below). aGlowLift 0
+  // ⇒ +0 ⇒ the ladder look is unchanged where no glow is near.
+  chainBeforeCompile(mats.mireVeil, (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'attribute float aGlowLift;\nvarying float vGlowLift;\nvoid main() {')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlowLift = aGlowLift;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'varying float vGlowLift;\nvoid main() {')
+      // AFTER all of addPropDetail's emissive modulations (noise ×, ladder ×vColor, aerial +) — anchoring on
+      // emissivemap_fragment would put the drink BEFORE the ×vColor ladder and a dark trunk would kill it.
+      .replace('#include <opaque_fragment>', '  totalEmissiveRadiance += vec3(0.227, 0.200, 0.141) * vGlowLift;\n#include <opaque_fragment>');
+  });
+  mats.mireVeil.customProgramCacheKey = () => 'mireVeilDrink';   // own bucket — never alias another ladder mat's program (which lacks aGlowLift)
   // THE LOST LAGOON new-kit materials (LOST-LAGOON-BIBLE.md §3) — its OWN palette, distinct from
   // Frozen ice and Caldera basalt. The stone reads via the position-keyed TIDE ladder (color white so
   // the baked vColor stops show through: bleached bone-amber crown / jade life-band at the waterline /
@@ -607,6 +630,64 @@ function bakeBloom(geo, upThresh = 0.2) {
   return geo;
 }
 
+// THE DROWNED FORUM re-stopped tide ladder (DROWNED-FORUM-BUILD-SHEET §2A) — the SAME position-keyed
+// 3-stop engine as bakeTideLadder, re-stopped OFF the jade jungle onto sunken-Roman travertine so the
+// forum stone reads as a different geology in the SAME material/draw group (the bake:'forum' tag): a
+// sun-bleached travertine crown / a NARROW hard-edged algae-crust tide line (browner, never leafy) /
+// a drowned slate-teal base (one of the palette's three cool anchors). Its own stops — never the jade
+// _LAG_ hues (the green purge, §11.5; the symmetric mechanical grep keeps the kits leak-free). Zero tri
+// cost. waterY lifted to 0.16 so the arch feet drown; the tilt (bradyseism) then crosses the band at an angle.
+const _FRM_TRAV = [0.918, 0.875, 0.784];  // 0xeadfc8 sun-bleached travertine crown (never whiter — HOLLOWGATE stays palest)
+const _FRM_ALGAE = [0.263, 0.310, 0.227]; // 0x434f3a browner algae-crust tide line (NOT leafy green)
+const _FRM_DROWN = [0.078, 0.200, 0.231]; // 0x14333b wet slate-teal drowned base (the cool anchor)
+function bakeForumLadder(geo, waterY = 0.16, bandH = 0.06) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const s = [0, 0, 0];
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    if (yc > waterY + bandH) {
+      // BLEACH crown — value structure (core→bloom→dark): brighten toward a sunlit top + an undercut
+      // self-shadow on down-faces (arch soffit / cornice belly), so a pier reads dark-tide → bright crown.
+      const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);
+      ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+      e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+      const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 up/side → 1 straight-down overhang (soffit)
+      const uf = 1 - 0.5 * u;
+      s[0] = _FRM_TRAV[0] * (1 + 0.06 * t) * uf; s[1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; s[2] = _FRM_TRAV[2] * (1 + 0.03 * t) * uf;
+    } else if (yc < waterY) {
+      const t = Math.min(1, (waterY - yc) / 0.4);
+      const f = 1 - 0.30 * t;
+      s[0] = _FRM_DROWN[0] * f; s[1] = _FRM_DROWN[1] * f; s[2] = _FRM_DROWN[2] * f;
+    } else {
+      s[0] = _FRM_ALGAE[0]; s[1] = _FRM_ALGAE[1]; s[2] = _FRM_ALGAE[2];   // NARROW hard-edged band (bandH 0.06, flat)
+    }
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+// PROTECTED-recess Pompeian-red fresco (§2B) — bake:'fresco'. Normal-keyed 2-zone like the bloom bake:
+// a weathered lit edge on up/out faces → deep wine-red in the recess, so a niche reads as painted plaster
+// with value, not a flat red decal. Deliberately OFF the magenta danger lane (bulletcontrast law).
+// Small in area — only inside a roof-sheltered pier niche (§4), never an outer panel.
+const _FRM_FRESCO = [0.620, 0.169, 0.145];   // 0x9e2b25 Pompeian red (the protected recess)
+const _FRM_FRESCO_E = [0.651, 0.278, 0.227]; // 0xa6473a weathered lit edge
+function bakeFresco(geo, upThresh = 0.3) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const s = nr.y > upThresh ? _FRM_FRESCO_E : _FRM_FRESCO;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
 // Merge a Lost Lagoon new-kit archetype: NON-INDEXED parts → ≤2 material groups → bake the tide
 // ladder → bake AO. Primary group = lagoonStone (reads vColor); accent group = gilt (vertexColors
 // off, ignores the bake on the shared geometry). opts.foil → the no-ladder no-glow lagoonFoil mass
@@ -619,11 +700,13 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], forumB = [], frescoB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
+    else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
+    else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
     else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
     else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
@@ -642,6 +725,8 @@ function mergeLagoonParts(parts, opts = {}) {
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
+  if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g); stone.push(g); }
+  if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   const geos = [], mats = [];
   if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
   if (accent.length) {
@@ -1724,7 +1809,7 @@ const ARCHETYPES = {
   // severs so it floats on fog. Mass in the upper y-band; crops the horizon under the amber
   // haze. 2 pinprick beacons recessed under lobe overhangs (the under-brim address at a mile).
   canopywall: {
-    step: 83, biomes: mireNew, matIndex: 4,
+    step: 83, biomes: mireNew, matIndex: 4, nearGlowLift: true,   // Fable 96-C: drinks nearby glow
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.16, 0.5, 5).toNonIndexed(), { y: 0.25 }) });
@@ -1753,7 +1838,7 @@ const ARCHETYPES = {
   // cones — the sanctioned "sparse feathered reeds" exception to no-sharp-verticals) at
   // varied heights + 1 leaning bare snag. Sweeps past fast; sells speed. All near-black.
   reedveil: {
-    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror
+    step: 23, biomes: mireNew, matIndex: 4, gateClear: 34, treeClear: 34, nearGlowLift: true,   // park ALL (x 22–34) in a gate corridor (both flanks) or a tree corridor (parity flank) — reeds+reflections break the mirror; Fable 96-C drinks nearby glow
     build: () => {
       const parts = [];
       const tufts = [
@@ -1777,7 +1862,7 @@ const ARCHETYPES = {
   // knuckled — never straight cylinders) sharing one blobby crown mass at the top third.
   // The mid-ground black shape the drape fringe + future glow-carriers read AGAINST.
   boleveil: {
-    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep)
+    step: 41, biomes: mireNew, matIndex: 4, gateClear: 48, treeClear: 58, nearGlowLift: true,   // gate corridor: park inner half (x<48, both flanks, outer stay as framing). tree corridor: park ALL on the parity flank (x<58 — the tree stands inside the bole band, no outer half to keep); Fable 96-C drinks nearby glow
     build: () => {
       const parts = [];
       const boles = [
@@ -1808,7 +1893,7 @@ const ARCHETYPES = {
   // laneMaxY 22 + camera) — so the roof paints the top of frame without ever blocking the lane.
   // Dark foil (moss DARK); the glowing air is the PR-1 mote system drifting under the fringe.
   drape: {
-    step: 19, biomes: mireNew, matIndex: 4,
+    step: 19, biomes: mireNew, matIndex: 4, nearGlowLift: true,   // Fable 96-C: drinks nearby glow
     overhead: { unitY: 0.66, minWorldY: 28 },
     build: () => {
       const parts = [];
@@ -2497,6 +2582,67 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // ═══ THE DROWNED FORUM — WAVE A ═══════════════════════════════════════════════════════════════════
+  // triumphgate — TRIUMPHAL ARCH (DROWNED-FORUM-BUILD-SHEET §3 #1). The HERO / identity-prover: a chunky
+  // Roman block WIDER than tall (~1.15:1 world), a semicircular hole low-centre, a SOLID attic cap-block on
+  // top with an inscription band, and a coffered TUNNEL through it (0.40-deep piers/attic → a real tunnel,
+  // never a flat cut). The ONE tell (name test, black-on-gold): pier + round arch + attic mass. Cheap-tells
+  // killed: pier ≈0.75× span (≥¾, no croquet-hoop, §11.1); attic mass always present; the arch springs at
+  // 50% H with a raised keystone; one attic shoulder broken (nothing plumb/whole, §11.3). Bakes: the
+  // re-stopped forum tide ladder (travertine crown / narrow algae line / drowned slate — waterY 0.16 so the
+  // feet drown and the bradyseism tilt crosses the band at an angle); GILT ONLY in the recessed soffit
+  // coffer (the aperture address, §2C ≤4/13); Pompeian-red fresco in ONE protected pier niche. Engaged
+  // columns are deferred to a revise round if the studio read needs them (silhouette economics — the name
+  // test holds on the arch+attic mass). ≤150 tris, 2 material groups (forum stone + gilt).
+  triumphgate: {
+    step: 149, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.05, sMin: 0.95, sMax: 1.15 }, // rare HERO scatter off-lane in the shallows; only in congregation peaks, parks the arrival seam
+    build: () => {
+      const parts = [];
+      const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine tide ladder
+      // PIERS — two chunky blocks, full height to the cornice line (y0.70), 0.40 deep (the tunnel depth).
+      // Span (hole) = 0.40 (x ±0.20); pier width 0.30 → pier/span = 0.75 (§11.1 no croquet-hoop).
+      S(xform(new THREE.BoxGeometry(0.30, 0.70, 0.40), { x: -0.35, y: 0.35 }));   // left pier (12)
+      S(xform(new THREE.BoxGeometry(0.30, 0.70, 0.40), { x: 0.35, y: 0.35 }));    // right pier (12)
+      // IMPOST SPRINGERS — a projecting horizontal ledge on each pier at the arch springing (y0.465), where
+      // the arch's weight lands on the pier. The classic triumphal-arch tell that reads as MASONRY, not a
+      // spike: Stage-2 r3 showed proud vertical pilasters foreshorten into dark fins from a ¾ vantage; a
+      // horizontal impost never does, and it frames the bay + articulates the otherwise-blank pier. (24)
+      S(xform(new THREE.BoxGeometry(0.34, 0.05, 0.44), { x: -0.35, y: 0.465 }));   // left impost (12)
+      S(xform(new THREE.BoxGeometry(0.34, 0.05, 0.44), { x: 0.35, y: 0.465 }));    // right impost (12)
+      // FRONT ARCH RING — a half-torus of chunky voussoirs springing at y0.48, apex y0.68 (arc 0→π = the top
+      // half). tube 0.05 → the ring outer laps onto the pier imposts (the arch springs from the piers). (36)
+      S(xform(new THREE.TorusGeometry(0.20, 0.05, 3, 6, Math.PI), { y: 0.48, z: 0.15 }));
+      // SOFFIT — a clean coffered ceiling capping the bay at the arch apex (y0.68). Stage-2 showed the open
+      // top let the eye see up into the cornice/attic stack = a jumble; this closes the tunnel into a clean
+      // arched passage. Its underside IS the coffered soffit; the gilt coffer recesses into it. (12)
+      S(xform(new THREE.BoxGeometry(0.44, 0.04, 0.44), { y: 0.685 }));
+      // GILT SOFFIT COFFER — the withheld gold, ONLY in a recessed square in the soffit (the aperture
+      // address / the one distant light; §2C ≤4/13 archetypes carry glow). mat 1 = gilt. (12)
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.16, 0.03, 0.16), { y: 0.66 }) });
+      // CORNICE — the projecting entablature ledge running the FULL width above the arch (the single
+      // strongest "Roman" horizontal tell): it separates the arch level from the attic. Proud front & back. (12)
+      S(xform(new THREE.BoxGeometry(1.02, 0.05, 0.44), { y: 0.725 }));
+      // ATTIC CAP — the solid crowning block (0.30 of H, §110). SHIFTED −x + a lower broken step on +x = one
+      // shoulder sheared away (§11.3 asymmetry; nothing whole, every pediment loses a corner). (24)
+      S(xform(new THREE.BoxGeometry(0.78, 0.30, 0.40), { x: -0.06, y: 0.90 }));   // attic main (12)
+      S(xform(new THREE.BoxGeometry(0.18, 0.16, 0.40), { x: 0.40, y: 0.83 }));    // broken shoulder remnant, lower (12)
+      return mergeLagoonParts(parts);   // → 144 tris, 2 groups (forum stone + gilt)
+    },
+    // HERO scale, WIDER than tall (~1.15:1 world = r:h). The opening (world ~0.40·r wide × 0.48·h tall) stays
+    // flyable with margin. Explicit bradyseism tilt (§1 — the sea crept in; a level waterline is a bug). Draw
+    // r first, couple x so even the biggest inner edge clears the ±16 gate veil. rotY PINNED side-based (the
+    // pier pilasters + gilt soffit are on the object +z face) so the money face always turns to the lane and
+    // doubles in the mirror; a landmark scatter sits far off-lane so the player passes it, never through it.
+    place: (side, rnd) => {
+      const h = 17 + rnd() * 6;
+      const r = h * 1.15 + rnd() * 3;
+      const p = { x: side * (18 + 0.95 * r + rnd() * 7), h, r, tilt: side * (0.05 + rnd() * 0.045) };
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.18 - 0.09);   // decorated +z face turns lane-ward (± a breath)
+      if (HERO_SET.has('triumphgate')) { p.rotY = 0; p.tilt = side * 0.06; }   // debug: pin the money face + a fixed lean down-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2543,6 +2689,7 @@ const FOAM_CFG = {
   // parked forms carry inert rows until their stage activates + tunes them.
   glowarch: { rx: 0.66, rz: 0.16 }, glowspire: { r: 0.2 }, // arch elliptical collar; spire spar-only collar
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
+  triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
@@ -2759,6 +2906,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       sunDir: { value: new THREE.Vector3(-0.22, 0.1, -1).normalize() },
       feverMix: { value: 0 },
       feverWarm: { value: 0 },   // 0 = magenta Surge palette; 1 = FIERY (fire dragons) → the rebirth sky/aurora go warm ember instead of magenta
+      uSurgeWarm: { value: 0 },  // Fable 94: PER-BIOME ember-Surge override (0 = magenta as shipped). The Mire reserves magenta for DANGER telegraphs, so its Surge flares the horizon EMBER (skin-agnostic) AND zeroes the magenta sky-curtain (Canopy Law). 0 in every other biome → byte-identical.
       dimMix: { value: 0 },
       starMix: { value: 0 },
       // Per-biome DECK BIAS (Tempest): 0 = shipped gradient (byte-identical). >0 pulls the
@@ -2801,6 +2949,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
+      uniform float uSurgeWarm;   // Fable 94: per-biome ember-Surge override (0 = magenta shipped)
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform vec2 uStormFlashDir;
@@ -2812,9 +2961,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
-        // Dragon Surge palette shift: magenta by default, or FIERY ember for fire dragons (feverWarm)
-        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), feverWarm);
-        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), feverWarm);
+        // Dragon Surge palette shift: magenta by default, FIERY ember for fire dragons (feverWarm) OR any
+        // biome that forces ember Surge (uSurgeWarm — the Mire, so magenta stays exclusive to danger).
+        float _fw = max(feverWarm, uSurgeWarm);
+        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), _fw);
+        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), _fw);
         // × (1 - uAuroraMix): the SURGE also shifts the whole sky GRADIENT toward magenta — the second
         // (bigger) half of the aurora-biome "color explosion". Suppress it too so the night sky + curtain
         // stay the spectacle during a boost (0 in every other biome → byte-identical).
@@ -2938,7 +3089,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // × (1 - uAuroraMix): in Aurora Shallows the CURTAIN is the sky spectacle — the magenta SURGE wash
         // on top of it is the "color explosion" the owner kept seeing (it is NOT the aurora eruption, which
         // is why cutting the eruption never fixed it). Suppress it here like the night-surge veil below.
-        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix);
+        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix) * (1.0 - uSurgeWarm);   // Fable 94: the Mire (uSurgeWarm 1) ZEROES the magenta Surge sky-curtain — a curtain is a sky-spectacle object, forbidden by the Canopy Law; the ember gradient carries the Surge read on its own
         // Starfield (night biomes): hashed cells in the upper dome, gently
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);
@@ -2981,6 +3132,65 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.add(hemi);
   initSkyProbe(scene, hemi); // N5 sky-IBL probe (dormant until enabled)
 
+  // GLOW-SPILL lights (Fable 96-A): the Mire's 2 hero-cluster spill PointLights, created ONCE at boot
+  // (fixed pool → NUM_POINT_LIGHTS compiles once, never mid-run) and parked at y −50 intensity 0 until
+  // updateMireSpill positions them in the Mire. Warm, budgeted; +2 light-loop slots (with the drake's, 3).
+  if (!mireSpillA0) {
+    mireSpillA0 = new THREE.PointLight(0xffa245, 0, 34, 2); mireSpillA0.position.set(0, -50, 0); // arch gate
+    mireSpillA1 = new THREE.PointLight(0xffb057, 0, 26, 2); mireSpillA1.position.set(0, -50, 0); // spire beacon
+  }
+  scene.add(mireSpillA0, mireSpillA1);
+
+  // Fable A1 ROOF-FROM-ABOVE: one camera-following horizontal shader quad at y10 — the mire's canopy seen
+  // from ABOVE (crown-dark cells + amber glow WELLING UP through the gap channels), with a lane corridor
+  // aperture so nothing occludes gameplay + the real under-canopy shows straight down. visible=false at
+  // cruise → zero draws → byte-identical. 900² so its fog-melted rim never reaches frame. NOT the drape
+  // (that stays the cruise ceiling); this is the main crown shelf BELOW the high lane.
+  if (!roof) {
+    const roofMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, depthTest: true, fog: true,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, roofUniforms]),
+      vertexShader: /* glsl */`
+        #include <fog_pars_vertex>
+        varying vec3 vWPos;
+        void main() {
+          vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */`
+        #include <fog_pars_fragment>
+        uniform float time, uRoofGate;
+        varying vec3 vWPos;
+        float _rhash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float _rvn(vec2 x){ vec2 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(_rhash(i), _rhash(i + vec2(1,0)), f.x), mix(_rhash(i + vec2(0,1)), _rhash(i + vec2(1,1)), f.x), f.y); }
+        void main() {
+          float n = _rvn(vWPos.xz * 0.042) * 0.65 + _rvn(vWPos.xz * 0.113) * 0.35;   // crown blobs ~24m
+          float g = smoothstep(0.52, 0.30, n);        // gap bloom (0 at crown edge → 1 mid-gap)
+          float core = smoothstep(0.30, 0.16, n);     // gap CORE (deepest holes glow hottest)
+          vec2 cell = floor(vWPos.xz * 0.042);
+          float ph = _rhash(cell) * 6.2832;
+          float breath = (0.88 + 0.12 * sin(time * 0.86 + ph)) * (0.94 + 0.06 * sin(time * 0.53 + ph * 2.7)); // desynced, irrational ratio
+          vec3 col = mix(vec3(0.070, 0.051, 0.024), vec3(0.141, 0.106, 0.063), _rvn(vWPos.xz * 0.31));  // crown tops #120d06→#241b10 (dead matter, never lit)
+          col = mix(col, vec3(0.969, 0.604, 0.180), g * breath * 0.85);          // #f79a2e living-amber gap bloom
+          col = mix(vec3(0.478, 0.259, 0.063), col, smoothstep(0.0, 0.25, g));   // decay rim toward #7a4210 at the gap edge — no hard lit onion-ring
+          col += vec3(1.0, 0.816, 0.439) * core * breath;                        // #ffd070 hot gap core (never white — the arch keeps the white-point)
+          float corridor = smoothstep(10.0, 26.0, abs(vWPos.x));                 // open over the lane, closed by |x|=26 — gameplay + the straight-down money shot
+          float a = uRoofGate * corridor * (n > 0.52 ? 0.90 : 0.78 + 0.10 * g);  // dense canopy, not a haze sheet
+          gl_FragColor = vec4(col, a);
+          #include <fog_fragment>
+        }`,
+    });
+    roof = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), roofMat);
+    roof.rotation.x = -Math.PI / 2;
+    roof.frustumCulled = false;
+    roof.renderOrder = -1;   // first transparent (after opaques) so the z-buffer sorts shelf-over-mirror; motes draw after
+    roof.visible = false;
+  }
+  scene.add(roof);
+
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
   for (const key of Object.keys(ARCHETYPES)) {
@@ -3016,6 +3226,9 @@ function makeBand(scene, def) {
   if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
+  // Fable 98 glow-drink: per-instance near-glow weight (mireVeil families read it for the emissive lift;
+  // reedveil carries it unused). Default 0 ⇒ +0 emissive ⇒ ladder look unchanged where no glow is near.
+  if (def.nearGlowLift) mesh.geometry.setAttribute('aGlowLift', new THREE.InstancedBufferAttribute(new Float32Array(perSide * 2), 1));
   // N10c: sibling foam mesh, same instance count — written at the same index in
   // writeMatrix so it recycles + parks in lockstep with the props.
   const foam = makeFoamMesh(perSide * 2);
@@ -3181,6 +3394,101 @@ function nearArchGate(dist) {
   const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
   const peakEase = pLocal >= 1050 && pLocal <= 1350;
   return localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < 0.5);
+}
+
+// GLOW-SPILL near-glow value lift (Fable 96 mechanism C) — the mid-scene fix: a dark prop within a glow
+// cluster's reach DRINKS its light (lands at value-ladder step-4), a prop far from any glow stays step-6
+// black. Per-instance instanceColor MULTIPLIER, computed PURELY at placement (heroHash/mireComp only, no
+// rnd) → gold-determinism byte-identical; w=0 ⇒ WHITE identity ⇒ far/parked/other-biome instances untouched.
+// "Matter drinks light" made visible. Applied to the 4 dark Mire families (nearGlowLift), never the glows.
+const MIRE_LIFT = new THREE.Color(4.0, 3.3, 1.9);   // Fable 98 revise: ceiling ratio (warm R>G>B, blue held low) — a near-black base can only multiply so far; the spill LIGHTS carry the near-field
+const MIRE_SPIRE_X = 40;                              // representative glowspire flank x (place x ≈ 34–47); the falloff is soft so the mean suffices
+const _liftC = new THREE.Color();
+function _glowFalloff(d, dFull, dZero) { return Math.max(0, Math.min(1, (dZero - d) / (dZero - dFull))); }
+// PURE 0..1 near-glow weight for a dark prop at (x, dist, side): arch gate (kept peaks, x0), spire beacon
+// (kept troughs, parity flank), and the shroom/bloom chorus congregations (easement-zeroed). Same hashes the
+// gate/clearing/beacon already agree on, so the lift can never imply light where no organism was seated.
+function mireNearGlowW(x, dist, side) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;   // 300
+  let w = 0;
+  const pa = mireHeroClearPeak(dist, 0, 0.5);              // arch: kept peak covering dist (or NaN)
+  if (!Number.isNaN(pa)) w += _glowFalloff(Math.hypot(x, dist - (pa * period + HERO_PEAK_OFFSET)), 12, 34);
+  const ps = mireHeroClearPeak(dist, 150, 0.4);            // spire: kept trough beacon
+  if (!Number.isNaN(ps) && side === (((ps % 2) + 2) % 2 === 1 ? 1 : -1)) {
+    w += 0.8 * _glowFalloff(Math.hypot(Math.abs(x) - MIRE_SPIRE_X, dist - (ps * period + HERO_PEAK_OFFSET + 150)), 9, 26);
+  }
+  const local = ((dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+  if (!(local >= 1050 && local <= 1350)) w += 0.30 * mireComp(dist);   // chorus, easement-zeroed
+  return Math.min(1, w);
+}
+
+// GLOW-SPILL lights + mirror pools (Fable 96 A+B). Two boot-created PointLights (a FIXED pool → the
+// NUM_POINT_LIGHTS shaders compile once at load, never mid-run) that track the nearest kept arch gate +
+// spire beacon and physically spill warm light on the dark trunks as you fly the gate; plus up to 4 mirror
+// pools fed to the water. Analytic per frame from the along-track dist (same kept-peak hashes the gate /
+// clearing / beacon agree on) → zero scene queries, zero per-frame alloc, render-only. seamRamp gates the
+// whole thing to biome 4; outside the Mire the lights park at y −50 intensity 0 (pixel-identical: 0 radiance)
+// and uMirePoolK is 0 (byte-identical water). `?spill=0` parks them permanently for an A/B.
+const MIRE_SPILL_LIGHTS = 2;
+const _spillParked = (() => { try { return new URLSearchParams(location.search).get('spill') === '0'; } catch { return false; } })();
+let mireSpillA0 = null, mireSpillA1 = null;
+const _spillPools = [ { x: 0, z: 0, invR: 1 / 11, strength: 0 }, { x: 0, z: 0, invR: 1 / 11, strength: 0 },
+                      { x: 0, z: 0, invR: 1 / 7, strength: 0 }, { x: 0, z: 0, invR: 1, strength: 0 } ];
+// PURE per-cluster breath (Fable 96 §5): source, spill light, and pool of ONE organism share ONE pulse.
+// Irrational-feeling period spread → no two clusters sync (the metronome tell). Render-only (wall-clock t).
+function mireBreath(peakIdx, t) {
+  const T = 4.1 + 2.3 * heroHash(peakIdx ^ 0x9e37);
+  const ph = 6.2832 * heroHash(peakIdx ^ 0x85eb);
+  return 1 + 0.14 * Math.sin(t * 6.2832 / T + ph);
+}
+// Kept hero peaks (arch: shift 0 rare 0.5 / spire: shift 150 rare 0.4) in [dist−back, dist+ahead], nearest
+// first. Same keep test as mireHeroClearPeak so lights/pools sit exactly where a hero was seated.
+function keptMirePeaks(dist, shift, rare, back, ahead) {
+  const period = CONFIG.biomeLength / MIRE_COMP_PERIODS;
+  const out = [];
+  const pk0 = Math.round((dist - HERO_PEAK_OFFSET - shift) / period);
+  for (let pk = pk0 - 1; pk <= pk0 + 5; pk++) {
+    const Pd = pk * period + HERO_PEAK_OFFSET + shift;
+    if (Pd < dist - back || Pd > dist + ahead) continue;
+    const localPeak = ((pk % MIRE_COMP_PERIODS) + MIRE_COMP_PERIODS) % MIRE_COMP_PERIODS;
+    const pLocal = ((Pd % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+    const peakEase = pLocal >= 1050 && pLocal <= 1350;
+    if (localPeak !== 0 && !peakEase && (localPeak === 1 || heroHash(pk) < rare)) out.push({ pk, Pd });
+  }
+  out.sort((a, b) => a.Pd - b.Pd);
+  return out;
+}
+function updateMireSpill(dist, t) {
+  if (!mireSpillA0) return;
+  const L = CONFIG.biomeLength;
+  const local = ((dist % L) + L) % L;
+  const inMire = biomeIndexAt(Math.max(dist, 0)) === 4;
+  const seam = (inMire && !_spillParked)
+    ? THREE.MathUtils.smoothstep(local, 0, 40) * (1 - THREE.MathUtils.smoothstep(local, L - 40, L)) : 0;
+  for (const p of _spillPools) p.strength = 0;
+  if (seam < 0.001) {   // outside the Mire: park (0 radiance / +0 water) → byte-identical elsewhere
+    mireSpillA0.intensity = 0; mireSpillA1.intensity = 0;
+    mireSpillA0.position.y = -50; mireSpillA1.position.y = -50;
+    setMireWaterPools(_spillPools, 0);
+    return;
+  }
+  const arches = keptMirePeaks(dist, 0, 0.5, 15, 500);
+  const spires = keptMirePeaks(dist, 150, 0.4, 15, 400);
+  if (arches.length) {
+    const a0 = arches[0], br0 = mireBreath(a0.pk, t);
+    mireSpillA0.position.set(0, 6.0, -a0.Pd);
+    mireSpillA0.intensity = 14 * br0 * seam;   // Fable 98: 10→14 — buys the facing-side gradient on the near gate posts
+    _spillPools[0].z = -a0.Pd; _spillPools[0].strength = 0.42 * br0;   // Fable 98: 0.34→0.42
+    if (arches.length > 1) { const a1 = arches[1], br1 = mireBreath(a1.pk, t);
+      _spillPools[1].z = -a1.Pd; _spillPools[1].strength = 0.42 * br1; }
+  } else { mireSpillA0.intensity = 0; mireSpillA0.position.y = -50; }
+  if (spires.length) {
+    const s = spires[0], brs = mireBreath(s.pk, t), side = (((s.pk % 2) + 2) % 2 === 1) ? 1 : -1;
+    mireSpillA1.position.set(side * MIRE_SPIRE_X, 7.5, -s.Pd);
+    mireSpillA1.intensity = 10 * brs * seam;   // Fable 98: 7→10
+    _spillPools[2].x = side * MIRE_SPIRE_X; _spillPools[2].z = -s.Pd; _spillPools[2].strength = 0.28 * brs;   // Fable 98: 0.22→0.28
+  } else { mireSpillA1.intensity = 0; mireSpillA1.position.y = -50; }
+  setMireWaterPools(_spillPools, seam);
 }
 
 // --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
@@ -3406,6 +3714,15 @@ function writeMatrix(band, i, d) {
   // Single-biome archetypes never allocate instanceColor — untouched.
   if (band.def.biomes.length > 1) {
     band.mesh.setColorAt(i, BIOME_TINTS[bi] ?? TINT_WHITE);
+  } else if (band.def.nearGlowLift) {
+    // Fable 96/98 mechanism C: dark Mire families DRINK nearby organism-glow. WRITE EVERY instance (WHITE at
+    // w=0) — the first setColorAt allocates a ZERO-filled buffer, so any unwritten instance would render
+    // BLACK; writeMatrix runs for every instance at build/recycle/reseed, so all are covered.
+    const w = active ? mireNearGlowW(d.x, d.dist, d.side) : 0;
+    _liftC.copy(TINT_WHITE).lerp(MIRE_LIFT, w);          // small warm DIFFUSE multiply (all 4 families)
+    band.mesh.setColorAt(i, _liftC);
+    const gl = band.mesh.geometry.getAttribute('aGlowLift');   // the main EMISSIVE lift (mireVeil families read it)
+    if (gl) { gl.setX(i, w); gl.needsUpdate = true; }
   }
 }
 
@@ -3569,6 +3886,18 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   });
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
+  // Fable 96 A+B: position the 2 spill lights + feed the mirror pools from the kept hero peaks (analytic;
+  // parks / 0 water outside the Mire → byte-identical elsewhere).
+  updateMireSpill(playerDist, time);
+  // Fable A1 ROOF-FROM-ABOVE: grow the canopy shelf as the camera climbs to the top of the lane. Gate 0 ⇒
+  // visible=false ⇒ zero draws ⇒ cruise + all other biomes byte-identical.
+  if (roof) {
+    const roofGate = THREE.MathUtils.smoothstep(camera.position.y, ROOF_ALT_LO, ROOF_ALT_HI) * (env.canopyRoof ?? 0);
+    roofUniforms.uRoofGate.value = roofGate;
+    roofUniforms.time.value = time;
+    roof.visible = roofGate > 0.003 && !arenaPropsGate;   // the arena heaven never grows a swamp floor
+    if (roof.visible) roof.position.set(camera.position.x, ROOF_Y, camera.position.z);
+  }
 
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
@@ -3581,6 +3910,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   const heavenWarm = Math.max(0, Math.min(1, arenaMix - 1));   // 0 in biome/void → 1 as the heaven settles
   feverWarmMix = damp(feverWarmMix, Math.max(feverWarmTarget, heavenWarm), 2.5, dt);   // FIERY (fire dragons / the heaven) vs magenta
   su.feverWarm.value = feverWarmMix;
+  su.uSurgeWarm.value = env.surgeWarm ?? 0;   // Fable 94: per-biome ember-Surge override (Mire = 1; seam-lerped; 0 elsewhere → byte-identical)
   su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
   sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;

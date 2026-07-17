@@ -236,6 +236,14 @@ export const BIOMES = [
     // glints (0.7), and a mirror-side pull that tames the green catch-ring's reflection (0.8, the ring
     // itself untouched). Consumed by water.js via setWaterTint. 0 elsewhere → other biomes byte-identical.
     reflStretch: 0.85, reflGlint: 0.7, reflGreenPull: 0.8,
+    // Fable 94: the Mire reserves MAGENTA for danger telegraphs, so a full-sky magenta Surge wash makes the
+    // danger colour decorative — during boss fights, no less. Force the Surge sky EMBER instead (skin-agnostic)
+    // + zero the magenta sky-curtain (Canopy Law). "The mire's organisms surge WITH you." 0 elsewhere.
+    surgeWarm: 1,
+    // Fable A1 ROOF-FROM-ABOVE: at the top of the lane the drape roof exits frame → a dark amber VOID.
+    // A camera-following canopy-shelf shader quad (altitude-gated) turns it into the inverted money shot —
+    // the mire's canopy seen from above, amber welling up through the gaps. 0 elsewhere → byte-identical.
+    canopyRoof: 1,
     // Fable 90 HORIZON SHAFT: one sourceless warm glow-column off the ember horizon (light that TRAVELS,
     // not light that is placed). Metabolic, off-center, breathes — never a sun. Consumed by the sky shader
     // (su.uShaft). 0/absent elsewhere → byte-identical sky in every other biome.
@@ -503,6 +511,13 @@ const env = {
   // water anisotropic reflection streaks + drifting glints + a mirror-side green-blob pull. Consumed by
   // water.js via setWaterTint. (Fable 85.)
   reflStretch: 0, reflGlint: 0, reflGreenPull: 0,
+  // Per-biome ember-Surge override (OPTIONAL; 0 = the shipped magenta Surge sky). A biome that reserves
+  // magenta for another meaning may flare its Surge horizon ember + drop the magenta curtain. (Fable 94.)
+  surgeWarm: 0,
+  // Canopy-roof-from-above (OPTIONAL; 0 = no altitude canopy shelf → byte-identical). A biome may grow a
+  // from-above canopy shelf when the camera climbs to the top of the lane. Consumed by environment.js's roof
+  // quad + ambient.js's high-altitude mote treatment. (Fable A1.)
+  canopyRoof: 0,
   // Horizon shaft (OPTIONAL; 0 everywhere by default → byte-identical sky). A biome may raise one
   // sourceless warm glow-column off its horizon. Consumed by the sky shader (su.uShaft). (Fable 90.)
   horizonShaft: 0,
@@ -588,6 +603,8 @@ export function computeEnv(dist) {
   env.moteDepthFade = lerp(a.moteDepthFade ?? 0, b.moteDepthFade ?? 0, ts);
   env.propAerial = lerp(a.propAerial ?? 0, b.propAerial ?? 0, ts);
   env.horizonShaft = lerp(a.horizonShaft ?? 0, b.horizonShaft ?? 0, ts);
+  env.surgeWarm = lerp(a.surgeWarm ?? 0, b.surgeWarm ?? 0, ts);
+  env.canopyRoof = lerp(a.canopyRoof ?? 0, b.canopyRoof ?? 0, ts);
   env.reflStretch = lerp(a.reflStretch ?? 0, b.reflStretch ?? 0, ts);
   env.reflGlint = lerp(a.reflGlint ?? 0, b.reflGlint ?? 0, ts);
   env.reflGreenPull = lerp(a.reflGreenPull ?? 0, b.reflGreenPull ?? 0, ts);
