@@ -511,8 +511,9 @@ function buildForumMasonry(group, o, X, TOP) {
       // punching through above the apex severs the keystone). No erosion within ~one block of the ring.
       const nearArch = dArch < Rh + 4.0 && cy > gB;
       const fromTop = (TOP - cy1) / courseH;
-      if (!nearArch && fromTop < 2.2 && rnd() < 0.5 - fromTop * 0.22) continue;
-      if (!nearArch && Math.abs(cx) > X - blockW * 1.3 && fromTop < 3.5 && rnd() < 0.4 - fromTop * 0.1) continue;
+      // Erode the crown CONTIGUOUSLY from the top edge in (no floating confetti — only the top ~2 courses,
+      // probability falls with depth so a removed block never leaves an isolated island below it).
+      if (!nearArch && fromTop < 2.0 && rnd() < 0.55 - fromTop * 0.28) continue;
       const zJit = (rnd() - 0.5) * 0.7;
       const g = new THREE.BoxGeometry(bw, ch, 2.8 + Math.abs(zJit)).toNonIndexed();
       g.translate(cx, cy, zJit * 0.4);
@@ -524,11 +525,15 @@ function buildForumMasonry(group, o, X, TOP) {
   // centre. Radial orientation is what makes the arch read in SILHOUETTE when value is dead backlit (Fable
   // 3.8). The magenta keystone IS the apex wedge (touching the ring, flared), not a floating chip.
   const nV = 11, vLen = 3.4, rMid = Rh + vLen / 2 - 0.4;   // inner edge ≈ Rh (hugs the hole)
+  // NO VOUSSOIR WITHOUT WALL BEHIND IT (Fable 4.0 score-mover): clamp the fan to the span the wall actually
+  // covers ([-X,X] × below the crown) so no wedge floats against open sky/water. When the bay sits near the
+  // lane edge the arch is a clean broken half-arch (ruin-appropriate) instead of a levitating stone fan.
+  const backed = (vx, vy) => vx > -X + 1.2 && vx < X - 1.2 && vy < TOP - 1.0;
   const vgeo = [];
   for (let k = 0; k < nV; k++) {
     const th = Math.PI * (k + 0.5) / nV;
     const vx = o.gapX + Math.cos(th) * rMid, vy = gT + Math.sin(th) * rMid;
-    if (k === (nV - 1) / 2) continue;                       // apex → the keystone (below)
+    if (k === (nV - 1) / 2 || !backed(vx, vy)) continue;    // apex → keystone; skip any unbacked wedge
     const g = new THREE.BoxGeometry(2.7, vLen, 3.6).toNonIndexed();
     g.rotateZ(th - Math.PI / 2);                            // long axis radial
     g.translate(vx, vy, 0.9);
@@ -538,10 +543,15 @@ function buildForumMasonry(group, o, X, TOP) {
   blocks.push(...vgeo);
   group.add(new THREE.Mesh(mergeGeometries(blocks, false), stoneMat));
   blocks.forEach((b) => b.dispose());
-  const key = new THREE.Mesh(new THREE.BoxGeometry(2.9, vLen + 0.6, 4.0), forumGateMats.toll);
-  key.position.set(o.gapX, gT + rMid, 1.1);                // the apex wedge, seated ON the ring, proud
-  group.add(key);
-  group.userData.tollKey = key;
+  // Magenta keystone — a trapezoid wedge (wide top, tall) locking the apex, only if the apex is wall-backed.
+  const kx = o.gapX, ky = gT + rMid;
+  if (backed(kx, ky)) {
+    const kg = new THREE.CylinderGeometry(1.9, 1.2, 4.4, 4, 1).rotateY(Math.PI / 4);   // 4-sided → trapezoid prism, wide-top
+    const key = new THREE.Mesh(kg, forumGateMats.toll);
+    key.position.set(kx, ky, 1.2);
+    group.add(key);
+    group.userData.tollKey = key;
+  }
 }
 
 // A biome-adaptive Phase Gate: a translucent fresnel veil spanning the lane
