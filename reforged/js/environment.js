@@ -630,9 +630,13 @@ function bakeBloom(geo, upThresh = 0.2) {
 // frame, so the sun-path reads brighter by contrast (it prices the gold the way drumfall prices the gilt).
 // forumStone's ladderEmissive folds vColor into emissive, so this near-black bake self-suppresses the warm
 // fill even backlit — ONE material group, ZERO glow, no material change.
-const _PINE_LIT = [0.275, 0.314, 0.227];   // 0x46503A warm-olive sun-kiss (up-faces catching the sky)
-const _PINE_BODY = [0.165, 0.208, 0.141];  // 0x2A3524 dark pine body (flanks)
-const _PINE_UNDER = [0.122, 0.157, 0.098]; // 0x1F2819 near-black underside — the Lorrain frame
+// PRE-DARKENED to compensate for forumStone's bright warm KEY diffuse + emissive lift in the sunset near-band
+// (Fable pinisle gate: at spec values the trees rendered 26–55% luminance = mid-gray-green, no dark mass, the
+// gold un-priced). Pushed to ~⅓–½ the spec albedo AND the zone spread WIDENED (lit/under ≈ 3.6:1, not 2.2:1) so
+// the 3-zone form survives the near-band lift and lands near-black against the ~80% gold sky.
+const _PINE_LIT = [0.150, 0.172, 0.124];   // warm-olive sun-kiss (up-faces) — darkened
+const _PINE_BODY = [0.072, 0.092, 0.060];  // dark pine body (flanks) — near-black
+const _PINE_UNDER = [0.040, 0.053, 0.033]; // near-black underside — the Lorrain frame (pushed darkest for the spread)
 function bakePine(geo) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
