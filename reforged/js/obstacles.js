@@ -2601,7 +2601,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
   // terms only — never diffuse, never a flat lift (M2 law). One uniform write reaches every live gate's
   // hoop shader via the shared boneLumeRef; one intensity write drives the marrow chain.
   if (mats.marrow && (CONFIG.spineMarrowGlow > 0 || CONFIG.spineBoneLumeMix > 0)) {
-    const BONE_LUME_GAIN = 2.2, MARROW_BASE = 0.85, MARROW_LUME_GAIN = 1.2, KEY_KNEE = 0.72;
+    const BONE_LUME_GAIN = 1.2, MARROW_BASE = 0.85, MARROW_LUME_GAIN = 1.2, KEY_KNEE = 0.72;   // Fable D3: 2.2→1.2 (×2.85→×2.0 Mire hoop emissive) so the 3-stop ladder survives + the beacons resolve
     const env = computeEnv(playerDist);
     const Lc = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
     const keyLuma = env.lightSunI * Lc(env.lightSun) + 0.5 * (Lc(env.hemiSky) + Lc(env.hemiGround));
