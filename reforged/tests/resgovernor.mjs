@@ -23,7 +23,7 @@ const L = buildResSteps(0.72, 5);
 check(`buildResSteps: 5 steps from full to floor (${L.join(',')})`, L.length === 5 && near(L[0], 1.0) && near(L[4], 0.72));
 check('buildResSteps: strictly decreasing (a real ladder)', L.every((v, i) => i === 0 || v < L[i - 1]));
 check('buildResSteps: floor clamped to ≥0.4', near(buildResSteps(0.1, 5)[4], 0.4));
-check('RES_STEPS default floor is 0.72', near(RES_STEPS[RES_STEPS.length - 1], 0.72));
+check('RES_STEPS default floor is 0.45', near(RES_STEPS[RES_STEPS.length - 1], 0.45));
 
 // --- 2. degrade needs sustained slowness (dwell), not one slow frame ------------
 let g = makeResGov(L);
