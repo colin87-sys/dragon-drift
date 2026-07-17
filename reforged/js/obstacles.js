@@ -498,27 +498,25 @@ function buildForumMasonry(group, o, X, TOP) {
   // (~5–6 across the whole span, ~5 courses), joints as VALUE only (near-zero gap — a dark mortar gap is the
   // loudest brick tell), 70% smooth mass / 30% faint coursing → it reads as the SAME construction as the
   // triumphgate hero's smooth travertine masses.
-  const courseH = 4.7, blockW = 6.2, blocks = [];
+  const courseH = 4.2, blockW = 6.2, blocks = [];
   const nCourses = Math.ceil(TOP / courseH);
-  // Contiguous BROKEN-TOP height profile per column bucket (Fable: no floaters — erode a HEIGHT, never punch
-  // random holes; asymmetric stair-step following the courses). ~35% of columns full height, most lose 1, some 2–3.
+  // Contiguous BROKEN-TOP height profile keyed to a FIXED x-grid (Fable: no floaters, no teeth — erode a
+  // HEIGHT that steps by whole courses, never punch holes). ~half the columns full height, most others lose
+  // one course; a clean stepped ruin edge where adjacent blocks still touch and sit on the course below.
   const topBucket = new Map();
   const topAt = (cx) => {
     const b = Math.round(cx / blockW);
     let v = topBucket.get(b);
-    if (v === undefined) { const r = rnd(); const lost = r < 0.35 ? 0 : r < 0.74 ? 1 : r < 0.92 ? 2 : 3; v = TOP - lost * courseH; topBucket.set(b, v); }
+    if (v === undefined) { const r = rnd(); const lost = r < 0.5 ? 0 : r < 0.86 ? 1 : 2; v = TOP - lost * courseH; topBucket.set(b, v); }
     return v;
   };
   for (let c = 0; c < nCourses; c++) {
-    const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - 0.06;   // near-zero joint (value, not gap)
+    const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - 0.05;   // near-zero joint (value, not gap)
     if (ch <= 0.4) continue;
-    const cy = (cy0 + cy1) / 2, stagger = (c % 2) ? blockW * 0.5 : 0;
+    const cy = (cy0 + cy1) / 2, stagger = (c % 2) ? blockW * 0.5 : 0;                     // running bond (offset joints) — the ONLY joint variation; blocks TILE gap-free
     for (let bx = -X - stagger; bx < X; bx += blockW) {
-      // Header/stretcher: an occasional HALF block (a header) breaks the running bond — 2 lengths only, no jitter.
-      const isHeader = (((bx / blockW) | 0) + c) % 3 === 0;
-      const step = isHeader ? blockW * 0.5 : blockW;
-      const bl = Math.max(-X, bx), br = Math.min(X, bx + step), bw = br - bl;             // blocks TOUCH (no mortar gap)
-      if (bw <= 0.6) continue;
+      const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW), bw = br - bl;           // full blocks, touching → no gaps
+      if (bw <= 0.8) continue;
       const cx = (bl + br) / 2;
       // ARCH-TOPPED opening = the rectangular safe bay + a clean semicircle above it (radius Rh). Big blocks →
       // a big monumental portal; the gilt aperture frame marks the exact (smaller) safe route inside it.
@@ -526,11 +524,11 @@ function buildForumMasonry(group, o, X, TOP) {
       const dArch = Math.hypot(cx - o.gapX, cy - gT);
       if (cy > gT && dArch < Rh) continue;                                               // clean arched top (hole)
       const nearArch = dArch < Rh + 5.0 && cy > gB;                                      // keep the arch surround solid
-      if (!nearArch && cy0 >= topAt(cx)) continue;                                       // contiguous broken top (no floaters)
-      const zJit = (rnd() - 0.5) * 0.5;                                                   // subtle relief seam only
+      if (!nearArch && cy0 >= topAt(cx)) continue;                                       // contiguous stepped broken top (no floaters/teeth)
+      const zJit = (rnd() - 0.5) * 0.4;                                                   // subtle relief seam only
       const g = new THREE.BoxGeometry(bw, ch, 3.0 + Math.abs(zJit)).toNonIndexed();
-      g.translate(cx, cy, zJit * 0.35);
-      bakeFlatColor(g, forumStoneCol(cy, 0.95 + rnd() * 0.10));                           // tide ladder + FAINT jitter (coursing is garnish)
+      g.translate(cx, cy, zJit * 0.3);
+      bakeFlatColor(g, forumStoneCol(cy, 0.96 + rnd() * 0.08));                           // tide ladder + FAINT jitter (coursing is garnish)
       blocks.push(g);
     }
   }
