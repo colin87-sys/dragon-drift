@@ -64,6 +64,12 @@ let sceneRef = null;
 let rnd = null;
 let bands = [];
 let feverMix = 0;
+// Fable A1 ROOF-FROM-ABOVE altitude gate (camera y): the canopy shelf + high-mote treatment resolve over the
+// top ~2.5m of the climb. Exported so ambient.js uses the SAME window (the two files can't drift).
+export const ROOF_ALT_LO = 23.5, ROOF_ALT_HI = 26.0;
+const ROOF_Y = 10.0;
+let roof = null;
+const roofUniforms = { time: { value: 0 }, uRoofGate: { value: 0 } };
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
 let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
 // ARENA (PR-A): while THE UNMASKED's void owns the sky, the biome PROP bands (monoliths etc.) must go
@@ -2362,6 +2368,56 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   }
   scene.add(mireSpillA0, mireSpillA1);
 
+  // Fable A1 ROOF-FROM-ABOVE: one camera-following horizontal shader quad at y10 — the mire's canopy seen
+  // from ABOVE (crown-dark cells + amber glow WELLING UP through the gap channels), with a lane corridor
+  // aperture so nothing occludes gameplay + the real under-canopy shows straight down. visible=false at
+  // cruise → zero draws → byte-identical. 900² so its fog-melted rim never reaches frame. NOT the drape
+  // (that stays the cruise ceiling); this is the main crown shelf BELOW the high lane.
+  if (!roof) {
+    const roofMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, depthTest: true, fog: true,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, roofUniforms]),
+      vertexShader: /* glsl */`
+        #include <fog_pars_vertex>
+        varying vec3 vWPos;
+        void main() {
+          vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */`
+        #include <fog_pars_fragment>
+        uniform float time, uRoofGate;
+        varying vec3 vWPos;
+        float _rhash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float _rvn(vec2 x){ vec2 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(_rhash(i), _rhash(i + vec2(1,0)), f.x), mix(_rhash(i + vec2(0,1)), _rhash(i + vec2(1,1)), f.x), f.y); }
+        void main() {
+          float n = _rvn(vWPos.xz * 0.042) * 0.65 + _rvn(vWPos.xz * 0.113) * 0.35;   // crown blobs ~24m
+          float g = smoothstep(0.52, 0.30, n);        // gap bloom (0 at crown edge → 1 mid-gap)
+          float core = smoothstep(0.30, 0.16, n);     // gap CORE (deepest holes glow hottest)
+          vec2 cell = floor(vWPos.xz * 0.042);
+          float ph = _rhash(cell) * 6.2832;
+          float breath = (0.88 + 0.12 * sin(time * 0.86 + ph)) * (0.94 + 0.06 * sin(time * 0.53 + ph * 2.7)); // desynced, irrational ratio
+          vec3 col = mix(vec3(0.070, 0.051, 0.024), vec3(0.141, 0.106, 0.063), _rvn(vWPos.xz * 0.31));  // crown tops #120d06→#241b10 (dead matter, never lit)
+          col = mix(col, vec3(0.969, 0.604, 0.180), g * breath * 0.85);          // #f79a2e living-amber gap bloom
+          col = mix(vec3(0.478, 0.259, 0.063), col, smoothstep(0.0, 0.25, g));   // decay rim toward #7a4210 at the gap edge — no hard lit onion-ring
+          col += vec3(1.0, 0.816, 0.439) * core * breath;                        // #ffd070 hot gap core (never white — the arch keeps the white-point)
+          float corridor = smoothstep(10.0, 26.0, abs(vWPos.x));                 // open over the lane, closed by |x|=26 — gameplay + the straight-down money shot
+          float a = uRoofGate * corridor * (n > 0.52 ? 0.90 : 0.78 + 0.10 * g);  // dense canopy, not a haze sheet
+          gl_FragColor = vec4(col, a);
+          #include <fog_fragment>
+        }`,
+    });
+    roof = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), roofMat);
+    roof.rotation.x = -Math.PI / 2;
+    roof.frustumCulled = false;
+    roof.renderOrder = -1;   // first transparent (after opaques) so the z-buffer sorts shelf-over-mirror; motes draw after
+    roof.visible = false;
+  }
+  scene.add(roof);
+
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
   for (const key of Object.keys(ARCHETYPES)) {
@@ -3055,6 +3111,15 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // Fable 96 A+B: position the 2 spill lights + feed the mirror pools from the kept hero peaks (analytic;
   // parks / 0 water outside the Mire → byte-identical elsewhere).
   updateMireSpill(playerDist, time);
+  // Fable A1 ROOF-FROM-ABOVE: grow the canopy shelf as the camera climbs to the top of the lane. Gate 0 ⇒
+  // visible=false ⇒ zero draws ⇒ cruise + all other biomes byte-identical.
+  if (roof) {
+    const roofGate = THREE.MathUtils.smoothstep(camera.position.y, ROOF_ALT_LO, ROOF_ALT_HI) * (env.canopyRoof ?? 0);
+    roofUniforms.uRoofGate.value = roofGate;
+    roofUniforms.time.value = time;
+    roof.visible = roofGate > 0.003 && !arenaPropsGate;   // the arena heaven never grows a swamp floor
+    if (roof.visible) roof.position.set(camera.position.x, ROOF_Y, camera.position.z);
+  }
 
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
