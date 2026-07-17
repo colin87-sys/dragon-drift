@@ -47,6 +47,23 @@ they ARE the clouds' shadow. Killed the artificial `sin` bundle entirely (Tempes
   ON vs `?carve=0`) is only honest on a 0.5×-darkened copy. At that exposure carve-OFF = straight radial
   spokes; carve-ON = broad cloud-shaped sweeps, zero countable wedges.
 
+## Follow-up: the carve gives STRUCTURE, but you still owe it EDGE softness
+
+First carve shipped and the owner (device): *"still quite sharp and well defined."* The carve fixed the
+TOPOLOGY (cloud-shaped bands, not straight spokes) but the band EDGES were still crisp — the gap-field
+inherited the deck's own `smoothstep(0.40, 0.72, n)` cloud-core ramp, which is deliberately crisp for
+RENDERING clouds but wrong for a LIGHT field. A hard cloud edge → a hard shaft edge (the 16px mask blur
+barely touches a band that's hundreds of px wide). Three light-field-only softeners (sky untouched):
+- **A wider shape ramp for the gap field than for the sky.** `_cloudCov` took `lo/hi` params; the gap-field
+  passes `(0.30, 0.86)` where the sky keeps `(0.40, 0.72)`. Same registration (noise/drift/band identical),
+  feathered light edges. The sky doesn't call `_cloudCov`, so this costs the sky nothing.
+- **A 5-tap screen-space feather in the gap quad** (`uSoft` ~0.055 ndc) — spreads each cloud edge into a
+  penumbra directly, which an n-space threshold widening alone can't do where the noise gradient is steep.
+- **Gentler carve depth** (`uCarve 0.85 → 0.72`) — lower band-to-gap contrast reads softer.
+Lesson: **the mask-blur chain is tuned for thin GEOMETRY occluders (~16px); it is nowhere near enough to
+feather a broad cloud band.** Soften the cloud contribution AT THE PAINT STEP (wide ramp + multi-tap),
+never by widening the shared blur (that leaks shafts through thin geometry like wingtips/ring-rims).
+
 ## Reusable
 - **When "soften it" fails three times, the problem is TOPOLOGY, not edges.** A soft edge on a straight lobe
   still reads as a line. Give the emergent feature REAL structure by gating it on the substance it emerges
