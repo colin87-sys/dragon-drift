@@ -2209,22 +2209,23 @@ const ARCHETYPES = {
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.60, 0.42, 1.66), { y: 0.31 }) });          // amber deck body, y 0.10→0.52 (side-tri centroids 0.24/0.38 → clean amber) (12)
       // SPINE PARAPET — a running wall on the FAR side from the lane (−x): the gallery's solid back (all amber).
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.24, 0.42, 1.44), { x: -0.15, y: 0.63 }) }); // parapet, y 0.42→0.84 (12)
-      // RUINED COLONNADE — SLIM tall columns on the LANE-facing edge (+x) in a post–GAP–post–post rhythm (Fable
-      // r1: chunky-square stubs read as crenellation/bunker; slim + tall + a missing bay reads as a ruined
-      // gallery). One bay (z −0.20) left OPEN with a FALLEN LINTEL toppled across it (the collapse beat).
-      for (const z of [-0.62, 0.18, 0.60]) parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.11, 0.54, 0.12), { x: 0.24, z, y: 0.79 }) }); // 3 slim columns, y 0.52→1.06 (36)
+      // RUINED COLONNADE — SLIM TAPERED columns (open-topped pentagonal shafts = snapped-off broken tops) on
+      // the LANE-facing edge (+x) in a post–GAP–post–post rhythm, VARIED heights + two leaning (Fable r1:
+      // square-section flat-top stubs read as crenellation, not columns; a tapered round shaft with a broken
+      // top reads as a weathered column). One bay (z −0.20) left OPEN with a FALLEN LINTEL toppled across it.
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.05, 0.085, 0.58, 5, 1, true), { x: 0.24, z: -0.62, y: 0.81 }) }); // tall column, y 0.52→1.10 (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.05, 0.085, 0.40, 5, 1, true), { x: 0.24, z: 0.18, y: 0.72, rz: 0.11 }) }); // broken short, leaning (10)
+      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.CylinderGeometry(0.05, 0.085, 0.54, 5, 1, true), { x: 0.24, z: 0.60, y: 0.79, rz: -0.05 }) }); // column, slight lean (10)
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.13, 0.13, 0.46), { x: 0.22, z: -0.20, y: 0.60, rz: 0.42, ry: 0.12 }) }); // fallen lintel, toppled across the open bay (12)
-      // BROKEN ENDS — no sawn termination: a proud jagged wall-stub at one end (amber), a moss-covered fallen
-      // block half-sunk at the water at the other. Kept inside |z|≤~0.95 so ρ stays ~1.0 (lane-clearance).
+      // BROKEN END — no sawn termination: a proud jagged wall-stub at one end (amber). Kept inside |z|≤~0.95
+      // so ρ stays ~1.0 (lane-clearance). (The water-end fallen block was dropped for the moss-blob budget.)
       parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.30, 0.50, 0.20), { x: -0.06, z: -0.86, y: 0.35, ry: -0.16 }) }); // jagged wall stub, y 0.10→0.60 (12)
-      parts.push({ mat: 0, bake: 'temple', geo: xform(new THREE.BoxGeometry(0.42, 0.12, 0.26), { x: 0.02, z: 0.86, y: 0.04, ry: 0.22 }) }); // fallen block at the tide, y −0.02→0.10 (12)
-      // JUNGLE SWALLOW — a MOSS CREST clumped along the parapet crown as a crest-LINE (bake:'lily' 3-stop
-      // green), varied sizes, one spilling over the lane edge. Octahedra (8 tris, flattened) not icosahedra
-      // (20) — a squashed moss cushion reads the same at cruise for ⅖ the budget. The greenery the owner asked
-      // for (the moss carries the green; the strangler-fig root was dropped — sub-pixel at cruise, Fable r1).
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.OctahedronGeometry(0.30, 0), { x: -0.02, z: -0.30, y: 0.86, sy: 0.6 }) }); // moss crest lump (8)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.OctahedronGeometry(0.24, 0), { x: 0.12, z: 0.40, y: 0.84, sy: 0.6 }) });   // moss crest lump, spilling lane-side (8)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.OctahedronGeometry(0.18, 0), { x: -0.10, z: 0.12, y: 0.86, sy: 0.65 }) });  // moss crest lump, small (8)
+      // JUNGLE SWALLOW — a MOSS cluster of ROUNDED deformed blobs (icosahedra, non-uniform-scaled → squashed
+      // irregular lumps, NOT flat facet-plates: Fable r1 kill-shot — octahedra rendered as green diamond
+      // "kites", the same clean-geometric-plane tell as the dead jade wedge). One blob SAGGING over the lane-
+      // edge lip to break the crown line; ~15% deck coverage. bake:'lily' (3-stop green, lit top / shadow under).
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.17, z: -0.10, y: 0.62, sx: 1.15, sy: 0.7, sz: 0.9 }) }); // main clump, sagging over the lane lip (20)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.15, 0), { x: -0.03, z: -0.32, y: 0.86, sx: 1.1, sy: 0.75, sz: 1.0 }) });  // smaller clump on the crown (20)
       return mergeLagoonParts(parts);
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π ± a breath) so the long gallery
