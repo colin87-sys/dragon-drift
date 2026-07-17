@@ -251,7 +251,7 @@ export const DRAGONS = {
       // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
       // stacked spheres that read as an "astral worm." The tail is the tapering rear of
       // this same tube (parts.tail:'none'), continuous by construction.
-      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 8, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // faceted low-poly cross-section (reference reads as planes, not a smooth glossy tube)
       bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
       bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
@@ -274,8 +274,8 @@ export const DRAGONS = {
       lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
       finGlow: 0.22,                     // modest GREEN emissive floor — holds jade in cool light but LOW enough that the fan's emerald hub / pale arc / pleat-rib value structure reads (0.6 washed the broad fans flat-pale)
       fanSpread: 0.66, fanPleat: 0.08, fanMarch: 0.62, fanRadius: 0.42,   // broad koi web-fan dials (IMG_7739): PROPORTIONAL fans (smaller) marching well down the LONG body — not giant kite-wings
-      bodyLatArc: 1.0, bodyLatWaves: 2.4,   // resting LATERAL S-coil so the static body reads as a long swimming serpent (IMG_7739), not a straight rod
-      bodyFinScale: 4.6, bodyFinTilt: 1.05,   // BODY WEB-FANS: a row of proportional koi fans emitted INTO the tube (ride the wave, follow the coil) — the reference's fins-down-the-body
+      bodyLatArc: 1.05, bodyLatWaves: 1.7,   // an OPEN resting S (≈1.5 clean waves), not a tight closed loop (Fable gate)
+      bodyFinScale: 4.6, bodyFinTilt: 0.5,   // BODY WEB-FANS: mounted LATERALLY (perpendicular-ish to the spine, fanning out + slightly up) as a consistent mirrored row — the reference's koi web-fan row
       finsOnBody: true,                  // the fans live in the TORSO now (spine-frame mounted) → silkFinWings builds only the chin pearl
       finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
       spineGlow: 0.3,
@@ -326,9 +326,9 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
-        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
-        bodyGirth: 0.42, bodyLength: 3.2,   // LONG, slim serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739)
+      { headScale: 0.66, snoutScale: 0.9, eyeScale: 0.72, eyeShape: 0.78,   // bigger, present jade koi head (Fable gate: the tiny white capsule was the worst offender)
+        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.1, hornCount: 2,
+        bodyGirth: 0.46, bodyLength: 3.2,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
         bodyFins: 1.0, bodyFinCount: 6, caudalFork: 1.0, bodyReach: 14,    // full ROW of broad koi web-fans down a LONG serpent + the grand leaf-fork tail (IMG_7739)
@@ -336,8 +336,8 @@ export const DRAGONS = {
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
         caudalBloom: 1.0,                  // AAA §5: THE GRAND FAN-BLOOM — 3-blade split caudal fan (the hero). ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
         crestRibbon: 1.0, bodyArcY: 0.19, bodyWaveAmpY: 0.24,   // AAA §5: full seafoam ribbon; the deepest vertical swim share the rear cam reads
-        lobeBreath: 0.12, lyreGems: 1, streamerPulse: 1,   // AAA §5 coronation: the fan breathes fully; the lyre gems (chain link 3) + the travelling streamer pulse (link 4) light up
-        tipGems: 1,                        // GLOW-UP apex: pearl-light hierarchy — fin-tip dew gems (bloom-safe opaque mint emissive; the pearl stays the hero bloom).
+        lobeBreath: 0, lyreGems: 0, streamerPulse: 0,   // OFF: these lit the OLD wing/caudal design — with the fresh spine-frame skeleton they orphaned into floating gems below the belly (Fable gate: kill the floaters)
+        tipGems: 0,                        // OFF: dew gems rode the (now-removed) wing lobes → floating diamonds. Removed.
         lobeFlareBoost: 1.25, bodyWaveAmp: 0.9, waveBreath: 0.12,   // GLOW-UP motion: fan blooms harder on boost, a deeper swim, a slow breathing meander.
         streamerCount: 3,                  // GLOW-UP: a third staggered streamer pair reads as continuous river-current
         tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back

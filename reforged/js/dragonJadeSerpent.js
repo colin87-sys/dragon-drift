@@ -107,11 +107,12 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       if (sn >= 0.05) tmp.copy(colBody);
       else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
       else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
-      // dorsal crest ribbon (a≈π/2): a slim pale value line, symmetric about the dorsal apex
+      // DORSAL CREST RIBBON (a≈π/2): a bright pale-seafoam spine line, nose→tail — one of the
+      // reference's 3 signature reads, so paint it strong + wide enough to register at any angle.
       const dA = Math.abs(a - Math.PI / 2);
-      if (rb > 0 && dA < 0.4) {
-        const taper = f.t < 0.72 ? 1 : Math.max(0.3, 1 - (f.t - 0.72) * 2.2);
-        tmp.lerp(colCrest, rb * 0.85 * taper * Math.pow(1 - dA / 0.4, 0.6));
+      if (rb > 0 && dA < 0.55) {
+        const taper = f.t < 0.85 ? 1 : Math.max(0.4, 1 - (f.t - 0.85) * 3);
+        tmp.lerp(colCrest, Math.min(1, rb * 1.0) * taper * Math.pow(1 - dA / 0.55, 0.5));
       }
       colors.push(tmp.r, tmp.g, tmp.b);
     }
@@ -166,10 +167,10 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
           P0.y + ex.y * lx + ey.y * ly + ez.y * lz,
           P0.z + ex.z * lx + ey.z * ly + ez.z * lz);
         normals.push(ey.x, ey.y, ey.z);
-        const c = cMidF.clone().lerp(cTipF, Math.min(1, Math.pow(u, 0.72)));  // pale-mint dominant
-        if (u < 0.18) c.lerp(cLeadF, (0.18 - u) / 0.18 * 0.85);              // deep-emerald hub
-        if (fold < 0) c.lerp(cMidF, 0.22 * (0.4 + 0.6 * u));                 // subtle rib shading
-        if (rb > 0 && u > 0.86) c.lerp(colCrest, (u - 0.86) / 0.14 * 0.5);
+        const c = cMidF.clone().lerp(cTipF, Math.min(1, Math.pow(u, 0.68)));  // pale-mint dominant toward the arc
+        if (u < 0.24) c.lerp(cLeadF, (0.24 - u) / 0.24 * 0.92);             // deep-emerald root/hub (the DARK tier)
+        if (fold < 0) c.lerp(cLeadF, 0.32 * (0.3 + 0.7 * u));               // emerald pleat-valley ribs — strong radiating fold lines (the reference's pleats)
+        if (rb > 0 && u > 0.82) c.lerp(colCrest, (u - 0.82) / 0.18 * 0.4);
         colors.push(c.r, c.g, c.b);
       }
       rows.push(row);
@@ -201,18 +202,18 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     const cBlade = colBody.clone().lerp(new THREE.Color(cRim), 0.62);
     const cLeaf = colBody.clone().lerp(new THREE.Color(cRim), 0.94);
     if (rb > 0) cLeaf.lerp(colCrest, rb * 0.4);
-    const Llen = leadR * (2.0 + 4.5 * caudal);
+    const Llen = leadR * (2.2 + 4.6 * caudal);
     const nU = 8, nV = 4;
     for (const s of [-1, 1]) {
-      // leaf axis: back (T) + out (±B) + up (Nn)
-      const D = fN.T.clone().multiplyScalar(0.7).addScaledVector(fN.B, s * 0.5).addScaledVector(fN.Nn, 0.5).normalize();
+      // leaf axis: mostly BACK (T) with a modest out (±B) + up (Nn) — trails aft, does NOT cross the body
+      const D = fN.T.clone().multiplyScalar(0.95).addScaledVector(fN.B, s * 0.34).addScaledVector(fN.Nn, 0.26).normalize();
       const Wd = new THREE.Vector3().crossVectors(D, fN.Nn).normalize();
       const Nl = new THREE.Vector3().crossVectors(D, Wd).normalize();
-      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.6).addScaledVector(fN.B, s * fN.r * 0.3);
+      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.4).addScaledVector(fN.B, s * fN.r * 0.22);
       const rows = [];
       for (let iu = 0; iu <= nU; iu++) {
         const u = iu / nU;
-        const w = Llen * 0.24 * Math.pow(u + 0.06, 0.45) * Math.pow(1 - u, 0.7);   // lanceolate → fine point
+        const w = Llen * 0.26 * Math.pow(u + 0.2, 0.4) * Math.pow(1 - u, 0.72);   // WIDE root (visible V-junction) → lanceolate point
         const cam = Llen * 0.05 * Math.sin(u * Math.PI);
         const C = B0.clone().addScaledVector(D, u * Llen).addScaledVector(Nl, cam);
         const row = [];
@@ -233,6 +234,32 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         indices.push(a, e, b, a, d, e);
       }
     }
+    // whisker streamers — 3 thin tapering filaments trailing aft from the fork (reference)
+    const cWhisk = colBody.clone().lerp(new THREE.Color(cRim), 0.5);
+    for (let wI = 0; wI < 3; wI++) {
+      const s = wI === 1 ? 0 : (wI === 0 ? -1 : 1);
+      const D = fN.T.clone().multiplyScalar(1.0).addScaledVector(fN.B, s * 0.14).addScaledVector(fN.Nn, -0.18).normalize();
+      const Wd = new THREE.Vector3().crossVectors(D, fN.Nn).normalize();
+      const Wlen = Llen * (1.25 - Math.abs(s) * 0.15);
+      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.5).addScaledVector(fN.B, s * fN.r * 0.18);
+      const nUw = 9, rowsW = [];
+      for (let iu = 0; iu <= nUw; iu++) {
+        const u = iu / nUw;
+        const w = leadR * 0.06 * Math.pow(1 - u, 0.7) + 0.006;
+        const bend = Math.sin(u * Math.PI * 0.8) * Wlen * 0.08;
+        const C = B0.clone().addScaledVector(D, u * Wlen).addScaledVector(Wd, bend * s).addScaledVector(fN.Nn, -Math.pow(u, 1.4) * Wlen * 0.08);
+        const c = cWhisk.clone().lerp(new THREE.Color(cRim), u * 0.5);
+        const r0 = positions.length / 3;
+        positions.push(C.x - Wd.x * w, C.y - Wd.y * w, C.z - Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b);
+        positions.push(C.x + Wd.x * w, C.y + Wd.y * w, C.z + Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b);
+        rowsW.push(r0);
+        if (iu > 0) {
+          const p = rowsW[iu - 1], q = rowsW[iu];
+          indices.push(p, p + 1, q + 1, p, q + 1, q);
+          indices.push(p, q + 1, p + 1, p, q, q + 1);
+        }
+      }
+    }
   }
 
   const geo = new THREE.BufferGeometry();
@@ -242,8 +269,8 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   geo.setIndex(indices);
 
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, vertexColors: true, side: THREE.DoubleSide,
-    roughness: def.bodyRoughness ?? 0.5, metalness: def.bodyMetalness ?? 0.02,
+    color: 0xffffff, vertexColors: true, side: THREE.DoubleSide, flatShading: true,   // FACETED low-poly read (reference is planes, not a smooth glossy tube)
+    roughness: def.bodyRoughness ?? 0.55, metalness: def.bodyMetalness ?? 0.02,
     envMapIntensity: def.bodyEnvIntensity ?? 0.5,
     emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.1,
   });
@@ -254,6 +281,12 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const body = new THREE.Mesh(geo, bodyMat);
   body.frustumCulled = false;
   group.add(body);
+
+  // The shared head builder paints the koi skull from `mats.bodyMat.color` — but the body mesh's
+  // material.color is WHITE (its hue lives in the vertex colours), which would paint a WHITE head
+  // (the Fable gate's #1 offender). Hand the head a jade-COLOURED sibling so the skull reads jade.
+  const headBodyMat = bodyMat.clone();
+  headBodyMat.color.set(cBody);
 
   // ── travelling-wave data (dragon.js flexes the tube each frame) ───────────────────────
   // Lateral swim added along GLOBAL x + a vertical share along y, keyed to the z position, on
@@ -307,7 +340,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
 
   const spinePoints = segmentAnchors.map((a) => new THREE.Vector3(a.x, a.y, a.z));
 
-  return { group, attach, mats: { bodyMat, eyeMat }, spineMats, spinePoints, bodyWave };
+  return { group, attach, mats: { bodyMat: headBodyMat, eyeMat }, spineMats, spinePoints, bodyWave };
 }
 
 registerTorso('jadeSerpent', buildJadeSerpentTorso);
