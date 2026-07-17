@@ -1905,7 +1905,7 @@ export const ui = {
         return `<span style="left:${(Math.random() * 100).toFixed(1)}%;` +
           `--d:${(Math.random() * 9).toFixed(2)}s;--dur:${(7 + Math.random() * 8).toFixed(2)}s;` +
           `--sz:${(2 + Math.random() * 4).toFixed(1)}px;--dx:${(Math.random() * 44 - 22).toFixed(0)}px;` +
-          `--c:${gold ? '#ffce6a' : '#7fe6ff'}"></span>`;
+          `--c:${gold ? '#ffce6a' : '#ff9a4a'}"></span>`;   // WELCOME+HUB §4.2 — warm only; cyan (#7fe6ff) evicted (vitals accent, illegal on the calm hub)
       }).join('');
 
       // Top bar (wallet + settings gear) — absent on the cold first screen.
@@ -1931,7 +1931,7 @@ export const ui = {
       let rail = '';
       let items = '';
       if (!cold) {
-        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'PILOT',  pilotBadgeDue(), newPilot);
+        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'DRIFTER',  pilotBadgeDue(), newPilot);
         if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue(), newQuests);
         items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue(), newShop);
         if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue(), newDaily);
@@ -1955,7 +1955,7 @@ export const ui = {
         <div class="hero-core">
           ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
           ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
-          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
+          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">${title}</button>` : ''}
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
           <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">${ICONS.play}</span>TAKE OFF</button>
           ${sub ? `<p class="hero-sub">${sub}</p>` : ''}
@@ -2483,6 +2483,83 @@ export const ui = {
     startNotice = text;
   },
 
+  // WELCOME+HUB §2 — the returning-player IDLE-REWARD POP-IN (replaces the flat
+  // setStartNotice line). A choreographed premium reward card over the hub: asymmetric
+  // scrim → warm-glass card enters → the amount COUNTS UP (topbar wallet ticks on the SAME
+  // clock, §2.2) → a single GOLD sigil blooms once on the land → tap to dismiss (never
+  // auto-timeouts an actioned reward). Consolidated multi-row for gift+refund on one boot.
+  //   opts: { rows: [{label, amount}], preTotal, finalTotal, sub }
+  showRewardCard(opts) {
+    if (!opts || !opts.rows || !opts.rows.length) return;
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('reward-scrim')?.remove();
+    document.getElementById('reward-card')?.remove();
+
+    const scrim = document.createElement('div');
+    scrim.id = 'reward-scrim';
+    const card = document.createElement('div');
+    card.id = 'reward-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-label', 'Reward');
+    card.tabIndex = -1;
+    const rowsHtml = opts.rows.map((r, i) => `
+      <div class="rc-row" style="--i:${i}">
+        <span class="rc-label">${r.label}</span>
+        <span class="rc-val"><span class="rc-sigil" aria-hidden="true">${EMBER_ICON}</span><b class="rc-amount" data-final="${r.amount}" aria-live="polite">0</b></span>
+      </div>`).join('');
+    card.innerHTML = `<div class="rc-body">${rowsHtml}${opts.sub ? `<p class="rc-sub">${opts.sub}</p>` : ''}</div><p class="rc-dismiss">tap to continue</p>`;
+    document.body.appendChild(scrim);
+    document.body.appendChild(card);
+
+    // §2.2 — the wallet is already mutated at boot; show the PRE-gift baseline until the
+    // count-up ticks it to the stored value (both driven off tweenNum's one clock).
+    const topbarB = document.querySelector('.hero-wallet .meta-chip b');
+    if (topbarB) topbarB.textContent = Number(opts.preTotal || 0).toLocaleString();
+
+    const prevFocus = document.activeElement;
+    requestAnimationFrame(() => { scrim.classList.add('show'); card.classList.add('show'); });
+    card.focus();
+
+    const finishBeat = () => {
+      card.classList.add('landed');                 // the ONE spring + sigil bloom (CSS)
+      if (topbarB) topbarB.textContent = Number(opts.finalTotal || 0).toLocaleString();
+      try { uiSound.confirm(); } catch (e) {}
+    };
+    const startCount = () => {
+      const amountEls = card.querySelectorAll('.rc-amount');
+      const dur = reduce ? 0 : 820;
+      const step = reduce ? 0 : 100;                 // row stagger
+      amountEls.forEach((el, i) => {
+        const to = Number(el.dataset.final) || 0;
+        const last = i === amountEls.length - 1;
+        setTimeout(() => tweenNum(el, 0, to, { dur, onDone: last ? finishBeat : undefined }), i * step);
+      });
+      // Topbar ticks preTotal→finalTotal over the whole window, off the shared tween clock.
+      if (topbarB) tweenNum(topbarB, opts.preTotal || 0, opts.finalTotal || 0, { dur: dur + (amountEls.length - 1) * step });
+    };
+    if (reduce) startCount(); else setTimeout(startCount, 360);   // after the card enters
+
+    let dismissed = false;
+    const dismiss = (e) => {
+      if (e) e.stopPropagation();                    // never leak the tap to main.js tap-to-fly
+      if (dismissed) return;
+      dismissed = true;
+      if (topbarB) topbarB.textContent = Number(opts.finalTotal || 0).toLocaleString();
+      scrim.classList.remove('show');
+      card.classList.remove('show');
+      card.classList.add('leaving');
+      document.removeEventListener('keydown', onKey);
+      try { uiSound.back(); } catch (e2) {}
+      setTimeout(() => { scrim.remove(); card.remove(); }, 260);
+      if (prevFocus && prevFocus.focus) prevFocus.focus();
+    };
+    const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dismiss(); } };
+    scrim.addEventListener('pointerdown', dismiss);
+    card.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', onKey);
+  },
+
   hideScreen() {
     pauseSubscreen = false;
     // U13 exit ritual: nothing pops — the panel fades out at --t-exit/--ease-in.
@@ -2588,7 +2665,7 @@ export const ui = {
         <div class="pm-footer">
           <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b> · LV <b>${saveData.level}</b></span>
           <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
-            ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>`}
+            ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">DRIFTER${badgeHtml(pilotBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>
             ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn pm-quit-btn" id="pm-quit">EXIT TO MENU</button>

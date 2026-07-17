@@ -44,7 +44,7 @@ export const FEAT_DEFS = [
   { id: 'dist_100k',      cat: 'journey', name: 'Around the World',    desc: 'Fly 100 km lifetime',                    reward: 150, settle: () => saveData.stats.totalDist >= 100000 },
   { id: 'daily_7',        cat: 'journey', name: 'Dawn Patrol',         desc: 'Hold a 7-day daily streak',              reward: 100, title: 'dawnchaser', settle: () => saveData.daily.streak >= 7 },
   { id: 'biome_6',        cat: 'journey', name: 'World Tour',          desc: 'Reach the Astral Shallows in one run',   reward: 120, settle: () => game.distance >= 7500 },
-  { id: 'level_10',       cat: 'journey', name: 'Ace Pilot',           desc: 'Reach pilot level 10',                   reward: 80,  settle: () => saveData.level >= 10 },
+  { id: 'level_10',       cat: 'journey', name: 'Ace Drifter',         desc: 'Reach drifter level 10',                 reward: 80,  settle: () => saveData.level >= 10 },
   { id: 'weekly_first',   cat: 'journey', name: 'Trialblazer',         desc: 'Complete a weekly trial',                reward: 60,  settle: () => TRIAL_POOL.some((t) => saveData.titles.owned.includes(t.title)) },
   { id: 'ascend_first',   cat: 'skill',      name: 'First Flame',  desc: 'Ascend any dragon to tier 1', reward: 60,  settle: () => (saveData.ascension.tiers || []).some(e => e[1] >= 1) },
   { id: 'ascend_eternal', cat: 'collection', name: 'Eternal Bond', desc: 'Evolve any dragon to Eternal', reward: 150, title: 'eternal', settle: () => (saveData.ascension.tiers || []).some(e => e[1] >= 3) },
