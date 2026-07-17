@@ -140,6 +140,41 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     indices.push(tailIdx, ringBase[N - 1] + j, ringBase[N - 1] + j2);
   }
 
+  // ── DORSAL STRIPE — a continuous flat pale-seafoam BAND riding the dorsal line nose→tail, as
+  // its OWN raised strip of geometry (vertex-painting the tube column read as broken dashes and
+  // washed out — Fable gate r6). Dark-emerald seam | near-white edge | pale-seafoam centre |
+  // near-white edge | dark-emerald seam. Emitted into the mesh so it whips with the swim wave.
+  if (rb > 0) {
+    const cStripe = new THREE.Color(model.crestColor ?? 0xbdf5d0);
+    const cSeam = new THREE.Color(0xe4fff0);                                   // near-white seam
+    const cDark = colBody.clone().lerp(colShadow, 0.7);                        // dark-emerald flank
+    const bw = 0.26;                                                           // half angular width around the dorsal apex
+    const angs = [-bw, -bw * 0.55, 0, bw * 0.55, bw];
+    const cols = [cDark, cSeam, cStripe, cSeam, cDark];
+    const rowsS = [];
+    for (let i = 0; i < N; i++) {
+      const f = frames[i];
+      const rW = f.r * OVAL_W * 1.02, rH = f.r * OVAL_H * 1.02;                // sit just proud of the tube
+      const row = [];
+      for (let k = 0; k < angs.length; k++) {
+        const a = Math.PI / 2 + angs[k], cs = Math.cos(a), sn = Math.sin(a);
+        row.push(positions.length / 3);
+        positions.push(
+          f.p.x + cs * rW * f.B.x + sn * rH * f.Nn.x,
+          f.p.y + cs * rW * f.B.y + sn * rH * f.Nn.y,
+          f.p.z + cs * rW * f.B.z + sn * rH * f.Nn.z);
+        normals.push(f.Nn.x, f.Nn.y, f.Nn.z);
+        const c = colBody.clone().lerp(cols[k], rb);
+        colors.push(c.r, c.g, c.b);
+      }
+      rowsS.push(row);
+    }
+    for (let i = 0; i < N - 1; i++) for (let k = 0; k < angs.length - 1; k++) {
+      const a = rowsS[i][k], b = rowsS[i][k + 1], d = rowsS[i + 1][k], e = rowsS[i + 1][k + 1];
+      indices.push(a, b, e, a, e, d);
+    }
+  }
+
   // ── BODY WEB-FANS — a row of broad radiating pleated koi fans, mounted BY THE FRAME ────
   const cLeadF = new THREE.Color(model.finLeadColor ?? 0x116b45);
   const cMidF = new THREE.Color(model.finMidColor ?? 0x2f9e77);
