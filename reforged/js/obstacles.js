@@ -476,10 +476,14 @@ const _FRM_DROWN = [0.115, 0.255, 0.295];  // drowned slate-teal base
 // The forum tide ladder by world height + a per-block value jitter (jit), so every block reads as the same
 // travertine geology as the hero: wet drowned base near the water → algae line → sunlit crown, brightening up.
 function forumStoneCol(worldY, jit) {
+  // SOFTENED tide ladder (Fable polish): blend drowned → algae → travertine over a couple of courses so the
+  // waterline reads as WEATHERING on the masonry (a 2–3 step gradient), not a hard painted band. Crown
+  // brightens with height toward the sunlit top — the hero's breathing gradient, not a paint cut.
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   let s;
-  if (worldY > 3.6) { const t = Math.min(1, (worldY - 3.6) / 14); const b = 0.82 + 0.20 * t; s = [_FRM_TRAV[0] * b, _FRM_TRAV[1] * b, _FRM_TRAV[2] * b]; }
-  else if (worldY < 2.4) s = _FRM_DROWN;
-  else s = _FRM_ALGAE;
+  if (worldY < 3.0) s = lerp3(_FRM_DROWN, _FRM_ALGAE, Math.min(1, worldY / 3.0));          // drowned base → algae (wet zone)
+  else if (worldY < 6.0) s = lerp3(_FRM_ALGAE, _FRM_TRAV, (worldY - 3.0) / 3.0);           // algae → travertine (the tide transition)
+  else { const b = 0.9 + 0.14 * Math.min(1, (worldY - 6.0) / 12.0); s = [_FRM_TRAV[0] * b, _FRM_TRAV[1] * b, _FRM_TRAV[2] * b]; }  // crown brightens up
   return [s[0] * jit, s[1] * jit, s[2] * jit];
 }
 function bakeFlatColor(geo, rgb) {
