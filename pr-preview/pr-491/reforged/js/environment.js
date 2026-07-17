@@ -308,6 +308,16 @@ function makeMats() {
     ...opts, color: 0xffffff, vertexColors: true, roughness: 0.62, metalness: 0.04,
     emissive: 0xc7cbae, emissiveIntensity: 0.26,   // lower + cooler base so the diffuse jade tide-band survives (not washed to cream)
   }), true);
+  // THE DROWNED FORUM stone (DROWNED-FORUM-BUILD-SHEET §2B `forumStone`) — its OWN material, NOT the
+  // lagoonStone it first borrowed: the lagoon's warm emissive fill (0xc7cbae @0.26, tuned so the JADE band
+  // survives backlight) LIFTED the forum's dark drowned base toward cream and clipped the crown, collapsing
+  // the travertine→algae→slate tide ladder into one flat grey-green through the gold-umber fog (Fable
+  // Stage-2 3.8). A LOWER, cooler emissive (@0.15) keeps the drowned base genuinely dark and the band
+  // separation intact at fog distance, while still lifting the stone off pure black in the low dusk sun.
+  mats.forumStone = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.66, metalness: 0.04,
+    emissive: 0x6f7360, emissiveIntensity: 0.15,
+  }), true);
   // GILT accent — ancient temple gold, seen ONLY inside recessed aperture reveals (arch intrados,
   // oculus rim, belfry). vertexColors OFF so it ignores the tide bake on shared geometry.
   mats.gilt = addPropDetail(new THREE.MeshStandardMaterial({
@@ -637,9 +647,12 @@ function bakeBloom(geo, upThresh = 0.2) {
 // a drowned slate-teal base (one of the palette's three cool anchors). Its own stops — never the jade
 // _LAG_ hues (the green purge, §11.5; the symmetric mechanical grep keeps the kits leak-free). Zero tri
 // cost. waterY lifted to 0.16 so the arch feet drown; the tilt (bradyseism) then crosses the band at an angle.
-const _FRM_TRAV = [0.918, 0.875, 0.784];  // 0xeadfc8 sun-bleached travertine crown (never whiter — HOLLOWGATE stays palest)
-const _FRM_ALGAE = [0.263, 0.310, 0.227]; // 0x434f3a browner algae-crust tide line (NOT leafy green)
-const _FRM_DROWN = [0.078, 0.200, 0.231]; // 0x14333b wet slate-teal drowned base (the cool anchor)
+// Band values pushed APART (Fable Stage-2 3.8: the ladder washed to one grey-green through the fog) —
+// a creamier/brighter travertine crown, a distinct saturated dark-olive algae stripe, and a deeper more
+// saturated slate-teal drowned base, so the three-band separation survives the gold-umber haze at distance.
+const _FRM_TRAV = [0.960, 0.900, 0.770];  // creamy sun-bleached travertine crown (warm, bright — still under HOLLOWGATE white)
+const _FRM_ALGAE = [0.230, 0.300, 0.170]; // saturated dark-olive algae line (NOT leafy green; the narrow band)
+const _FRM_DROWN = [0.050, 0.160, 0.198]; // deep wet slate-teal drowned base (the cool anchor, dropped in value)
 // The tide ladder is keyed to ONE tilted waterline PLANE (key = vy − tiltX·vx), evaluated PER-VERTEX so the
 // stain line wraps CONTINUOUSLY around every face at a single consistent angle — the fix for the Fable
 // Stage-2 3.1 note: a per-FACE key quantized the tilt into hard chevron wedges ("dazzle-camo") and ate the
@@ -665,10 +678,10 @@ function bakeForumLadder(geo, waterY = 0.38, bandH = 0.04, tiltX = 0.11) {
       const o = (i + k) * 3;
       if (key > waterY + bandH) {
         const t = Math.min(1, (key - (waterY + bandH)) / 0.7);   // brighten toward the sunlit crown
-        col[o] = _FRM_TRAV[0] * (1 + 0.06 * t) * uf; col[o + 1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; col[o + 2] = _FRM_TRAV[2] * (1 + 0.03 * t) * uf;
+        col[o] = Math.min(1, _FRM_TRAV[0] * (1 + 0.05 * t)) * uf; col[o + 1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; col[o + 2] = _FRM_TRAV[2] * (1 + 0.04 * t) * uf;
       } else if (key < waterY) {
-        const t = Math.min(1, (waterY - key) / 0.4);
-        const f = 1 - 0.30 * t;
+        const t = Math.min(1, (waterY - key) / 0.5);
+        const f = 1 - 0.42 * t;   // drop the drowned base harder toward the wet shadow core (band separation vs fog)
         col[o] = _FRM_DROWN[0] * f; col[o + 1] = _FRM_DROWN[1] * f; col[o + 2] = _FRM_DROWN[2] * f;
       } else {
         col[o] = _FRM_ALGAE[0]; col[o + 1] = _FRM_ALGAE[1]; col[o + 2] = _FRM_ALGAE[2];   // narrow hard algae line
@@ -738,7 +751,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   const geos = [], mats = [];
-  if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : propMats.lagoonStone); }
+  if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : (opts.forum ? propMats.forumStone : propMats.lagoonStone)); }
   if (accent.length) {
     const ag = accent.length > 1 ? mergeGeometries(accent) : accent[0];
     // the stone group carries a per-vertex `color` from the bake; pad the accent group with a matching
@@ -2643,7 +2656,7 @@ const ARCHETYPES = {
       // fallen masonry askew, not a symmetric gable/pediment perched on top (Fable Stage-2: the tidy peak
       // read as a chapel roof). (12)
       S(xform(new THREE.BoxGeometry(0.24, 0.11, 0.34), { x: 0.44, y: 0.72, rz: -0.62, ry: 0.5 }));
-      return mergeLagoonParts(parts);   // → 144 tris, 2 groups (forum stone + gilt)
+      return mergeLagoonParts(parts, { forum: true });   // → 144 tris, 2 groups (forumStone + gilt)
     },
     // HERO scale, WIDER than tall (~1.15:1 world = r:h). The opening (world ~0.40·r wide × 0.48·h tall) stays
     // flyable with margin. Explicit bradyseism tilt (§1 — the sea crept in; a level waterline is a bug). Draw
