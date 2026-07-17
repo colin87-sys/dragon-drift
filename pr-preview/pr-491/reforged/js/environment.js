@@ -2700,39 +2700,36 @@ const ARCHETYPES = {
       // the whole prop shares a single platform (Fable Stage-1: a wall floating beside a narrow stylobate read
       // as two props — "a ruin comb + an unrelated crate"). Long+thin (0.30×1.02) still reads lane-parallel. (12)
       S(xform(new THREE.BoxGeometry(0.30, 0.09, 1.02), { x: 0.22, y: 0.045 }));
-      // TABERNAE WALL (2nd register) — a LOW backdrop SEATED ON the stylobate (bottom y0.09, no gap), set back
-      // BEHIND the colonnade line (x0.12) so the comb reads in front of it; only behind the INTACT end
-      // (z −0.47..−0.03), the decayed end open with scattered drums. (12)
-      S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.44), { x: 0.12, y: 0.26, z: -0.25 }));
-      // TABERNAE DOORWAYS — recessed panels on the wall's LANE-FACING +x street face (x0.166, just proud of the
-      // wall front at 0.165), visible through the colonnade gaps from the money angle (Fable Stage-1: recesses
-      // on a hidden face = zero value). Single-sided planes ry+π/2 → normal +x. 2 Pompeian-red fresco, 1 dark. (6)
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.15, 0.20), { x: 0.166, z: -0.37, y: 0.21, ry: Math.PI / 2 }) });  // door 1 — red fresco (in the gap z −0.44..−0.30)
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.15, 0.20), { x: 0.166, z: -0.23, y: 0.21, ry: Math.PI / 2 }) });  // door 2 — red fresco (gap z −0.30..−0.16)
-      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.14, 0.18), { x: 0.166, z: -0.09, y: 0.19, ry: Math.PI / 2 }) });  // door 3 — dark faded (gap z −0.16..0.00)
-      // COLONNADE — carry the comb the FULL LENGTH (Fable: rhythm needs repetition): 2 full hero columns +
-      // architrave at the intact end, then a decay sequence of FULL-GIRTH broken columns → stumps down the
-      // length (a broken column is a FATTER, SHORTER survivor with a jagged open top — not a thin shell).
-      // CHUNKY Tuscan shafts (5-sided pentagon reads round; taper = entasis); heroes get a square ABACUS.
-      const col = (z, h, rB, rT, lean, cap) => {
-        parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.28, z, y: 0.09 + h / 2, rz: lean }) });   // shaft (10)
-        if (cap) parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.BoxGeometry(0.115, 0.04, 0.115), { x: 0.28, z, y: 0.09 + h + 0.018, rz: lean }) });   // square abacus (12)
-      };
-      col(-0.44, 0.63, 0.058, 0.046, 0.03, true);    // full — hero (carries the architrave)
-      col(-0.30, 0.63, 0.058, 0.046, -0.02, true);   // full — hero (carries the architrave)
-      col(-0.16, 0.44, 0.060, 0.052, 0.05, false);   // broken tall — FULL GIRTH (~⅔)
-      col(0.00, 0.30, 0.062, 0.056, -0.07, false);   // broken — full girth (~½)
-      col(0.20, 0.16, 0.064, 0.060, 0.10, false);    // knee stump — fat, short (last standing; then the row DISSOLVES into fallen drums)
-      // ARCHITRAVE FRAGMENT — one beam bridging the 2 hero columns (z −0.44..−0.30), tilted ~4° (a ruin). (12)
-      S(xform(new THREE.BoxGeometry(0.09, 0.055, 0.26), { x: 0.28, z: -0.37, y: 0.745, rz: 0.055 }));
-      // FALLEN DRUMS — 3 genuinely cylindrical drums LYING ON the deck (y≈0.14 = radius above the y0.09 stylobate
-      // top, NOT sunk in it — Fable Stage-1: drums at y0.05 were buried below the deck and read as flat decals),
-      // 6-sided for a clean round "coin" silhouette, rolled apart at the decayed +z end where the colonnade has
-      // collapsed. rx π/2 lays the axis down; rz rolls each apart (the collapsed-colonnade signifier). (36)
-      const drum = (x, z, r, len, roll, sides) => S(xform(new THREE.CylinderGeometry(r, r, len, sides, 1, true), { x, z, y: 0.09 + r, rx: Math.PI / 2, rz: roll }));
-      drum(0.30, 0.20, 0.058, 0.15, 0.5, 6);    // drum rolled off the line, nearest the last stump (rounder — closest to camera)
-      drum(0.20, 0.34, 0.056, 0.14, -0.35, 6);  // drum rolled further into the lane-side gap
-      drum(0.31, 0.44, 0.054, 0.13, 0.9, 5);    // drum at the far collapsed end, cross-rolled (5-sided — furthest, budget)
+      // TABERNAE — a BROKEN OPEN-FRONTED shopfront in TWO pier segments seated on the deck (bottom y0.09) and set
+      // BACK behind the colonnade (x0.12), with a see-through DOORWAY GAP between them (Fable re-gate: flat painted
+      // doors on a solid slab throw no shadow facet under flat shading → a real opening gives free depth + shadow,
+      // and open-fronted piers are how a tabernae actually read). Tall intact pier −z, ruined shorter pier +z. (24)
+      S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.26), { x: 0.12, y: 0.26, z: -0.37 }));   // pier A — intact (z −0.50..−0.24)
+      S(xform(new THREE.BoxGeometry(0.09, 0.24, 0.16), { x: 0.12, y: 0.21, z: -0.08 }));   // pier B — ruined, shorter (z −0.16..0.00)
+      // SHOP-INTERIOR FRESCO — a Pompeian-red panel set at the BACK of the wall thickness (x0.076), seen THROUGH the
+      // doorway gap (z −0.24..−0.16) from the lane: a painted interior recessed in shadow, not a decal on the face.
+      // Single-sided ry+π/2 → normal +x (faces the lane); sits inside the opening so no lane-edge backface sliver. (2)
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.075, 0.22), { x: 0.076, z: -0.20, y: 0.20, ry: Math.PI / 2 }) });
+      // COLONNADE — a diminishing-ruin comb (Fable: rhythm + full-girth stumps PASS): 2 tall survivors carrying an
+      // architrave fragment (post-and-beam = "this was BUILT") → 2 broken full-girth columns → the row then
+      // DISSOLVES into fallen drums. CHUNKY Tuscan shafts (5-sided pentagon reads round; taper = entasis). No abacus
+      // — traded to fund SOLID drums; weathered Roman shafts read as columns without a clean capital. (10 each)
+      const col = (z, h, rB, rT, lean) =>
+        parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.28, z, y: 0.09 + h / 2, rz: lean }) });
+      col(-0.44, 0.66, 0.058, 0.046, 0.03);    // tall survivor (carries the architrave)
+      col(-0.30, 0.63, 0.058, 0.046, -0.02);   // tall survivor (carries the architrave)
+      col(-0.16, 0.44, 0.060, 0.052, 0.05);    // broken — FULL GIRTH (~⅔)
+      col(0.00, 0.30, 0.062, 0.056, -0.07);    // broken — full girth (~½; then the row dissolves into drums)
+      // ARCHITRAVE FRAGMENT — one beam bridging the 2 tall survivors (z −0.44..−0.30), tilted ~4° (a ruin). (12)
+      S(xform(new THREE.BoxGeometry(0.09, 0.055, 0.26), { x: 0.28, z: -0.37, y: 0.775, rz: 0.055 }));
+      // FALLEN DRUMS — 3 SOLID (closed-end) cylinders lying ON the deck (y = radius above the y0.09 top), rolled
+      // apart at the decayed +z end where the colonnade collapsed. CLOSED (openEnded false) so no deck shows through
+      // them — Fable re-gate: open shells read as curled paper / the see-through cheap tell. rx π/2 lays the axis
+      // down; rz rolls each apart. 5-sided reads round as a fallen coin at near-rail distance. (20 each) (60)
+      const drum = (x, z, r, len, roll) => S(xform(new THREE.CylinderGeometry(r, r, len, 5, 1, false), { x, z, y: 0.09 + r, rx: Math.PI / 2, rz: roll }));
+      drum(0.30, 0.18, 0.058, 0.15, 0.5);    // drum rolled off the line, nearest the last broken column
+      drum(0.20, 0.32, 0.056, 0.14, -0.35);  // drum rolled further into the lane-side gap
+      drum(0.31, 0.44, 0.054, 0.13, 0.9);    // drum at the far collapsed end, cross-rolled
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.12 });   // waterline lifts the algae line onto the column feet / stylobate crown for a legible 3-step ladder
     },
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π) so the colonnade WALLS the corridor,
