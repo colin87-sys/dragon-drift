@@ -1905,7 +1905,7 @@ export const ui = {
         return `<span style="left:${(Math.random() * 100).toFixed(1)}%;` +
           `--d:${(Math.random() * 9).toFixed(2)}s;--dur:${(7 + Math.random() * 8).toFixed(2)}s;` +
           `--sz:${(2 + Math.random() * 4).toFixed(1)}px;--dx:${(Math.random() * 44 - 22).toFixed(0)}px;` +
-          `--c:${gold ? '#ffce6a' : '#7fe6ff'}"></span>`;
+          `--c:${gold ? '#ffce6a' : '#ff9a4a'}"></span>`;   // WELCOME+HUB §4.2 — warm only; cyan (#7fe6ff) evicted (vitals accent, illegal on the calm hub)
       }).join('');
 
       // Top bar (wallet + settings gear) — absent on the cold first screen.
@@ -1955,7 +1955,7 @@ export const ui = {
         <div class="hero-core">
           ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
           ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
-          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
+          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">${title}</button>` : ''}
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
           <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">${ICONS.play}</span>TAKE OFF</button>
           ${sub ? `<p class="hero-sub">${sub}</p>` : ''}
