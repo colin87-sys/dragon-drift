@@ -116,6 +116,7 @@
       // Optional instance-scale hook: render at the real (r,h,r) world scale so horizontal
       // props (causeway/rampart) read at their true long-low proportion, not unit-cube.
       if (o.inst) { built.scale.set(o.inst[0], o.inst[1], o.inst[0]); built.updateMatrixWorld(true); }
+      if (o.ry) { built.rotation.y = o.ry; built.updateMatrixWorld(true); }   // turn a specific face (e.g. the lane-face) toward the camera
       setBg(o.bg || 'pale');
       setRig(o.rig || 'sunset');
       const a = ANGLES[o.angle] || ANGLES.front;
