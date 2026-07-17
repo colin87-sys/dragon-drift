@@ -617,36 +617,37 @@ function bakeBloom(geo, upThresh = 0.2) {
 const _FRM_TRAV = [0.918, 0.875, 0.784];  // 0xeadfc8 sun-bleached travertine crown (never whiter — HOLLOWGATE stays palest)
 const _FRM_ALGAE = [0.263, 0.310, 0.227]; // 0x434f3a browner algae-crust tide line (NOT leafy green)
 const _FRM_DROWN = [0.078, 0.200, 0.231]; // 0x14333b wet slate-teal drowned base (the cool anchor)
-// waterY 0.28: the drowned/tide zone must own the LOWER THIRD of a pier, not a thin line at the foot, or
-// the vast bleached crown reads as uniform "Caesars-Palace" fresh marble (Fable Stage-2 2.7 FAIL). tiltX
-// bakes a DIAGONAL waterline straight into the vColor (key = yc − tiltX·xc), so the band crosses every face
-// at an angle regardless of the instance tilt — the bradyseism law (§1) made unmissable and the flat-cut
-// waterline (§11.9) killed in the same pass, zero extra tris (Fable's own highest-leverage fix).
-function bakeForumLadder(geo, waterY = 0.28, bandH = 0.05, tiltX = 0.10) {
+// The tide ladder is keyed to ONE tilted waterline PLANE (key = vy − tiltX·vx), evaluated PER-VERTEX so the
+// stain line wraps CONTINUOUSLY around every face at a single consistent angle — the fix for the Fable
+// Stage-2 3.1 note: a per-FACE key quantized the tilt into hard chevron wedges ("dazzle-camo") and ate the
+// algae band, because water doesn't stain in chevrons. Per-vertex → below the plane = drowned slate-teal;
+// a NARROW band at the plane = the hard algae line; above = sun-bleached travertine (value-structured toward
+// the crown). tiltX 0.11 ≈ 6° = believable subsidence (§1 bradyseism + §11.9 no flat cut), zero extra tris.
+// The undercut self-shadow stays per-FACE (needs the geometric normal) — computed once, applied to the 3
+// crown verts. waterY 0.26 → the drowned/tide zone owns the lower ~third of a pier (not a thin foot line).
+function bakeForumLadder(geo, waterY = 0.26, bandH = 0.045, tiltX = 0.11) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
-  const s = [0, 0, 0];
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
-    const xc = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
-    const yc = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3 - tiltX * xc;   // tilted waterline key (diagonal band)
-    if (yc > waterY + bandH) {
-      // BLEACH crown — value structure (core→bloom→dark): brighten toward a sunlit top + an undercut
-      // self-shadow on down-faces (arch soffit / cornice belly), so a pier reads dark-tide → bright crown.
-      const t = Math.min(1, (yc - (waterY + bandH)) / 0.7);
-      ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
-      e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
-      const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 up/side → 1 straight-down overhang (soffit)
-      const uf = 1 - 0.5 * u;
-      s[0] = _FRM_TRAV[0] * (1 + 0.06 * t) * uf; s[1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; s[2] = _FRM_TRAV[2] * (1 + 0.03 * t) * uf;
-    } else if (yc < waterY) {
-      const t = Math.min(1, (waterY - yc) / 0.4);
-      const f = 1 - 0.30 * t;
-      s[0] = _FRM_DROWN[0] * f; s[1] = _FRM_DROWN[1] * f; s[2] = _FRM_DROWN[2] * f;
-    } else {
-      s[0] = _FRM_ALGAE[0]; s[1] = _FRM_ALGAE[1]; s[2] = _FRM_ALGAE[2];   // NARROW hard-edged band (bandH 0.06, flat)
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // face normal (undercut)
+    const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 up/side → 1 straight-down overhang (soffit)
+    const uf = 1 - 0.5 * u;
+    for (let k = 0; k < 3; k++) {
+      const key = pos.getY(i + k) - tiltX * pos.getX(i + k);   // signed height above the single tilted plane
+      const o = (i + k) * 3;
+      if (key > waterY + bandH) {
+        const t = Math.min(1, (key - (waterY + bandH)) / 0.7);   // brighten toward the sunlit crown
+        col[o] = _FRM_TRAV[0] * (1 + 0.06 * t) * uf; col[o + 1] = _FRM_TRAV[1] * (1 + 0.05 * t) * uf; col[o + 2] = _FRM_TRAV[2] * (1 + 0.03 * t) * uf;
+      } else if (key < waterY) {
+        const t = Math.min(1, (waterY - key) / 0.4);
+        const f = 1 - 0.30 * t;
+        col[o] = _FRM_DROWN[0] * f; col[o + 1] = _FRM_DROWN[1] * f; col[o + 2] = _FRM_DROWN[2] * f;
+      } else {
+        col[o] = _FRM_ALGAE[0]; col[o + 1] = _FRM_ALGAE[1]; col[o + 2] = _FRM_ALGAE[2];   // narrow hard algae line
+      }
     }
-    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
@@ -2604,15 +2605,15 @@ const ARCHETYPES = {
       // carry glow). Owner Stage-2 note: the earlier wide square read as a flat glowing BAR (§11.7 flat-tape);
       // shrunk to a small coffer set UP against the soffit so the surrounding stone frames it — a glint, not
       // a lamp. mat 1 = gilt. (12)
-      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.10, 0.02, 0.11), { y: 0.668 }) });
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.12, 0.02, 0.13), { y: 0.667 }) });
       // CORNICE — the projecting entablature ledge running the FULL width above the arch (the single
       // strongest "Roman" horizontal tell): it separates the arch level from the attic. Proud front & back. (12)
       S(xform(new THREE.BoxGeometry(1.02, 0.05, 0.44), { y: 0.725 }));
       // ATTIC CAP — the solid crowning block (0.30 of H, §110), a breath off-plumb (ruin lean). One shoulder
       // is a DIAGONAL FRACTURE (Fable Stage-2: the neat step read as whole): the +x remnant is sheared and
       // tipped, sliding toward the sea (§11.3 — nothing plumb, every pediment loses a corner). (24)
-      S(xform(new THREE.BoxGeometry(0.74, 0.30, 0.40), { x: -0.10, y: 0.90, rz: -0.035 }));   // attic main, leaning (12)
-      S(xform(new THREE.BoxGeometry(0.22, 0.15, 0.40), { x: 0.40, y: 0.80, rz: -0.42 }));      // sheared corner remnant, tipped seaward (12)
+      S(xform(new THREE.BoxGeometry(0.70, 0.30, 0.40), { x: -0.14, y: 0.90, rz: -0.03 }));    // attic main — its +x end (x0.21) stops SHORT of the pier (x0.50): the corner is gone (12)
+      S(xform(new THREE.BoxGeometry(0.26, 0.12, 0.40), { x: 0.40, y: 0.775, rz: -0.55 }));    // the sheared corner block, dropped + tipped steeply seaward = fallen masonry, not a neat step (12)
       return mergeLagoonParts(parts);   // → 144 tris, 2 groups (forum stone + gilt)
     },
     // HERO scale, WIDER than tall (~1.15:1 world = r:h). The opening (world ~0.40·r wide × 0.48·h tall) stays
