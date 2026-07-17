@@ -22,7 +22,12 @@ for (let a = 0; a < 12; a++) {
 }
 await page.evaluate(() => {
   const dd = window.__dd; dd.noBoss && dd.noBoss(true); dd.clearVents && dd.clearVents();
-  window.__pin = setInterval(() => { dd.game.health = 100; dd.clearVents && dd.clearVents(); }, 24);
+  window.__pin = setInterval(() => {
+    dd.game.health = 100; dd.clearVents && dd.clearVents();
+    if (dd.game.state && dd.game.state !== 'playing') dd.game.state = 'playing';   // revert any crash/damage transition so the capture stays clean
+    if (dd.game.dmgFlash != null) dd.game.dmgFlash = 0;                            // kill the red damage vignette
+    if (dd.game.hitFlash != null) dd.game.hitFlash = 0;
+  }, 16);
   const cam = dd.camera; dd.__cam = null;
   dd.cameraCtl.update = () => {
     if (!dd.__cam) return;
