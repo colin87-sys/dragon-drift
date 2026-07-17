@@ -2648,7 +2648,11 @@ const ARCHETYPES = {
       const h = 17 + rnd() * 6;
       const r = h * 1.15 + rnd() * 3;
       const p = { x: side * (18 + 0.95 * r + rnd() * 7), h, r, tilt: side * (0.05 + rnd() * 0.045) };
-      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.18 - 0.09);   // decorated +z face turns lane-ward (± a breath)
+      // Front (+z object: arch ring, pilasters, gilt soffit) faces UP-LANE toward the approaching player, a
+      // breath turned inward toward the lane → a ¾-front on approach (a processional arch is met head-on, not
+      // side-on). (Round-6 fix: the old Math.PI turned the money face DOWN-lane, so both the player on approach
+      // AND the capture cam saw the blank back — the "off-centre opening / absent gilt" Fable read.)
+      p.rotY = (side > 0 ? -0.32 : 0.32) + (rnd() * 0.16 - 0.08);
       if (HERO_SET.has('triumphgate')) { p.rotY = 0; p.tilt = side * 0.06; }   // debug: pin the money face + a fixed lean down-lane
       return p;
     },
