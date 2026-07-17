@@ -3414,6 +3414,130 @@ const ARCHETYPES = {
     // |x| ~ 21 − 1.18·13 ≈ 6, so the two crowns nearly meet over the lane centre. rotY mirrors per bank.
     place: (side, rnd) => ({ x: side * (24 + rnd() * 2), h: 28 + rnd() * 6, r: 12 + rnd() * 1.5, tilt: 0, rotY: side > 0 ? Math.PI : 0 }),
   },
+
+  // pantheon — DROWNED DOME, the MID-HERO (DROWNED-FORUM-BUILD-SHEET §3 #4, PR-5). EVOLVES the shipped v2
+  // `rotunda` (proven 4.5/5 — RETINT, don't rebuild): the same pierced drum + dome + oculus, re-stopped
+  // JADE-OUT to forum travertine (bake:'forum'), the lancet window swapped to a ROUND arch, PLUS the temple
+  // ADDITIONS that make it a pantheon — a broken hexastyle PORTICO STUB + snapped PEDIMENT at its foot, a
+  // fallen column in DRUMS across the steps, a gilt OCULUS jewel, and a RED apse glimpsed through the wound.
+  // Fable pre-assessed (HERO_BUDGET ~228; perf verified). The silhouette cue: a low raking TRIANGLE leaning
+  // on the roster's only CURVED crown, a notch of sky between the pediment rake and the dome's rising arc.
+  pantheon: {
+    step: 59, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.08, sMin: 0.94, sMax: 1.16 },
+    build: () => {
+      const parts = [];
+      const F = (geo) => parts.push({ mat: 0, bake: 'forum', geo });   // forum travertine tide ladder
+      const nSeg = 11, dth = (Math.PI * 2) / nSeg;
+      const open = new Set([0, 2, 3]), arched = new Set([0]), domePhi = 2.22;
+      // BASE PLINTH — battered skirt + closed top disc (drowns slate-teal entirely). 8→7 seg (budget trim).
+      F(xform(new THREE.CylinderGeometry(0.60, 0.70, 0.16, 7, 1, true), { y: 0.08 }));
+      F(xform(new THREE.CircleGeometry(0.60, 7), { y: 0.16, rx: -Math.PI / 2 }));
+      // PIERCED DRUM WALL — 11-seg, edge loop at y0.22 (the tide band), intact window {0} now ROUND-arched,
+      // collapse wound {2,3} with jamb-cap depth. (raw vert array; tagged forum on the merged part)
+      {
+        const rings = [{ y: 0.0, r: 0.63 }, { y: 0.22, r: 0.575 }, { y: 0.60, r: 0.50 }];
+        const P = (ring, a) => [Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r];
+        const v = [];
+        for (let s = 0; s < nSeg; s++) {
+          if (open.has(s)) {
+            if (arched.has(s)) {
+              // ROUND arch (forum vocabulary, retiring the lagoon lancet): nseg=3 ODD → a flat chord at the
+              // crown reads round/Roman (even puts a vertex there = gothic). Spandrel fills arc→wall-top 0.60.
+              const a0 = s * dth, a1 = s * dth + dth, spring = 0.36, rise = 0.14, rA = 0.505, yT = 0.60, ns = 3;
+              const arc = (a) => { const t = (a - a0) / dth; return [Math.cos(a) * rA, spring + rise * Math.sin(Math.PI * t), Math.sin(a) * rA]; };
+              const top = (a) => [Math.cos(a) * rA, yT, Math.sin(a) * rA];
+              for (let k = 0; k < ns; k++) { const aa = a0 + dth * k / ns, ab = a0 + dth * (k + 1) / ns; v.push(...arc(aa), ...top(ab), ...arc(ab), ...arc(aa), ...top(aa), ...top(ab)); }
+            }
+            continue;
+          }
+          const a0 = s * dth, a1 = (s + 1) * dth;
+          for (let c = 0; c < 2; c++) { const lo = rings[c], hi = rings[c + 1]; const p0b = P(lo, a0), p1b = P(lo, a1), p0t = P(hi, a0), p1t = P(hi, a1); v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t); }
+        }
+        for (const { a, sign } of [{ a: 2 * dth, sign: 1 }, { a: 4 * dth, sign: -1 }]) {
+          const OB = [Math.cos(a) * 0.63, 0.0, Math.sin(a) * 0.63], OT = [Math.cos(a) * 0.50, 0.60, Math.sin(a) * 0.50];
+          const IB = [Math.cos(a) * 0.53, 0.0, Math.sin(a) * 0.53], IT = [Math.cos(a) * 0.40, 0.60, Math.sin(a) * 0.40];
+          if (sign > 0) v.push(...OB, ...OT, ...IT, ...OB, ...IT, ...IB); else v.push(...OB, ...IT, ...OT, ...OB, ...IB, ...IT);
+        }
+        const drum = new THREE.BufferGeometry();
+        drum.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); drum.computeVertexNormals();
+        drum.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, bake: 'forum', geo: drum });
+      }
+      // CORNICE — keep the 2-sector run {4,5}, drop the lone {1} stub (budget + asymmetry reads as accident).
+      {
+        const present = [4, 5], yb = 0.55, yt = 0.64, rC = 0.52, v = [];
+        for (const s of present) { const a0 = s * dth, a1 = (s + 1) * dth; const p0b = [Math.cos(a0) * rC, yb, Math.sin(a0) * rC], p1b = [Math.cos(a1) * rC, yb, Math.sin(a1) * rC], p0t = [Math.cos(a0) * rC, yt, Math.sin(a0) * rC], p1t = [Math.cos(a1) * rC, yt, Math.sin(a1) * rC]; v.push(...p0b, ...p1t, ...p1b, ...p0b, ...p0t, ...p1t); }
+        const corn = new THREE.BufferGeometry();
+        corn.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); corn.computeVertexNormals();
+        corn.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, bake: 'forum', geo: corn });
+      }
+      // DOME — shallow hemisphere, TRUE quarter collapsed toward the wound (+z). OCULUS at apex.
+      const domeY = 0.56;
+      F(xform(new THREE.SphereGeometry(0.46, 7, 2, domePhi, 1.5 * Math.PI, 0.30, Math.PI / 2 - 0.30), { y: domeY }));
+      // INNER LINING — reversed-winding shell so the collapse shows a stone bowl, not paper. Trimmed to the
+      // wound-facing arc only (0.8π/2-wide) — the eye only enters through the wound (budget −8).
+      { const inner = new THREE.SphereGeometry(0.43, 2, 2, domePhi, 0.8 * Math.PI, 0.30, Math.PI / 2 - 0.30); const idx = inner.index.array; for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; } inner.index.needsUpdate = true; inner.computeVertexNormals(); F(xform(inner, { y: domeY })); }
+      // BROKEN PIER STUMP under the overhanging rim (a support the eye accepts).
+      F(xform(new THREE.BoxGeometry(0.12, 0.54, 0.12), { x: Math.cos(2 * Math.PI / 11) * 0.48, z: Math.sin(2 * Math.PI / 11) * 0.48, y: 0.27, ry: 0.5, rz: 0.06 }));
+      // RED APSE — a 3-seg partial-cylinder fresco band on the interior wall opposite the wound, above the
+      // interior waterline (red plaster survives above the tide). Glimpsed as painted shadow through the wound.
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.CylinderGeometry(0.14, 0.14, 0.22, 3, 1, true, 0.2, 1.2), { x: 0.05, z: -0.34, y: 0.36 }) });
+      // OCULUS GILT — inward-facing recessed frustum (the withheld mid-hero ember; reads only as trapped
+      // sunset through the wound/oculus, never an exterior face). mat 1, 5 seg. Recessed DEEP (domeY+0.16, not
+      // +0.35) so the collapsed quarter never exposes it above the dome crown as a floating gilt BLOCK.
+      parts.push({ mat: 1, geo: xform(new THREE.CylinderGeometry(0.11, 0.11, 0.14, 5, 1, true), { y: domeY + 0.16 }) });
+
+      // ═══ PORTICO STUB (the "pantheon" ADD) — on local −x (the clean quadrant; drowns deepest under the bake
+      // tilt so the porch wades and the lost pediment corner is on the drowned/seaward side). Post-and-beam
+      // ONLY (round entasis columns vs the hero's square piers), 2-full/1-broken rhythm + a raking pediment →
+      // never a second triumphal arch. Podium tucked UNDER the plinth skirt (pronaos weld, no floating porch).
+      F(xform(new THREE.BoxGeometry(0.34, 0.10, 0.46), { x: -0.62, y: 0.05 }));   // PODIUM — inner edge tucked UNDER the drum skirt (pronaos weld, no water gap → not a separate temple)
+      const col = (z, h, rB, rT, lean, cap) => {   // entasis shaft (top ⅚ base); tops hidden under the beam soffit → open safe
+        F(xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: -0.66, z, y: 0.10 + h / 2, rz: lean }));
+        if (cap) F(xform(new THREE.CircleGeometry(rT, 5), { x: -0.66, z, y: 0.10 + h, rx: -Math.PI / 2 }));   // broken crown visible from the air → cap it
+      };
+      col(-0.21, 0.50, 0.026, 0.021, 0.03, false);    // full column
+      col(-0.126, 0.50, 0.026, 0.021, -0.02, false);  // full column
+      col(-0.042, 0.30, 0.027, 0.027, 0.05, true);    // broken at ⅗ height (capped)
+      // ARCHITRAVE BEAM + snapped PEDIMENT — the raking triangle. Flatten law: place() h/r≈0.55, so a world
+      // ~20° rake is built at object apex ~0.11 above the beam. Inner end embeds ~0.02 INTO the drum face
+      // (pronaos weld); the seaward (+z) corner is the one LOST (over the fallen drums).
+      F(xform(new THREE.BoxGeometry(0.12, 0.045, 0.30), { x: -0.66, z: -0.11, y: 0.635 }));   // architrave beam over the columns
+      {
+        const xf = -0.725, xb = -0.595, yB = 0.658, yA = 0.768;   // front/back x (back embeds ~0.03 INTO the drum face at -0.63 → pronaos weld), beam-top y, apex y
+        const zL = -0.255, zA = -0.125, zR = -0.03;               // eaveL, apex z, snapped-short +z end
+        const v = [];
+        const tri = (a, b, c) => v.push(...a, ...b, ...c);
+        const fL = [xf, yB, zL], fA = [xf, yA, zA], fR = [xf, yB, zR];   // front gable (facing −x), +z corner snapped short (zR near apex)
+        const bL = [xb, yB, zL], bA = [xb, yA, zA], bR = [xb, yB, zR];
+        tri(fL, fA, fR); tri(bR, bA, bL);                                // front + back gable faces
+        tri(fL, bL, bA); tri(fL, bA, fA);                                // left rake (long, intact)
+        tri(fA, bA, bR); tri(fA, bR, fR);                                // right rake (short → the snapped break)
+        tri(fL, fR, bR); tri(fL, bR, bL);                                // underside soffit (seen from below at cruise)
+        const ped = new THREE.BufferGeometry();
+        ped.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); ped.computeVertexNormals();
+        ped.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+        parts.push({ mat: 0, bake: 'forum', geo: ped });
+      }
+      // FALLEN COLUMN IN DRUMS — the +z half of the colonnade, toppled in a fall LINE across the podium
+      // (drumfall vocabulary: equal diameter, 5-seg open + one exposed cap, uncapped end tucked into the mass).
+      F(xform(new THREE.CylinderGeometry(0.026, 0.026, 0.16, 5, 1, true), { x: -0.64, z: 0.06, y: 0.16, rx: Math.PI / 2, rz: 0.3 }));   // drum 1 — canted, top rises above the band (tide "ignores" it)
+      F(xform(new THREE.CircleGeometry(0.026, 5), { x: -0.64, z: 0.14, y: 0.20, rx: 0.0 }));                                            // its exposed round face
+      F(xform(new THREE.CylinderGeometry(0.026, 0.026, 0.15, 5, 1, true), { x: -0.56, z: 0.20, y: 0.15, rx: Math.PI / 2 + 0.2, rz: -0.4 }));   // drum 2 — leaning against the podium edge
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.22 });   // waterline AT the drum edge loop → hard algae line for free
+    },
+    // MID-HERO: broad + shallow (Rome's dome is wide, low — never taller than the triumphal arch, only wider).
+    // Pinned ¾ yaw: the wound faces the lane, the portico points up-lane (the approach silhouette carries the
+    // name test; the red apse + gilt catch as the player draws level). Bradyseism tilt (a level dome = a bug).
+    place: (side, rnd) => {
+      const r = 17 + rnd() * 8;
+      const p = { x: side * (16.5 + 1.0 * r + rnd() * 6), h: 11 + rnd() * 4, r, tilt: side * (0.03 + rnd() * 0.03) };
+      p.rotY = (side > 0 ? -Math.PI / 2 + 0.35 : Math.PI / 2 - 0.35) + (rnd() * 0.3 - 0.15);
+      if (HERO_SET.has('pantheon')) p.rotY = -Math.PI / 2 + 0.35;   // debug: wound to the lane, portico up-lane
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -3465,6 +3589,7 @@ const FOAM_CFG = {
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
+  pantheon: { r: 0.9 },   // Drowned Forum mid-hero dome — a broad tide collar; the porch widens the waterline weld beyond the rotunda's 0.8
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
   stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
