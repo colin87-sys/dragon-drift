@@ -1804,6 +1804,9 @@ const ARCHETYPES = {
   // Parked until Stage 3 (its §7-C mottle revision + gate-clear engine line land then).
   glowshroom: {
     step: 45, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.10, sMin: 0.72, sMax: 1.25, glow: true }, // sMax 1.25 (Fable 68): peak survivors SWELL into a thicket-event instead of the grove reading flat
+    // Fable 88 lever-6 SIZE OCTAVES (pup / adult / tall / rare mother): a colony reads as many pups, some
+    // adults, one matriarch — not street lighting. EV≈0.95 (mass stays put); peak k = 1.25×1.90 ≈ 2.4 towers.
+    sizeOctave: [[0.44, 0.58], [0.78, 1.00], [0.93, 1.45], [1.0, 1.90]],
     build: () => {
       const parts = [];
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.06, 0.13, 0.7, 6), { y: 0.35 }) }); // tall dark stalk
@@ -1831,6 +1834,12 @@ const ARCHETYPES = {
   // staggered heights — the breadcrumb lanterns that write the safe lane (the dimmest tier-4 pale glow).
   glowbloom: {
     step: 37, biomes: mireNew, matIndex: 4, arrivalPark: true, comp: { floor: 0.45, sMin: 0.80, sMax: 1.05, glow: true }, // step 37 prime (Fable 68): coprime with shroom 45 + all Mire steps, kills the gcd-9 lattice co-beat
+    // Fable 88 lever-6 SIZE OCTAVES — glowbloom is DENSE near-lane ground filler (base inner ≈14.9, right at
+    // the ±14.5 clearance floor), so it cannot take an UPSIZE class without invading the lane (propclearance
+    // octave-aware gate). Its variance skews DOWNWARD instead — small/mid/full — max 1.0× so the effective
+    // sMax is byte-unchanged and clearance holds; the dramatic upward "mother" variance lives on glowshroom
+    // (placed further out). Still breaks the runway (mostly-smaller blooms with some full-size).
+    sizeOctave: [[0.45, 0.70], [0.80, 0.90], [1.0, 1.00]],
     build: () => {
       const parts = [];
       const ni = (g) => g.toNonIndexed(); // match the non-indexed octahedron bulbs
@@ -1988,7 +1997,12 @@ export function propClearanceData() {
       const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
       samples.push(def.place(1, rnd));
     }
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, gate: !!def.gate, samples };
+    // Fable 88 lever-6: the per-instance size octave multiplies the render scale ON TOP of comp.sMax,
+    // so a "mother" instance is comp.sMax × maxOctave. Fold it into the effective sMax the clearance model
+    // audits — else the gate tests a smaller prop than the game draws (the mother cap would be unaudited).
+    const octaveMax = def.sizeOctave ? Math.max(...def.sizeOctave.map((o) => o[1])) : 1;
+    const sMaxEff = (def.comp ? def.comp.sMax : 1) * octaveMax;
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: sMaxEff, paired: !!def.paired, gate: !!def.gate, samples };
   });
 }
 
@@ -2122,6 +2136,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // raked almond hole in the storm deck on the sun azimuth — bright calm interior + gold lower lip
       // + a deepened dark deck framing it. Mirrored (as a simple ambient lift) in skyProbe.js skyColorAt.
       uBreachMix: { value: 0 },
+      // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7): 0 = off → byte-identical in the other 6 biomes + all
+      // skins. A sourceless warm glow-column off the horizon — metabolic light, NOT a sun.
+      uShaft: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
@@ -2136,6 +2153,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix, uDeckBias;
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
+      uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -2247,6 +2265,20 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
         col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
                         + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
+        // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7, uShaft 0 = off → byte-identical): ONE sourceless warm
+        // glow-column rising off the ember horizon, OFF-CENTER of the corridor axis. Theology: the Mire has
+        // no sun — the brightest point is the ROOT at the waterline, decaying monotonically upward. Never a
+        // disc, never a floating core. Sits ON the fogFarColor-sunk horizon (haze lit from WITHIN the bog).
+        if (uShaft > 0.001) {
+          float _shAz = atan(sunDir.z, sunDir.x) + 0.62;          // ~35.5° off the corridor axis (screen-left third at cruise)
+          float _shDA = atan(sin(atan(d.z, d.x) - _shAz), cos(atan(d.z, d.x) - _shAz));
+          _shDA += 0.025 * sin(time * 0.07);                      // azimuth sway ±1.4°, ~90s — it leans, never travels
+          float _shW = exp(-(_shDA * _shDA) / 0.0256);            // gaussian column σ 0.16 rad (~18° FWHM) — no hard edge
+          float _shV = smoothstep(0.42, 0.02, h)                  // rooted at the horizon, gone by h=0.42
+                     * smoothstep(-0.02, 0.03, d.y);              // clean waterline seat (tiny sub-horizon bleed for reflection continuity)
+          float _shBr = 0.90 + 0.10 * sin(time * 0.13);           // breathe ±10%, ~48s — alive haze, not a decal
+          col += vec3(1.0, 0.66, 0.36) * (_shW * _shV * _shBr * 0.12 * uShaft);
+        }
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -2678,7 +2710,17 @@ function writeMatrix(band, i, d) {
         const c = band.def.comp;
         const density = c.floor + (1 - c.floor) * g;
         if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
-        else k = c.sMin + (c.sMax - c.sMin) * g;
+        else {
+          k = c.sMin + (c.sMax - c.sMin) * g;
+          // Fable 88 lever-6: per-instance SIZE OCTAVES break the "runway of identical lamps" — the
+          // congregation k gives every survivor the same size, so multiply it by a pure per-instance
+          // class (pups/adults/tall/rare-mother). `side` is in the hash → left/right flanks decorrelate
+          // (kills the mirror-pair tell for free). Render-scale only, no rnd → gold-determinism byte-identical.
+          if (band.def.sizeOctave) {
+            const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
+            for (const o of band.def.sizeOctave) { if (hc < o[0]) { k *= o[1]; break; } }
+          }
+        }
       }
     }
   }
@@ -2823,6 +2865,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  su.uShaft.value = env.horizonShaft ?? 0;   // Fable 90 lever-7: Lumen Mire horizon glow-column; 0 elsewhere → byte-identical sky
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
@@ -2864,6 +2907,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     stormSea: env.stormSea, // STORMSEA (Tempest): violent sea terms; 0 elsewhere = byte-identical
     rainRipple: (env.rainMix || 0) * (0.6 + 0.8 * ((env.rainMix || 0) > 0.005 ? rainGustAt(time) : 0)), // splash rings SWELL with the shared gust — sea + air prove one storm (layer G)
     breach: env.breachMix || 0, // EYE-BREACH: the becalmed gold-lit patch of sea under the eye of the gale; 0 elsewhere = byte-identical
+    // Fable 85 reflection craft (Lumen Mire): anisotropic streak + glints + green-blob pull; 0 elsewhere = byte-identical mirror
+    reflStretch: env.reflStretch, reflGlint: env.reflGlint, reflGreenPull: env.reflGreenPull,
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
