@@ -697,6 +697,35 @@ const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins (retired once
 const tempestNew = PROPS_V1 ? [] : [7];  // stormprow (+ storm roster to come)
 const tempestOld = PROPS_V1 ? [7] : [];  // legacy (empty — biome 7 shipped propless)
 
+// SHARED SHEARED-WEDGE BUILDER (Fable device critique R3 — the ASPECT-LEAN LAW). The world lean of a
+// baked skew is atan(k·r/h): one shared SKEW across a family whose instances span a wide aspect band
+// produces BOTH of the owner's complaints at once — squat prows (big r / small h) topple at ~50° while
+// tall prows (small r / big h) barely lean at ~13°. Fix: parameterize SKEW and split stormprow into two
+// NARROW aspect bands (low + hero), each with its own k tuned to a natural 15–28° world lean. Same unit
+// strata; the instance (r,h,r) scale does the rest.
+function buildStormprow(SKEW) {
+  const parts = [];
+  // [centerX, y, w, h, d, ry] — strata stack ~vertically + taper to a small crest; skewX shears the whole
+  // stack downwind coherently → the windward face is ONE continuous diagonal of parallelogram faces.
+  const strata = [
+    [-0.02, 0.09, 0.44, 0.20, 0.60,  0.05],   // 0 WATERLINE belly — narrow + recessed → undercut
+    [ 0.00, 0.28, 0.52, 0.20, 0.56, -0.07],   // 1 overhangs the belly (the storm undercut)
+    [ 0.02, 0.47, 0.44, 0.20, 0.48,  0.05],   // 2
+    [ 0.04, 0.65, 0.32, 0.19, 0.40, -0.06],   // 3
+    [ 0.06, 0.82, 0.16, 0.16, 0.28,  0.04],   // 4 CREST — sharp, small, far downwind (via the skew)
+  ];
+  for (const [x, y, w, h, d, ry] of strata) parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
+  // Protruding ledge slabs riding the windward DIAGONAL — the stratification tell, proud of the slope.
+  const ledges = [
+    [-0.16, 0.20, 0.22, 0.05, 0.50,  0.10],
+    [-0.10, 0.40, 0.20, 0.05, 0.44, -0.12],
+    [-0.02, 0.60, 0.16, 0.045, 0.36,  0.09],
+    [ 0.06, 0.80, 0.10, 0.08, 0.26,  0.06],   // crest splinter
+  ];
+  for (const [x, y, w, h, d, ry] of ledges) parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
+  return mergeTempestParts(parts);
+}
+
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
   tower: {
@@ -1955,41 +1984,11 @@ const ARCHETYPES = {
   // BARE — ONE material group (mat 0 = tempestStone), zero emissive/accent/gold. The carved read
   // is the baked wind-scour value ladder (pale wind-bitten scour / damp body / soaked belly). rotY
   // pinned so the local scour axis stays wind-aligned and every prow leans the SAME down-wind way.
+  // stormprow (LOW variant) — the long low hogback wall (Fable R3 aspect-lean split). SKEW 0.42 on the
+  // low aspect band (h 7–13, r 8–14) → world lean ~14–40° that reads as a natural dip-slope, not a topple.
   stormprow: {
-    step: 17, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.04, sMin: 0.90, sMax: 1.12 },
-    build: () => {
-      const parts = [];
-      // SKEWED SHEARED WEDGE (Fable device critique P1 — the real Minecraft fix). The lean is no longer
-      // a step-offset staircase (axis-aligned jags = the Minecraft read); it's a vertex SKEW applied about
-      // the base after positioning, so the windward face is ONE CONTINUOUS DIAGONAL of parallelogram faces
-      // catching light at the slope angle. Strata now stack ~vertically (small centerX progression) + taper
-      // to a small crest; skewX(SKEW) shears the whole stack downwind coherently. A small per-stratum ry
-      // twist keeps neighbours non-parallel (F6). [centerX, y, w, h, d, ry].
-      const SKEW = 0.62;
-      const strata = [
-        [-0.02, 0.09, 0.44, 0.20, 0.60,  0.05],   // 0 WATERLINE belly — narrow + recessed → undercut
-        [ 0.00, 0.28, 0.52, 0.20, 0.56, -0.07],   // 1 overhangs the belly (the storm undercut)
-        [ 0.02, 0.47, 0.44, 0.20, 0.48,  0.05],   // 2
-        [ 0.04, 0.65, 0.32, 0.19, 0.40, -0.06],   // 3
-        [ 0.06, 0.82, 0.16, 0.16, 0.28,  0.04],   // 4 CREST — sharp, small, far downwind (via the skew)
-      ];
-      for (const [x, y, w, h, d, ry] of strata) {
-        parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
-      }
-      // Protruding ledge slabs riding the windward DIAGONAL — thin, wider in z → the stratification tell,
-      // now proud of a continuous slope rather than a staircase. Skewed with the strata so they stay welded
-      // to the dip-slope; a crest splinter sharpens the peak.
-      const ledges = [
-        [-0.16, 0.20, 0.22, 0.05, 0.50,  0.10],
-        [-0.10, 0.40, 0.20, 0.05, 0.44, -0.12],
-        [-0.02, 0.60, 0.16, 0.045, 0.36,  0.09],
-        [ 0.06, 0.80, 0.10, 0.08, 0.26,  0.06],   // crest splinter
-      ];
-      for (const [x, y, w, h, d, ry] of ledges) {
-        parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }), SKEW) });
-      }
-      return mergeTempestParts(parts);
-    },
+    step: 22, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.04, sMin: 0.90, sMax: 1.12 },
+    build: () => buildStormprow(0.42),
     // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.68, measured from the
     // geometry) so the inner edge = |x| − ρ·r·sMax − lean HUGS the fatal side wall. The base course
     // kills laterally at |x| > laneHalfWidth (13), so the prows must SIT at that boundary to read as
@@ -1997,13 +1996,21 @@ const ARCHETYPES = {
     // player died in open water with no wall in sight. Base pulled 28→17 so the inner edge lands
     // ~15–17, just outside the 14.5 fairness floor: a tight walled corridor that MARKS the death line.
     // tilt leans AWAY from the lane (side*negative, sungate idiom); ALWAYS numeric (a missing tilt
-    // → NaN quaternion → invisible). rotY pinned 0 so the wedge diagonal reads broadside down-lane
-    // and the baked wind-scour stays aligned. ROOFLINE RHYTHM (Fable gate R1 fix #1): a ruler-flat
-    // wall of same-height wedges reads as a harbor breakwater — nothing in Tsushima/BotW gives an
-    // unbroken horizontal. `sel` picks ~1-in-4 as a HERO prow towering to h 20–32 (2–3× the low
-    // body h 7–13), so the crest-line breaks into a low-low-HIGH silhouette. Height is independent
-    // of x, so clearance is unaffected. CONSTANT 4 rnd() draws (r, x-jitter, sel, hv).
-    place: (side, rnd) => { const r = 8 + rnd() * 6; const x = side * (18 + 0.72 * r + rnd() * 3); const sel = rnd(); const hv = rnd(); const h = sel > 0.76 ? 20 + hv * 12 : 7 + hv * 6; const j = rnd(); return { x, h, r, tilt: side * -0.06, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },  // MIRROR the wedge per bank (Fable: the corridor becomes a balanced V, not one-way-tilted) + ±0.15 jitter so no two share a silhouette. inner edge still hugs |x|=13
+    // → NaN quaternion → invisible). LOW band only now (the tall heroes are a separate archetype with
+    // their own SKEW — see stormprowHero); trim tilt −0.06 → −0.04 so tilt+skew don't stack into a topple.
+    place: (side, rnd) => { const r = 8 + rnd() * 6; const x = side * (18 + 0.72 * r + rnd() * 3); const h = 7 + rnd() * 6; const j = rnd(); return { x, h, r, tilt: side * -0.04, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },  // MIRROR the wedge per bank (a balanced V) + ±0.15 jitter. low hogback aspect band → natural dip-slope lean
+  },
+
+  // stormprow HERO variant (Fable R3): the sparse TALL prows that break the roofline into low-low-HIGH.
+  // Tall/narrow aspect (h 20–32, r 8–12) needs a MUCH bigger SKEW (1.15) to reach the same natural 20–28°
+  // world lean — with the low variant's 0.42 a tall prow barely leaned (~13°) and read as a blocky tower.
+  // Same bare tempestStone build; step 68 ≈ the old ~1-in-4 hero rate. Mirrored + jittered like the low band.
+  stormprowHero: {
+    step: 68, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.02, sMin: 0.92, sMax: 1.14 },
+    build: () => buildStormprow(1.0),   // tall/narrow band (r/h ~0.27–0.5) → world lean ~15–27°; 1.15 leaned so far the crest invaded the lane
+    // x coupled to the big skew footprint (ρ≈1.05) so the leaning crest still clears the ±14.5 floor from the
+    // mirrored (into-lane) orientation. The hero sits a touch behind the low wall → natural depth layering.
+    place: (side, rnd) => { const r = 8 + rnd() * 3; const x = side * (15 + 1.3 * r + rnd() * 3); const h = 22 + rnd() * 8; const j = rnd(); return { x, h, r, tilt: side * -0.04, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },
   },
 
   // TEMPEST REACH — DEPTH BACK-RANK (Fable gate R1 fix #2). Pulling the near prow wall in to hug the
@@ -2070,8 +2077,10 @@ const ARCHETYPES = {
       // it has to survive to silhouette (Fable: "if the notch doesn't read, it doesn't exist"), so the
       // waist is much thinner than the foot AND the cap it carries — a real hourglass undercut.
       parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.15, 0.24, 0.20, 5), { y: 0.27 }) });
-      // The shaft — one tall tapering band, slightly offset (a downwind lean).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.21, 0.24, 0.52, 5), { y: 0.60, x: 0.04 }) });
+      // The shaft — TWO offset tapered bands with DIFFERENT ry (Fable R3: a single 5-gon cylinder reads
+      // as a machined pole/prism — the "blocky pillar" tell; two mis-rotated bands break the parallel edges).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.23, 0.26, 0.30, 5, 1, true), { y: 0.46, x: 0.02, z: 0.02, ry: 0.3 }) });   // lower band (open-ended — internal, caps hidden = 0 wasted tris)
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.19, 0.23, 0.30, 5, 1, true), { y: 0.72, x: 0.07, z: -0.03, ry: 0.9 }) });  // upper band — offset + rotated off the lower
       // THE MUSHROOM CAP — a WIDE hardened overhang (~1.5× the shaft), flared shadowed underside (the
       // down-facing lip AO-darkens into the wave-cut hollow) so it reads as a real overhang. Pushed OFF-AXIS
       // and made slightly ELLIPTICAL (sx 1.18) so it isn't a rotationally-clean "water tower" (Fable r2).
@@ -2084,6 +2093,11 @@ const ARCHETYPES = {
       const sockets = [[0.02, 0.27, 0.20, 0.075], [0.15, 0.30, 0.12, 0.055]];
       for (const [sx, sy, sz, ss] of sockets) addGoldSocket(parts, centers, sx, sy, sz, ss);
       const m = mergeTempestParts(parts);
+      // Gentle SEA-STACK BOW (Fable R3): a tall/narrow stack leans SUBTLY, not like a wedge — k 0.32 at this
+      // ~1:4 aspect ≈ a 4–9° world lean. Skew the merged geometry (flatShading → facets re-derive) + skew the
+      // gold-spill centers by the same shear so the bloom stays welded to its sockets. Mirror leans it AWAY.
+      skewX(m.geometry, 0.32);
+      for (const c of centers) c.x += 0.32 * c.y;
       bakeSocketSpill(m.geometry, centers);
       return m;
     },
@@ -2093,7 +2107,7 @@ const ARCHETYPES = {
     // hero prows) instead of a uniform mid-height picket. Pushed to inner ~28 (base 30) so the tall stacks
     // stand BEHIND the near death-wall as a distant rank — tall=far builds the rising amphitheatre, and
     // they stop looming at even height over the lane. x coupled to the ~0.75 cap footprint (·sMax 1.15).
-    place: (side, rnd) => { const r = 4 + rnd() * 5; const x = side * (30 + 0.68 * r + rnd() * 6); const big = rnd(); const hv = rnd(); const h = big > 0.67 ? 42 + hv * 14 : 22 + hv * 14; return { x, h, r, tilt: side * (rnd() * 0.05 - 0.02), rotY: (rnd() - 0.5) * 0.3 }; },
+    place: (side, rnd) => { const r = 4 + rnd() * 5; const x = side * (30 + 0.68 * r + rnd() * 6); const big = rnd(); const hv = rnd(); const h = big > 0.67 ? 42 + hv * 14 : 22 + hv * 14; const tj = rnd(); return { x, h, r, tilt: side * (tj * 0.05 - 0.02), rotY: (side > 0 ? 0 : Math.PI) + (rnd() - 0.5) * 0.3 }; },  // MIRROR the bow AWAY from the lane per bank (the tall rank leans outward, not over the corridor)
   },
 
   // TEMPEST REACH — THE LOW REST (bible §4 `stackgrave`): a scatter of stubby BROKEN stumps over a
@@ -2105,19 +2119,25 @@ const ARCHETYPES = {
     build: () => {
       const parts = [];
       // Wave-cut platform + an offset shelf slab — the broad low base (undercut reads at the platform lip).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.14, 6), { y: 0.07 }) });
-      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.07, 0.95), { y: 0.11, z: 0.08 }) });
-      // Broken stumps — short tapered cylinders that LEAN at varied angles (storm-snapped, not tidy
-      // pillars); the tilt + varied height + AO shading reads as a shattered field. 5-sided, cap-less.
-      const stumps = [[-0.32, 0.62, 0.10, 0.17, 0.22], [0.06, 1.00, -0.16, 0.20, -0.14], [0.36, 0.50, 0.22, 0.15, 0.26], [-0.12, 0.42, -0.30, 0.13, -0.28], [0.24, 0.74, -0.06, 0.16, 0.16]];
-      for (const [sx, top, sz, rad, lean] of stumps) {
+      // Wave-cut platform + an offset shelf slab — each ROTATED so their edges never align (Fable R3: a
+      // clean hex platform + a flush box shelf = the two-neat-stacked-layers "ziggurat" read). Shelf sheared.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.14, 6), { y: 0.07, ry: 0.35 }) });
+      parts.push({ mat: 0, geo: skewX(xform(new THREE.BoxGeometry(0.50, 0.07, 0.95), { y: 0.11, z: 0.08, ry: 0.5 }), 0.3) });
+      // A broken-edge chunk knocked off the platform rim — breaks the clean hex silhouette.
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.10, 0.20), { x: 0.50, y: 0.10, z: -0.24, ry: 0.7, rz: 0.2 }) });
+      // Broken stumps — each SKEWED at a varied angle (some AGAINST the wind: storm-snapped stumps fall any
+      // way). skewX replaces the old rz/rx tilt, which the (r,h,r) scale shears WRONG on this low-wide family
+      // (the exact aspect-lean bug from the prows). [x, top, z, radius, skew-k].
+      const stumps = [[-0.32, 0.62, 0.10, 0.17, 0.50], [0.06, 1.00, -0.16, 0.20, -0.35], [0.36, 0.50, 0.22, 0.15, 0.60], [-0.12, 0.42, -0.30, 0.13, -0.50], [0.24, 0.74, -0.06, 0.16, 0.40]];
+      for (const [sx, top, sz, rad, k] of stumps) {
         const h = top - 0.12;
-        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(rad * 0.78, rad, h, 5), { x: sx, y: 0.12 + h / 2, z: sz, rz: lean, rx: lean * 0.5 }) });
+        parts.push({ mat: 0, geo: skewX(xform(new THREE.CylinderGeometry(rad * 0.78, rad, h, 5), { x: sx, y: 0.12 + h / 2, z: sz, ry: k }), k) });
       }
       return mergeTempestParts(parts);
     },
-    // BROAD + LOW rest — r 9–13, h 3–5 world. x coupled to the ~0.66 platform footprint (·sMax 1.08).
-    place: (side, rnd) => { const r = 9 + rnd() * 4; return { x: side * (15 + 0.74 * r + rnd() * 5), h: 3 + rnd() * 2, r, tilt: 0, rotY: 0 }; },
+    // BROAD + LOW rest — r 9–13, h 3–5 world. x coupled to the skewed footprint (ρ≈0.80, up from the skewed
+    // stumps) so the inner edge still clears the 14.5 floor: base 16.5, coeff 0.9.
+    place: (side, rnd) => { const r = 9 + rnd() * 4; return { x: side * (16.5 + 0.9 * r + rnd() * 4), h: 3 + rnd() * 2, r, tilt: 0, rotY: 0 }; },
   },
 
   // TEMPEST REACH — THE DISTANT MASSIF (bible §4 `arcuswall`): DEFERRED to a future sky-shader pass.
@@ -2213,6 +2233,7 @@ const FOAM_CFG = {
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
   stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
+  stormprowHero: { rx: 0.80, rz: 0.42 },   // tall hero variant — same wet-weld skirt (narrower rx since the base footprint is smaller-per-height)
   stormprowFar: false,   // distant back-rank on the fog line — a collar 30+ off-lane is a bright artifact
   tafonihold: { r: 0.62 },   // broad rounded boulder — round collar hugs the footprint
   stormstack: { r: 0.40 },   // thin pillar — narrow collar at the pinched foot
@@ -2511,7 +2532,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _bAz = atan(d.z, d.x);                                            // fragment azimuth
           float _bSunAz = atan(sunDir.z, sunDir.x);                               // the world-locked breach azimuth
           float _dAz = atan(sin(_bAz - _bSunAz), cos(_bAz - _bSunAz));            // wrapped Δaz (−π..π)
-          float _elC = 0.035;                                                     // KISS THE SLOT: the lip meets the horizon band (a mid-deck hole reads as a moon)
+          float _elC = 0.11;                                                      // Fable R3: LIFT into the dark cloud deck. At 0.035 it kissed the PALE horizon slot → pale-on-pale → the "weird moon" read (a hole only reads punched in a DARK wall). The dark ring below now frames it against deck, not fog.
           // Raked almond (~4:1 wide:tall) — a SUBTLE eye low on the horizon. az half-width 0.20rad,
           // el half-width 0.042 (crisper 4:1); _rr is the elliptical radius so both the hole and its
           // frame are ALMOND, never a disc.
@@ -2521,21 +2542,21 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           // (1) THE HOLE FIRST — interior gradient, tight feather (fully faded by _rr 1.0).
           float _win = (1.0 - smoothstep(0.74, 1.0, _rr)) * uBreachMix;
           float _bT = clamp((d.y - (_elC - 0.042)) / 0.084, 0.0, 1.0);            // 0 at the bottom lip → 1 at the top
-          vec3 _bLow = vec3(0.83, 0.80, 0.72);                                    // warm-white #f2e8d0-class, L≈0.80 (the brightest thing the biome shows)
-          vec3 _bHigh = vec3(0.74, 0.77, 0.81);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
+          vec3 _bLow = vec3(0.98, 0.91, 0.74);                                    // Fable R3: HOTTER gold-white core (#fae8bd-class) — it must be the brightest AND warmest pixel in the frame
+          vec3 _bHigh = vec3(0.76, 0.79, 0.82);                                   // desaturated silver-blue high (keep it silver — never a saturated portal-blue)
           vec3 _interior = mix(_bLow, _bHigh, _bT);
-          float _lip = smoothstep(0.16, 0.02, _bT);                              // thin GOLD lower lip (#ffd870), sun-facing, peaks at the bottom
-          _interior = mix(_interior, vec3(1.0, 0.847, 0.439), _lip * 0.60);
+          float _lip = smoothstep(0.24, 0.02, _bT);                              // GOLD lower lip (#ffd870), sun-facing — widened ~1.5× (Fable R3) so the warm break is unmissable
+          _interior = mix(_interior, vec3(1.0, 0.847, 0.439), _lip * 0.72);
           col = mix(col, _interior, _win);
           // (2) THE DARK MOVE, OVER the bloom (Fable r1: the ring must WIN): a tight ALMOND ring hugging
           // the rim (sharp onset at 1.0R, back to deck value by ~1.6R) → the darkest sky FRAMES the hole
           // (core→bloom→DARK). This is what makes it a breach in a wall, not a moon in the clouds.
-          float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.35, 1.65, _rr)) * uBreachMix;
+          float _bDark = smoothstep(0.98, 1.12, _rr) * (1.0 - smoothstep(1.45, 1.95, _rr)) * uBreachMix;   // Fable R3: widened the outer falloff so the dark frame merges deeper into the deck (a socket, not a ring)
           // Arc-bias (Fable r2 de-donut insurance): weak at the gold lip (bottom ~0.15×), strong at the
           // top (1.0×) so the dark frame CONNECTS UPWARD into the deck — a socket in the storm's wall, not
           // a floating dark ring/eclipse. _ny/_rr = sine of the ring arc angle (−1 bottom → +1 top).
           float _arcW = mix(0.15, 1.0, smoothstep(-1.0, 1.0, _ny / max(_rr, 0.001)));
-          col = mix(col, vec3(0.137, 0.165, 0.200), _bDark * 0.92 * _arcW);
+          col = mix(col, vec3(0.120, 0.145, 0.180), _bDark * 1.0 * _arcW);   // Fable R3: darker + stronger ring (0.92→1.0) so the hole reads as PUNCHED, not smudged
         }
         // RAIN FAR VEIL (layer F, uRainVeil 0 = off → byte-identical): soft vertical curtains of
         // rain-veil silver hanging from the deck underside down into the belt, scrolled along the
