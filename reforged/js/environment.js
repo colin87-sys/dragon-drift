@@ -2983,7 +2983,7 @@ const ARCHETYPES = {
   // scattered around it — leaning / lying / strayed. Every drum CLOSED-end (wrackstone w2 + viamarina law:
   // an open cylinder shows the water straight through it and reads as curled paper). No set dressing. ≤150.
   drumfall: {
-    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.08 },   // foil rest note: clusters with the commons, near-empty in the breaths (wrackstone rhythm)
+    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // foil rest note: floor 0.12→0.05 (Fable density pass) — near-ZERO in the breaths so the walls read as the frame; the scatter clusters ONLY in the congregation peaks (wrackstone rhythm)
     build: () => {
       const parts = [];
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // tide ladder by world Y (ladder-only foil)
@@ -3035,7 +3035,7 @@ const ARCHETYPES = {
   // LEFT→RIGHT: the upper tier dies FIRST, then a lower bay breaks, then pier stumps step down into the water
   // (last one drowned below the tide line). Fable pre-assessed. ≤150 tris.
   aqueduct: {
-    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.45, sMin: 0.95, sMax: 1.06 },
+    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, sizeClass: true, flankAlt: 'arch', comp: { floor: 0.45, sMin: 0.95, sMax: 1.12 },   // PROMOTED to a mid-ground register (Fable density pass): sizeClass adds a nearer 0.62 child band (inner edge ~49–70, between the basilica band and the far horizon line = repoussoir depth-layering); flankAlt:'arch' anti-phases it against the basilica wall (arches on the flank opposite the dark wall). floor stays 0.45 (flank-floor budget ceiling 1.10); sMax 1.06→1.12 swells the peaks instead
     build: () => {
       // WORLD-ASPECT DESIGN (the arcade a1 law): the (r,h,r) placement scale multiplies object-x by r and
       // object-y by h INDEPENDENTLY (r≈100, h≈18.5 → h/r≈0.185), so a WORLD-semicircular arch must be an
@@ -3126,7 +3126,7 @@ const ARCHETYPES = {
   // Kill on sight: broccoli (domed pads), lollipop (crown creeping down the trunk), Christmas-tree (base-wide
   // cypress). NO glow — it PRICES the gold by being the darkest thing in frame. ONE material group. ≤150 tris.
   pinisle: {
-    step: 31, biomes: forumV1, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.10 },   // punctuation: near-absent in the breaths
+    step: 43, biomes: forumV1, matIndex: 0, comp: { floor: 0.06, sMin: 0.90, sMax: 1.10 },   // SINGULAR Lorrain dark side-tree (Fable density pass): step 31→43 + floor 0.12→0.06 → 1–2 per congregation per flank, near-zero in the breaths (a lone black parasol against the gold, not a hedgerow of pines)
     build: () => {
       const parts = [];
       // RUBBLE BASE — 2 drowned-stone chunks (tide ladder → the sunken-city tie; the pine roots split them). (24)
@@ -3554,7 +3554,7 @@ const ARCHETYPES = {
   // a window you built a second aqueduct — the openings are DARK (bake:'reveal'). Solid wall + pierced arcade
   // alternating per flank = the two-shelf corridor. NO glow, NO gilt (a common mass; it prices the heroes). ≤150.
   basilica: {
-    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.35, sMin: 0.92, sMax: 1.08 },
+    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'wall', comp: { floor: 0.35, sMin: 0.92, sMax: 1.08 },   // flankAlt:'wall' (Fable density pass): the basilica holds ONE flank per congregation while the aqueduct arches take the other → the "two-shelf" Lorrain corridor (dark repoussoir wall one side, pierced arches with sky/sun-through on the other). Also cures the both-flanks barrier-merge at floor 0.35
     build: () => {
       const parts = [];
       // WORLD-ASPECT: a TALL wall, so R_NOM≪H_NOM is wrong — this is 80 long × 34 tall; couple h=0.94·r in
@@ -4747,6 +4747,17 @@ function writeMatrix(band, i, d) {
         const pickRight = heroHash(peakIdx * 2 + 1) < 0.5;
         if ((pickRight && d.side < 0) || (!pickRight && d.side > 0)) active = false;
       }
+    }
+    // FORUM flank ALTERNATION (Fable density pass): anti-phase the two big framing registers per side so any
+    // stretch reads as the Lorrain "two-shelf" corridor — a solid DARK basilica wall on ONE flank + pierced
+    // aqueduct arches (sky/sun through the bays) on the OTHER — instead of a symmetric both-walls barrier. A
+    // per-congregation hash picks the wall's flank; arches take the opposite. Pure render-gate (no rnd) → the
+    // gold-determinism call order is untouched, and lagoon archetypes (no flankAlt) never enter this branch.
+    if (active && band.def.flankAlt) {
+      const peakIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
+      const wallSide = heroHash(peakIdx * 7 + 3) < 0.5 ? 1 : -1;         // which flank is the dark wall this congregation
+      const want = band.def.flankAlt === 'wall' ? wallSide : -wallSide;
+      if ((d.side > 0 ? 1 : -1) !== want) active = false;
     }
     if (active && band.def.comp) {
       const g = lagoonComp(d.dist);
