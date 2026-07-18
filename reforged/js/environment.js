@@ -3480,15 +3480,17 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // PEARL limb hugs ONE arc (light bending round a mass — eclipse optics; non-gold, non-corona), and
         // the disc grows slowly across the biome (uMoteGrow). Hard ≈1px edge — the sharpest thing in frame.
         if (uMoteMix > 0.001) {
-          vec3 _mDir = normalize(vec3(0.12, 0.055, -1.0));            // fixed bearing: ahead, just above the dissolve, a touch off the corridor axis (inside the 30° easement)
+          vec3 _mDir = normalize(vec3(0.12, 0.10, -1.0));            // fixed bearing: ahead, above the dissolve, a touch off the corridor axis (inside the 30° easement)
           float _md = acos(clamp(dot(d, _mDir), -1.0, 1.0));         // angular distance from the Mote centre (rad)
-          float _mR = radians(0.75 + 0.75 * uMoteGrow);              // half-angle 0.75°→1.5° (diameter 1.5°→3° across the biome)
+          // Owner call: sized UP from the bible's 1.5–3° (too faithful → a dust speck) to a real ominous
+          // focal point, with the growth brought forward so it has presence on entry, not only near the loop.
+          float _mR = radians(2.0 + 1.6 * uMoteGrow);                // half-angle 2.0°→3.6° (diameter 4°→7.2° across the biome)
           // one-sided hairline limb (r/28 thick), biased to ONE arc, fading to nothing on the opposite limb.
           vec3 _mT = normalize(cross(vec3(0.0, 1.0, 0.0), _mDir));
           float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
           float _limbSide = smoothstep(-0.2, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
           float _limb = smoothstep(_mR, _mR * 1.018, _md) * (1.0 - smoothstep(_mR * 1.018, _mR * 1.036, _md));
-          col += vec3(0.96, 0.94, 0.99) * _limb * _limbSide * 0.05 * uMoteMix;   // ≤ +1 value step, pearl, non-gold
+          col += vec3(0.96, 0.94, 0.99) * _limb * _limbSide * 0.065 * uMoteMix;   // ≤ +1 value step, pearl, non-gold — the eclipse rim, a touch more present on the bigger disc
           // the opaque black disc, OVER everything → stars/sky inside are replaced (not blended): hole-vs-object.
           float _core = (1.0 - smoothstep(_mR, _mR + 0.0022, _md)) * uMoteMix;   // hard ≈0.13° (≈1px) coverage edge
           col = mix(col, vec3(0.020, 0.012, 0.031), _core);          // 0x050308 — the biome's one true dark
