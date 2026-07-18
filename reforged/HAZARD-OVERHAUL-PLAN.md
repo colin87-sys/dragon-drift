@@ -3,7 +3,7 @@
 *Child of [`FLOW-OVERHAUL-PLAN.md`](./FLOW-OVERHAUL-PLAN.md) P1.4 ("fill the 6 empty
 biomes") and sibling of [`DRIFT-BUILD-PLAN.md`](./DRIFT-BUILD-PLAN.md). This is the
 **reconciled** output of the third follow-on Fable design thread after its adversary audit —
-critic verdict **GO-WITH-CHANGES; de-scope 8 PRs → 5**. The audit's headline: "6 empty
+critic verdict **GO-WITH-CHANGES; de-scope 10 PRs → 5**. The audit's headline: "6 empty
 biomes" is really **3**, the shipped telegraphs have an aliasing bug and a fairness-tell
 bolt offset, and the hazard RNG stream has a determinism landmine that the gold fixture
 can't see. Read [`BIOME-DESIGN.md`](./BIOME-DESIGN.md) §5.3 for the hazard laws this

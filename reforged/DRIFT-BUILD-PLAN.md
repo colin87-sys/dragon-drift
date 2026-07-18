@@ -21,7 +21,8 @@ proposal, this doc records the post-audit verdict, not the original. The audit a
   *replace* `flowChain` or sit *alongside* it? §2. Do not start the currency until it's ruled.
 - All DRIFT application is **consumption-side** — seed geometry stays byte-identical; the
   governor's honest invariant is "DRIFT contributes nothing above 130 m/s," **not** "the
-  world never exceeds 130" (the shipped spine boost-out already peaks ~151, `config.js:214-217`).
+  world never exceeds 130" (the shipped spine boost-out already peaks ~143 — slip 1.325,
+  `config.js:182`; the ~151 in the `config.js:214-217` comment is stale from the 1.40-dial era).
 - The HUD gets **one** element — THE EMBER KEEL — which *replaces* the combo slug **and**
   the Sky-Canyon flow crest: net element count goes **down** one. The boss "Ward" repurpose
   is **cut** from v1.
@@ -132,7 +133,8 @@ degrades at the fat end. Hence the fixes:
    moves**, only the light comes on sooner.
 6. **THE GOVERNOR:** `F = min(1 + 0.15·D, 130 / preDriftTarget)`. The honest invariant is
    "**DRIFT contributes nothing above 130 m/s**" — NOT "the world never exceeds 130" (the
-   spine boost-out already peaks ~151, `config.js:214-217`). Consumption-side only: never
+   spine boost-out already peaks ~143, `config.js:182`; the cited `config.js:214-217` comment's
+   ~151 predates the 1.40→1.325 retune). Consumption-side only: never
    suppress window SPAWNS by speed — that forks the course and breaks determinism.
 
 All six are consumption-side → seed geometry byte-identical, the dual-profile determinism
@@ -196,7 +198,8 @@ momentum, gauntlets TEST it.** A gauntlet that speeds you up is a canyon with wo
 hairline that **kindles** (a white-hot head draws left→right igniting coal-beads) and
 **bleeds** (the head recedes, the length cools to char; floor = always ≥1 live coal — the
 never-zero contract made visible). Built from the shipped flow-crest kit (the
-`fc-trk`/`fc-fill`/`fc-ghost` triple, `ui.js:1208-1257`; the crest already "reuses the
+`fc-trk`/`fc-fill`/`fc-ghost` triple (`ui.js:597-602`, `style.css:627-638`) driven by the
+`flowMeter` kit (`ui.js:1208-1257`); the crest already "reuses the
 stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 **core** (2px white-hot caret head) → **bloom** (dragonfire ramp, reversed) → **dark**
 (recessed char keyline).
@@ -215,7 +218,8 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 
 - **SHIP-BLOCKER 1 — COLOUR.** The danger token is `#ff4636` red-orange
   (`style.css:108`) — NOT magenta — and under the colour-blind presets it remaps to
-  **amber/gold** (`style.css:110-113`) = the Keel's own hue. So DRIFT must read by
+  **amber/gold** (`style.css:110-113`, cb-deuter/cb-prot; cb-trit instead remaps it to
+  magenta, `style.css:114-115`) = the Keel's own hue. So DRIFT must read by
   **FORM + VALUE** (a charred horizontal line vs climbing diamonds), verified in all three
   CVD presets. "No state hue-only" is already law (`HUD-REDESIGN.md:467-471`).
 - **SHIP-BLOCKER 2 — TWO FEVERS.** Surge fever already ignites the whole cluster. **KILL
