@@ -76,14 +76,21 @@ const GradingShader = {
       // worldW spares the dragon's near-white core/bloom; shadowW keeps the tint out of
       // the highlights. surgeMix is delayed vs the dragon's ignition (dragon leads, world follows).
       if (surgeMix > 0.0) {
-        float worldW = 1.0 - smoothstep(0.55, 0.92, lum);         // 1 over the world → 0 on the dragon's bloom
+        // worldW spares the BRIGHT band — the dragon's core/bloom AND the sky's horizon
+        // glow / water hotspots — from desat+darken, so the sky keeps its vertical value
+        // structure (a suppressed sky must still read as a SKY, not a flat filter field).
+        float worldW = 1.0 - smoothstep(0.48, 0.88, lum);
         col = mix(col, vec3(lum), surgeMix * 0.40 * worldW);      // (a) desaturate ×~0.6 over the world
-        float edge = mix(0.55, 1.0, smoothstep(0.0, 1.0, r2 * 2.2)); // centre gentler, corners full
+        float edge = mix(0.55, 1.0, smoothstep(0.0, 1.0, r2 * 2.2)); // centre/horizon gentler, corners full
         col *= (1.0 - surgeMix * 0.30 * edge * worldW);           // (b) step the world DOWN
-        float shadowW = 1.0 - smoothstep(0.06, 0.42, lum);        // deep shadows → 0 by the mid-tones
+        // (c) split-tone: pool the dragon's DARK hue in the DEEP shadows with a (1-luma)^2
+        // weight, so the colour STATEMENT lives in the darks (premium) not smeared over the
+        // whole frame (the flat-filter tell). Stronger mix so it reads at gameplay distance.
+        float sw = 1.0 - smoothstep(0.03, 0.45, lum);
+        float shadowW = sw * sw;                                  // (1-luma)^2 — concentrates hard in the darks
         float ld = dot(surgeDark, vec3(0.299, 0.587, 0.114));
         vec3 darkTarget = surgeDark * (lum / max(ld, 0.001));     // surgeDark's HUE at THIS pixel's luminance → pure hue shift, no brighten
-        col = mix(col, darkTarget, surgeMix * shadowW * worldW * 0.6); // (c) split-tone the shadows toward the dragon's dark band
+        col = mix(col, darkTarget, surgeMix * shadowW * worldW * 0.85);
       }
       // Kick/flash warm lift (goldenEmber, arenaFlood, the RELEASE flash — the fever wash
       // term is retired; this hue channel survives for the kick presets, §M.1-4).

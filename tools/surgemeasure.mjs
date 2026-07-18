@@ -83,7 +83,7 @@ async function capture(query, label) {
       await page.waitForTimeout(500);
     }
   }
-  const path = `/tmp/measure-${label.split(' ')[0].toLowerCase()}.png`;
+  const path = `/tmp/measure-${key}-${label.split(' ')[0].toLowerCase()}.png`;   // per-key so runs never clobber each other's evidence
   const buf = await page.screenshot({ path });
   const st = await page.evaluate(() => window.__dd.surgeState());
   const s = await stats(page, buf, REGIONS);
