@@ -14,6 +14,7 @@ import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, chainBeforeCompile } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
 import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './auroraSky.js';
+import { EMPY_HEAD, EMPY_BODY, empyUniforms, applyEmpyrean, setEmpyreanQuality } from './empyreanSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -23,6 +24,8 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 // Aurora Shallows: the sky-splice controls ride through environment too.
 export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite };
+// THE EMPYREAN: the nebula-substrate tier control rides through environment too (tier 2 drops the 2nd-order warp).
+export { setEmpyreanQuality };
 // Per-biome god-ray fan scale (seam-lerped in computeEnv; 1 = shipped/byte-identical).
 // A night biome meters the shared sun-shaft fan down (Lumen Mire). Read by main.js.
 let _godrayMul = 1;
@@ -193,7 +196,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x0d1410, emissive: 0x0a1508, emissiveIntensity: 0.1 }),   // 4 LUMEN MIRE dead/wet matter — near-black warm-neutral bark/root/mud; "matter drinks" (light-absorbing); the low emissive is only a crush floor, never a light source
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xcbc7d6, emissive: 0xcdc8da, emissiveIntensity: 0.34, vertexColors: true }),   // 5 THE EMPYREAN empyStone — pale BONE-NACRE matte. vertexColors + ladderEmissive: reads the _bakeRamp value ladder (crown-light → base-dip) so pale props get VALUE STRUCTURE + mid-field CARRY under the shadowless rig (Fable-model gate). The emissive FLOOR (0.34) keeps undersides off the violet hemiGround bounce; the ladder rides ON it. Low-chroma cool-neutral, never warm.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4b545c, roughness: 0.34, metalness: 0.06, emissive: 0x1a2228, emissiveIntensity: 0.18 }), // 7 tempest storm slate — wet dark rock (PR-1 replaces with the wind-scour vertex-colour ladder mats)
     ],
@@ -203,13 +206,15 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xd8f6ff, roughness: 0.22, emissive: 0x3fc8e8, emissiveIntensity: 0.85 }),   // Sunset Glacier: the CYAN CORE — the light inside the ice (Candle slivers + Sail panes only; warm is NEVER emissive)
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6 }), // 4 LUMEN MIRE living amber glow — firefly-gold gills/motes/lanterns; "life glows" (the ONLY emitter); off-teal by construction (~562nm warm, never 490–510nm). Fable v33: emissive ×~1.8 so existing glow pulls weight until PR-3
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xe8c4d8, roughness: 0.4, emissive: 0xf2b8d8, emissiveIntensity: 0.35, vertexColors: true }),  // 5 THE EMPYREAN empyRim — rose edge-light. vertexColors + ladderEmissive: the crest ramp lifts it LUMINOUS (hi>1) so the rose reads as a lit nacre bloom sitting at/above water value, never a dark decal (Fable-model gate). Pale rose, low emissive — a graze on crowns/crest ridges only, never a body tint.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
       new THREE.MeshStandardMaterial({ ...opts, color: 0xcaa25a, roughness: 0.4, metalness: 0.05, emissive: 0xffd870, emissiveIntensity: 1.5 }), // 7 tempest STOLEN GOLD — THE one burning hue in a monochrome storm (Fable: ink-dark rock + warm pale slot + rare burning gold = Tsushima storm grammar). @0.85 was invisible against grey; @1.5 makes the socket the biome's single warm accent
     ],
   };
-  for (const m of mats.primary) addPropDetail(m);
-  for (const m of mats.accent) addPropDetail(m);
+  // Index 5 (THE EMPYREAN empyStone/empyRim) gets the ladderEmissive variant so its baked value ramp
+  // (_bakeRamp) folds into emissive too — under the shadowless rig a diffuse-only ramp would wash out.
+  mats.primary.forEach((m, i) => addPropDetail(m, i === 5));
+  mats.accent.forEach((m, i) => addPropDetail(m, i === 5));
   // EMBERFALL CALDERA new-kit materials (CALDERA-BIBLE.md §5) — kept SEPARATE from the
   // legacy primary/accent[3] (which stay flat for ?props=v1). The primary is a DARK
   // basalt whose carved read comes entirely from the inverted value ladder: color white
@@ -447,6 +452,242 @@ function jitterLathe(prof, seg, amp) {
   return g;
 }
 
+// THE EMPYREAN — the SENTINEL (EMPYREAN-PROP-REFERENCE.md, Fable-audited): a colossal weathered
+// bone-nacre standing STONE, built to the real thin-slab megalith grammar (Stenness/Callanish/Brodgar),
+// NOT an obelisk. The four make-or-break cues, all in the silhouette:
+//   • a LEANING BLADE — an elliptical LENS cross-section (soft-rounded vertical edges, never a hard corner
+//     or a round pill), with an ASYMMETRIC OFFSET taper (the ring centres drift so one long edge stays
+//     near-vertical while the other rakes in);
+//   • a CANTED flat TOP-CUT (the Stenness truncation — the top ring's y is slanted, never a point/dome/
+//     level top): the single cue that turns a "gray rock primitive" back into an "ancient standing stone";
+//   • BEDDED IN THE GROUND — a flared foot + an open base (seated below the waterline, so it grows OUT of
+//     the swell, not placed on it);
+//   • weathering as radial JITTER (per-ring seamless noise → no straight silhouette edge, no lathe rings).
+// Two material groups: mat 0 = empyStone body; mat 1 = the crown (empyRim rose — rim on the CROWN only).
+// Deterministic (fixed trig, no rnd) → build() stable, gold-determinism untouched. ~ (5 gaps ×10 seg ×2)
+// + a 10-tri canted cap ≈ 110 tris.
+function buildSentinelParts() {
+  const seg = 10;                      // lens sectors
+  const zLens = 0.26;                  // depth = 0.26 × width → a thick BLADE, not a paper slab (softer edges)
+  // The canted top-cut is a GENTLE flat SLANT (slope in x): the high point sits on the ROUNDED broad face
+  // (not a sharp corner), so there is no pencil apex. Rose lives ONLY on this cut FACE + a hair of the top
+  // lip — never the tapering shaft (a rose-covered taper reads as a crystal triangle, the headline fail).
+  const slope = 0.24;                  // top-cut slant ≈ 13° — a GENTLE truncation. A steeper cut (was 0.42) towers the high corner of this narrow blade into a rose TRIANGLE spike (Fable-model gate: "pink-tipped lance"); a shallow slant reads as a cut top, not a point, but is never level.
+  // Stations: a BROAD blade with a strongly FLARED, BEDDED foot (a submerged skirt below y=0 + a foot flare
+  // at the waterline → it grows OUT of the swell). Gentle taper (top ~0.7× base). cx drifts → asymmetric
+  // offset taper + lean (one long edge near-vertical, the other rakes in).
+  const st = [
+    { y: -0.05, r: 0.46, cx: 0.000 },  // buried SKIRT (below the waterline) — the bedded weld
+    { y: 0.00, r: 0.40, cx: 0.000 },   // flared FOOT at the waterline
+    { y: 0.10, r: 0.315, cx: 0.010 },  // foot tucks in
+    { y: 0.40, r: 0.290, cx: 0.044 },  // mid — broad, barely tapering
+    { y: 0.70, r: 0.272, cx: 0.104 },
+    { y: 0.89, r: 0.258, cx: 0.168 },  // shoulder
+    { y: 1.00, r: 0.246, cx: 0.212 },  // top ring (before the canted cut)
+  ];
+  const amp = [0.0, 0.02, 0.05, 0.085, 0.10, 0.09, 0.07];   // radial weathering jitter (0 at the buried foot, strongest mid/shoulder)
+  const N = st.length;
+  const rings = st.map((s, i) => {
+    const ring = [];
+    for (let j = 0; j < seg; j++) {
+      const th = (j / seg) * Math.PI * 2;
+      const f = 1 + amp[i] * (0.62 * Math.sin(3 * th + i * 1.3) + 0.38 * Math.sin(5 * th + i * 2.7 + 0.9));
+      const rr = s.r * f;
+      const x = Math.cos(th) * rr + s.cx;
+      let y = s.y;
+      if (i === N - 1) y += slope * (x - s.cx);            // planar top-cut: y slants with x → a flat canted face, high point on the rounded broad edge (no apex)
+      ring.push([x, y, Math.sin(th) * rr * zLens]);
+    }
+    return ring;
+  });
+  const body = [], crown = [];
+  for (let i = 0; i < N - 1; i++) {
+    const tgt = i >= N - 2 ? crown : body;                 // only the TOP gap (the lip just under the cut) is rose; the whole shaft is empyStone body
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      tgt.push(...A, ...C, ...B, ...A, ...D, ...C);        // outward winding (matches jitterLathe)
+    }
+  }
+  // the flat canted TOP-CUT face → crown (rose). Fan the planar top ring to its centroid (which lies IN
+  // the cut plane → a flat cap, no tent).
+  const top = rings[N - 1];
+  let mx = 0, my = 0, mz = 0;
+  for (const p of top) { mx += p[0]; my += p[1]; mz += p[2]; }
+  const ctr = [mx / seg, my / seg, mz / seg];
+  for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
+  // value ladder (same as the court): bone-pale crown → a shallow base dip for carry + AO grounding.
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.68, 1.0)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.90, 1.05, 0.03)) }];
+}
+
+// THE EMPYREAN value ladder (Fable-model gate PR-5): a crown-light → base-DIP grayscale ramp baked to
+// vertex colour, keyed to normalized local height + a low-freq erosion mottle. empyStone/empyRim read it
+// via vertexColors + ladderEmissive (folds into DIFFUSE *and* EMISSIVE), so the ramp survives the
+// shadowless rig where a flat emissive floor would wash it out. This is what gives the pale props VALUE
+// STRUCTURE (crown catches the zenith, base reads as ambient occlusion) and the mid-field CARRY the harsh
+// Fable gate demanded — the base sits well under the pearl fog so the stone doesn't dissolve into it,
+// while the crown stays bone-pale. `lo`/`hi` = base/crown grayscale multipliers; `mot` = mottle depth.
+function _bakeRamp(arr, lo, hi, mot = 0.055) {
+  const n = arr.length / 3;
+  let yMin = Infinity, yMax = -Infinity;
+  for (let i = 0; i < n; i++) { const y = arr[i * 3 + 1]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
+  const span = Math.max(1e-3, yMax - yMin);
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = arr[i * 3], y = arr[i * 3 + 1], z = arr[i * 3 + 2];
+    const t = (y - yMin) / span;                                   // 0 base → 1 crown
+    const v = lo + (hi - lo) * (t * t * (3 - 2 * t));              // smoothstep ramp
+    const m = 1 + mot * (Math.sin(x * 3.1 + z * 2.3) * Math.sin(y * 4.7 - x * 1.9));  // erosion mottle (kills the flat-facet crystal tell)
+    const g = Math.max(0.05, v * m);
+    col[i * 3] = g; col[i * 3 + 1] = g; col[i * 3 + 2] = g;
+  }
+  return col;
+}
+
+// A non-indexed flat-shaded geometry from a flat [x,y,z,...] triangle-soup array. Optional `ramp` (a
+// Float32Array of per-vertex colour from _bakeRamp) bakes the Empyrean value ladder onto it.
+function _mkFlatGeo(arr, ramp) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((arr.length / 3) * 2), 2));
+  if (ramp) g.setAttribute('color', new THREE.Float32BufferAttribute(ramp, 3));
+  return g;
+}
+
+// Append ONE weathered lens BLADE (the sentinel grammar — canted flat top-cut, rose crown on the cut lip
+// only, flared foot) into the body/crown triangle-soup arrays, under a per-blade transform (scale sx/sy,
+// yaw ry, translate tx/tz). Lets choirstones compose a whole court of stelae in ONE archetype. Deterministic.
+function _bladeInto(body, crown, { seg, zLens, slope, st, amp, sx = 1, sy = 1, ry = 0, tx = 0, tz = 0 }) {
+  const cr = Math.cos(ry), sr = Math.sin(ry), N = st.length;
+  const rings = st.map((s, i) => {
+    const ring = [];
+    for (let j = 0; j < seg; j++) {
+      const th = (j / seg) * Math.PI * 2;
+      const f = 1 + amp[i] * (0.62 * Math.sin(3 * th + i * 1.3) + 0.38 * Math.sin(5 * th + i * 2.7 + 0.9));
+      const rr = s.r * f;
+      let x = Math.cos(th) * rr + s.cx, y = s.y, z = Math.sin(th) * rr * zLens;
+      if (i === N - 1) y += slope * (x - s.cx);            // planar canted top-cut
+      x *= sx; y *= sy; z *= sx;
+      ring.push([x * cr + z * sr + tx, y, -x * sr + z * cr + tz]);   // yaw about Y, then translate
+    }
+    return ring;
+  });
+  for (let i = 0; i < N - 1; i++) {
+    const tgt = i >= N - 2 ? crown : body;
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      tgt.push(...A, ...C, ...B, ...A, ...D, ...C);
+    }
+  }
+  const top = rings[N - 1]; let mx = 0, my = 0, mz = 0;
+  for (const p of top) { mx += p[0]; my += p[1]; mz += p[2]; }
+  const ctr = [mx / seg, my / seg, mz / seg];
+  for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
+}
+
+// THE EMPYREAN — CHOIRSTONES (§5 "THE MID MASS"; Money-Shot-3's subject): a recurring COURT in one
+// archetype — one greater stele ringed by lesser stelae in an IRREGULAR ellipse, each a DIFFERENT height,
+// lean, and broad-face facing (a congregation, not a picket fence). Same blade grammar as the sentinel at
+// smaller scale. ~130 tris, 2 mats. The whole court yaws with the instance rotY, so instances vary.
+function buildChoirstonesParts() {
+  const body = [], crown = [];
+  // ONE proven stele profile (the sentinel grammar at court scale): a flared FOOT → broad barely-tapering
+  // shaft → a canted flat TOP-CUT, with `cx` drift for the asymmetric offset-taper lean. STOCKY, not a
+  // knife (taper only 0.42→0.285 = 0.68×). Rose lives ONLY on the top ~17% lip (the crown split `i>=N-2`
+  // is the station-2→3 band + the cut cap) — a rose-covered shaft reads as a candy crystal (the headline
+  // fail). Height VARIETY comes from per-stele `sy` in the 0.6–0.95 range (SHORTER than 1 — a mid-mass
+  // court that never rivals the sentinel), NEVER an amplifying stretch. Shared across all stelae.
+  // BROAD SLAB profile (Fable-model gate: "these are needles/fins, not Stenness blades"): a wide barely-
+  // tapering broad face (0.375→0.345 = 0.92×, NOT a needle) on a strongly flared BEDDED skirt, cut by a
+  // definite canted top-cut. The top two stations carry almost NO weathering jitter (amp ~0.02) so the
+  // planar cut fans to a CLEAN flat cap — the jittered narrow hexagon was fanning into a twin-prong
+  // swallow-tail (the apex-spike must-pass fail). Thin blade (zLens 0.24) so the side reads ~⅓ the face.
+  const st = [
+    { y: -0.06, r: 0.500, cx: 0.000 },  // buried SKIRT — WIDEST, bedded below the waterline (grows OUT, never stabbed in)
+    { y: 0.16, r: 0.375, cx: 0.020 },   // foot — strong flare over the bottom ~16%
+    { y: 0.88, r: 0.355, cx: 0.100 },   // upper shaft — BROAD, barely tapering (a slab face, not a needle)
+    { y: 1.00, r: 0.345, cx: 0.130 },   // top ring before the canted cut
+  ];
+  const amp = [0.0, 0.05, 0.025, 0.015]; // weathering jitter — strong at the foot, near-ZERO at the top (clean cut, no prongs)
+  const slope = 0.24;                   // GENTLE top-cut slant ≈ 13° — a truncation across the broad top, NOT a steep cut that spikes the high corner into a rose triangle (Fable-model gate must-pass)
+  // greater elder (broadest, near centre, tallest of the court but still short of a sentinel)
+  _bladeInto(body, crown, { seg: 6, zLens: 0.24, slope, st, amp, sx: 1.0, sy: 0.95, ry: 0.5, tx: 0.10, tz: 0.05 });
+  // 3 lesser stelae — a TIGHT irregular cluster (small tx/tz so the court footprint clears the lane),
+  // each a different height (sy), broad-face facing (ry) and slight girth (sx). A congregation, not a fence.
+  const L = [
+    { tx: 0.95, tz: 0.35, sy: 0.74, sx: 0.94, ry: 1.2 },
+    { tx: -0.85, tz: -0.50, sy: 0.62, sx: 0.90, ry: 2.9 },
+    { tx: 0.15, tz: 0.98, sy: 0.68, sx: 0.92, ry: 4.5 },
+  ];
+  for (const t of L) _bladeInto(body, crown, { seg: 5, zLens: 0.24, slope: 0.26, st, amp, ...t });
+  // value ladder: bone-pale upper (lifts to 1.04) → a shallow base dip (0.68) for carry + AO grounding;
+  // rose crown stays luminous.
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.68, 1.04)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.92, 1.06, 0.03)) }];
+}
+
+// Append ONE low nacre LOAF (a "surfacing back") into the body/crest triangle-soup arrays. A heightfield
+// shell (nL×nW grid): an arch along the length (peak OFF-centre toward the head) × a cosine cross-section,
+// head/tail width taper → a long low loaf, NOT a dome/half-ball. The rim verts dip just below y=0 so the
+// hump SEATS in the nacre (only the top ~30% shows). The HIGHEST crest faces route to `crest` (mat 1 rose);
+// everything else is body empyStone. Per-hump transform (scale via len/wid/hgt, yaw ry, translate tx/tz).
+function _humpInto(body, crest, { nL, nW, len, wid, hgt, ry = 0, tx = 0, tz = 0, roseTop = 0.82 }) {
+  const cr = Math.cos(ry), sr = Math.sin(ry);
+  const V = []; let maxY = 0;
+  for (let i = 0; i <= nL; i++) {
+    const s = i / nL;
+    const w = wid * (0.36 + 0.64 * Math.pow(Math.sin(Math.PI * s), 0.5)); // ROUNDED loaf ends (keep ~36% width at head/tail, not a point)
+    const aL = Math.pow(Math.sin(Math.PI * s), 0.60);                     // BROAD crest plateau (a rounded back, not a sharp fin)
+    const skew = 1 - 0.18 * (s - 0.5);                                    // crown offset toward the head (asymmetric back)
+    V.push([]);
+    for (let j = 0; j <= nW; j++) {
+      const u = j / nW;
+      const aW = Math.pow(Math.cos((u - 0.5) * Math.PI), 0.72);           // rounded, flatter-topped cross-section (a back, not a tent ridge)
+      const jit = 0.05 * Math.sin(i * 1.7 + j * 2.3) * Math.sin(i * 0.9 - j * 1.1);   // deterministic wave-polish wobble
+      const edge = (i === 0 || i === nL || j === 0 || j === nW);
+      let y = edge ? -0.07 * hgt : hgt * (aL * aW * skew + jit * aL * aW); // rim dips below the waterline → seats in
+      V[i].push([(s - 0.5) * len, y, (u - 0.5) * w]);
+      if (y > maxY) maxY = y;
+    }
+  }
+  const T = (p) => [p[0] * cr + p[2] * sr + tx, p[1], -p[0] * sr + p[2] * cr + tz];   // yaw about Y, then translate
+  for (let i = 0; i < nL; i++) for (let j = 0; j < nW; j++) {
+    const A = V[i][j], B = V[i][j + 1], C = V[i + 1][j + 1], D = V[i + 1][j];
+    // rose ONLY on the HIGH centerline ridge — high enough AND near the local crest line (|z| small);
+    // without the |z| gate the rose spilled onto a flank facet and read as a sticker on a shoulder (Fable).
+    const highEnough = ((A[1] + B[1] + C[1] + D[1]) / 4) > roseTop * maxY;
+    const zAbs = (Math.abs(A[2]) + Math.abs(B[2]) + Math.abs(C[2]) + Math.abs(D[2])) / 4;
+    const tgt = (highEnough && zAbs < 0.14 * wid) ? crest : body;
+    const a = T(A), b = T(B), c = T(C), d = T(D);
+    tgt.push(...a, ...b, ...c, ...a, ...c, ...d);                          // UP-facing winding (the cruise cam looks DOWN at the water — tops must not backface-cull)
+  }
+}
+
+// THE EMPYREAN — PEARLSHOAL (§ "the horizontal rest"): low white mother-of-pearl humps — "surfacing backs" —
+// the calm horizontal note UNDER the tall stones. A cluster of long low loaves, one lead + two rest, stepped
+// 0.65–0.8, staggered / fanned / overlapping (a pod, never parallel clones). NO specular (a wet glint implies
+// a sun) — an even emissive MOP lift + a rose blush on the crest ridge only. ~90 tris, 2 mats. Seats at the
+// waterline; only the top ~30% shows.
+function buildPearlshoalParts() {
+  const body = [], crest = [];
+  // lead loaf (longest, near centre) + two smaller rest loaves — different size / yaw (fanned) / overlap.
+  // TIGHT overlapping pod (Fable: "three disconnected flecks" → pull the rest humps in so silhouettes
+  // overlap at cruise); roseTop 0.80 → the rose is a narrow crest RIDGE (~15-20% of the top), not a panel.
+  // nW 5 on the lead rounds the plan outline off the gem-cut octagon tell.
+  _humpInto(body, crest, { nL: 6, nW: 5, len: 1.0, wid: 0.62, hgt: 0.27, ry: 0.18, tx: 0.00, tz: 0.00, roseTop: 0.86 });
+  _humpInto(body, crest, { nL: 5, nW: 4, len: 0.78, wid: 0.50, hgt: 0.215, ry: -0.50, tx: 0.40, tz: 0.30, roseTop: 0.86 });
+  _humpInto(body, crest, { nL: 4, nW: 4, len: 0.62, wid: 0.44, hgt: 0.185, ry: 0.62, tx: -0.34, tz: -0.30, roseTop: 0.86 });
+  // value ladder FLIPPED for the fog (Fable re-gate): a LOW prop fogs fast, so a dark base-dip just prints a
+  // dark chip while the pale crown dissolves. Instead the CROWN gets a fog-resistant pale-pearl LIFT (hi 1.35
+  // emissive — reads LIGHTER than the water at cruise, so the back separates as a form), and the waterline
+  // dip is shallow (0.90 — just seats it, no dark band). The rose crest ridge rides luminous on top (1.1→1.3).
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.94, 1.55)) },
+    { mat: 1, geo: _mkFlatGeo(crest, _bakeRamp(crest, 1.15, 1.40, 0.03)) }];
+}
+
 function mergeParts(parts, biomeIdx) {
   const groups = [[], []];
   for (const p of parts) groups[p.mat].push(p.geo);
@@ -459,6 +700,13 @@ function mergeParts(parts, biomeIdx) {
   }
   const geometry = mergeGeometries(geos, true);
   bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  // biome 5 mats declare vertexColors → any geometry lacking a colour attr would render BLACK (the missing-
+  // attribute default). The new roster props bake the _bakeRamp ladder; the interim legacy monolith/arcshard
+  // (box geos, ?props=v1 only) don't — give them a flat-white colour so they read as the plain pale stone.
+  if (biomeIdx === 5 && !geometry.getAttribute('color')) {
+    const w = new Float32Array(geometry.attributes.position.count * 3).fill(1);
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(w, 3));
+  }
   return { geometry, materials: mats };
 }
 
@@ -1165,6 +1413,15 @@ const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the
 // emissive) — the darkness is the investment the PR-3 hero pays off (owner brightness lock).
 const mireNew = PROPS_V1 ? [] : [4];     // canopywall/reedveil/boleveil/drape (+ hero/roster/skins to come)
 const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevine (retired once the kit completes)
+// THE EMPYREAN overhaul (EMPYREAN-BIBLE.md / EMPYREAN-PROP-REFERENCE.md) — same flip idiom. Default = the
+// new pale-megalith kit, now the FULL reference roster: SENTINEL (tall lone elder, PR-4) + CHOIRSTONES
+// (the mid-mass court, PR-5) + PEARLSHOAL (the low horizontal rest note, PR-5) — all Fable-gated ≥4.2.
+// `?props=v1` restores the interim retinted astral monolith/arcshard (now RETIRED from the default kit).
+// The three cover the reference's THREE size registers (tall vertical / mid court / low horizontal), so
+// density-follows-framing has its skeleton — EMPYREAN-PROP-REFERENCE §register. (The inkShoal FLOCK is a
+// system-sized ambient, deferred to PR-5b; the "haloarc" has no Fable-audited reference spec and is dropped.)
+const empyNew = PROPS_V1 ? [] : [5];     // sentinel + choirstones + pearlshoal (full roster; inkShoal flock → PR-5b)
+const empyOld = PROPS_V1 ? [5] : [];     // interim retinted astral monolith/arcshard (retired once the kit completes)
 // THE LOST LAGOON overhaul (LOST-LAGOON-BIBLE.md) — consolidates biomes 0+1. Default (v2) = the
 // new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
 // restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
@@ -1728,9 +1985,46 @@ const ARCHETYPES = {
     ], 4),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 5), h: 7 + rnd() * 9, r: 2 + rnd() * 1.5, tilt: side * (rnd() * 0.25 - 0.05) }),
   },
-  // Astral Shallows: slate monolith wearing a band of starlit crystal.
+  // THE EMPYREAN hero — the SENTINEL: a colossal leaning bone-nacre standing STONE (canted top-cut, lens
+  // blade, asymmetric taper, bedded foot; rose crown). The composition engine is the generic comp/
+  // arrivalPark: floor 0 → absent in the open-water "breaths", clustering into COURTS at congregation peaks
+  // (density-follows-framing); sMax 1.3 lets a peak survivor SWELL into the elder that dwarfs its court
+  // (focal hierarchy); arrivalPark keeps the ~450m Aurora seam clean (The Breach). rotY is left random so
+  // every stele presents a DIFFERENT broad-face azimuth — a court, never a picket fence.
+  sentinel: {
+    step: 53, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0, sMin: 0.92, sMax: 1.3 },
+    build: () => mergeParts(buildSentinelParts(), 5),
+    place: (side, rnd) => ({ x: side * (19 + rnd() * 11), h: 22 + rnd() * 20, r: 8.5 + rnd() * 4.5, tilt: side * (rnd() * 0.05 - 0.015) }),
+  },
+  // THE EMPYREAN — CHOIRSTONES (§5 "THE MID MASS"): the mid-register court that FRAMES the corridor
+  // between the sentinel elders and the Mote (density-follows-framing). One archetype paints a whole
+  // congregation — a greater stele ringed by lesser stelae, each a different height/lean/facing. floor
+  // 0.1 → present in more breaths than the sentinel (it's the connective mid-mass, not a rare elder);
+  // sMax 1.15 → gentle swell, never rivals the sentinel; rotY random so each court presents fresh.
+  choirstones: {
+    step: 47, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0.1, sMin: 0.85, sMax: 1.15 },
+    build: () => mergeParts(buildChoirstonesParts(), 5),
+    // Pushed further off-lane than the sentinel (x 25–34) because the COURT footprint spreads ±1 in object
+    // space — the extra reach must still clear the ±16 gate veil (propclearance audits it). h 8–14 keeps the
+    // court a clear mid-mass, roughly a third the sentinel. r modest so the spread stays a court, not a wall.
+    place: (side, rnd) => ({ x: side * (25 + rnd() * 9), h: 8 + rnd() * 6, r: 3.4 + rnd() * 1.8, tilt: side * (rnd() * 0.04 - 0.015) }),
+  },
+  // THE EMPYREAN — PEARLSHOAL (§ "the horizontal rest"): the calm LOW note under the tall stones. floor 0.35
+  // → the most COMMON Empyrean prop (it's the connective breather, present in most breaths); sMax 1.1 → stays
+  // low, never swells; a wide LOW footprint (r large, h small) so it reads as a surfacing back, not a hill.
+  pearlshoal: {
+    step: 41, biomes: empyNew, matIndex: 5, comp: { floor: 0.35, sMin: 0.85, sMax: 1.1 },
+    build: () => mergeParts(buildPearlshoalParts(), 5),
+    // MID-FIELD, not horizon (Fable re-gate): a low pale prop parked far off-lane sits in the thickest fog
+    // band where fog value (~L90) always exceeds the crown, so it can only wash out. Bringing it in (x 19–28)
+    // seats it on the nearer, DARKER water (~L77) so the pale-pearl crown reads LIGHTER than the local water.
+    // Bigger too (h 3.5–7, r 4.5–7.5) so the back is a real mid-mass note. Exempt-below-lane (crest never
+    // reaches the flight band), so it may sit closer than the tall stones.
+    place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 3.5 + rnd() * 3.5, r: 4.5 + rnd() * 3, tilt: side * (rnd() * 0.03 - 0.012) }),
+  },
+  // Interim retinted astral monolith wearing a rose band (empyOld — ?props=v1 only; replaced by the kit).
   monolith: {
-    step: 30, biomes: [5], matIndex: 5,
+    step: 30, biomes: empyOld, matIndex: 5,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.96, 0.26), { y: 0.48 }) },
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.5, 0.07, 0.34), { y: 0.62 }) },
@@ -1738,11 +2032,14 @@ const ARCHETYPES = {
     ], 5),
     place: (side, rnd) => ({ x: side * (15 + rnd() * 9), h: 12 + rnd() * 18, r: 2.6 + rnd() * 1.8, tilt: side * (rnd() * 0.06 - 0.02) }),
   },
-  // Leaning crystal blade catching the aurora.
+  // Interim leaning nacre blade (retinted from the astral crystal). PALE empyStone body (mat 0), NOT the
+  // rose accent — a solid rose cone read as a candy-pink triangle (a slop tell); the Empyrean's rose lives
+  // on CROWNS/EDGES only (§5), so the blade is a pale cutout one step below sky and the rose stays on the
+  // monolith crowns. Replaced by the real haloarc (inner-rim edge only) in PR-5.
   arcshard: {
-    step: 22, biomes: [5], matIndex: 5,
+    step: 22, biomes: empyOld, matIndex: 5,
     build: () => mergeParts([
-      { mat: 1, geo: xform(new THREE.ConeGeometry(0.8, 1, 4), { y: 0.42, sx: 0.55 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.8, 1, 4), { y: 0.42, sx: 0.55 }) },
     ], 5),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 6), h: 5 + rnd() * 9, r: 1.8 + rnd() * 2, tilt: side * (0.12 + rnd() * 0.22) }),
   },
@@ -3946,6 +4243,9 @@ const FOAM_CFG = {
   rampart: false,                    // Lost Lagoon v3 far massif — NO collar (a bright foam ring 30+ off-lane on the fog line is an artifact; the glacierwall/riftwall/arcade precedent — the jade tide-stain slab carries the waterline)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
+  sentinel: { r: 0.5 },              // THE EMPYREAN hero — a faint pearl waterline shimmer where the bedded blade meets the nacre (not white surf; the biome foam is tuned faint)
+  choirstones: { r: 0.42 },          // THE EMPYREAN mid-mass court — a faint pearl collar around the congregation's bedded feet (matches the sentinel's tuned-faint waterline)
+  pearlshoal: { r: 0.6 },            // THE EMPYREAN low rest note — a faint pearl waterline seat around the surfacing backs (wide low footprint; keeps the loaf seated, never a wet-dark band)
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
   // Lumen Mire PR-2 depth/canopy: reedveil gets a faint warm waterline collar; the mid/far
@@ -4230,8 +4530,14 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7): 0 = off → byte-identical in the other 6 biomes + all
       // skins. A sourceless warm glow-column off the horizon — metabolic light, NOT a sun.
       uShaft: { value: 0 },
+      // THE EMPYREAN — THE MOTE (§8, PR-3): 0 = off → byte-identical. uMoteMix fades the disc in over the
+      // Aurora seam; uMoteGrow (0→1 biome progress) grows its apparent size 1.5°→3°. The one true-dark
+      // object — an opaque black disc that ZEROES the stars inside it (the hole-vs-object firewall).
+      uMoteMix: { value: 0 },
+      uMoteGrow: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
+      ...empyUniforms, // THE EMPYREAN: uEmpyMix 0 = shipped (biome gate; the nebula blooms + sky-disc sun kill)
     },
     vertexShader: `
       varying vec3 vDir;
@@ -4246,9 +4552,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform float uSurgeWarm;   // Fable 94: per-biome ember-Surge override (0 = magenta shipped)
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
+      uniform float uMoteMix, uMoteGrow;   // THE EMPYREAN Mote (§8): 0 = off → byte-identical
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
+      ${EMPY_HEAD}
       // Rain-veil 1D value noise (layer F) — pure ALU, no texture.
       float _rvHash(float n) { return fract(sin(n) * 43758.5453); }
       float _rvN(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(_rvHash(i), _rvHash(i + 1.0), f); }
@@ -4273,6 +4581,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
         col = mix(col, fogFarColor, fogFarMix * (1.0 - smoothstep(0.0, 0.15, h)));
+        ${EMPY_BODY}
         // Aurora PREVIEW night wash (?aurora=1 only): sink the day sky to a near-black indigo BEFORE the
         // curtain adds on top, so the forced preview reads like the shipping NIGHT biome (an aurora over a
         // sunlit sky is a physics lie). uAurNight is 0 in all real gameplay → byte-identical.
@@ -4369,8 +4678,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // (× (1 - uAurNight): the aurora preview kills the sun — a night sky has none. And under a real
         // aurora biome (uAuroraMix up), dim the moon disc + kill most of its broad halo so it doesn't grey
         // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
-        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
-                        + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
+        // THE EMPYREAN sun #1 kill (§3): a sourceless sky has NO disc. uEmpyMix multiplies BOTH the tight
+        // pow-900 disc AND the broad pow-10 glow to zero (the aurora-precedent factors, taken to a FULL kill
+        // — even sky.sun = sky colour leaves a +70% additive hotspot at the azimuth). 0 elsewhere → byte-identical.
+        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix) * (1.0 - uEmpyMix)
+                        + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix) * (1.0 - uEmpyMix)) * (1.0 - uAurNight);
         // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7, uShaft 0 = off → byte-identical): ONE sourceless warm
         // glow-column rising off the ember horizon, OFF-CENTER of the corridor axis. Theology: the Mire has
         // no sun — the brightest point is the ROOT at the waterline, decaying monotonically upward. Never a
@@ -4400,15 +4712,54 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);
         float sh = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-        float star = smoothstep(0.9965, 1.0, sh)
-                   * (0.6 + 0.4 * sin(time * 2.0 + sh * 90.0))
+        // THE EMPYREAN R7 (§4a): a BRIGHT sky shows only mag ≤1–2 — dozens, not thousands. uEmpyMix raises
+        // the density threshold so only ~20–60 sparse stars survive (a night-density starfield pasted on a
+        // bright gradient is the single fastest way this biome would read as AI slop). 0 → shipped threshold.
+        float _starThr = mix(0.9965, 0.9960, uEmpyMix);   // 0.99935 was FAR too sparse (Fable-model gate: 0 countable stars). ~0.9960 ≈ 35-50 sparse mag≤2 sparkle points — still "dozens not thousands"
+        float star = smoothstep(_starThr, 1.0, sh)
+                   * (0.72 + 0.28 * sin(time * 2.0 + sh * 90.0))   // shallower twinkle so they don't dim to near-invisible
                    * smoothstep(0.04, 0.3, h);
         // Aurora Shallows: the curtain is nearer than the stars — dim them where it burns
         // (aurLum is 0 in every other biome, so this is a branchless no-op there).
         star *= 1.0 - 0.55 * clamp(aurLum, 0.0, 1.0);
         // starMix in real night biomes; the aurora preview also lights the stars (max) so its night sky
         // isn't an empty void behind the curtain.
-        col += vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);
+        vec3 _starNight = vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);
+        // THE EMPYREAN R7: "sparkle suspended in light." The add is RELATIVE to the local sky value
+        // (brightest stars only +15–30% over it) and × (1 − local sky luma), so stars fade to nothing in
+        // the brightest field (the dissolve, the bloom cores) and survive where it is locally dimmest. col
+        // here already carries the gradient + blooms, so its luma IS the local sky. A hard white dot at full
+        // contrast on a pale sky reads as a dead pixel — this relative treatment is the authenticity cue.
+        float _sLuma = dot(col, vec3(0.299, 0.587, 0.114));
+        // "Sparkle suspended in light": a clear pearl step OVER the local sky (so it actually reads — the
+        // old relative add died on the bright field), but the fade is confined to the BRIGHTEST band only
+        // (full below ~L0.82, gone by ~L0.94), NOT linearly across the whole dome — so stars survive the mid
+        // sky and vanish only in the dissolve / bloom cores (Fable-model gate: ~15-40 countable, fade top 20%).
+        float _sFade = clamp((0.96 - _sLuma) / 0.16, 0.0, 1.0);
+        vec3 _starEmpy = vec3(0.98, 0.982, 1.0) * (star * (0.34 + 0.14 * _sLuma) * _sFade) * starMix;   // a clear pearl sparkle over the local sky (the old relative add died on the bright field); fade only in the brightest band
+        col += mix(_starNight, _starEmpy, uEmpyMix);
+        // THE EMPYREAN — THE MOTE (§8, uMoteMix 0 = off → byte-identical). The one true-dark object: a
+        // perfectly round, perfectly BLACK disc at a FIXED bearing just above the dissolve (inside the
+        // reserved easement), fog-exempt, drawn AFTER the stars so it ZEROES them inside its radius (the
+        // hole-vs-object firewall — a hole in the skybox can't wink stars out; this can). A partial hairline
+        // PEARL limb hugs ONE arc (light bending round a mass — eclipse optics; non-gold, non-corona), and
+        // the disc grows slowly across the biome (uMoteGrow). Hard ≈1px edge — the sharpest thing in frame.
+        if (uMoteMix > 0.001) {
+          vec3 _mDir = normalize(vec3(0.12, 0.10, -1.0));            // fixed bearing: ahead, above the dissolve, a touch off the corridor axis (inside the 30° easement)
+          float _md = acos(clamp(dot(d, _mDir), -1.0, 1.0));         // angular distance from the Mote centre (rad)
+          // Owner call: sized UP from the bible's 1.5–3° (too faithful → a dust speck) to a real ominous
+          // focal point, with the growth brought forward so it has presence on entry, not only near the loop.
+          float _mR = radians(2.0 + 1.6 * uMoteGrow);                // half-angle 2.0°→3.6° (diameter 4°→7.2° across the biome)
+          // one-sided hairline limb (r/28 thick), biased to ONE arc, fading to nothing on the opposite limb.
+          vec3 _mT = normalize(cross(vec3(0.0, 1.0, 0.0), _mDir));
+          float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
+          float _limbSide = smoothstep(-0.2, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
+          float _limb = smoothstep(_mR, _mR * 1.018, _md) * (1.0 - smoothstep(_mR * 1.018, _mR * 1.036, _md));
+          col += vec3(0.96, 0.94, 0.99) * _limb * _limbSide * 0.065 * uMoteMix;   // ≤ +1 value step, pearl, non-gold — the eclipse rim, a touch more present on the bigger disc
+          // the opaque black disc, OVER everything → stars/sky inside are replaced (not blended): hole-vs-object.
+          float _core = (1.0 - smoothstep(_mR, _mR + 0.0022, _md)) * uMoteMix;   // hard ≈0.13° (≈1px) coverage edge
+          col = mix(col, vec3(0.020, 0.012, 0.031), _core);          // 0x050308 — the biome's one true dark
+        }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
         col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12 * (1.0 - uAuroraMix);
@@ -5301,6 +5652,11 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
   su.uShaft.value = env.horizonShaft ?? 0;   // Fable 90 lever-7: Lumen Mire horizon glow-column; 0 elsewhere → byte-identical sky
+  // THE EMPYREAN Mote (§8): fade rides the landmark mix (widens to the 400m Aurora seam); the scripted growth
+  // is biome-LOCAL progress 0→1 (slow + monotonic across the run, resetting each lap — below conscious notice
+  // frame-to-frame, unmistakable court-to-court). 0 off-biome → byte-identical sky.
+  su.uMoteMix.value = env.moteMix ?? 0;
+  { const _L = CONFIG.biomeLength; su.uMoteGrow.value = _L > 0 ? (((playerDist % _L) + _L) % _L) / _L : 0; }
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
@@ -5312,6 +5668,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   heroRimCol.copy(env.heroRimColor);
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
   applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
+  applyEmpyrean(env); // THE EMPYREAN: drive the nebula/sun-kill gate (empyMix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
   // as a cloud drifts across it (rather than strobe). main.js reads getCloudSunCover().
   cloudSunCover = damp(cloudSunCover, sunCloudCover(env, su.sunDir.value, playerDist, time), 3, dt);
@@ -5347,6 +5704,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
+    // THE EMPYREAN nacre (§4b): 0 elsewhere = byte-identical water; kills sun #2 + adds satin/iridescence.
+    nacreMix: env.nacreMix,
   });
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
