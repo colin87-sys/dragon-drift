@@ -1465,11 +1465,14 @@ const ARCHETYPES = {
     ], 5),
     place: (side, rnd) => ({ x: side * (15 + rnd() * 9), h: 12 + rnd() * 18, r: 2.6 + rnd() * 1.8, tilt: side * (rnd() * 0.06 - 0.02) }),
   },
-  // Leaning crystal blade catching the aurora.
+  // Interim leaning nacre blade (retinted from the astral crystal). PALE empyStone body (mat 0), NOT the
+  // rose accent — a solid rose cone read as a candy-pink triangle (a slop tell); the Empyrean's rose lives
+  // on CROWNS/EDGES only (§5), so the blade is a pale cutout one step below sky and the rose stays on the
+  // monolith crowns. Replaced by the real haloarc (inner-rim edge only) in PR-5.
   arcshard: {
     step: 22, biomes: [5], matIndex: 5,
     build: () => mergeParts([
-      { mat: 1, geo: xform(new THREE.ConeGeometry(0.8, 1, 4), { y: 0.42, sx: 0.55 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.8, 1, 4), { y: 0.42, sx: 0.55 }) },
     ], 5),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 6), h: 5 + rnd() * 9, r: 1.8 + rnd() * 2, tilt: side * (0.12 + rnd() * 0.22) }),
   },
