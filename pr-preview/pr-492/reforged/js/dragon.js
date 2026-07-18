@@ -141,6 +141,7 @@ let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniform
 // RIBBON drive temporaries (reused each frame — no per-tick allocation).
 const _ribHeadW = new THREE.Vector3(), _ribAnchor = new THREE.Vector3(), _ribFwd = new THREE.Vector3(), _ribInvQ = new THREE.Quaternion();
 let ribbonCurl = 0;   // slowly-ramped steer signal → the sustained-turn body curl (the "twirl" beat)
+let ribDriveX = 0, ribDriveY = 0;   // smoothed steer/pitch magnitude → the swim swells into your movement
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
 let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let jadeChainMats = null; // jade pearl-chain links 1/3/4 (sat/lyre/streamer) — pulsed via userData.baseIntensity (§4.3b)
@@ -367,10 +368,16 @@ export function createDragon(scene, def, riderDef) {
   // re-loft branch on. The head lays a world breadcrumb trail; the body samples it at rest arc-length
   // offsets → straight input settles to a line, a hard steer whips head→tail, sustained turning coils.
   if (bodyWave && bodyWave.ribbon) {
-    // Swim tuned for a graceful TRAILING RIBBON on the long body: a long-wavelength travelling S
-    // (low freq) that fades over the front third (headFade) so the head-adjacent body stays a crisp
-    // near-line at rest, and blooms into flutter down the tail. Turns carry the drama via the path.
-    initRibbonSim(bodyWave.ribbon, { swimAmp: 0.2, swimFreq: 0.55, swimSpeed: 2.4, headFade: 8, curlAmp: 3.6 });
+    // Swim tuned for a SILKY 3D travelling S the ribbon always carries: a bold lateral wave + a
+    // phase-shifted vertical wave (soft helix), swelling toward the tail. driveX/driveY (set each
+    // tick from steer/pitch input) swell it into left/right + up/down; the path carries the big turns.
+    initRibbonSim(bodyWave.ribbon, {
+      // headFade 3 (wave ENTERS just behind the head, not a dead front half) + swimGrow 0.45 (neck
+      // carries ~40-55% of the tail's amplitude so the whole torso participates) + swimFreq 0.9
+      // (~1.9 wave periods → two visible humps = a real travelling S, not a single slight bend).
+      swimAmp: 1.2, swimAmpY: 0.7, swimFreq: 0.9, swimSpeed: 2.7, swimPhaseY: 1.5,
+      swimGrow: 0.45, headFade: 3, curlAmp: 3.6,
+    });
     bodyWave.ribbon.active = true;
   }
   jadePearlMat = result.parts.pearlMat || null;   // jade river-pearl — breathes with the swim (CP3)
@@ -1547,6 +1554,14 @@ export function updateDragon(dt, player, time) {
         const steerN = Math.max(-1, Math.min(1, player.velocity.x / CONFIG.lateralSpeed));
         ribbonCurl = damp(ribbonCurl, steerN, 1.1, dt);
         rib.sim.curl = ribbonCurl;
+        // swim swells into the axis you're steering: |lateral| feeds the lateral S, |vertical| the
+        // vertical S (smoothed so it flows in, doesn't pop), and it energises with cruise speed.
+        const driveXt = Math.min(1, Math.abs(player.velocity.x) / CONFIG.lateralSpeed) * 0.9;
+        const driveYt = Math.min(1, Math.abs(player.velocity.y) / (CONFIG.verticalSpeed || 18)) * 0.7;
+        ribDriveX = damp(ribDriveX, driveXt, 3, dt);
+        ribDriveY = damp(ribDriveY, driveYt, 3, dt);
+        rib.sim.driveX = ribDriveX; rib.sim.driveY = ribDriveY;
+        rib.sim.gain = 1 + speedNorm * 0.45;
         updateRibbonSim(rib, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z, _ribFwd, dt);
         _ribInvQ.copy(group.quaternion).invert();
         ribbonToLocal(rib, _ribInvQ, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z);

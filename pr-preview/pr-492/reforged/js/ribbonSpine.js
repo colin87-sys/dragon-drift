@@ -39,8 +39,15 @@ export function initRibbonSim(rib, opts = {}) {
     // welded to the (separately-placed) head mesh; the sim's world head is group.localToWorld(anchor).
     anchor: { x: rf[0].p.x, y: rf[0].p.y, z: rf[0].p.z },
     minSample: opts.minSample ?? 0.08,
-    swimAmp: opts.swimAmp ?? 0.16, swimFreq: opts.swimFreq ?? 0.9, swimSpeed: opts.swimSpeed ?? 3.0,
-    headFade: opts.headFade ?? 4,
+    // SWIM = a silky travelling S the body ALWAYS carries. Lateral (binormal) + a phase-shifted
+    // vertical (normal) component so the tail flows in a soft helix, not a flat metronome wiggle; a
+    // second harmonic breaks the pure-sine "tick"; amplitude swells head→tail (whip). driveX/driveY
+    // are the caller's smoothed steer/pitch input — they SWELL the wave in the axis you're moving so
+    // the ribbon flows into left/right and up/down. gain is the global (speed) multiplier.
+    swimAmp: opts.swimAmp ?? 0.16, swimAmpY: opts.swimAmpY ?? 0.0,
+    swimFreq: opts.swimFreq ?? 0.9, swimSpeed: opts.swimSpeed ?? 3.0, swimPhaseY: opts.swimPhaseY ?? 1.57,
+    swimGrow: opts.swimGrow ?? 0.55, headFade: opts.headFade ?? 4,
+    driveX: 0, driveY: 0, gain: 1,
     // STEER CURL: a lateral bend the caller ramps up with SUSTAINED steering (set S.curl each tick,
     // signed [-1,1]). Once steering saturates to a diagonal the head path stops curving, so a held
     // turn would look like a momentary one; this curls the trailing body into the turn on top of the
@@ -160,16 +167,27 @@ export function updateRibbonSim(rib, hx, hy, hz, fwd, dt) {
     S.bx[i] = t1y * nz - t1z * ny; S.by[i] = t1z * nx - t1x * nz; S.bz[i] = t1x * ny - t1y * nx;
   }
 
-  // 4. swim undulation ON TOP — a lateral offset along the (live) binormal keyed on ARC LENGTH
-  //    (not world z, so it rides a coil correctly), faded to zero over the first `headFade`
-  //    stations so the head-adjacent "attached to the pilot" read stays crisp.
+  // 4. SWIM — a silky travelling S the body always carries, keyed on ARC LENGTH (so it rides a coil
+  //    correctly). Lateral along the binormal + a phase-shifted vertical along the normal (soft
+  //    helix, not a flat wiggle); a 2nd harmonic breaks the metronome; amplitude is crisp at the head
+  //    (headFade) and swells toward the tail (swimGrow → whip). driveX/driveY swell the wave in the
+  //    axis the pilot is steering so it flows into left/right + up/down; gain is the speed multiplier.
   S.swimT += dt;
-  if (S.swimAmp > 0) {
+  if (S.swimAmp > 0 || S.swimAmpY > 0) {
+    const bodyLen = S.segCum[N - 1] || 1;
+    const latAmp = (S.swimAmp + S.driveX) * S.gain;
+    const verAmp = (S.swimAmpY + S.driveY) * S.gain;
     for (let i = 0; i < N; i++) {
       const arc = S.segCum[i];
-      const fade = Math.min(1, i / S.headFade);
-      const off = S.swimAmp * fade * Math.sin(S.swimFreq * arc - S.swimSpeed * S.swimT);
-      S.sx[i] += S.bx[i] * off; S.sy[i] += S.by[i] * off; S.sz[i] += S.bz[i] * off;
+      const u = arc / bodyLen;                               // 0 head → 1 tail
+      const env = Math.min(1, i / S.headFade) * (1 - S.swimGrow + S.swimGrow * u);   // crisp head, swelling tail
+      const ph = S.swimFreq * arc - S.swimSpeed * S.swimT;
+      const wave = Math.sin(ph) * 0.78 + Math.sin(ph * 0.5 + 0.9) * 0.32;            // two-harmonic (organic, not a tick)
+      const lat = latAmp * env * wave;
+      const ver = verAmp * env * (Math.sin(ph + S.swimPhaseY) * 0.78 + Math.sin(ph * 0.5 + 0.9 + S.swimPhaseY) * 0.32);
+      S.sx[i] += S.bx[i] * lat + S.nx[i] * ver;
+      S.sy[i] += S.by[i] * lat + S.ny[i] * ver;
+      S.sz[i] += S.bz[i] * lat + S.nz[i] * ver;
     }
   }
   // STEER CURL — sustained steering (S.curl, smoothed by the caller so a flick barely curls) bends
