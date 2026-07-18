@@ -60,9 +60,10 @@ check('near props (<55m) are untouched at lever 0.85 (the black floor holds)',
     lift(120) < 0.12 && lift(200) > 0.45);
 }
 
-// --- 5. biomes.js plumbing: 0.85 in Lumen Mire, 0 at every non-adjacent centre ---
-//     block index → biome via CYCLE [0,1,2,3,4,6,5]; block 4 = Lumen Mire. Biome
-//     centres (local 750) sit at t=0, far from the 150m seam crossfade.
+// --- 5. biomes.js plumbing: the ONLY two aerial levers are Mire (0.85) and Tempest
+//     (0.65); every other centre is a hard 0. block index → biome via CYCLE
+//     [0,1,2,3,4,6,7,5]: block 4 = Lumen Mire, block 6 = Tempest Reach. Biome centres
+//     (local 750) sit at t=0, far from the 150m seam crossfade.
 const centre = (block) => block * 1500 + 750;
 {
   const mire = computeEnv(centre(4));
@@ -70,10 +71,18 @@ const centre = (block) => block * 1500 + 750;
   const ember = new THREE.Color(0x9c5a22);   // same construction path as biomes.js C() → same colour space
   check('Lumen Mire centre → propAerialColor is the ember 0x9c5a22',
     near(mire.propAerialColor.r, ember.r, 1e-4) && near(mire.propAerialColor.g, ember.g, 1e-4) && near(mire.propAerialColor.b, ember.b, 1e-4));
-  // Non-adjacent biome centres (blocks 0,1,6→biome5) must be a hard 0 → byte-identical.
+  // Tempest Reach (block 6) is the SECOND aerial biome: a paler, cooler rain-veil haze
+  // (0.65 @ 0x98948d) — the storm far-field goes lighter, so props must recede into it.
+  const tempest = computeEnv(centre(6));
+  check('Tempest Reach centre → env.propAerial = 0.65', near(tempest.propAerial, 0.65, 1e-4));
+  const veil = new THREE.Color(0x98948d);
+  check('Tempest Reach centre → propAerialColor is the rain-veil 0x98948d',
+    near(tempest.propAerialColor.r, veil.r, 1e-4) && near(tempest.propAerialColor.g, veil.g, 1e-4) && near(tempest.propAerialColor.b, veil.b, 1e-4));
+  // Non-aerial biome centres (blocks 0,1,2 → biomes 0,1,2; block 5 → Aurora 6; block 7 →
+  // Astral 5) must be a hard 0 → those biomes render byte-identical.
   let zero = true;
-  for (const block of [0, 1, 2, 6]) { if (!near(computeEnv(centre(block)).propAerial, 0)) zero = false; }
-  check('non-Mire biome centres → env.propAerial = 0 (other biomes byte-identical)', zero);
+  for (const block of [0, 1, 2, 5, 7]) { if (!near(computeEnv(centre(block)).propAerial, 0)) zero = false; }
+  check('non-aerial biome centres → env.propAerial = 0 (those biomes byte-identical)', zero);
 }
 
 // --- 6. the ported GLSL matches the shader SOURCE (the port can't drift) ---------
