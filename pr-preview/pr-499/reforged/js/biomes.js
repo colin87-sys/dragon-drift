@@ -390,6 +390,20 @@ export const BIOMES = [
     fogFarColor: C(0xb3ac9c),   // far field still goes LIGHTER (cycle identity) but now agrees with the warm slot instead of fighting it (was cool silver 0xa7b2b0)
     // N8 height-fog: the wet storm air pools LOW, thickest where the sea is angriest.
     atmos: { heightK: 0.03 },
+    // AERIAL PERSPECTIVE (Fable 75 lever, migrated from the Mire; Fable pre-assess: current prop-depth 2/5).
+    // The dual-fog pales the far SKY into the rain-veil, but the dark-slate props (0x4b545c) don't
+    // participate — the mid-field arch spires (~100–260m, the money composition) sit at the SAME near-black
+    // value as the 30m foreground, and because Tempest's far field goes LIGHTER, prop-vs-sky contrast GROWS
+    // with distance (the inverse of nature = the "sticker" flatness). This fades distant props toward a haze
+    // hue so they recede. Strength 0.55 (NOT the Mire's 0.85: this haze is ~2.3× the luminance of the Mire's
+    // dark ember, so equal strength would over-lift and dissolve the silhouettes; the quadratic 55→230m ease
+    // keeps the 90–200m drama zone at only 0.05–0.25 effective). HUE 0x98948d = the rain-veil (fogFarColor
+    // 0xb3ac9c) cooled ONE value step toward the near-fog indigo (0x494c60): aerial haze is AIR not surface
+    // light, so it inherits the veil's already-legal warmth (the theology firewall bans a warm KEY LIGHT, not
+    // warm far air) WITHOUT reading as a warm field light; kept 1 step below the veil so props recede into it
+    // rather than fuse, and chroma below the gold sockets so the rationed burn is untouched. 0 elsewhere =
+    // byte-identical; the <55m floor keeps the near hero props byte-untouched.
+    propAerial: 0.65, propAerialColor: C(0x98948d),   // owner device call: 0.55 read a touch subtle → bumped to 0.65 (top of Fable's authorized 0.45–0.65 scalar band; hue/ramp unchanged) for a clearer recede while still holding the silhouette drama
     // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
     // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the

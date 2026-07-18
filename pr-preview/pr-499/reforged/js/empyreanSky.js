@@ -74,7 +74,7 @@ export const EMPY_HEAD = /* glsl */`
     // Radius PERTURBED by a low-octave read so there is no clean ring, no clean centre.
     float rp = r + (_eFbm(pr*1.2 + vec2(19.0, 7.0)) - 0.5) * sz * 0.35;
     float fall = smoothstep(sz*1.35, sz*0.10, rp);         // soft radial falloff (1 core → 0 edge)
-    float dens = fall * (0.42 + 0.58*n);                   // luminous floor + strong structure weight so the wisps read as filaments, not a flat wash
+    float dens = fall * (0.52 + 0.48*n);                   // higher body floor so the bloom reads as a consistent soft tint (a visible cloud), with the filament structure ON TOP — presence without raising saturation past the pastel cap
     // CARVED lanes — a separate low-frequency warped field; a thin isoline band cuts meandering
     // channels. One-sided lit rim: the same field sampled a hair toward the bright side reads brighter
     // just OUTSIDE the cut → the shock-front rim that sells dust-in-front-of-light.
@@ -100,10 +100,10 @@ export const EMPY_BODY = /* glsl */`
           // cores stay BELOW the zenith stop (§3) and the zenith guard keeps blooms out of the bright pole.
           // Warp held ~1.0–1.1 (a heavier second-order warp scattered the dense knot until the pastel
           // washed out on the bright sky — the filaments must hold together to read).
-          vec4 _eb1 = _empyBloom(d, normalize(vec3( 0.30, 0.22, -1.00)), 0.80,  0.70,
-                                 vec3(0.965, 0.862, 0.910), vec3(0.950, 0.675, 0.812), 0.0, time, 1.1);   // rose  (body S≈0.29, at the cap)
-          vec4 _eb2 = _empyBloom(d, normalize(vec3(-0.36, 0.52, -0.92)), 0.52, -1.10,
-                                 vec3(0.790, 0.735, 0.945), vec3(0.700, 0.612, 0.912), 2.3, time, 1.0);   // orchid (body S≈0.33→ hue reads violet against the neutral sky)
+          vec4 _eb1 = _empyBloom(d, normalize(vec3( 0.30, 0.22, -1.00)), 0.92,  0.70,
+                                 vec3(0.965, 0.862, 0.910), vec3(0.950, 0.675, 0.812), 0.0, time, 1.1);   // rose  (body S≈0.29, right at the pastel cap)
+          vec4 _eb2 = _empyBloom(d, normalize(vec3(-0.36, 0.52, -0.92)), 0.60, -1.10,
+                                 vec3(0.790, 0.735, 0.945), vec3(0.712, 0.632, 0.902), 2.3, time, 1.0);   // orchid (body S≈0.30, at the cap — hue reads violet against the neutral sky)
           float _eZen = 1.0 - smoothstep(0.74, 0.96, h);   // no bloom contests the zenith band (the zenith always wins)
           float _eOp = 1.0 * uEmpyMix * _eZen;
           col = mix(col, _eb1.rgb, _eb1.a * _eOp);
