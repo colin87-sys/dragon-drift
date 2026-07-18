@@ -3749,9 +3749,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // THE EMPYREAN R7 (§4a): a BRIGHT sky shows only mag ≤1–2 — dozens, not thousands. uEmpyMix raises
         // the density threshold so only ~20–60 sparse stars survive (a night-density starfield pasted on a
         // bright gradient is the single fastest way this biome would read as AI slop). 0 → shipped threshold.
-        float _starThr = mix(0.9965, 0.99935, uEmpyMix);
+        float _starThr = mix(0.9965, 0.9960, uEmpyMix);   // 0.99935 was FAR too sparse (Fable-model gate: 0 countable stars). ~0.9960 ≈ 35-50 sparse mag≤2 sparkle points — still "dozens not thousands"
         float star = smoothstep(_starThr, 1.0, sh)
-                   * (0.6 + 0.4 * sin(time * 2.0 + sh * 90.0))
+                   * (0.72 + 0.28 * sin(time * 2.0 + sh * 90.0))   // shallower twinkle so they don't dim to near-invisible
                    * smoothstep(0.04, 0.3, h);
         // Aurora Shallows: the curtain is nearer than the stars — dim them where it burns
         // (aurLum is 0 in every other biome, so this is a branchless no-op there).
@@ -3765,7 +3765,12 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // here already carries the gradient + blooms, so its luma IS the local sky. A hard white dot at full
         // contrast on a pale sky reads as a dead pixel — this relative treatment is the authenticity cue.
         float _sLuma = dot(col, vec3(0.299, 0.587, 0.114));
-        vec3 _starEmpy = vec3(0.96, 0.965, 1.0) * (_sLuma * 0.95 * star * clamp(1.0 - _sLuma, 0.0, 1.0)) * starMix;
+        // "Sparkle suspended in light": a clear pearl step OVER the local sky (so it actually reads — the
+        // old relative add died on the bright field), but the fade is confined to the BRIGHTEST band only
+        // (full below ~L0.82, gone by ~L0.94), NOT linearly across the whole dome — so stars survive the mid
+        // sky and vanish only in the dissolve / bloom cores (Fable-model gate: ~15-40 countable, fade top 20%).
+        float _sFade = clamp((0.96 - _sLuma) / 0.16, 0.0, 1.0);
+        vec3 _starEmpy = vec3(0.98, 0.982, 1.0) * (star * (0.34 + 0.14 * _sLuma) * _sFade) * starMix;   // a clear pearl sparkle over the local sky (the old relative add died on the bright field); fade only in the brightest band
         col += mix(_starNight, _starEmpy, uEmpyMix);
         // THE EMPYREAN — THE MOTE (§8, uMoteMix 0 = off → byte-identical). The one true-dark object: a
         // perfectly round, perfectly BLACK disc at a FIXED bearing just above the dissolve (inside the

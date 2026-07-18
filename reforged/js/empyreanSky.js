@@ -73,8 +73,8 @@ export const EMPY_HEAD = /* glsl */`
     n = smoothstep(0.28, 0.82, n);                         // sharpen into DEFINED wisps (knots + gaps) so the structure reads on the bright sky — contrast lives in hue + STRUCTURE, never a dark value swing
     // Radius PERTURBED by a low-octave read so there is no clean ring, no clean centre.
     float rp = r + (_eFbm(pr*1.2 + vec2(19.0, 7.0)) - 0.5) * sz * 0.35;
-    float fall = smoothstep(sz*1.35, sz*0.10, rp);         // soft radial falloff (1 core → 0 edge)
-    float dens = fall * (0.52 + 0.48*n);                   // higher body floor so the bloom reads as a consistent soft tint (a visible cloud), with the filament structure ON TOP — presence without raising saturation past the pastel cap
+    float fall = smoothstep(sz*1.5, sz*0.08, rp);          // soft radial falloff (1 core → 0 edge), WIDER so the tinted body covers more sky (Fable-model gate: the bloom must READ, not sit at ~0.01 S over base)
+    float dens = fall * (0.66 + 0.34*n);                   // RAISED body floor → a consistent saturated soft tint under the filament structure; more of the frame carries the S≈0.30 body hue instead of washing to the near-white core
     // CARVED lanes — a separate low-frequency warped field; a thin isoline band cuts meandering
     // channels. One-sided lit rim: the same field sampled a hair toward the bright side reads brighter
     // just OUTSIDE the cut → the shock-front rim that sells dust-in-front-of-light.
@@ -82,8 +82,10 @@ export const EMPY_HEAD = /* glsl */`
     float lane = _eFbm(lp);
     float cut = smoothstep(0.44, 0.47, lane) * (1.0 - smoothstep(0.50, 0.55, lane));   // thin channel
     float rim = smoothstep(0.50, 0.52, lane) * (1.0 - smoothstep(0.52, 0.56, lane));   // lit band on the bright edge
-    // Colour: core (whiter, LESS saturated) fills the dense knots; the body/wisps carry the hue.
-    vec3 bcol = mix(bodyC, coreC, smoothstep(0.34, 0.92, dens));
+    // Colour: core (whiter, LESS saturated) fills ONLY the densest knots; the body/wisps carry the hue.
+    // Threshold raised (0.34→0.60) so the raised-floor body stays its saturated self instead of blending
+    // halfway to the near-white core everywhere (that was the wash-out — the whole bloom went pale).
+    vec3 bcol = mix(bodyC, coreC, smoothstep(0.60, 0.98, dens));
     bcol = mix(bcol, vec3(0.749, 0.714, 0.855), cut * 0.55 * fall);   // occlude only to the 0xbfb6da pearl-grey floor
     bcol += vec3(0.045, 0.040, 0.052) * rim * fall;                   // one-sided pearl lit rim
     float cov = dens * (1.0 - cut * 0.35);
@@ -100,12 +102,19 @@ export const EMPY_BODY = /* glsl */`
           // cores stay BELOW the zenith stop (§3) and the zenith guard keeps blooms out of the bright pole.
           // Warp held ~1.0–1.1 (a heavier second-order warp scattered the dense knot until the pastel
           // washed out on the bright sky — the filaments must hold together to read).
-          vec4 _eb1 = _empyBloom(d, normalize(vec3( 0.30, 0.22, -1.00)), 0.92,  0.70,
-                                 vec3(0.965, 0.862, 0.910), vec3(0.950, 0.675, 0.812), 0.0, time, 1.1);   // rose  (body S≈0.29, right at the pastel cap)
-          vec4 _eb2 = _empyBloom(d, normalize(vec3(-0.36, 0.52, -0.92)), 0.60, -1.10,
-                                 vec3(0.790, 0.735, 0.945), vec3(0.712, 0.632, 0.902), 2.3, time, 1.0);   // orchid (body S≈0.30, at the cap — hue reads violet against the neutral sky)
-          float _eZen = 1.0 - smoothstep(0.74, 0.96, h);   // no bloom contests the zenith band (the zenith always wins)
-          float _eOp = 1.0 * uEmpyMix * _eZen;
+          // Sizes bumped (0.92→1.10, 0.60→0.74) so the blooms FILL the forward dome and read at a glance;
+          // core/body hues pushed to the pastel cap and the cores kept HUED (not near-white) so the measured
+          // in-render saturation clears Fable's ≥0.10 floor. Rose ~340° / orchid ~285° stay tellable apart.
+          // Two blooms placed on OPPOSITE hue sides of the violet base (H~270) so each clears Fable's
+          // ≥25° hue-separation acceptance even when the ACES tonemap crushes saturation on the bright
+          // field: rose ~331° (magenta side, never peach) and a cool blue-violet ~238° (the "orchid"),
+          // clearly tellable apart. Opacity raised so the hue READS instead of washing to the base.
+          vec4 _eb1 = _empyBloom(d, normalize(vec3( 0.30, 0.22, -1.00)), 1.10,  0.70,
+                                 vec3(0.905, 0.735, 0.875), vec3(0.855, 0.515, 0.745), 0.0, time, 1.1);   // rose ~318° — B pushed clearly OVER G (and core B>R) so no faint edge can drift peach/salmon (warmth forbidden)
+          vec4 _eb2 = _empyBloom(d, normalize(vec3(-0.36, 0.52, -0.92)), 0.74, -1.10,
+                                 vec3(0.745, 0.720, 0.952), vec3(0.605, 0.520, 0.925), 2.3, time, 1.0);   // blue-VIOLET ~253° — R kept ≥ G so the tonemapped edge can't drift cyan/green (off-palette; green is cut)
+          float _eZen = 1.0 - smoothstep(0.84, 0.99, h);   // ease the zenith guard so the blooms reach higher and READ in the dome-up view, the very zenith stop still wins
+          float _eOp = 1.55 * uEmpyMix * _eZen;            // more presence so the hue reads; cov clamps ≤1 so it never fully paints out the sky
           col = mix(col, _eb1.rgb, _eb1.a * _eOp);
           col = mix(col, _eb2.rgb, _eb2.a * _eOp);
         }`;

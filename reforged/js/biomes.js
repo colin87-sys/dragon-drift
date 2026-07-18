@@ -282,7 +282,7 @@ export const BIOMES = [
     // sky.sun is the CANON pale stop (= sky-mid): the empyMix shader kill zeroes the disc, but authoring the
     // slot stops the seam-lerp dragging a hot neighbour sun across the crossfade (the shipped 0xcfe8ff was a
     // cool bright sun that survived any retune skipping this row). §3 sun #1.
-    sky: { top: C(0xefeaff), mid: C(0xdcd7f4), horizon: C(0xcdd3f5), sun: C(0xdcd7f4) },
+    sky: { top: C(0xe3d8ff), mid: C(0xcabff0), horizon: C(0xc9c9f2), sun: C(0xdcd7f4) },   // pearl-VIOLET, not overcast grey (Fable-model gate: base rendered S was ~0.03 → "concrete"; stops pushed to S~0.15-0.20 @ ~255° so the rendered void reads violet). Keep the V64→92 upward inversion + the bright horizon dissolve. Probe (skyColorAt) reads these same stops → ambient stays in sync.
     // Opal fog — the Empyrean's air is bright (fog COLOUR above the scene mean = fog that glows, not
     // obscures); OPEN (far planes than the night biomes). fogFarColor lifts the far field TOWARD light
     // (inverted aerial perspective — the horizon-dissolve, §4c). heightK thin+even (no ground pooling).
