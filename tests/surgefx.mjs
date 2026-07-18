@@ -136,5 +136,27 @@ const travel = await page.evaluate((c0) => {
 }, cas.flares[0]);
 check(`flare travels eye→rim (rim crest lags ${Math.round(travel * 1000)}ms, in 250–450)`, travel >= 0.25 && travel <= 0.45);
 
+// ── I2.5: world-suppression punch-up (snap-with-overshoot) + the two exits ──────────────
+// The world grade SNAPS down (dragon leads by a ~150ms onset), overshoots ~115%, settles to 100%.
+const ge = await page.evaluate(() => {
+  const s = (t) => window.__dd.surgeGradeEnvAt(t);
+  let peak = 0, peakT = 0; for (let t = 0; t <= 1.4; t += 0.005) { const v = s(t); if (v > peak) { peak = v; peakT = t; } }
+  return { at10: s(0.10), at15: s(0.15), at45: s(0.45), peak, peakT, settled: s(1.25) };
+});
+check(`world grade lags the dragon (onset ~150ms: env@100ms=${ge.at10.toFixed(2)} ≈ 0)`, ge.at10 <= 0.05);
+check(`world SNAPS to full by ~450ms (env@450ms=${ge.at45.toFixed(2)} ≥ 0.9)`, ge.at45 >= 0.9);
+check(`overshoot present (~115%: peak ${ge.peak.toFixed(2)} at ${Math.round(ge.peakT * 1000)}ms, in 1.08–1.20)`, ge.peak >= 1.08 && ge.peak <= 1.20);
+check(`settles to ~100% (env@1.25s=${ge.settled.toFixed(2)}, in 0.95–1.05)`, ge.settled >= 0.95 && ge.settled <= 1.05);
+
+// DAMAGE-cancel gutter: a 2-stutter "you lost it" curve (non-monotonic rebound), dead by ~440ms —
+// structurally distinct from the natural drain's smooth eye-last decay.
+const gut = await page.evaluate(() => {
+  const s = (t) => window.__dd.surgeGutterAt(t);
+  return { d60: s(0.06), d140: s(0.14), d240: s(0.24), d440: s(0.44), start: s(0.0) };
+});
+check(`gutter starts full then dips (env@60ms=${gut.d60.toFixed(2)} < start ${gut.start.toFixed(2)})`, gut.d60 < gut.start);
+check(`gutter REBOUNDS (2-stutter: env@140ms=${gut.d140.toFixed(2)} > env@60ms=${gut.d60.toFixed(2)})`, gut.d140 > gut.d60 + 0.05);
+check(`gutter dead by ~440ms (env@440ms=${gut.d440.toFixed(2)} ≤ 0.03)`, gut.d440 <= 0.03);
+
 check('no console errors', errors.length === 0) || console.error(errors.join('\n'));
 await done();

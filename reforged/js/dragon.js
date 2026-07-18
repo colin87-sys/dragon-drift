@@ -240,6 +240,19 @@ const casOnAt  = [-1, -1, -1, -1]; // latched 10%-crossing timestamps (the order
 let casDecayProg = 0;             // 0 (sustain) → 1 (fully decayed) — shared with the release handoff
 let casOverall = 0;               // weighted overall ignition (drives the halo + body glow — dark before, bright after)
 let eyeCorona = 0;                // eye-beat screen-space corona flash (carries the subpixel eye at chase distance)
+let surgeGutterT = -1;            // I2.5 DAMAGE-cancel gutter-out clock (-1 = not guttering)
+// The gutter-out (a flame guttering when a hit KILLS the Surge): a seeded 2-stutter stumble to
+// black over ~0.42s — 1 → 0.35 (60ms) → rebound 0.55 (140ms) → 0.15 (240ms) → 0 (420ms). Punchy +
+// authored, never a glitch; distinct from the natural drain's smooth eye-last cascade (Fable ruling).
+function _gutterEnv(t) {
+  const j = (surgeSeedC - 0.5) * 0.03;   // ±15ms seeded jitter on the mid breakpoints
+  const b1 = 0.06, b2 = 0.14 + j, b3 = 0.24 + j, b4 = 0.42;
+  if (t < b1) return 1 - 0.65 * (t / b1);                       // 1 → 0.35
+  if (t < b2) return 0.35 + 0.20 * ((t - b1) / (b2 - b1));      // 0.35 → 0.55 rebound
+  if (t < b3) return 0.55 - 0.40 * ((t - b2) / (b3 - b2));      // 0.55 → 0.15
+  if (t < b4) return 0.15 * (1 - (t - b3) / (b4 - b3));         // 0.15 → 0
+  return 0;
+}
 const _sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const _casCol = new THREE.Color();   // scratch: staged station tint (base → fever hue by casLevel)
 
@@ -794,6 +807,10 @@ export function surgeFlareSample(t, station = 0) { return _surgeFlare(t, station
 export function surgeDecaySample(p) {
   return CAS_REV.map(([a, b]) => 1 - _sstep(a, b, p));
 }
+// Pure DAMAGE-cancel gutter envelope at t (s) — the 2-stutter "you lost it" curve (Fable I2.5). The
+// gem-row HUD samples the SAME curve so the HUD dims in lockstep with the body (never ahead).
+export function surgeGutterSample(t) { return _gutterEnv(t); }
+export function surgeGutterActive() { return surgeGutterT >= 0; }
 
 // H7/H8 debug seam: bond-channel FX introspection for the roster-fallback proof
 // (which fallback tier the surge nodes resolved to, and the live stud/node
@@ -1800,7 +1817,7 @@ export function updateDragon(dt, player, time) {
   if (player.feverActive && !prevFever) surgeAnimT = 0.7;
   // Arm the anatomical cascade on the rising edge (deterministic per-surge seed).
   if (player.feverActive && !prevFever) {
-    surgeCascadeT = 0; surgeReleaseT = -1; surgeReleaseFrom = 0;
+    surgeCascadeT = 0; surgeReleaseT = -1; surgeReleaseFrom = 0; surgeGutterT = -1;
     surgeIndex++;
     surgeRng = mulberry32((surgeIndex * 2654435761) >>> 0);
     surgeSeedA = surgeRng(); surgeSeedB = surgeRng(); surgeSeedC = surgeRng();
@@ -1834,10 +1851,12 @@ export function updateDragon(dt, player, time) {
       }
     }
   }
-  // Falling edge: an ABRUPT end (fever cancelled while time remained = a hit) fast-reverses the
-  // cascade from wherever the pre-expiry decay had reached (order preserved, eye still last).
+  // Falling edge: distinguish the two exits (Fable ruling). A DAMAGE cancel (fever killed while the
+  // dragon was still lit — casDecayProg low) triggers the punchy GUTTER-OUT; a natural drain (the
+  // pre-expiry cascade already ran it down, casDecayProg high) just finishes the reverse cascade.
   if (!player.feverActive && prevFever && surgeCascadeT >= 0) {
-    surgeReleaseT = 0; surgeReleaseFrom = casDecayProg;
+    if (casDecayProg < 0.5) surgeGutterT = 0;                          // damage → gutter
+    else { surgeReleaseT = 0; surgeReleaseFrom = casDecayProg; }        // natural → already ~decayed
   }
   prevFever = player.feverActive;
   if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
@@ -1870,25 +1889,36 @@ export function updateDragon(dt, player, time) {
   const inSustain = surgeCascadeT >= 0 && player.feverActive && casDecayProg < 0.02;
   const breatheS = 0.5 + 0.5 * Math.sin(casElapsed * 2 * Math.PI * 0.28 + surgeSeedA * 6.28)
                  + 0.28 * Math.sin(casElapsed * 2 * Math.PI * 0.63 + surgeSeedB * 6.28);
-  // per-station forward × reverse, plus the travelling sustain flare.
-  for (let i = 0; i < 4; i++) {
-    const ig = surgeCascadeT >= 0 ? _sstep(CAS_ON[i], CAS_END[i], surgeCascadeT) : 0;
-    const dc = 1 - _sstep(CAS_REV[i][0], CAS_REV[i][1], casDecayProg);
-    let lvl = ig * dc;
-    if (inSustain && lvl > 0.5) {
-      // breathing: ±~8% below the peak; flare: a ripple whose crest arrives eye→rim over ~350ms
-      const flare = _surgeFlare(casElapsed, i);
-      lvl *= 0.92 + 0.08 * (breatheS * 0.5 + 0.5) + flare;
+  if (surgeGutterT >= 0) {
+    // DAMAGE-cancel GUTTER-OUT: the eye snuffs FIRST (0–80ms), the body gutters UNIFORMLY (dignity
+    // revoked) on the seeded 2-stutter curve — the opposite of the natural drain's ordered eye-last.
+    surgeGutterT += dt;
+    const g = _gutterEnv(surgeGutterT);
+    casLevel[0] = g * (1 - _sstep(0, 0.08, surgeGutterT));
+    casLevel[1] = casLevel[2] = casLevel[3] = g;
+    casOverall = g; eyeCorona = 0;
+    if (surgeGutterT > 0.44) { surgeGutterT = -1; surgeCascadeT = -1; surgeReleaseT = -1; }   // done → idle
+  } else {
+    // per-station forward × reverse, plus the travelling sustain flare.
+    for (let i = 0; i < 4; i++) {
+      const ig = surgeCascadeT >= 0 ? _sstep(CAS_ON[i], CAS_END[i], surgeCascadeT) : 0;
+      const dc = 1 - _sstep(CAS_REV[i][0], CAS_REV[i][1], casDecayProg);
+      let lvl = ig * dc;
+      if (inSustain && lvl > 0.5) {
+        // breathing: ±~8% below the peak; flare: a ripple whose crest arrives eye→rim over ~350ms
+        const flare = _surgeFlare(casElapsed, i);
+        lvl *= 0.92 + 0.08 * (breatheS * 0.5 + 0.5) + flare;
+      }
+      casLevel[i] = Math.min(1.6, lvl);
+      if (casOnAt[i] < 0 && ig >= 0.1 && surgeCascadeT >= 0) casOnAt[i] = surgeCascadeT;   // latch the 10% crossing (order/gap asserts)
     }
-    casLevel[i] = Math.min(1.6, lvl);
-    if (casOnAt[i] < 0 && ig >= 0.1 && surgeCascadeT >= 0) casOnAt[i] = surgeCascadeT;   // latch the 10% crossing (order/gap asserts)
+    // Overall ignition (drives the halo + body glow so the "before" is genuinely DARK — the
+    // resting livery no longer pre-spends the contrast, so each station is a 3×+ step not a nudge)
+    // and the EYE-BEAT corona: a bright head-local flash that carries the eye ignition as a
+    // SCREEN-SPACE event (a 2–3px eye can't read at rear-chase distance — the critic's #1 fix).
+    casOverall = Math.min(casLevel[0], 1) * 0.15 + Math.max(casLevel[1], casLevel[2], casLevel[3]) * 0.85;
+    eyeCorona = surgeCascadeT >= 0 ? Math.min(casLevel[0], 1) * (1 - _sstep(0.14, 0.5, surgeCascadeT)) : 0;
   }
-  // Overall ignition (drives the halo + body glow so the "before" is genuinely DARK — the
-  // resting livery no longer pre-spends the contrast, so each station is a 3×+ step not a nudge)
-  // and the EYE-BEAT corona: a bright head-local flash that carries the eye ignition as a
-  // SCREEN-SPACE event (a 2–3px eye can't read at rear-chase distance — the critic's #1 fix).
-  casOverall = Math.min(casLevel[0], 1) * 0.15 + Math.max(casLevel[1], casLevel[2], casLevel[3]) * 0.85;
-  eyeCorona = surgeCascadeT >= 0 ? Math.min(casLevel[0], 1) * (1 - _sstep(0.14, 0.5, surgeCascadeT)) : 0;
   // WELCOME+HUB §1.2a — the splash ignite beat drives the SAME proven ignition-flare visual as a
   // Surge flourish (wings glow, body emissive spike, scale pulse), so the dragon visibly IGNITES —
   // not just moves. max() → byte-identical when the beat is idle (igniteBeat01===0), and the two

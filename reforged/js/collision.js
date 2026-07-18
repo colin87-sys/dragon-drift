@@ -370,11 +370,14 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     game.parryPerfectStreak = 0;
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   }
-  // Surge died to this hit: name the loss (soft fizzle + gem-row dim) so it
-  // never ends silently under the damage thud.
+  // Surge died to this hit: name the loss (soft fizzle + gem-row dim) so it never ends silently
+  // under the damage thud. `surgeLost` drives the DAMAGE-cancel feel — the world's fast brighten-pop
+  // (postfx) + the dragon's 0.45s gutter-out (dragon.js self-detects the abrupt edge) — distinct
+  // from a natural drain's slow earned exhale (I2.5, Fable ruling).
   if (surgeBefore && !game.feverActive) {
     sfx.surgeFizzle();
     ui.surgeLost();
+    emit('surgeLost');
   }
   if (game.health <= 0) die(player, cause, false);
 }
