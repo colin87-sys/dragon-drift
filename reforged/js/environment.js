@@ -557,11 +557,49 @@ function bakeTempestLadder(geo) {
   return geo;
 }
 
+// SCARP variant of the wind-scour ladder (scarpwall massif) — the pinisle repoussoir law: DARKEN the
+// body AND WIDEN the spread so the headland is the DARK the eye-breach is bright against, while the pale
+// wind-scour crest STOPS survive on the SKYLINE strata (the sun-caught rim, free from the existing
+// dot-keyed ladder). Two knobs differ from the small-prop ladder: (1) the damp body drops to ~half the
+// stormprow albedo (`_TMP_SCARP_DAMP`) — the wetcore→damp waterline gradient + the scour crest keep it
+// from crushing to flat-black poverty; (2) the scour cutoff is RAISED to 0.48 so only genuinely up-facing
+// SKYLINE faces (+y, axis·n≈0.53) go pale while the broad lane-facing scarp face (+z, axis·n≈0.45) stays
+// DAMP dark — the near-read face reads ≤0.38, the crest ≥0.50 (§4.4). `wetBand` re-keys the soaked-contact
+// band per archetype: the small-prop default 0.24 unit = ~7 world on a 30-tall wall, so a headland passes a
+// SMALLER fraction (the Y-keyed-bake coordinate-space trap — parametrize, don't inherit the small default).
+const _TMP_SCARP_DAMP = [0.115, 0.134, 0.155];   // #1e2228 — ~half the stormprow damp albedo (dark repoussoir body)
+function bakeTempestScarp(geo, wetBand = 0.16) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+    const dot = nr.dot(_TMP_AXIS);
+    const yc = (a.y + b.y + c.y) / 3;
+    let s;
+    if (yc <= wetBand) {
+      const t = Math.min(1, yc / wetBand);                   // 0 at the sea contact → 1 at the top of the (per-wall) wet meter
+      _tmpWet[0] = _TMP_WETCORE[0] + (_TMP_SCARP_DAMP[0] - _TMP_WETCORE[0]) * t;
+      _tmpWet[1] = _TMP_WETCORE[1] + (_TMP_SCARP_DAMP[1] - _TMP_WETCORE[1]) * t;
+      _tmpWet[2] = _TMP_WETCORE[2] + (_TMP_SCARP_DAMP[2] - _TMP_WETCORE[2]) * t;
+      s = _tmpWet;
+    } else {
+      s = dot > 0.50 ? _TMP_SCOUR : _TMP_SCARP_DAMP;         // raised cutoff: only the up-facing SKYLINE + the +x mass-ends catch the pale rim; tilted seaward faces stay DAMP-dark (dark repoussoir)
+    }
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
 // Merge a Tempest new-kit archetype: force NON-INDEXED parts → ≤2 material groups → bake the
 // wind-scour value ladder → bake AO. Primary group (mat 0) = the ladder material (reads vColor);
 // accent group (mat 1) = accent[7] (vertexColors off). stormprow uses ONLY mat 0, but the
-// 2-group support is kept for the next family. Render-only — determinism is untouched.
-function mergeTempestParts(parts) {
+// 2-group support is kept for the next family. `opts.scarp` swaps in the darkened repoussoir bake
+// (scarpwall) with an optional `opts.wetBand`. Render-only — determinism is untouched.
+function mergeTempestParts(parts, opts = {}) {
   const groups = [[], []];
   for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
   const geos = [];
@@ -572,7 +610,8 @@ function mergeTempestParts(parts) {
     mats.push(m === 0 ? propMats.tempestStone : propMats.accent[7]);
   }
   const geometry = mergeGeometries(geos, true);
-  bakeTempestLadder(geometry);
+  if (opts.scarp) bakeTempestScarp(geometry, opts.wetBand);
+  else bakeTempestLadder(geometry);
   bakeAO(geometry);
   return { geometry, materials: mats };
 }
@@ -1193,6 +1232,11 @@ function buildViamarina(zSign) {
   drum(0.31, 0.44, 0.054, 0.13, 0.9);      // drum at the far collapsed end, cross-rolled
   return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.12 });   // waterline lifts the algae line onto the column feet / stylobate crown for a legible 3-step ladder
 }
+
+// scarpwall's slot step (TEMPEST-COMPOSITION-BUILD-SHEET §4.6): coprime-ish with the other tempest steps
+// (22/36/60/95) and well under the 375 m per-side peak spacing, so exactly one slot lands in each peak
+// window. Defined before ARCHETYPES so the scarpwall literal + the runtime peak-lock helpers share it.
+const TEMPEST_MASSIF_STEP = 170;
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -3732,6 +3776,101 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // TEMPEST REACH — THE STORM HEADLAND MASSIF (TEMPEST-COMPOSITION-BUILD-SHEET §4): the missing MID-GROUND
+  // MASS register — the Tempest "basilica". "The land the storm is EATING" — a wave-cut headland: a long
+  // dip-slope skyline RISING down-wind to a sheer seaward SCARP, broken ONCE by a collapse-bay notch where
+  // the sea has bitten through. THE ONE TELL: one long rising diagonal skyline ending in a sheer scarp face,
+  // broken once — the stormprow diagonal promoted to massif scale (same down-wind lean family, same skewed
+  // strata → one coastline). BARE tempestStone, mat 0 ONLY, ZERO gold: its whole job is to be the DARK the
+  // eye-breach is bright against (the `scarp` bake darkens the body + widens the spread; the pale scour
+  // crest survives on the thin skyline rim). Built as an asymmetric HOGBACK wedge (the wave-cut headland
+  // cross-section — steep dark seaward CLIFF + thin pale scour crest + a long TILTED dip-slope, real depth
+  // ~12 world) extruded along ONE continuous rising skyline to a tall terminal scarp, broken once by a V-notch,
+  // with proud tapered buttress RIBS for cliff-face relief. Non-parallel faces + tilted strata tops (not flat
+  // crate lids) + a strong down-wind shear → wind-carved storm rock, not a freight yard. ONE flank per
+  // congregation via the §4.6 per-side peak lock (NO comp block —
+  // full size or parked). APPENDED AT THE END of ARCHETYPES (determinism law: never reorder existing slots).
+  scarpwall: {
+    step: TEMPEST_MASSIF_STEP, biomes: tempestNew, matIndex: 7, arrivalPark: true, massif: true, lanePinned: true,
+    build: () => {
+      const parts = [];
+      // WORLD-ASPECT: 84–110 long × 25–35 tall → couple h≈0.62·r in place(). Design in WORLD units ÷ nominal;
+      // the scarp tops near H_NOM so yMax≈1 and the rendered world top ≈ h. Object z (depth) scales by r.
+      const R_NOM = 40, H_NOM = 30;
+      const wx = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
+      const SKEW = 0.22;               // down-wind coherent shear (world lean ≈ atan(k·r/h) ≈ 20°) — Fable: 10–25°
+      // THE HOGBACK CROSS-SECTION (kills the freight-yard crate read): every run is a wave-cut headland wedge —
+      // a STEEP seaward CLIFF (+zF, dark repoussoir) rising to a thin PALE scour crest, then a long TILTED
+      // DIP-SLOPE falling landward to zBb. Non-parallel faces + a tilted strata top (NOT a flat horizontal lid)
+      // + real depth (zF−zBb ≈ 0.25·r ≈ 12 world), extruded along ONE continuous rising skyline.
+      const TIDE = 4.5;   // low object waterline — the wave-cut undercut sits here (per-point zF/zW/zBc/zBb below)
+      const v = [];
+      const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
+      // THE RISING SKYLINE — ONE continuous diagonal from the low windward toe to the tall terminal SCARP at the
+      // +x seaward end, broken ONCE by the collapse-bay V-notch (the only drop). Exaggerated height gradient so
+      // the crest traces a single unbroken rising line (never flush steps / a level parapet).
+      const SKY = [[-40, 4], [-29, 9], [-20, 15], [-12, 21], [-6, 24], [-1, 17], [6, 21], [14, 27], [25, 30], [40, 32]];   // varied widths; the notch is a shallow SADDLE (24→17→21) so the mass stays fused, not split
+      const N = SKY.length;
+      // PER-POINT z-JITTER (fixed pseudo-noise → deterministic build): the seaward edge + the landward dip-foot
+      // wander ±8% so the top-plan footprint is NOT a straight-edged extruded slab (kills the crate-in-plan
+      // tell), and the pale CREST ribbon's width breathes 30–60% along the skyline so it never reads as a level
+      // machined row of caps (Fable a9 fix) — one living scoured ribbon riding the rising diagonal.
+      const J = [0.31, -0.62, 0.45, -0.28, 0.58, -0.4, 0.36, -0.6, 0.5, -0.34];   // one entry per SKY point (indexed mod J.length)
+      const jn = J.length;
+      const zFa = [], zBba = [], zBca = [], zWa = [];
+      for (let i = 0; i < N; i++) {
+        zFa[i] = 0.05 + J[i % jn] * 0.014;                                  // seaward cliff edge (jittered → jagged plan)
+        zWa[i] = zFa[i] - 0.045;                                            // recessed wet band (wave-cut undercut)
+        zBca[i] = zFa[i] - (0.05 + 0.06 * Math.abs(J[(i * 2) % jn]));       // back-crest → pale scour ribbon WIDTH breathes 30–60% (a lit rim readable in the dark storm key)
+        zBba[i] = -0.20 + J[(i * 3 + 1) % jn] * 0.05;                       // landward dip-slope foot (jittered → jagged plan)
+      }
+      // one hogback run [i→i+1]: WAVE-CUT seaward cliff (wet band recessed → the body OVERHANGS it, an undercut
+      // shadow line = "the sea eating the land", the identity), damp body → a thin PALE crest ribbon, then the
+      // long TILTED dip-slope. Per-point z makes every edge wander so nothing reads machined.
+      const run = (i) => {
+        const l = wx(SKY[i][0]), r = wx(SKY[i + 1][0]), t0 = wy(SKY[i][1]), t1 = wy(SKY[i + 1][1]), tb = wy(TIDE);
+        const f0 = zFa[i], f1 = zFa[i + 1], w0 = zWa[i], w1 = zWa[i + 1], c0 = zBca[i], c1 = zBca[i + 1], b0 = zBba[i], b1 = zBba[i + 1];
+        const m0 = tb + 0.52 * (t0 - tb), m1 = tb + 0.52 * (t1 - tb), pf0 = f0 + 0.035, pf1 = f1 + 0.035;   // mid-cliff BEDDING step (proud upper band)
+        q([l, 0, w0], [r, 0, w1], [r, tb, w1], [l, tb, w0]);                // recessed WET band
+        q([l, tb, w0], [r, tb, w1], [r, tb, f1], [l, tb, f0]);             // undercut SOFFIT lip (down-normal → shadow line)
+        q([l, tb, f0], [r, tb, f1], [r, m1, f1], [l, m0, f0]);            // lower cliff band (damp)
+        q([l, m0, f0], [r, m1, f1], [r, m1, pf1], [l, m0, pf0]);          // BEDDING soffit (proud step → a continuous DIAGONAL shadow line = strata, sheared with the ridge)
+        q([l, m0, pf0], [r, m1, pf1], [r, t1, pf1], [l, t0, pf0]);        // upper cliff band (proud)
+        q([l, t0, pf0], [r, t1, pf1], [r, t1, c1], [l, t0, c0]);          // thin PALE crest ribbon (breathing width)
+        q([l, t0, c0], [r, t1, c1], [r, 0, b1], [l, 0, b0]);              // TILTED dip-slope falling landward
+      };
+      for (let i = 0; i < N - 1; i++) run(i);
+      // END CROSS-SECTION caps (silhouette-edge thickness) — the wedge triangle at each wall end.
+      const endCap = (i, x, top) => { const xo = wx(x), t = wy(top), tb = wy(TIDE), f = zFa[i], c = zBca[i], b = zBba[i];
+        q([xo, 0, f], [xo, tb, f], [xo, tb, b], [xo, 0, b]);
+        v.push(...[xo, tb, f], ...[xo, t, f], ...[xo, tb, b]);
+        v.push(...[xo, t, f], ...[xo, t, c], ...[xo, tb, b]); };
+      endCap(0, -40, 4); endCap(N - 1, 40, 31);
+      const wall = new THREE.BufferGeometry();
+      wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+      skewX(wall, SKEW);   // down-wind lean by coherent shear (affine → survives the (r,h,r) scale)
+      wall.computeVertexNormals();
+      wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+      parts.push({ mat: 0, geo: wall });
+      // The `scarp` bake darkens the body + widens the spread (dark repoussoir); wetBand 0.15 keys the soaked
+      // contact to ~4.5 world on a 30-tall wall (NOT the small-prop 0.24 default = ~7 world — the Y-keyed trap).
+      return mergeTempestParts(parts, { scarp: true, wetBand: 0.15 });
+    },
+    // MID-GROUND massif: |x| ≈ 32–39 at r 42–55 (BETWEEN the near rail and the far veil). h coupled 0.62·r —
+    // NO clamp (a Math.max floor pins h flat across half the r-range and kills the aspect that IS the identity,
+    // the aqueduct a1 law). rotY side-pinned lane-PARALLEL (basilica idiom): the +z scarp face always turns to
+    // the lane, the broken end falls away down-lane. tilt leans AWAY from the lane, small (the visible lean
+    // lives in the strata shear); ALWAYS numeric (undefined → NaN quaternion → invisible, the stormprow gotcha).
+    place: (side, rnd) => {
+      const r = 42 + rnd() * 13;
+      const h = 0.62 * r * (0.97 + 0.06 * rnd());
+      const p = { x: side * (20 + 0.28 * r + rnd() * 4), h, r, tilt: side * (-0.02 - rnd() * 0.02) };
+      p.rotY = (side > 0 ? -Math.PI / 2 : Math.PI / 2) + side * rnd() * 0.08;
+      if (HERO_SET.has('scarpwall')) p.rotY = -Math.PI / 2;   // debug: face the studio/lane camera
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -3791,6 +3930,7 @@ const FOAM_CFG = {
   stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
   stormprowHero: { rx: 0.80, rz: 0.42 },   // tall hero variant — same wet-weld skirt (narrower rx since the base footprint is smaller-per-height)
   stormprowFar: false,   // distant back-rank on the fog line — a collar 30+ off-lane is a bright artifact
+  scarpwall: false,      // mid-ground massif 32–39 off-lane — NO collar (a bright foam ring off-lane is an artifact; the stormprowFar/aqueduct/rampart precedent — the wrackline surf ribbon carries the massif's waterline)
   tafonihold: { r: 0.62 },   // broad rounded boulder — round collar hugs the footprint
   stormstack: { r: 0.40 },   // thin pillar — narrow collar at the pinched foot
   stackgrave: { rx: 0.66, rz: 0.56 },   // broad low platform — wide near-round collar
@@ -3876,7 +4016,7 @@ export function propClearanceData() {
   return Object.entries(ARCHETYPES).map(([name, def]) => {
     const { geometry } = def.build();
     const p = geometry.getAttribute('position');
-    let rho = 0, yMax = 0, xMax = 0, rhoLane = 0;
+    let rho = 0, yMax = 0, xMax = 0, rhoLane = 0, zMax = 0;
     // OVERHEAD amendment (LUMEN-MIRE-BIBLE.md drape / Fable PR-2 §2c): an archetype may
     // declare `overhead:{unitY,minWorldY}` — a roof whose crown reaches over the lane at a
     // height the flight band never touches. Its LANE clearance is measured from the sub-unitY
@@ -3889,7 +4029,7 @@ export function propClearanceData() {
     let apMin = Infinity;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rad = Math.hypot(x, z);
-      rho = Math.max(rho, rad); yMax = Math.max(yMax, y); xMax = Math.max(xMax, x);
+      rho = Math.max(rho, rad); yMax = Math.max(yMax, y); xMax = Math.max(xMax, x); zMax = Math.max(zMax, Math.abs(z));
       if (ov && y < ov.unitY) rhoLane = Math.max(rhoLane, rad);
       if (def.gate && (!ov || y < ov.unitY)) apMin = Math.min(apMin, Math.abs(x));
     }
@@ -3905,7 +4045,7 @@ export function propClearanceData() {
     // audits — else the gate tests a smaller prop than the game draws (the mother cap would be unaudited).
     const octaveMax = def.sizeOctave ? Math.max(...def.sizeOctave.map((o) => o[1])) : 1;
     const sMaxEff = (def.comp ? def.comp.sMax : 1) * octaveMax;
-    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, apertureHalf, overhead: ov, sMax: sMaxEff, paired: !!def.paired, gate: !!def.gate, samples };
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, rhoLane, zMax, apertureHalf, overhead: ov, sMax: sMaxEff, paired: !!def.paired, gate: !!def.gate, lanePinned: !!def.lanePinned, samples };
   });
 }
 
@@ -4387,6 +4527,7 @@ function makeBand(scene, def) {
   // to the congregation peak: dist % period === HERO_PEAK_OFFSET (frozenComp 0.15).
   // Stored on the band so reseedBand re-seats it identically (pairing survives restart).
   const slotJit = def.hero ? new Array(perSide).fill((HERO_PEAK_OFFSET + 100) / def.step)
+    : def.massif ? new Array(perSide).fill(0.5)   // §4.6: a CONSTANT jitter ticks massif slots at exactly `step` so every per-side peak window has a candidate (else the guarantee leaks by seed)
     : def.paired ? Array.from({ length: perSide }, () => rnd()) : null;
   band.slotJit = slotJit;
   let idx = 0;
@@ -4502,6 +4643,22 @@ function tempestComp(dist, side) {
   const ph = ((((local % seg) / seg) - sideShift) % 1 + 1) % 1;
   const raised = 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.18));
   return raised * raised;                                     // sharpen → wide, genuinely empty breaths
+}
+// THE PER-SIDE PEAK LOCK (TEMPEST-COMPOSITION-BUILD-SHEET §4.6) — every congregation gets exactly ONE
+// scarpwall massif on ONE flank. The two banks NEVER share a peak (tempestComp sway 0.42: left peaks at
+// seg·(n+0.18), right at seg·(n+0.60)), so a naive "heavier bank" comparison ALWAYS ships every massif on
+// the left. Instead each instance locks to its OWN bank's nearest peak dist; keep iff within ±step/2. PURE.
+function tempestMassifPeak(dist, side) {
+  const seg = CONFIG.biomeLength / TEMPEST_COMP_PERIODS;      // 375
+  const shift = side > 0 ? 0.42 : 0;                          // tempestComp's own sideShift
+  const kS = Math.round(dist / seg - 0.18 - shift);           // this bank's nearest peak index
+  return seg * (kS + 0.18 + shift);
+}
+// The flank whose peak window covers `dist` — the side a massif stands on (PR-B reuses this for the
+// counter-flank law: verticals congregate on the OTHER flank → the authored Lorrain frame). 0 = neither.
+function massifSide(dist) {
+  for (const side of [-1, 1]) if (Math.abs(dist - tempestMassifPeak(dist, side)) < TEMPEST_MASSIF_STEP / 2) return side;
+  return 0;
 }
 // Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
 // slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
@@ -4940,7 +5097,12 @@ function writeMatrix(band, i, d) {
       const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
       if (seamDelta < 200) active = false;
     }
-    if (active && band.def.comp) {
+    if (active && band.def.massif) {
+      // THE MASSIF PEAK-LOCK (§4.6): the scarpwall keeps ONLY within ±step/2 of its OWN bank's congregation
+      // peak → exactly one massif flank per congregation, alternating banks via the 0.42 sway (the Frozen
+      // hero precedent: the landmark uses its lock INSTEAD of comp — full size k=1 or parked, no swell).
+      if (Math.abs(d.dist - tempestMassifPeak(d.dist, d.side)) >= band.def.step / 2) active = false;
+    } else if (active && band.def.comp) {
       const g = tempestComp(d.dist, d.side);
       const c = band.def.comp;
       const density = c.floor + (1 - c.floor) * g;            // fraction of this archetype's slots kept here
