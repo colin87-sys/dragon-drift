@@ -3893,10 +3893,8 @@ const ARCHETYPES = {
       V(xform(new THREE.CylinderGeometry(0.185, 0.205, 0.54, 6, 1, true), { x: 0.60, y: -0.02, z: 0.30, rz: 0.34, rx: -0.18 }));   // outer shell
       parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.CircleGeometry(0.17, 6), { x: 0.575, y: 0.10, z: 0.325, rz: 0.34, rx: -Math.PI / 2 - 0.18 }) });   // dark cavity floor recessed down the bore → reads as a hollow, not see-through
       E(xform(new THREE.CylinderGeometry(0.205, 0.185, 0.05, 5, 1, true), { x: 0.685, y: 0.235, z: 0.253, rz: 0.34, rx: -0.18 }));   // torn RIM at the broken mouth (bronzeEdge)
-      // GILT (mat 1) — recessed VERTICAL crevice slivers in the gaps BETWEEN the finger roots (Fable re-gate: the
-      // horizontal finger-root arc read as a SMILE; vertical slots in the finger valleys are a real crevice glint,
-      // not a mouth). Read only at the near flyby: the withheld reward. NO glow on fingertips/nails.
-      [0.15, -0.15].forEach((gx) => parts.push({ mat: 1, geo: xform(new THREE.PlaneGeometry(0.025, 0.10), { x: gx, y: 0.56, z: 0.12 }) }));
+      // GILT withheld to a polish pass (Fable re-gate: any bright mark on the open palm front reads as a mouth at
+      // the play angle; the withheld gilt reward is non-gating and gets placed as a deep-crevice glint later).
       const merged = mergeLagoonParts(parts, { verdigris: true, forumWaterY: 0.0 });   // exposure bake + drowned merge at the object waterline
       skewX(merged.geometry, 0.20);   // the toppling LEAN (shear, not offsets — the pharos law): world r·k/h = 0.20 → ~11° off-plumb, inboard
       return merged;

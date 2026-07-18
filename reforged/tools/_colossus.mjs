@@ -35,6 +35,10 @@ const findHand = () => { const dd = window.__dd; const pz = -dd.player.dist; let
       const dz = Math.abs(z - (pz - 40)); if (dz < pdz) { pdz = dz; pick = { x, y, z, h: sy }; } } });
   return pick; };
 await page.evaluate(`window.__findHand = ${findHand.toString()};`);
+// Hide the HUD overlay: the #hud SVG stamina-arc is a SCREEN-SPACE curve that overlaps the palm at studio
+// framing and pareidolias into a "smile" (Fable re-gate). It is NOT colossus geometry — hiding it proves it
+// and yields the clean palm-face capture Fable's acceptance requires (zero arc pixels on the palm).
+await page.evaluate(() => { const h = document.getElementById('hud'); if (h) h.style.display = 'none'; });
 let shot = 0;
 for (let i = 0; i < 6 && shot < 3; i++) {
   await page.evaluate((d) => { window.__dd.player.dist = d; window.__dd.player.speed = 0; }, 360 + i * 130);
