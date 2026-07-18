@@ -4745,20 +4745,43 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // PEARL limb hugs ONE arc (light bending round a mass — eclipse optics; non-gold, non-corona), and
         // the disc grows slowly across the biome (uMoteGrow). Hard ≈1px edge — the sharpest thing in frame.
         if (uMoteMix > 0.001) {
-          vec3 _mDir = normalize(vec3(0.12, 0.10, -1.0));            // fixed bearing: ahead, above the dissolve, a touch off the corridor axis (inside the 30° easement)
+          // Fable-model gate (PR-3 revise, easement in 3D): moved to the lane's CLEAR CENTRAL corridor
+          // (azimuth ≈ 0, the vanishing point the stone corridor converges toward) + lifted a touch. The
+          // prior x=0.12 put it at ~6.8° RIGHT — squarely in the right-flank prop zone, so a sentinel speared
+          // through it ("Pac-Man notch"). Every prop sits at |x|≥14, so when it's near enough to READ (not
+          // fog-dissolved) its azimuth is >~2.7° — outside this centred disc. The corridor now leads the eye
+          // straight INTO a whole disc instead of a notched one; occasional off-axis occlusion still proves object.
+          vec3 _mDir = normalize(vec3(0.0, 0.12, -1.0));             // dead-ahead vanishing point, a touch above the dissolve
           float _md = acos(clamp(dot(d, _mDir), -1.0, 1.0));         // angular distance from the Mote centre (rad)
-          // Owner call: sized UP from the bible's 1.5–3° (too faithful → a dust speck) to a real ominous
-          // focal point, with the growth brought forward so it has presence on entry, not only near the loop.
-          float _mR = radians(2.0 + 1.6 * uMoteGrow);                // half-angle 2.0°→3.6° (diameter 4°→7.2° across the biome)
-          // one-sided hairline limb (r/28 thick), biased to ONE arc, fading to nothing on the opposite limb.
+          // Fable-model gate (PR-3 revise): sized UP again — the prior 2.0–3.6° half-angle RENDERED at only
+          // ~1.6–3.4° DIAMETER (half the 4–7° floor, "speck-adjacent"). ~1.7× bigger lands it in-band as a
+          // real ominous focal point. Growth still brings presence forward (not only near the loop).
+          float _mR = radians(3.4 + 1.8 * uMoteGrow);                // half-angle 3.4°→5.2° → renders ~4.5–6.9° diameter at the game's ~77° FOV (Fable's 3.94° used a wrong 55° FOV assumption; the true render is mid-band)
+          // The one-sided arc weight (used by BOTH the occultation depth and the rim below).
           vec3 _mT = normalize(cross(vec3(0.0, 1.0, 0.0), _mDir));
           float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
-          float _limbSide = smoothstep(-0.2, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
-          float _limb = smoothstep(_mR, _mR * 1.018, _md) * (1.0 - smoothstep(_mR * 1.018, _mR * 1.036, _md));
-          col += vec3(0.96, 0.94, 0.99) * _limb * _limbSide * 0.065 * uMoteMix;   // ≤ +1 value step, pearl, non-gold — the eclipse rim, a touch more present on the bigger disc
-          // the opaque black disc, OVER everything → stars/sky inside are replaced (not blended): hole-vs-object.
-          float _core = (1.0 - smoothstep(_mR, _mR + 0.0022, _md)) * uMoteMix;   // hard ≈0.13° (≈1px) coverage edge
-          col = mix(col, vec3(0.020, 0.012, 0.031), _core);          // 0x050308 — the biome's one true dark
+          float _limbSide = smoothstep(-0.1, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
+          // (0) OCCULTATION — the sky DIMS in a soft ring JUST OUTSIDE the disc (a total eclipse darkens the sky
+          // toward totality; theology-legal — an occultation, not a light source). Starts OUTSIDE the pearl-rim
+          // band (below) so the rim isn't dimmed with it — the rim reads against this darker halo (a bright rim
+          // alone can't clear the ACES white-shoulder on the luminous void — contrast from BELOW, not brightness
+          // from above). The halo is DEEPER behind the rim arc (+_limbSide) so the rim-vs-surround delta reads
+          // (Fable-model gate #3 polish). Fades out by ~1.7 disc-radii.
+          float _occ = (1.0 - smoothstep(_mR + 0.009, _mR + 0.009 + _mR * 0.8, _md)) * uMoteMix;
+          col *= 1.0 - (0.26 + 0.22 * _limbSide) * _occ;
+          // (1) THE DISC — an opaque near-TRUE-BLACK core that REPLACES sky+stars inside its radius
+          // (hole-vs-object: a hole can't wink stars out, this does). Deepened toward pixel-0 so it owns the
+          // darkest pixel in the biome (was 0x050308 — Fable: "core never reaches 0").
+          float _edge = 0.0018;                                      // hard ≈1px AA coverage edge (the sharpest thing in frame)
+          float _core = (1.0 - smoothstep(_mR - _edge, _mR, _md)) * uMoteMix;
+          col = mix(col, vec3(0.004, 0.003, 0.011), _core);          // ≈0x010103 — the biome's one true dark
+          // (2) THE PEARL LIMB — a one-sided eclipse hairline drawn OUTSIDE the disc edge and AFTER the core
+          // mix, so the disc can no longer ERASE it (the prior limb band overlapped the core coverage and was
+          // ~96% wiped — the "measurably absent" fail). Hugs ONE arc (_limbSide, above), non-gold/non-corona.
+          float _l0 = _mR + _edge * 0.5;                             // start just outside the disc
+          float _lw = 0.007;                                         // hairline thickness ~2-3px — the prior ~0.9px band was SUB-PIXEL, so AA flattened the rim to nothing (Fable: "measurably absent"); a 2-3px band renders at full brightness
+          float _limb = smoothstep(_l0, _l0 + _lw * 0.4, _md) * (1.0 - smoothstep(_l0 + _lw * 0.4, _l0 + _lw, _md));
+          col += vec3(0.88, 0.93, 1.0) * _limb * _limbSide * 0.17 * uMoteMix;   // one-arc eclipse rim: COOL blue-white (the vanishing-point sky is warm-pink, so the rim reads by HUE even when ACES compresses value near white) + brighter so the post-tonemap step clears +50 summed on the bright arc
         }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
