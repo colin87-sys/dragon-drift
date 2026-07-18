@@ -22,6 +22,7 @@ await page.waitForFunction(() => window.__dd.player.dist > 2240, { timeout: 8000
 await page.waitForTimeout(1700);
 await page.evaluate(() => {
   window.__dd.game.timeScale = 0;
+  window.__dd.player.dist = 2400;   // PIN the distance so uMoteGrow (Mote size) is deterministic across runs
   window.__dd.clearObstacles && window.__dd.clearObstacles();
   window.__dd.clearVents && window.__dd.clearVents();
   // Disable the chase-cam reassert so the camera can be aimed freely (it otherwise re-points forward every frame).
@@ -81,17 +82,21 @@ const mote = await page.evaluate(async (b64) => {
   for (let y=40;y<360;y++) for (let x=260;x<700;x++){ if(L(x,y)<16){ n++; sx+=x; sy+=y; if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y; } }
   if(!n) return { found:false };
   const cxp=sx/n, cyp=sy/n, dpx=Math.max(maxx-minx,maxy-miny)+1, r=dpx/2;
-  // limb: max brightness on a ring ~r+3 around the centroid, and the mean, to see one-sidedness
-  let lmax=0, lsum=0, ln=0;
-  for(let a=0;a<360;a+=4){ const rx=Math.round(cxp+(r+2)*Math.cos(a*Math.PI/180)), ry=Math.round(cyp+(r+2)*Math.sin(a*Math.PI/180)); if(rx<2||rx>W-2||ry<2||ry>H-2)continue; const v=L(rx,ry); lmax=Math.max(lmax,v); lsum+=v; ln++; }
-  // local background just beyond the limb
-  let bg=0,bn=0; for(let a=0;a<360;a+=8){ const rx=Math.round(cxp+(r+10)*Math.cos(a*Math.PI/180)), ry=Math.round(cyp+(r+10)*Math.sin(a*Math.PI/180)); if(rx<2||rx>W-2||ry<2||ry>H-2)continue; bg+=L(rx,ry); bn++; }
-  return { found:true, dpx, cxp:Math.round(cxp), cyp:Math.round(cyp), coreMin:Math.round(Math.min(...[L(Math.round(cxp),Math.round(cyp))])), limbMax:Math.round(lmax), limbMean:Math.round(lsum/ln), bg:Math.round(bg/bn), W, H };
+  const sumRGB=(x,y)=>{const i=(Math.round(y)*W+Math.round(x))*4; return D[i]+D[i+1]+D[i+2];};
+  // Fable's limb method: per-degree, MAX over the inner band (edge+0.5..+3.5) minus the same-angle OUTER
+  // (edge+7..+11) to cancel the sky gradient. Report the strongest arc (want ≥+50 summed) and the opposite.
+  let limbMax=-999, limbMin=999;
+  for(let a=0;a<360;a+=2){ const ca=Math.cos(a*Math.PI/180), sa=Math.sin(a*Math.PI/180);
+    let inner=-999; for(let o=0.5;o<=3.5;o+=0.5){ inner=Math.max(inner, sumRGB(cxp+(r+o)*ca, cyp+(r+o)*sa)); }
+    let outer=0,on=0; for(let o=7;o<=11;o+=1){ outer+=sumRGB(cxp+(r+o)*ca, cyp+(r+o)*sa); on++; }
+    const d=inner-outer/on; limbMax=Math.max(limbMax,d); limbMin=Math.min(limbMin,d); }
+  // interior mote census: distinct bright blobs inside the disc (>+60 over the ~0 floor)
+  let motePx=0, tot=0; for(let y=Math.round(cyp-r+2);y<=cyp+r-2;y++)for(let x=Math.round(cxp-r+2);x<=cxp+r-2;x++){ if((x-cxp)**2+(y-cyp)**2 < (r-2)**2){ tot++; if(L(x,y)>60) motePx++; } }
+  return { found:true, dpx, cxp:Math.round(cxp), cyp:Math.round(cyp), coreSum:sumRGB(cxp,cyp), limbMax:Math.round(limbMax), limbMin:Math.round(limbMin), motePct:(100*motePx/Math.max(1,tot)).toFixed(1), W, H };
 }, motePng);
 if (mote.found) {
-  const degPerPx = vfov / mote.H;                 // vertical deg per px (vfov is vertical)
-  const diamDeg = (mote.dpx * degPerPx).toFixed(2);
-  console.log(`MOTE disc=${mote.dpx}px ≈ ${diamDeg}° diam | core L=${mote.coreMin} | limb max=${mote.limbMax} mean=${mote.limbMean} bg=${mote.bg} (limb-bg=${mote.limbMax-mote.bg}) | centre(${mote.cxp},${mote.cyp})`);
+  const diamDeg = (mote.dpx * (vfov / mote.H)).toFixed(2);
+  console.log(`MOTE disc=${mote.dpx}px ≈ ${diamDeg}° (vfov=${vfov.toFixed(1)}) | coreSum=${mote.coreSum} | limb bestArc=+${mote.limbMax} oppArc=${mote.limbMin>=0?'+':''}${mote.limbMin} | interior>+60=${mote.motePct}% | centre(${mote.cxp},${mote.cyp})`);
 } else console.log('MOTE not found in scan window');
 const f3 = (a) => `H${a[0].toFixed(0)} S${a[1].toFixed(3)} V${a[2].toFixed(3)}`;
 console.log(`SAMPLE base=[${f3(stats.base)}] zenith=[${f3(stats.zenith)}]`);

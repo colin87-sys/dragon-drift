@@ -4756,8 +4756,15 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           // Fable-model gate (PR-3 revise): sized UP again — the prior 2.0–3.6° half-angle RENDERED at only
           // ~1.6–3.4° DIAMETER (half the 4–7° floor, "speck-adjacent"). ~1.7× bigger lands it in-band as a
           // real ominous focal point. Growth still brings presence forward (not only near the loop).
-          float _mR = radians(3.4 + 1.8 * uMoteGrow);                // half-angle 3.4°→5.2° — renders into the 4–7° diameter band
-          // (1) THE DISC first — an opaque near-TRUE-BLACK core that REPLACES sky+stars inside its radius
+          float _mR = radians(3.4 + 1.8 * uMoteGrow);                // half-angle 3.4°→5.2° → renders ~4.5–6.9° diameter at the game's ~77° FOV (Fable's 3.94° used a wrong 55° FOV assumption; the true render is mid-band)
+          // (0) OCCULTATION — the sky DIMS in a soft ring JUST OUTSIDE the disc (a total eclipse darkens the sky
+          // toward totality; theology-legal — an occultation, not a light source). Starts OUTSIDE the pearl-rim
+          // band (below) so the rim isn't dimmed with it — the rim then reads against this darker halo, which is
+          // the ONLY way a bright rim clears +50 summed on the near-white luminous void (the sky sits at the ACES
+          // white-shoulder, so a bright add alone saturates). Fades out by ~1.7 disc-radii.
+          float _occ = (1.0 - smoothstep(_mR + 0.009, _mR + 0.009 + _mR * 0.8, _md)) * uMoteMix;
+          col *= 1.0 - 0.28 * _occ;
+          // (1) THE DISC — an opaque near-TRUE-BLACK core that REPLACES sky+stars inside its radius
           // (hole-vs-object: a hole can't wink stars out, this does). Deepened toward pixel-0 so it owns the
           // darkest pixel in the biome (was 0x050308 — Fable: "core never reaches 0").
           float _edge = 0.0018;                                      // hard ≈1px AA coverage edge (the sharpest thing in frame)
@@ -4771,9 +4778,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
           float _limbSide = smoothstep(-0.1, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
           float _l0 = _mR + _edge * 0.5;                             // start just outside the disc
-          float _lw = 0.0030;                                        // hairline thickness (~2px)
-          float _limb = smoothstep(_l0, _l0 + _lw * 0.45, _md) * (1.0 - smoothstep(_l0 + _lw * 0.45, _l0 + _lw, _md));
-          col += vec3(0.975, 0.955, 1.0) * _limb * _limbSide * 0.11 * uMoteMix;   // one-arc pearl rim, a clear step over the bright vanishing-point sky
+          float _lw = 0.007;                                         // hairline thickness ~2-3px — the prior ~0.9px band was SUB-PIXEL, so AA flattened the rim to nothing (Fable: "measurably absent"); a 2-3px band renders at full brightness
+          float _limb = smoothstep(_l0, _l0 + _lw * 0.4, _md) * (1.0 - smoothstep(_l0 + _lw * 0.4, _l0 + _lw, _md));
+          col += vec3(0.88, 0.93, 1.0) * _limb * _limbSide * 0.17 * uMoteMix;   // one-arc eclipse rim: COOL blue-white (the vanishing-point sky is warm-pink, so the rim reads by HUE even when ACES compresses value near white) + brighter so the post-tonemap step clears +50 summed on the bright arc
         }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
