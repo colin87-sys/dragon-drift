@@ -3290,7 +3290,7 @@ const ARCHETYPES = {
   // world lean — with the low variant's 0.42 a tall prow barely leaned (~13°) and read as a blocky tower.
   // Same bare tempestStone build; step 68 ≈ the old ~1-in-4 hero rate. Mirrored + jittered like the low band.
   stormprowHero: {
-    step: 68, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.02, sMin: 0.92, sMax: 1.14 },
+    step: 68, biomes: tempestNew, matIndex: 7, arrivalPark: true, counterFlank: true, comp: { floor: 0.02, sMin: 0.92, sMax: 1.14 },   // counterFlank (§5.2): park the tall break on the massif's OWN flank so verticals congregate on the COUNTER-flank (mass one side, punctuation the other = the Lorrain frame)
     build: () => buildStormprow(1.0),   // tall/narrow band (r/h ~0.27–0.5) → world lean ~15–27°; 1.15 leaned so far the crest invaded the lane
     // x coupled to the big skew footprint (ρ≈1.05) so the leaning crest still clears the ±14.5 floor from the
     // mirrored (into-lane) orientation. The hero sits a touch behind the low wall → natural depth layering.
@@ -3309,7 +3309,7 @@ const ARCHETYPES = {
   // them. step 29 is coprime with the near wall's 17 → no lattice co-beat between the ranks. rotY
   // pinned 0 = every prow leans the SAME down-wind way as the near rank. CONSTANT 3 rnd() draws.
   stormprowFar: {
-    step: 36, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.22, sMin: 0.95, sMax: 1.20 },
+    step: 36, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.10, sMin: 0.95, sMax: 1.20 },   // floor 0.22→0.10 (§5): thin the far back-rank in the breaths so a breath = violent sea + sun-lane + surf + virga + breach (composed REST, not a picket in the fog)
     build: () => ARCHETYPES.stormprow.build(),
     place: (side, rnd) => { const r = 12 + rnd() * 10; const j = rnd(); return { x: side * (34 + 0.90 * r + rnd() * 10), h: 24 + rnd() * 22, r, tilt: side * -0.05, rotY: (side > 0 ? Math.PI : 0) + (j - 0.5) * 0.3 }; },  // MIRROR per bank (matches the near wall's V) + jitter. x coupled so the far rank sits BEHIND the near wall
   },
@@ -3352,7 +3352,7 @@ const ARCHETYPES = {
   // weather-hardened MUSHROOM CAP (the wave-cut signature). 2–3 gold sockets pooled AT the notch, sun-side.
   // `hero: true` phase-locks it to the congregation peak so it lands as deliberate punctuation, not scatter.
   stormstack: {
-    step: 95, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.0, sMin: 0.90, sMax: 1.15, glow: true },
+    step: 95, biomes: tempestNew, matIndex: 7, arrivalPark: true, counterFlank: true, comp: { floor: 0.0, sMin: 0.90, sMax: 1.15, glow: true },   // counterFlank (§5.2): the tall punctuation parks on the massif's OWN flank so it stands on the COUNTER-flank
     build: () => {
       const parts = [], centers = [];
       // Wave-cut foot (below the notch) — the broad platform the stack rises from.
@@ -3399,7 +3399,7 @@ const ARCHETYPES = {
   // punctuation. BARE (no gold): the silence that makes the glow carriers count. Snapped stump crowns
   // (tilted caps) read as storm-shattered. step 13 (densest) so it fills the rest-beats along the wall.
   stackgrave: {
-    step: 32, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.20, sMin: 0.90, sMax: 1.08 },
+    step: 32, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // floor 0.20→0.05 (§5): the one-scale chunks peppering the breaths were this floor leaking through density=floor+(1−floor)·g at g≈0 — the debris now POOLS at the massif foot instead of an even sprinkle
     build: () => {
       const parts = [];
       // Wave-cut platform + an offset shelf slab — the broad low base (undercut reads at the platform lip).
@@ -5102,12 +5102,20 @@ function writeMatrix(band, i, d) {
       // peak → exactly one massif flank per congregation, alternating banks via the 0.42 sway (the Frozen
       // hero precedent: the landmark uses its lock INSTEAD of comp — full size k=1 or parked, no swell).
       if (Math.abs(d.dist - tempestMassifPeak(d.dist, d.side)) >= band.def.step / 2) active = false;
-    } else if (active && band.def.comp) {
-      const g = tempestComp(d.dist, d.side);
-      const c = band.def.comp;
-      const density = c.floor + (1 - c.floor) * g;            // fraction of this archetype's slots kept here
-      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false; // park (off-beat → open breath)
-      else k = c.sMin + (c.sMax - c.sMin) * g;                // survivors SWELL into the headland congregation
+    } else {
+      // THE COUNTER-FLANK LAW (§5.2): park the tall verticals (stormstack / stormprowHero) on the massif's
+      // OWN flank — massifSide(dist) is the flank the scarpwall stands on — so the punctuation congregates on
+      // the COUNTER-flank (mass one side, punctuation the other = the authored Lorrain frame, not a picket in
+      // front of the wall). Both have floor≈0, so this only bites at the peaks where the massif actually is.
+      // PURE (massifSide has no rnd), evaluated after the rotY init. tafonihold/stackgrave stay both-flanks.
+      if (active && band.def.counterFlank && d.side === massifSide(d.dist)) active = false;
+      if (active && band.def.comp) {
+        const g = tempestComp(d.dist, d.side);
+        const c = band.def.comp;
+        const density = c.floor + (1 - c.floor) * g;          // fraction of this archetype's slots kept here
+        if (compHash(band.def._salt, d.side, d.slot) >= density) active = false; // park (off-beat → open breath)
+        else k = c.sMin + (c.sMax - c.sMin) * g;              // survivors SWELL into the headland congregation
+      }
     }
   }
   // Deck-skim rule (see the window block above), inside a strait2 run window:
