@@ -26,11 +26,11 @@ import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn, setWaterPerfSaver } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn, setWaterPerfSaver, setWaterMirrorDiet } from './water.js';
 import { waterFoamOn } from './propFoam.js';
 import { aoUniform } from './propAO.js';
 import { makePerfStats, resetPerfStats, perfFrame, perfSummary } from './perfStats.js';
@@ -1561,6 +1561,51 @@ function updateQuality(dt, hitchDt = dt) {
   }
 }
 
+// --- BOSS-FIGHT PERF DIET ("the storm holds its breath") ------------------------
+// An ADAPTIVE rung BELOW the resolution ladder and ABOVE the tier feature-drop (Fable's gate). It fires
+// ONLY on a device that has already spent its whole resolution ladder to the 0.45 floor and is STILL median-
+// slow DURING a boss — i.e. never on a capable device (desktop / any phone holding 60 never reaches the
+// floor → this is structurally unreachable → boss-Tempest is byte-identical to today). On a struggling
+// device it quiets the two biggest DISCRETIONARY fill costs (both extra scene passes, both atmosphere, both
+// invisible to gameplay): Rung 1 = freeze the water mirror (lever A) + dim god-rays and stretch the mask
+// duty 1/3→1/6 (lever B). Rung 2 (rain/sea/halo) is wired in a follow-on. It is a ONE-WAY LATCH per fight
+// (engage once, never restore mid-fight → no flapping by construction), released at bossEnd/bossDefeated —
+// the FELLED wash masks the storm's full return. Simulation is untouched: every lever is draw-side.
+// ?bossdiet=1 forces it on (verification); ?bossdiet=0 disables it.
+const _bossDietFlag = urlParams.get('bossdiet');
+const BOSSDIET_OFF = _bossDietFlag === '0';
+const BOSSDIET_FORCE = _bossDietFlag === '1';
+let bossDietRung = 0;      // 0 = full storm (shipped), 1 = mirror+rays diet, 2 = + rain/sea/halo (follow-on)
+let bossDietDwell = 0;     // s the engage condition has held (resolution fully spent + median-slow, in a fight)
+let bossDietDim = 1;       // eased god-ray intensity multiplier (1 = shipped → 0.4 engaged); the ~1s crossfade
+function updateBossDiet(dt) {
+  if (BOSSDIET_OFF) { if (bossDietRung !== 0) { bossDietRung = 0; } }
+  else if (BOSSDIET_FORCE) { bossDietRung = 2; }
+  else if (!bossEncounter) { bossDietRung = 0; bossDietDwell = 0; }   // latch releases at the fight boundary
+  else {
+    // STRUGGLING = dynRes at its floor (whole resolution ladder spent) AND median below the tier's degrade
+    // line. A capable device never trims to the floor, so this is false for it every frame.
+    const atFloor = dynResEnabled && resGov.idx === (STAGES.length - 1);
+    const struggling = atFloor && medFps < [55, 42, 0][qualityTier];
+    // LATCH: only ever ratchet UP within a fight; dwell 1.0s to Rung 1 (> RES_DWELL 0.7 so resolution always
+    // trims first), a further 1.5s to Rung 2. Most struggling devices never reach Rung 2.
+    if (bossDietRung === 0) {
+      if (struggling) { bossDietDwell += dt; if (bossDietDwell > 1.0) { bossDietRung = 1; bossDietDwell = 0; } }
+      else bossDietDwell = 0;
+    } else if (bossDietRung === 1) {
+      if (struggling) { bossDietDwell += dt; if (bossDietDwell > 1.5) { bossDietRung = 2; bossDietDwell = 0; } }
+      else bossDietDwell = 0;
+    }
+  }
+  // Apply (idempotent). Mirror-off + mask-duty snap (a frozen mirror / slower mask update are not pops); the
+  // god-ray dim crossfades ~1s each way so the shafts fade, never blink. Rung 2 levers land in the follow-on.
+  const engaged = bossDietRung >= 1;
+  setWaterMirrorDiet(engaged);
+  setGodRayMaskDuty(engaged ? 6 : 3);
+  bossDietDim += ((engaged ? 0.4 : 1.0) - bossDietDim) * Math.min(dt * 3, 1);
+  setGodRayDietDim(bossDietDim);
+}
+
 // --- Model detail (geometry LOD): more triangles on idle high-end GPUs ---
 // The render TIER measures whether the device can sustain 60fps; this maps it to
 // how many triangles the dragon mesh is worth (tier0→ULTRA, tier1→HIGH, tier2→LOW)
@@ -1613,6 +1658,7 @@ function tick() {
     rawDt = 0; hitchDt = 0;
   }
   updateQuality(rawDt, hitchDt);
+  updateBossDiet(rawDt);   // adaptive boss-fight atmosphere diet (struggling devices only; byte-identical otherwise)
   // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
   // start/exit are handled on the canyon crossings). Idempotent when already stopped.
   if (game.state !== 'playing') sfx.slipstreamStop();

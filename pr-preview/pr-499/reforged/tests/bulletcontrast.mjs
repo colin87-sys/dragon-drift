@@ -11,7 +11,7 @@
 import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 import { assert } from './shim.mjs';
-const { BIOMES } = await import('../js/biomes.js');
+const { BIOMES, FORUM_BIOME0 } = await import('../js/biomes.js');
 const { ARENA_CONTRAST } = await import('../js/arenaSkin.js');   // THE UNMASKED arena backgrounds + their band overrides
 
 let n = 0;
@@ -87,7 +87,10 @@ const rows = [];
 let hardFails = 0;
 let exceptions = 0;
 
-for (const biome of BIOMES) {
+// FORUM_BIOME0 is the flag-gated Drowned Forum atmosphere (biomes.js, ?props=forum). It is NOT in
+// BIOMES in headless (no window → flag off), so validate it explicitly here — the sheet mandates the
+// danger-magenta hue-safety gate re-run after every palette change, and the forum palette ships.
+for (const biome of [...BIOMES, FORUM_BIOME0]) {
   const band = { ...DEFAULT_BAND, ...(biome.bullets || {}) };
   const colours = [
     ['danger', DANGER],

@@ -547,7 +547,7 @@ function buildReflective() {
   mesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
     // Callers (the god-ray occlusion mask) suspend the mirror when the water is drawn
     // purely as a black occluder.
-    if (_reflectSuspended) return;
+    if (_reflectSuspended || _dietMirrorOff) return;
     // N11 half-rate (tier1): skip the mirror render on odd frames — the water keeps
     // last frame's RT. Skipping the whole origOBR also freezes the textureMatrix,
     // which is CORRECT: a stale texture with its matching stale matrix. (Updating the
@@ -592,6 +592,16 @@ function buildReflective() {
 // god-ray occlusion pass, where the water only needs to draw a black silhouette.
 let _reflectSuspended = false;
 export function setWaterReflectionSuspended(on) { _reflectSuspended = on; }
+// BOSS-FIGHT PERF DIET (struggling device only) — lever A: freeze the mirror for the whole fight so the
+// FULL extra scene render (~30k-tri mirror pass) is skipped every frame. Distinct from the god-ray's
+// transient _reflectSuspended (which toggles per mask-render). Uses the SAME freeze semantics as N11 half-
+// rate: the water keeps last frame's RT with its matching stale textureMatrix, so the reflection doesn't
+// swim. Chosen over a reflective→analytic REBUILD deliberately — the diet engages ~1s INTO the fight (after
+// resolution is spent), where a mesh rebuild would pop mid-combat (a Fable fail condition); a frozen matte
+// storm mirror at 0.45 res is imperceptible (there is no readable mirror image there anyway). Capable device
+// never engages → false → byte-identical.
+let _dietMirrorOff = false;
+export function setWaterMirrorDiet(on) { _dietMirrorOff = !!on; }
 
 function buildCheap() {
   const mat = new THREE.ShaderMaterial({
