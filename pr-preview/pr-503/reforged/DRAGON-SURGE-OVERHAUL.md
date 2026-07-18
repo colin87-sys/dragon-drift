@@ -46,11 +46,16 @@ art, SUNBREAK has failed.**
 ## B. Current-state diagnosis — what's cheap, and why (file:line)
 
 The whole live system is driven by one boolean, `game.feverActive` (`gameState.js:22`), mirrored to
-`player.feverActive` (`player.js:225`). **Both "surges" are the same button during a boss fight:**
-`activateSurge()` (`boss.js:3920`) sets `feverActive` (driving all the ambient dressing) **and** kicks
-the beam cinematic (`surgeSeq`, `boss.js:3944`). There is no cruise-only trigger — the "ambient" layer is
-just the visual transform that fires whenever `feverActive` is true (during a fight, carried into the
-post-kill grace band `boss.js:1986`, or via `?debug=fever` `main.js:1665`).
+`player.feverActive` (`player.js:225`). The ambient visual transform fires whenever `feverActive` is
+true. **`feverActive` has THREE rising edges** (corrected by the feasibility audit — §M.1-6): (1) the
+**cruise auto-trigger** on the 8th ring thread in open flight (`collision.js:258` — its own
+`juiceEvent('surgeStart')` + `emit('surge')`, fires every run, mid-cruise, dozens of times/session);
+(2) the **boss surge tap** `activateSurge()` (`boss.js:3920`), which sets `feverActive` **and** kicks the
+beam cinematic (`surgeSeq`, `boss.js:3944`) — this is the only edge that fires the ultimate; (3) the
+**boss-kill carry-over** (`boss.js:1986`) into the grace band. Fever is **hit-cancellable instantly**
+(`collision.js:351,364`) and **refreshed +1.2s per ring** (`collision.js:249`) — so the beat clocks in
+§D key off *remaining* `feverTimer`, not elapsed time (§M.1-5). The `?debug=fever` path (`main.js:1665`)
+forces it for capture.
 
 | # | The tell (owner-visible) | Where it lives | The SUNBREAK law that kills it |
 |---|---|---|---|
@@ -171,10 +176,17 @@ seam/end-cap, reads at every camera angle.** A crossed 2nd ribbon (outer turbule
   pinch and pops (~60–80ms). ~260ms total, inside AFTERMATH.
 
 ### E.4 Draw-call budget
-core ribbon (1) + outer-wrap ribbon (1) + unified additive sprite batch / muzzle+impact points (1) +
-shock-ring pool (1) = **4 baseline; ≤7 with a crossed 3rd core ribbon, a dedicated over-bright impact
-core, and heat-shimmer — under the ceiling of 8.** Shaft particles = **0** (meshes). Peak concurrent
-particles ≈ **82** (≤150). Zero per-frame allocations in the hot path.
+> ⚠ **Audit correction (§M.1-2/3):** the "unified additive sprite batch (1 DC)" is **opt-in and OFF by
+> default** — on the shipped path it's 1 DC *per sprite*. This budget holds only if `particleBatch` is
+> flipped on (owner call) OR the counts are cut for the per-sprite path; `shocks[]` is 1 DC *per live
+> ring*; the muzzle needs dedicated persistent sprites (+3–4 DC). And the new impact must **replace** the
+> legacy `strikeSurge`/`breakShield` bursts (~88 sprites) against the shared 150 cap, not add to them.
+
+Under the batched path: core ribbon (1) + outer-wrap ribbon (1) + unified additive sprite batch /
+muzzle+impact points (1) + shock-ring pool (1) = **4 baseline; ≤7 with a crossed 3rd core ribbon, a
+dedicated over-bright impact core, and heat-shimmer — under the ceiling of 8.** Shaft particles = **0**
+(meshes). Peak concurrent particles ≈ **82** (≤150) *only if the new load replaces the legacy bursts*.
+Zero per-frame allocations in the hot path (needs a no-clone `gatherPulse` variant, §M.1-2).
 
 ---
 
@@ -183,6 +195,14 @@ particles ≈ **82** (≤150). Zero per-frame allocations in the hot path.
 The two devices are **distinct — do not collapse them**: the **APEX held-breath is time-dilation** (the
 cinematic "look at it" pause, our superflash); the **RELEASE hitstop is a short hard freeze** (punctuation,
 70–90ms). See the full master table in [`DRAGON-SURGE-RESEARCH.md`](./DRAGON-SURGE-RESEARCH.md) §Lane D.
+
+> ⚠ **Audit correction (§M.1-1/8):** `timeScale` is **owned by the slow-mo system** — the surge sequencer
+> must run on **rawDt** (else the ultimate is ~2× too long), take `timeScale` through a **single conductor
+> with priority** over cine-slow/lethal-save, **zero `slowMoTimer` before `hitstop()`** at RELEASE, and
+> bypass `hitstopCooldownMs`. The GoW "freeze actor, keep particles/camera/beam moving" needs rawDt
+> plumbed to those call sites during hitstop. The trauma²-rotational shake is **new work** (current shake
+> is translational `Math.random`).
+
 Headlines:
 
 - **timeScale:** ease-in 1.0→0.35 over GATHER (easeInOutCubic) → floor **0.25** held ~250ms at APEX →
@@ -225,7 +245,14 @@ Anchored to WCAG 2.3.1 / Harding thresholds. **Ship none of §D–§F without th
 ## H. Per-dragon palette schema — one skeleton, ten voices
 
 Ship the SUNBREAK ritual once; each dragon supplies **one hue** and the grammar sings in its voice. Map
-onto the existing fields (`dragons.js`) — do not invent a parallel system:
+onto the existing fields (`dragons.js`) — do not invent a parallel system.
+
+> ⚠ **Audit correction (§M.1-7):** `surgeHalo`/`surgeDark` are **new fields with fallbacks**
+> (`surgeHalo ?? surgeHi`), **not** a collapse of `feverWing`+`surgeHi` (solar/phoenix split them
+> deliberately; a halo derived from a black wing = a black beam). `feverWing` **survives** as the
+> wing-channel override (0x000000 sentinel intact). `feverWash` the *field* retires only after the shared
+> kick-tint default hue is decided. Coupling the sky/aurora wash (`environment.js:3292-3301,3422-3446`) to
+> `surgeDark` is **unscoped** — couple it or make an explicit "sky stays biome-hued" decision.
 
 ```
 surgeCore  = near-white, L≈96, faint (~8%) lean of the dragon's hue   // CONSTANT value; carries brightness
@@ -331,11 +358,105 @@ fatigue, per-biome hue temperature — each a one-line dial.
 
 ## M. Feasibility audit & Gate Log
 
-*(§M.1 filled by the Fable feasibility audit — see below. Gate verdicts appended here per phase.)*
+### M.1 Fable feasibility audit — **verdict: FEASIBLE WITH CORRECTIONS**
+
+A fresh Fable agent audited this plan against the actual code (not the plan's claims). Verdict: the
+pillars are sound and unusually well-matched to the codebase — the grade-arbiter, `kick`, capture-seam,
+and pool patterns SUNBREAK needs all exist, the file:line map is ~95% accurate, and **no pillar needs
+rethinking** — but the plan was written against an idealized version of three subsystems: a batched
+particle pool that is actually **opt-in/OFF by default**, a `timeScale` channel that is actually **owned
+by the slow-mo system**, and a **boss-only trigger that also fires in cruise**. Section verdicts:
+architecture **YELLOW** · timeScale **YELLOW** · beam ribbon **GREEN** (2 risks) · particle/DC budget
+**RED-as-written (fixable)** · per-dragon schema **YELLOW** · photosensitivity **GREEN** (1 fix) ·
+timeline realism **YELLOW** · increments/tests **GREEN** (2 fixes).
+
+**The 10 must-fix corrections (land before I1):**
+
+1. **Run the ultimate sequencer on rawDt** — `timeScale` exists (`gameState.js:69`, applied
+   `main.js:1652`) and dt-scaling is uniform (no fixed physics step), so flooring to 0.25 is safe and the
+   boss/bullets slowing with it is the desired read. BUT `updateSurgeBeam` uses **scaled** dt, so a 1.15s
+   GATHER at timeScale 0.35 becomes ~3s wall-clock (ultimate → ~6–7s). The sequencer must run on
+   **rawDt** (§D.2 numbers are wall-clock). Surge takes `timeScale` through a **single new conductor with
+   priority** over cine-slow (`boss.js:2238,2466,2484`) and lethal-save (`collision.js:53`) — not another
+   raw writer. At RELEASE it must **zero `slowMoTimer` before calling `hitstop()`** (`juice.js:25` refuses
+   hitstop while slow-mo runs; `main.js:1647` kills live hitstop under slow-mo) and **bypass the 180ms
+   `hitstopCooldownMs`** (`config.js:595`) for the release beat.
+2. **Fix the particle draw-call story (the RED item).** The "unified additive sprite batch (1 DC)" is
+   **opt-in and OFF by default** (`save.js:33 particleBatch:false`; `particles.js:40-45`) — on the shipped
+   path it's **one DC per visible sprite**, so §E.4's counts are 40–80 DC, not 1. Resolve by **either**
+   (a) flipping `particleBatch` default on (owner decision — carries a documented far-burst fog deviation,
+   `particles.js:112-118`), **or** (b) restating §E.4's budget for the per-sprite path with cut counts.
+   Also: `shocks[]` is **1 DC per live ring** (2–3 rings = 2–3 DC), not "(1)"; the muzzle's 3–4 layers
+   need **dedicated persistent sprites** (the `boss.js:1170-1185` shimmer-pool pattern), not fire-and-
+   forget pool sprites (+3–4 DC — still ≤8). Convergence streaks reuse `gatherPulse()` (`particles.js:252`)
+   — but add a no-clone variant (it `.clone()`s twice/spark, `:264,272`) for the zero-alloc target.
+3. **Surge impact REPLACES the legacy bursts, never stacks.** The release moment already spends ~88
+   sprites (`strikeSurge` 24+18 `boss.js:1481-1482`, `breakShield` 26+20 `boss.js:3963-3964`, the dragon's
+   18-ember ignition `dragon.js:1612-1628`) against the shared quality-scaled `VISIBLE_CAP=150`
+   (`particles.js:17`). I3 must **delete/absorb** those, or the new authored layers silently fail to spawn
+   (`acquire()` returns null on overflow). Peak-82 holds only if the new load replaces the old.
+4. **Exposure dip goes through `renderer.toneMappingExposure`, composed into `main.js:1641`** — NOT a
+   grading-pass uniform (grading runs post-OutputPass on display-referred colour; a "−0.4 EV" there is not
+   exposure, and grading is absent at tier 2). `main.js:1641` overwrites exposure every frame, so the dip
+   must be folded into that line (bonus: works at tier 2, which §J needs). Desat + vignette + dark-tint go
+   through a **new arbiter channel** in the grading pass (HUD-grade-arbiter pattern, `postfx.js:191-203`),
+   **keeping `lift/liftTint` alive** — it's shared machinery for the kick presets (`goldenEmber`,
+   `arenaFlood`, the 1-frame flash, `postfx.js:433-439`). Kill only the `_feverMix` wash term; preserve the
+   fire/heaven overrides (`_arenaWarm`, `postfx.js:110-113`).
+5. **DECAY keys off remaining `feverTimer`, not elapsed time** — refresh (+1.2s/ring) must re-enter
+   SUSTAIN mid-decay, and the **instant hit-cancel** (`collision.js:351,364`) needs a fast-path reverse
+   cascade (~0ms, the `sfx.surgeFizzle` visual). **Define the interrupted-ultimate rule:** a bullet hit
+   during the now-1.55s GATHER cancels fever (`collision.js:364`) — today's 0.5s charge makes this rare, a
+   long charge makes it common. **Recommendation: grant i-frames CALL→RELEASE** (≤1.6s), since fever
+   already grants reflect/phasing for the window.
+6. **One-conductor dedupe of the three rising edges (§B).** Ambient IGNITION (emissive cascade) runs on
+   ALL three edges; its **timeScale/camera beats are suppressed when `surgeSeq` owns the moment** (one
+   conductor). The cruise auto-trigger's time-dip is an **owner-gated dial** (it would fire dozens of
+   times/session — a real feel/fatigue call).
+7. **`surgeHalo`/`surgeDark` are NEW fields with fallbacks, not a collapse of existing ones.** Don't merge
+   `feverWing`+`surgeHi` — the solar/phoenix dragons deliberately split them (`dragons.js:988-992`: wings
+   blaze while spine stays fire-hued), and deriving a halo from `feverWing:0x000000` yields a black beam.
+   Use `surgeHalo ?? surgeHi`, `surgeDark` derived from the old wash hue; **`feverWing` survives** as the
+   wing-channel override (0x000000 sentinel intact). `feverWash` the *field* retires only after the
+   kick-tint default hue is decided (its `liftTint` is shared with the kick flashes). **Sky coupling is
+   unscoped:** `environment.js`'s `feverMix` sky shift (`3292-3301`) + aurora curtains (`3422-3446`) are a
+   *second, independent* magenta wash with a hardcoded warm/magenta binary — either couple it to
+   `surgeDark` (new work) or make an explicit "sky stays biome-hued" decision.
+8. **Named build risks:** **prewarm the ribbon shader at `initBoss`** (`renderer.compile`/hidden-frame —
+   a fresh `ShaderMaterial` compiles on first use → mid-fight hitch on weak mobile); **re-gate the
+   wingtip-trail hook** — `dragon.js:1856-1874` is gated on `boosting && spineGlow≥0.5` and only exists on
+   elite forms, so cascade stage-4 needs its own gate and a non-elite fallback; add a **flap pose-pin
+   dial** (the flap advances with scaled dt — it slows 4× at APEX, it does not pin to a silhouette pose);
+   **plumb rawDt to `updateParticles`/`cameraCtl`/`surgeSeq` during hitstop** for the GoW selective freeze
+   (hitstop is a global `dt*=0.05`, `main.js:1657` — freezing particles/camera/beam too); **build the
+   trauma²-rotational shake as NEW work** — current shake is translational `Math.random`
+   (`cameraController.js:352-357`), the exact glitch-read Lane D warns against.
+9. **Compress repeat casts + fix the I2/I4 ordering.** 3.4s exceeds every premium reference except
+   Acheron's payload (Lane B: 1.4–2.1s total), and the move is repeatable (gauge refills 2–3×/fight).
+   **Full ritual on the first cast per fight; compressed GATHER (~0.6–0.7s, total ~2.2s) on repeats** —
+   also bounds slow-mo-nausea exposure. And **strip I2's IGNITION to emissive-only** (its gate is emissive
+   timestamps §I-5/7 anyway) so it doesn't depend on I4's timeScale conductor — or pull the conductor
+   forward into I1.
+10. **Retarget the un-assertable tests.** §I-13's luminance-swing assert is impractical on swiftshader
+    (~30s+/frame) — assert on **recorded driving-envelope traces** (lift/flash/exposure state) plus 1–2
+    anchor frames. §I-14's "zero-alloc hot path" isn't headlessly assertable — make it a **review-checklist
+    item or an instrumented allocation counter**. Cascade timestamps need a `trailDebug()`-style
+    introspection export from `dragon.js` (established pattern). Everything else (cross-sections, DC
+    ceiling via `renderer.info.render.calls`, the `__ddSurgeForce` seam per the `__ddArcForce` precedent
+    `dragon.js:1743`) is assertable as written.
+
+**Also correct in §G:** there is **no existing "reduce flashing & motion" toggle** — what exists is
+scattered `prefers-reduced-motion` gating + the EMBERSIGHT accessibility group (`save.js:34-37`). Add one
+boolean there + a settings row (`ui.js`), and make OS `prefers-reduced-motion` imply it (house
+convention). The RELEASE flash via `kick()` is a **no-op at tier 2** (`postfx.js:229`) — if the flash must
+read on weak devices, use the DOM-flash fallback (`ui.lanceFlash`/`#jade-flash`); the photosensitivity
+asserts must test the tier that actually flashes.
+
+### M.2 Gate Log
 
 | Gate | Phase | Verdict | Notes |
 |---|---|---|---|
-| 0 | Kickoff (this plan) | — | SUNBREAK brief + 4 research lanes synthesized; awaiting feasibility audit |
+| 0 | Kickoff (this plan) | ✅ FEASIBLE WITH CORRECTIONS | SUNBREAK brief + 4 research lanes synthesized; Fable audit folded into §M.1 (10 corrections). Pillars sound, no rethink; 3 subsystem-idealization fixes gate I1. |
 
 ---
 
