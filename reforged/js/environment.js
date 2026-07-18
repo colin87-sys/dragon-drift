@@ -886,6 +886,45 @@ function bakeForumLadder(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// REPOUSSOIR dark travertine (Fable two-shelf audit) — bakeForumLadder's darker sibling. The Lorrain
+// "two-shelf" corridor needs its big framing masses to be DARK repoussoir, not the 60-70% cream that made
+// everything (walls, rail, fog) one flat value against the 85% sky. Same position-keyed tide stops (the
+// algae/drowned bands are already dark — kept), but the travertine CROWN is pulled down to a dark warm
+// face (~0.30 L) with a LIT up-facing cap RIM (~0.56 L — the cornice/parapet/string-top line that catches
+// the sky and sells thickness) and darkened soffits (~0.16 L). Spread ~3.5:1 (pinisle anti-flat-black law):
+// a dark MASS with a bright rim, never a flat-black slab. Applied to the BASILICA (a solid dark wall whose
+// dark reveals fade to a mute whisper) AND the AQUEDUCT (a dark FRAME whose open sky-through bays then read
+// BRIGHT by contrast — the aperture value SIGN-FLIP that is the whole two-shelf read). Zero tri cost.
+const _FRD_CROWN = [0.335, 0.300, 0.250];  // dark warm travertine wall face (vertical faces) — repoussoir, L≈0.30
+const _FRD_CAP   = [0.610, 0.560, 0.470];  // LIT up-facing cap rim (cornice/parapet/string top) — L≈0.56
+const _FRD_ALGAE = [0.190, 0.240, 0.140];  // algae line — kept dark (slightly deepened off _FRM_ALGAE)
+const _FRD_DROWN = [0.100, 0.205, 0.235];  // drowned slate-teal base — kept dark (the teal anchor survives)
+function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // face normal
+    const isCap = nr.y > 0.5;                                     // up-facing → the lit cornice/parapet rim
+    const soff = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));  // down-facing soffit factor (undercut)
+    const uf = 1 - 0.48 * soff;                                   // darken undercuts toward ~0.16
+    for (let k = 0; k < 3; k++) {
+      const key = pos.getY(i + k) - tiltX * pos.getX(i + k);      // signed height above the single tilted plane
+      const o = (i + k) * 3;
+      if (key > waterY + bandH) {
+        const base = isCap ? _FRD_CAP : _FRD_CROWN;
+        col[o] = base[0] * uf; col[o + 1] = base[1] * uf; col[o + 2] = base[2] * uf;
+      } else if (key < waterY) {
+        col[o] = _FRD_DROWN[0]; col[o + 1] = _FRD_DROWN[1]; col[o + 2] = _FRD_DROWN[2];
+      } else {
+        col[o] = _FRD_ALGAE[0]; col[o + 1] = _FRD_ALGAE[1]; col[o + 2] = _FRD_ALGAE[2];
+      }
+    }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 // PROTECTED-recess Pompeian-red fresco (§2B) — bake:'fresco'. Normal-keyed 2-zone like the bloom bake:
 // a weathered lit edge on up/out faces → deep wine-red in the recess, so a niche reads as painted plaster
 // with value, not a flat red decal. Deliberately OFF the magenta danger lane (bulletcontrast law).
@@ -918,12 +957,13 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], frescoB = [], pineB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], forumDarkB = [], frescoB = [], pineB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
+    else if (p.bake === 'forumdark') forumDarkB.push(g);                 // tagged → REPOUSSOIR dark travertine (two-shelf masses: basilica wall + aqueduct frame)
     else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
     else if (p.bake === 'pine') pineB.push(g);                           // tagged → near-black stone-pine/cypress (Lorrain side-frame, PR-4)
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
@@ -947,6 +987,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
   if (revealHiB.length) { const g = revealHiB.length > 1 ? mergeGeometries(revealHiB) : revealHiB[0]; bakeReveal(g, opts.revealHi ? opts.revealHi.y0 : 0.12, opts.revealHi ? opts.revealHi.span : 0.44); stone.push(g); }
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
+  if (forumDarkB.length) { const g = forumDarkB.length > 1 ? mergeGeometries(forumDarkB) : forumDarkB[0]; bakeForumDark(g, opts.forumWaterY); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   if (pineB.length) { const g = pineB.length > 1 ? mergeGeometries(pineB) : pineB[0]; bakePine(g); stone.push(g); }
   const geos = [], mats = [];
@@ -3043,7 +3084,7 @@ const ARCHETYPES = {
       // by the nominal (R_NOM,H_NOM); place() couples h=0.185·r so every instance keeps ROUND arches.
       const R_NOM = 100, H_NOM = 18.5;
       const wx = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
-      const zf = 0.05, zb = -0.05;   // single-sided FRONT (+z) face + jamb returns for hole THICKNESS — you see SKY through the bays, never a back wall
+      const zf = 0.020, zb = -0.020;   // single-sided FRONT (+z) face + jamb returns. THINNED from ±0.05 (Fable two-shelf audit): object z is scaled by r (writeMatrix), so ±0.05 = a 9–12.5-world DEEP tunnel that laterally OCCLUDES the sky at any off-normal lane angle → the bays read shut. ±0.02 → ~4-world masonry (still reads thick, matches the basilica) but the bays open ~78% so the SKY actually shows through — the whole pierced-arcade read depends on this
       const TIDE = 2.2;              // world tide line → edge-loop split so the jade band is dead-level on every wet pier
       const v = [];
       const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
@@ -3103,7 +3144,7 @@ const ARCHETYPES = {
       wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
       wall.computeVertexNormals();
       wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
-      return mergeLagoonParts([{ mat: 0, geo: wall, bake: 'forum' }], { forum: true, forumWaterY: 0.12 });
+      return mergeLagoonParts([{ mat: 0, geo: wall, bake: 'forumdark' }], { forum: true, forumWaterY: 0.12 });   // REPOUSSOIR dark FRAME (two-shelf): dark face → the open sky-through bays read BRIGHT by contrast (Fable audit)
     },
     // FAR off-lane horizon massif (arcade/rampart rhythm): comp floor 0.45 (mostly-continuous, thins in the
     // breaths), foam:false, ZERO glow. r 90–125, h COUPLED to r (round arches), inner edge ~80–105 (never near
@@ -3648,7 +3689,7 @@ const ARCHETYPES = {
       const wall = new THREE.BufferGeometry();
       wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); wall.computeVertexNormals();
       wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
-      parts.push({ mat: 0, bake: 'forum', geo: wall });
+      parts.push({ mat: 0, bake: 'forumdark', geo: wall });   // REPOUSSOIR dark wall (two-shelf): dark face + lit cornice/parapet rim; the dark reveals fade to a mute whisper against it (Fable audit)
       // revealHi re-keys the reveal gradient to the WINDOW band (sill→crown in object Y) so the deep window backers
       // read sill-lit→dark instead of clamping to flat-black; forumWaterY low for the tall-wall tide ladder.
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.07, revealHi: { y0: wy(SILL), span: wy(CROWN - SILL) } });
