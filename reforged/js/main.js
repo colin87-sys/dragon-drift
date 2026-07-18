@@ -42,7 +42,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -430,6 +430,16 @@ if (urlParams.has('debug')) {
     bossLockCandidates: () => debugLockCandidates(),
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
+    // SUNBREAK surge capture seams (I0): read the unleash cinematic beat + live
+    // draw-call total; pin the cinematic to a beat for montage stills (apex/beam/
+    // impact) — a normally-undefined global, so byte-identical in play; and cast the
+    // full charge→beam cinematic from a fight for the state-machine test.
+    surgeState: () => ({ ...debugSurgeState(), drawCalls: renderer.info.render.calls }),
+    surgeSeam: (beat) => {
+      if (beat == null) delete globalThis.__ddSurgeForce;
+      else globalThis.__ddSurgeForce = (typeof beat === 'string') ? { beat } : beat;
+    },
+    surgeCast: () => debugSurgeCast(),
     bossRaiseShield: () => debugRaiseShield(),
     setQuality: (t) => applyQuality(t),   // test/dev seam: force a quality tier (the tier-2 graceful-degrade proof)
     // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.

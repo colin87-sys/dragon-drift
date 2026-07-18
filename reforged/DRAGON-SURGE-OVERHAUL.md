@@ -457,6 +457,7 @@ asserts must test the tier that actually flashes.
 | Gate | Phase | Verdict | Notes |
 |---|---|---|---|
 | 0 | Kickoff (this plan) | ✅ FEASIBLE WITH CORRECTIONS | SUNBREAK brief + 4 research lanes synthesized; Fable audit folded into §M.1 (10 corrections). Pillars sound, no rethink; 3 subsystem-idealization fixes gate I1. |
+| I0 | Tooling & seams | ✅ MACHINE PASS (no Fable — no craft yet) | `__ddSurgeForce` beat pin (byte-identical in play, `__ddArcForce` contract) + `surgeState`/`surgeSeam`/`surgeCast` `__dd` seams + `debugSurgeState`/`debugSurgeCast` (boss.js). `tools/surgeshot.mjs seams` montages APEX/BEAM/IMPACT via a forced fight. `tests/surgefx.mjs` baseline (seam dormant/round-trip/off-frames-clean) green; juice regression green; boss.js/main.js syntax-clean. Owner residuals: none (tooling only). |
 
 ---
 

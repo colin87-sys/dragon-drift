@@ -1414,13 +1414,38 @@ export function initBoss(sc) {
   scene.add(surgeBeam);
 }
 
+// SUNBREAK I0 capture seam. A NORMALLY-UNDEFINED global (`globalThis.__ddSurgeForce`)
+// pins the unleash cinematic to a fixed beat so headless montage tools + tests can
+// catch each timed moment deterministically (the beam is a one-shot cinematic that a
+// screenshot would otherwise miss). Undefined in play → `surgeForceBeat()` returns
+// null and this whole path is skipped → the sequencer runs exactly as shipped
+// (roster byte-identity, same contract as `__ddArcForce` in dragon.js).
+//   globalThis.__ddSurgeForce = 'apex' | 'beam' | 'impact'   // named beats
+//   globalThis.__ddSurgeForce = { phase:'charge'|'beam', t } // explicit pin
+function surgeForceBeat() {
+  const f = (typeof globalThis !== 'undefined') && globalThis.__ddSurgeForce;
+  if (!f) return null;
+  if (typeof f === 'object' && (f.phase || typeof f.t === 'number')) {
+    return { phase: f.phase || 'charge', t: typeof f.t === 'number' ? f.t : 0 };
+  }
+  switch (typeof f === 'string' ? f : f.beat) {
+    case 'apex':   return { phase: 'charge', t: CHARGE_TIME * 0.98 };  // orb at max, pre-strike
+    case 'beam':   return { phase: 'beam',   t: BEAM_TIME * 0.35 };    // shaft live, mid-life
+    case 'impact': return { phase: 'beam',   t: BEAM_TIME * 0.06 };    // just landed
+    default:       return { phase: 'charge', t: CHARGE_TIME * 0.5 };
+  }
+}
+
 // Drive the Surge-unleash cinematic: a charge wind-up at the mouth, then a beam
 // lancing into the boss (which bursts the shield at the strike). Returns nothing;
 // clears `surgeSeq` when the beam finishes.
 function updateSurgeBeam(dt, player, time) {
   if (!surgeBeam) return;
+  // Capture seam: pin the cinematic to a beat (holds the beat, no auto-transition).
+  const pin = surgeForceBeat();
+  if (pin) surgeSeq = { phase: pin.phase, t: pin.t };
   if (!surgeSeq) { if (surgeBeam.visible) surgeBeam.visible = false; return; }
-  surgeSeq.t += dt;
+  if (!pin) surgeSeq.t += dt;
   surgeBeam.visible = true;
   const { shaft, beamCore, beamGlow, muzzleOrb, impactOrb } = surgeBeam.userData;
 
@@ -5902,6 +5927,24 @@ export function debugPartWorldPos(part) {
 export function debugStrikeSurge() {
   if (phase !== 'fight' || !lastPlayer) return false;
   strikeSurge(lastPlayer);
+  return true;
+}
+// SUNBREAK I0 seams. Read the unleash cinematic beat (for montage tools + the surgefx
+// state-machine test), and cast the full charge→beam cinematic from a fight (so a test
+// can observe the sequence without banking the Surge meter headlessly). Both are
+// inert with `__ddSurgeForce` undefined → roster byte-identity.
+export function debugSurgeState() {
+  return {
+    active: !!surgeSeq,
+    phase: surgeSeq ? surgeSeq.phase : null,
+    t: surgeSeq ? surgeSeq.t : 0,
+    beamVisible: !!(surgeBeam && surgeBeam.visible),
+    forced: !!((typeof globalThis !== 'undefined') && globalThis.__ddSurgeForce),
+  };
+}
+export function debugSurgeCast() {
+  if (phase !== 'fight') return false;
+  surgeSeq = { phase: 'charge', t: 0 };
   return true;
 }
 // §5i.C rung 13 test seams: arm the beam duel + read its remaining window (so the fork-extend rule
