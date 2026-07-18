@@ -1864,9 +1864,13 @@ export function startBossEncounter(player, defOverride) {
   clearSetpiece();
   placeGroup(player, 0);
 
-  // Suppress the normal course for the fight: wipe hazards already spawned ahead;
-  // spawnAhead() stops laying new ones while game.inBoss is true (see main.js).
-  clearAhead(player.dist + 800);
+  // Suppress the normal course for the fight: wipe ALL obstacles already spawned
+  // ahead; spawnAhead() stops laying new ones while game.inBoss is true (see main.js).
+  // NOT a constant 800m: the spawner's lookahead is speed-scaled (max(500, speed*7)),
+  // so above ~114 m/s it outruns an 800m wipe and a Phase Gate can survive into the
+  // fight as inert "fly here" decoration (colliders are skipped while inBoss). Infinity
+  // is safe — the fight travels km at cruise 65 and post-boss content spawns fresh.
+  clearAhead(Infinity);
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
