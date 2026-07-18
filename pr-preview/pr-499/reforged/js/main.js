@@ -404,6 +404,7 @@ if (urlParams.has('debug')) {
     // cycle phase) so a tool can frame the vent-site presentation close up in the biome lighting.
     spawnVent: (ahead = 40, x = 0) => addHazard({ dist: player.dist + ahead, x, warn: BIOMES[3].hazard.warn, radius: BIOMES[3].hazard.radius, type: 'geyser', phase: 0 }),
     clearVents: () => resetHazards(),   // capture hook: drop all live vents so a shot frames exactly one
+    clearObstacles: () => resetObstacles(),   // capture hook: despawn every live obstacle/gate/run so a still frames the biome (sky/props/water) without a flow-gate tunnel or crystal wall crossing the shot — pair with noBoss(true) + timeScale 0
     ventStates: () => debugVentStates(),   // capture hook: read vent phase (the cycle runs on the render clock)
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },

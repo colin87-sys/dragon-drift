@@ -85,7 +85,12 @@ all behind a **default-0 `empyMix` gate** (byte-identical off).
    manual `camera.rotation`/`lookAt` after a settle wait is overwritten — you're stuck with the cruise
    framing; judge the sky in the upper half at the cruise angle (or render the dome in isolation).
    (c) Under load, `page.screenshot()` hangs at its 30s default — drop `deviceScaleFactor` to 1 and pass
-   an explicit `{ timeout: 60000 }`.
+   an explicit `{ timeout: 60000 }`. (d) **Clean biome stills** (owner tip): warping onto a periodic
+   flow-gate tunnel / crystal-wall run keeps ruining the composition ("bad luck"). Boot with `?cleanshot`
+   (strips HUD chrome + course rings + trail), and after freezing (`timeScale=0`) call
+   `__dd.clearObstacles()` (new capture hook → `resetObstacles()`) + `__dd.clearVents()` — the frozen sim
+   never respawns them, so the still frames the biome (sky/props/water) alone. `__dd.noBoss(true)` keeps
+   boss/rib-run setpieces away.
 
 **The reusable pattern.** A new biome-identity SKY SYSTEM = a self-contained module
 (`HEAD`/`BODY`/`uniforms`/`apply`) spliced into the one sky-dome draw + gated by a new `xMix`
