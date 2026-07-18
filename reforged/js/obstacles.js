@@ -5,7 +5,7 @@ import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
 import { makeMarkerSurface, bakeGlowT, bakeConst, facetHash } from './markerSurface.js';
-import { buildPropArchetype, clonePropMaterial, addDeckSkimWindow } from './environment.js';
+import { buildPropArchetype, clonePropMaterial, addDeckSkimWindow, getForumStone } from './environment.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Skyforged A/B kill-switch: the premium Windvault gate is ON by default;
@@ -15,6 +15,13 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 const _mkParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const SKYFORGED = _mkParams.get('skyforged') !== '0';
+// THE DROWNED FORUM (DROWNED-FORUM-BUILD-SHEET §4): under ?props=forum the biome-0 Phase Gate is reskinned
+// into a SINKING TRIUMPHAL ARCH — the collider (collision.js, pure gapX/Y/W/H math) is BYTE-IDENTICAL, only
+// the mesh changes: the deadly fresnel veil becomes travertine masonry, with a gilt arch ring + a magenta
+// keystone toll telegraph over the safe bay. Every safe-route affordance (aperture frame, corner brackets,
+// core glow, beacon) is kept untouched so fairness is identical. Off (or non-forum biome) → the shipped gate.
+const PROPS_FORUM = _mkParams.get('props') === 'forum';
+let forumGateMats = null;   // { stone, gilt, toll } — built in initObstacles
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -377,6 +384,23 @@ export function initObstacles(s) {
     flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.8, side: THREE.DoubleSide,
     glint: 0.35, glintSharp: 44, lipGlow: 0.6,
   }));
+  // Drowned Forum gate skin (§4) — shared, opaque, plain THREE.Fog-tinted (fog:true default). The stone is
+  // a warm travertine; the gilt is the withheld gold of the soffit/arch ring; the toll is the role-locked
+  // danger magenta (0xff2b6a) that telegraphs the descending hazard on the keystone.
+  forumGateMats = {
+    // Coursed-ashlar travertine (Fable rebuild): vertexColors so each block carries its own jittered value
+    // (the value structure the flat slab lacked); a MODERATE warm emissive floor so a backlit block reads as
+    // a shadowed dark-warm stone (darker than the sky glare = the danger reads) without crushing to black.
+    stone: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.8, metalness: 0.03, flatShading: true, emissive: 0x4a4230, emissiveIntensity: 0.42 }),
+    gilt: new THREE.MeshStandardMaterial({ color: 0xffd8a0, roughness: 0.42, metalness: 0.12, emissive: 0xffb84a, emissiveIntensity: 1.3 }),
+    toll: new THREE.MeshStandardMaterial({ color: 0xff2b6a, roughness: 0.5, emissive: 0xff2b6a, emissiveIntensity: 1.8 }),
+  };
+  // Warm-gold aperture frame for the forum gate (the safe-route lip) — the gilt grammar, not Sanctuary cyan.
+  forumGateMats.frame = makeMarkerSurface({
+    rootColor: 0x5a4620, midColor: 0xffb84a, apexColor: 0xffe6b0,
+    flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.8, side: THREE.DoubleSide,
+    glint: 0.35, glintSharp: 44, lipGlow: 0.6,
+  });
 }
 
 // PR-4 Phase Gate aperture FRAME (Skyforged): a closed rounded-rectangle faceted sweep replacing
@@ -518,6 +542,121 @@ export function addObstacle(o) {
   entries.push(e);
 }
 
+// Coursed-ashlar reskin of the forum gate barrier (§4). CONSISTENCY (owner): it is baked with the SAME
+// forum tide-ladder as the triumphgate hero — travertine crown / algae line / drowned slate-teal base keyed
+// by WORLD HEIGHT (the gate stands in the water at y≈0) — on the SAME `forumStone` material (its ladderEmissive
+// fold carries the ladder backlit), so the hazard is the same stone as the props (the one-city test). The
+// deadly lane-spanning mass is monumental ashlar blocks in running bond with an eroded ruin crown; the
+// opening is ARCH-TOPPED; a tight radial VOUSSOIR ring hugs the opening edge with the magenta keystone AS the
+// apex wedge (touching the ring). Deterministic per gate (seeded from o.dist); obstacle meshes aren't fixtured.
+const _FRM_TRAV = [0.960, 0.900, 0.770];   // travertine crown (matches environment.js _FRM_TRAV)
+const _FRM_ALGAE = [0.230, 0.300, 0.170];  // algae tide line
+const _FRM_DROWN = [0.115, 0.255, 0.295];  // drowned slate-teal base
+// The forum tide ladder by world height + a per-block value jitter (jit), so every block reads as the same
+// travertine geology as the hero: wet drowned base near the water → algae line → sunlit crown, brightening up.
+function forumStoneCol(worldY, jit) {
+  // SOFTENED tide ladder (Fable polish): blend drowned → algae → travertine over a couple of courses so the
+  // waterline reads as WEATHERING on the masonry (a 2–3 step gradient), not a hard painted band. Crown
+  // brightens with height toward the sunlit top — the hero's breathing gradient, not a paint cut.
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  let s;
+  if (worldY < 3.0) s = lerp3(_FRM_DROWN, _FRM_ALGAE, Math.min(1, worldY / 3.0));          // drowned base → algae (wet zone)
+  else if (worldY < 6.0) s = lerp3(_FRM_ALGAE, _FRM_TRAV, (worldY - 3.0) / 3.0);           // algae → travertine (the tide transition)
+  else { const b = 0.9 + 0.14 * Math.min(1, (worldY - 6.0) / 12.0); s = [_FRM_TRAV[0] * b, _FRM_TRAV[1] * b, _FRM_TRAV[2] * b]; }  // crown brightens up
+  return [s[0] * jit, s[1] * jit, s[2] * jit];
+}
+function bakeFlatColor(geo, rgb) {
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i * 3] = rgb[0]; col[i * 3 + 1] = rgb[1]; col[i * 3 + 2] = rgb[2]; }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+// Per-VERTEX tide colour by WORLD Y (the block is already world-positioned) — Fable polish: the ramp runs
+// THROUGH each block so a tall base course gradients instead of hard-cutting to a dark plinth. One jitter
+// per block keeps the faint course read.
+function bakeForumByY(geo, jit) {
+  const pos = geo.attributes.position, n = pos.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const s = forumStoneCol(pos.getY(i), jit); col[i * 3] = s[0]; col[i * 3 + 1] = s[1]; col[i * 3 + 2] = s[2]; }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+function buildForumMasonry(group, o, X, TOP) {
+  const rnd = mulberry32((Math.floor(o.dist * 8.1) ^ 0x51ed3c9b) >>> 0);
+  const gL = o.gapX - o.gapW, gR = o.gapX + o.gapW, gB = o.gapY - o.gapH, gT = o.gapY + o.gapH;
+  const stoneMat = getForumStone();                        // the SAME material as the props (ladderEmissive fold)
+  const Rh = o.gapW + 0.6;                                  // arched-opening radius (springs from the bay top corners)
+  // OPUS QUADRATUM (Fable art-direction / owner + Roman research): a MONUMENTAL gate is a handful of huge
+  // squared ashlar blocks, not small running-bond brick (that's opus latericium — a house facing). Big blocks
+  // (~5–6 across the whole span, ~5 courses), joints as VALUE only (near-zero gap — a dark mortar gap is the
+  // loudest brick tell), 70% smooth mass / 30% faint coursing → it reads as the SAME construction as the
+  // triumphgate hero's smooth travertine masses.
+  const courseH = 4.2, blockW = 6.2, blocks = [];
+  const nCourses = Math.ceil(TOP / courseH);
+  // Contiguous BROKEN-TOP height profile keyed to a FIXED x-grid (Fable: no floaters, no teeth — erode a
+  // HEIGHT that steps by whole courses, never punch holes). ~half the columns full height, most others lose
+  // one course; a clean stepped ruin edge where adjacent blocks still touch and sit on the course below.
+  const topBucket = new Map();
+  const topAt = (cx) => {
+    const b = Math.round(cx / blockW);
+    let v = topBucket.get(b);
+    if (v === undefined) { const r = rnd(); const lost = r < 0.5 ? 0 : r < 0.86 ? 1 : 2; v = TOP - lost * courseH; topBucket.set(b, v); }
+    return v;
+  };
+  for (let c = 0; c < nCourses; c++) {
+    const cy0 = c * courseH, cy1 = Math.min(TOP, cy0 + courseH), ch = cy1 - cy0 - 0.05;   // near-zero joint (value, not gap)
+    if (ch <= 0.4) continue;
+    const cy = (cy0 + cy1) / 2, stagger = (c % 2) ? blockW * 0.5 : 0;                     // running bond (offset joints) — the ONLY joint variation; blocks TILE gap-free
+    for (let bx = -X - stagger; bx < X; bx += blockW) {
+      const bl = Math.max(-X, bx), br = Math.min(X, bx + blockW), bw = br - bl;           // full blocks, touching → no gaps
+      if (bw <= 0.8) continue;
+      const cx = (bl + br) / 2;
+      // ARCH-TOPPED opening = the rectangular safe bay + a clean semicircle above it (radius Rh). Big blocks →
+      // a big monumental portal; the gilt aperture frame marks the exact (smaller) safe route inside it.
+      if (br > gL && bl < gR && cy1 > gB && cy0 < gT) continue;                          // rectangular bay
+      const dArch = Math.hypot(cx - o.gapX, cy - gT);
+      if (cy > gT && dArch < Rh) continue;                                               // clean arched top (hole)
+      const nearArch = dArch < Rh + 5.0 && cy > gB;                                      // keep the arch surround solid
+      if (!nearArch && cy0 >= topAt(cx)) continue;                                       // contiguous stepped broken top (no floaters/teeth)
+      const zJit = (rnd() - 0.5) * 0.4;                                                   // subtle relief seam only
+      const g = new THREE.BoxGeometry(bw, ch, 3.0 + Math.abs(zJit)).toNonIndexed();
+      g.translate(cx, cy, zJit * 0.3);
+      bakeForumByY(g, 0.96 + rnd() * 0.08);                                                // per-vertex world-Y gradient (runs through the block) + faint jitter
+      blocks.push(g);
+    }
+  }
+  // VOUSSOIRS — a tight radial ring HUGGING the hole (inner edge AT Rh), each wedge pointing at the arch
+  // centre. Radial orientation is what makes the arch read in SILHOUETTE when value is dead backlit (Fable
+  // 3.8). The magenta keystone IS the apex wedge (touching the ring, flared), not a floating chip.
+  const nV = 9, vLen = 4.4, rMid = Rh + vLen / 2 - 0.5;    // fewer, BIGGER wedges (opus quadratum scale); inner edge ≈ Rh
+  // NO VOUSSOIR WITHOUT WALL BEHIND IT (Fable 4.0 score-mover): clamp the fan to the span the wall actually
+  // covers ([-X,X] × below the crown) so no wedge floats against open sky/water. When the bay sits near the
+  // lane edge the arch is a clean broken half-arch (ruin-appropriate) instead of a levitating stone fan.
+  const backed = (vx, vy) => vx > -X + 1.2 && vx < X - 1.2 && vy < TOP - 1.0;
+  const vgeo = [];
+  for (let k = 0; k < nV; k++) {
+    const th = Math.PI * (k + 0.5) / nV;
+    const vx = o.gapX + Math.cos(th) * rMid, vy = gT + Math.sin(th) * rMid;
+    if (k === (nV - 1) / 2 || !backed(vx, vy)) continue;    // apex → keystone; skip any unbacked wedge
+    const g = new THREE.BoxGeometry(3.4, vLen, 3.8).toNonIndexed();
+    g.rotateZ(th - Math.PI / 2);                            // long axis radial
+    g.translate(vx, vy, 0.9);
+    bakeForumByY(g, 0.97 + (k % 2) * 0.06);   // per-vertex world-Y gradient + faint alternation
+    vgeo.push(g);
+  }
+  blocks.push(...vgeo);
+  group.add(new THREE.Mesh(mergeGeometries(blocks, false), stoneMat));
+  blocks.forEach((b) => b.dispose());
+  // Magenta keystone — a trapezoid wedge (wide top, tall) locking the apex, only if the apex is wall-backed.
+  const kx = o.gapX, ky = gT + rMid;
+  if (backed(kx, ky)) {
+    const kg = new THREE.CylinderGeometry(2.3, 1.5, 5.2, 4, 1).rotateY(Math.PI / 4);   // 4-sided → trapezoid prism, wide-top
+    const key = new THREE.Mesh(kg, forumGateMats.toll);
+    key.position.set(kx, ky, 1.2);
+    group.add(key);
+    group.userData.tollKey = key;
+  }
+}
+
 // A biome-adaptive Phase Gate: a translucent fresnel veil spanning the lane
 // around a clearly-framed rectangular opening. Layered per the design spec —
 //   1. outer silhouette frame (dim, reads from afar)
@@ -530,6 +669,7 @@ function buildGate(o) {
   const group = new THREE.Group();
   group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
   const bi = biomeIndexAt(o.dist);
+  const forum = PROPS_FORUM && bi === 0;   // reskin the biome-0 gate as the sinking triumphal arch (§4)
   const skin = PHASE_SKINS[bi];
   const veilMat = veilMats[bi];
   const edgeMat = edgeMats[bi];
@@ -545,17 +685,23 @@ function buildGate(o) {
   const W = o.gapW * 2;
   const H = o.gapH * 2;
 
-  // Layer 3 — translucent phase field (veil panels around the aperture).
+  // Layer 3 — the DEADLY barrier around the aperture. Shipped: a translucent fresnel veil. Forum: opaque
+  // travertine MASONRY (the sunken arch body) — same regions, so the safe bay is unchanged; the side/top
+  // masses sit off the centre lane so the through-view down the bay is preserved.
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), veilMat);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, forum ? 2.4 : T), forum ? forumGateMats.stone : veilMat);
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
   };
-  panel(left + X, TOP, (left - X) / 2, TOP / 2); // left of gap
-  panel(X - right, TOP, (right + X) / 2, TOP / 2); // right of gap
-  panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
-  panel(right - left, bottom, o.gapX, bottom / 2); // below gap
+  if (forum) {
+    buildForumMasonry(group, o, X, TOP);   // coursed ashlar + eroded silhouette + voussoirs + keystone
+  } else {
+    panel(left + X, TOP, (left - X) / 2, TOP / 2); // left of gap
+    panel(X - right, TOP, (right + X) / 2, TOP / 2); // right of gap
+    panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
+    panel(right - left, bottom, o.gapX, bottom / 2); // below gap
+  }
 
   const bar = (w, h, cx, cy, mat, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), mat);
@@ -575,7 +721,7 @@ function buildGate(o) {
   // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
   // replacing the four flat bars. Fallback (?skyforged=0): the exact shipped bars.
   if (SKYFORGED) {
-    group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
+    group.add(new THREE.Mesh(buildGateFrame(o), forum ? forumGateMats.frame : gateFrameMats[bi]));
   } else {
     bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
     bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
@@ -598,7 +744,7 @@ function buildGate(o) {
   // Layer 4 — core-glow locator: a faint additive fill of the OPENING so the
   // safe route is easy to find from any altitude. Per-instance (approach-lit).
   const coreMat = new THREE.MeshBasicMaterial({
-    color: skin.core, transparent: true, opacity: 0, depthWrite: false,
+    color: forum ? 0xffe6b0 : skin.core, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   coreMat.userData.perInstance = true;
@@ -611,7 +757,7 @@ function buildGate(o) {
   // Layer 4 — long-range beacon: a tall biome-tinted light pillar above the
   // gap, visible through fog/bloom from far away (telegraphs the route early).
   const beaconMat = new THREE.MeshBasicMaterial({
-    color: skin.edge, transparent: true, opacity: 0, depthWrite: false,
+    color: forum ? 0xffc46a : skin.edge, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   beaconMat.userData.perInstance = true;
@@ -624,7 +770,7 @@ function buildGate(o) {
   // Layer 4 — sparse drifting motes for life (tertiary; one shared material per
   // gate, animated in updateObstacles). Tiny additive quads, kept low-density.
   const moteMat = new THREE.MeshBasicMaterial({
-    color: skin.mote, transparent: true, opacity: 0, depthWrite: false,
+    color: forum ? 0xffdca0 : skin.mote, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   moteMat.userData.perInstance = true;
