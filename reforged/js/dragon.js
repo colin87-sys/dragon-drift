@@ -145,6 +145,7 @@ let ribbonCurl = 0;   // slowly-ramped steer signal → the sustained-turn body 
 let ribDriveX = 0, ribDriveY = 0;   // smoothed steer/pitch magnitude → the swim swells into your movement
 let ribSteerMag = 0;                 // smoothed |steer| → ducks the idle swim (Lever 1, contrast)
 let ribPrevSx = 0, ribPrevSy = 0, ribWhipCd = 0;   // steer-edge detector → whip pulses (Lever 2)
+let ribWhipCdY = 0, ribLastWhipSignY = 0;          // VERTICAL whip: armed on SIGN REVERSAL (one pulse/flip, not a per-ramp-frame train)
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
 let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let jadeChainMats = null; // jade pearl-chain links 1/3/4 (sat/lyre/streamer) — pulsed via userData.baseIntensity (§4.3b)
@@ -1523,7 +1524,7 @@ export function updateDragon(dt, player, time) {
         const sxN = player.velocity.x / CONFIG.lateralSpeed;         // signed steer, ~[-1,1]
         const syN = player.velocity.y / (CONFIG.verticalSpeed || 18);
         const driveXt = Math.min(1, Math.abs(sxN)) * 0.9;
-        const driveYt = Math.min(1, Math.abs(syN)) * 0.7;
+        const driveYt = Math.min(1, Math.abs(syN)) * 0.45;   // Fix 3: lower vertical swell so the duck-contrast holds (0.7 out-shouted the duck → busy vertical wave)
         ribDriveX = damp(ribDriveX, driveXt, 3, dt);
         ribDriveY = damp(ribDriveY, driveYt, 3, dt);
         rib.sim.driveX = ribDriveX; rib.sim.driveY = ribDriveY;
@@ -1532,17 +1533,22 @@ export function updateDragon(dt, player, time) {
         const steerMagT = Math.min(1, Math.max(Math.abs(sxN), Math.abs(syN)));
         ribSteerMag = damp(ribSteerMag, steerMagT, ribSteerMag < steerMagT ? 8 : 3, dt);
         rib.sim.steerMag = ribSteerMag;
-        // Lever 2 — WHIP on a steer EDGE: a fast change in steer (onset OR reversal) spawns a
-        // travelling pulse, signed by the edge direction and sized by its speed. A short cooldown
-        // stops a mashed stick from stacking pulses every frame.
-        ribWhipCd -= dt;
+        // Lever 2 — WHIP on a steer EDGE. LATERAL keeps its shipped behavior: the edge stays live for
+        // the whole velocity ramp (~15 frames) so a hard steer spawns a short train — reads as the
+        // serpentine flick, signed off. VERTICAL must NOT train: the same ramp was stacking 2-3 pulses
+        // per reversal (+ overlap) into a ~2.2u bump = the "erratic on up/down". So the vertical whip
+        // arms on a SIGN REVERSAL only (one clean pulse per key flip), at lower amplitude, with a
+        // longer backstop cooldown. Lateral and vertical are now independent (own cooldowns).
+        ribWhipCd -= dt; ribWhipCdY -= dt;
         const dSx = sxN - ribPrevSx, dSy = syN - ribPrevSy;   // per-frame steer change
-        const edge = Math.hypot(dSx, dSy);
-        if (ribWhipCd <= 0 && edge > 0.045) {
-          const k = Math.min(1, edge * 7);                    // edge speed → pulse strength
-          ribbonWhip(rib, dSx !== 0 ? Math.sign(dSx) * k * rib.sim.pulseAmp : 0,
-                          dSy !== 0 ? Math.sign(dSy) * k * (rib.sim.pulseAmp * 0.7) : 0);
+        if (ribWhipCd <= 0 && Math.abs(dSx) > 0.045) {
+          ribbonWhip(rib, Math.sign(dSx) * Math.min(1, Math.abs(dSx) * 7) * rib.sim.pulseAmp, 0);
           ribWhipCd = 0.13;
+        }
+        const sgnY = Math.sign(dSy);
+        if (ribWhipCdY <= 0 && Math.abs(dSy) > 0.05 && sgnY !== 0 && sgnY !== ribLastWhipSignY) {
+          ribbonWhip(rib, 0, sgnY * Math.min(1, Math.abs(dSy) * 7) * (rib.sim.pulseAmp * 0.5));   // Fix 2: 0.7→0.5
+          ribLastWhipSignY = sgnY; ribWhipCdY = 0.30;
         }
         ribPrevSx = sxN; ribPrevSy = syN;
         updateRibbonSim(rib, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z, _ribFwd, dt);
