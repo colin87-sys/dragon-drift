@@ -886,6 +886,57 @@ function bakeForumLadder(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// REPOUSSOIR dark travertine (Fable two-shelf audit) — bakeForumLadder's darker sibling. The Lorrain
+// "two-shelf" corridor needs its big framing masses to be DARK repoussoir, not the 60-70% cream that made
+// everything (walls, rail, fog) one flat value against the 85% sky. Same position-keyed tide stops (the
+// algae/drowned bands are already dark — kept), but the travertine CROWN is pulled down to a dark warm
+// face (~0.30 L) with a LIT up-facing cap RIM (~0.56 L — the cornice/parapet/string-top line that catches
+// the sky and sells thickness) and darkened soffits (~0.16 L). Spread ~3.5:1 (pinisle anti-flat-black law):
+// a dark MASS with a bright rim, never a flat-black slab. Applied to the BASILICA (a solid dark wall whose
+// dark reveals fade to a mute whisper) AND the AQUEDUCT (a dark FRAME whose open sky-through bays then read
+// BRIGHT by contrast — the aperture value SIGN-FLIP that is the whole two-shelf read). Zero tri cost.
+// Crown pulled to ~0.22 L (was 0.30): forumStone folds vColor into emissive (×0.28) so a SIDE-LIT face lifts
+// well above its backlit value — at 0.30 the lit basilica rendered ~0.47 (Fable re-gate: "the old 60% cream
+// still alive"), over the ≤0.40 repoussoir gate. At ~0.22 the lit face lands ~0.35 and stays a dark mass, while
+// the lit cap rim (0.61) still reads. A per-vertex value JITTER (±0.16) adds a within-face variation OCTAVE so a
+// close/grazing wall crop isn't a featureless plane (Fable re-gate: ΔL≈0.02 at 477m → target ≥0.12).
+const _FRD_CROWN = [0.250, 0.222, 0.185];  // dark warm travertine wall face (vertical faces) — repoussoir, L≈0.22
+const _FRD_CAP   = [0.680, 0.545, 0.395];  // LIT up-facing cap rim (cornice/parapet/string top) — L≈0.55, warmed toward APRICOT (Fable re-gate: the rim was neutral-grey on a sunset scene; the cornice must catch the gold)
+const _FRD_ALGAE = [0.190, 0.240, 0.140];  // algae line — kept dark (slightly deepened off _FRM_ALGAE)
+const _FRD_DROWN = [0.100, 0.205, 0.235];  // drowned slate-teal base — kept dark (the teal anchor survives)
+const _frdHash = (x, y, z) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
+function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // face normal
+    const isCap = nr.y > 0.5;                                     // up-facing → the lit cornice/parapet rim
+    const soff = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));  // down-facing soffit factor (undercut)
+    const uf = 1 - 0.48 * soff;                                   // darken undercuts toward ~0.16
+    for (let k = 0; k < 3; k++) {
+      const px = pos.getX(i + k), py = pos.getY(i + k), pz = pos.getZ(i + k);
+      const key = py - tiltX * px;                                // signed height above the single tilted plane
+      const o = (i + k) * 3;
+      if (key > waterY + bandH) {
+        // face gets a per-quad mottle octave (±0.16) so adjacent piers/spandrels don't read as one flat cream
+        // plane; the lit cap rim stays clean (a crisp bright line, not noisy). (Sub-quad within-FACE detail needs a
+        // fragment pass — the low-poly wall's big quads interpolate a per-vertex bake, so it's carried by the
+        // pier/window/parapet structure + the forumStone weathering noise, not the bake.)
+        const j = isCap ? 1 : 0.84 + 0.32 * _frdHash(px * 6.3, py * 6.3, pz * 6.3);
+        const base = isCap ? _FRD_CAP : _FRD_CROWN;
+        col[o] = base[0] * uf * j; col[o + 1] = base[1] * uf * j; col[o + 2] = base[2] * uf * j;
+      } else if (key < waterY) {
+        col[o] = _FRD_DROWN[0]; col[o + 1] = _FRD_DROWN[1]; col[o + 2] = _FRD_DROWN[2];
+      } else {
+        col[o] = _FRD_ALGAE[0]; col[o + 1] = _FRD_ALGAE[1]; col[o + 2] = _FRD_ALGAE[2];
+      }
+    }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 // PROTECTED-recess Pompeian-red fresco (§2B) — bake:'fresco'. Normal-keyed 2-zone like the bloom bake:
 // a weathered lit edge on up/out faces → deep wine-red in the recess, so a niche reads as painted plaster
 // with value, not a flat red decal. Deliberately OFF the magenta danger lane (bulletcontrast law).
@@ -918,12 +969,13 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], frescoB = [], pineB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], forumDarkB = [], frescoB = [], pineB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
+    else if (p.bake === 'forumdark') forumDarkB.push(g);                 // tagged → REPOUSSOIR dark travertine (two-shelf masses: basilica wall + aqueduct frame)
     else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
     else if (p.bake === 'pine') pineB.push(g);                           // tagged → near-black stone-pine/cypress (Lorrain side-frame, PR-4)
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
@@ -947,6 +999,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
   if (revealHiB.length) { const g = revealHiB.length > 1 ? mergeGeometries(revealHiB) : revealHiB[0]; bakeReveal(g, opts.revealHi ? opts.revealHi.y0 : 0.12, opts.revealHi ? opts.revealHi.span : 0.44); stone.push(g); }
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
+  if (forumDarkB.length) { const g = forumDarkB.length > 1 ? mergeGeometries(forumDarkB) : forumDarkB[0]; bakeForumDark(g, opts.forumWaterY); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   if (pineB.length) { const g = pineB.length > 1 ? mergeGeometries(pineB) : pineB[0]; bakePine(g); stone.push(g); }
   const geos = [], mats = [];
@@ -2983,7 +3036,7 @@ const ARCHETYPES = {
   // scattered around it — leaning / lying / strayed. Every drum CLOSED-end (wrackstone w2 + viamarina law:
   // an open cylinder shows the water straight through it and reads as curled paper). No set dressing. ≤150.
   drumfall: {
-    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.08 },   // foil rest note: clusters with the commons, near-empty in the breaths (wrackstone rhythm)
+    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // foil rest note: floor 0.12→0.05 (Fable density pass) — near-ZERO in the breaths so the walls read as the frame; the scatter clusters ONLY in the congregation peaks (wrackstone rhythm)
     build: () => {
       const parts = [];
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // tide ladder by world Y (ladder-only foil)
@@ -3035,7 +3088,7 @@ const ARCHETYPES = {
   // LEFT→RIGHT: the upper tier dies FIRST, then a lower bay breaks, then pier stumps step down into the water
   // (last one drowned below the tide line). Fable pre-assessed. ≤150 tris.
   aqueduct: {
-    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.45, sMin: 0.95, sMax: 1.06 },
+    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arch', comp: { floor: 0.15, sMin: 0.95, sMax: 1.12 },   // flankAlt:'arch' anti-phases the arcade against the basilica wall (arches on the flank opposite the dark wall). floor 0.45→0.15 (Fable gate: a floor is a promise the BREATH can never open — the breaths must open to the fog line, so the far arcade thins between congregations and swells (sMax 1.12) at the peaks). NOTE: sizeClass dropped — the (r,h,r) scale never moves x (writeMatrix), so a smaller instance reads FARTHER, not nearer; true "nearer" needs a place()-level near-class (parked pending the two-shelf value-contrast decision)
     build: () => {
       // WORLD-ASPECT DESIGN (the arcade a1 law): the (r,h,r) placement scale multiplies object-x by r and
       // object-y by h INDEPENDENTLY (r≈100, h≈18.5 → h/r≈0.185), so a WORLD-semicircular arch must be an
@@ -3043,7 +3096,7 @@ const ARCHETYPES = {
       // by the nominal (R_NOM,H_NOM); place() couples h=0.185·r so every instance keeps ROUND arches.
       const R_NOM = 100, H_NOM = 18.5;
       const wx = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
-      const zf = 0.05, zb = -0.05;   // single-sided FRONT (+z) face + jamb returns for hole THICKNESS — you see SKY through the bays, never a back wall
+      const zf = 0.020, zb = -0.020;   // single-sided FRONT (+z) face + jamb returns. THINNED from ±0.05 (Fable two-shelf audit): object z is scaled by r (writeMatrix), so ±0.05 = a 9–12.5-world DEEP tunnel that laterally OCCLUDES the sky at any off-normal lane angle → the bays read shut. ±0.02 → ~4-world masonry (still reads thick, matches the basilica) but the bays open ~78% so the SKY actually shows through — the whole pierced-arcade read depends on this
       const TIDE = 2.2;              // world tide line → edge-loop split so the jade band is dead-level on every wet pier
       const v = [];
       const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
@@ -3103,7 +3156,7 @@ const ARCHETYPES = {
       wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
       wall.computeVertexNormals();
       wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
-      return mergeLagoonParts([{ mat: 0, geo: wall, bake: 'forum' }], { forum: true, forumWaterY: 0.12 });
+      return mergeLagoonParts([{ mat: 0, geo: wall, bake: 'forumdark' }], { forum: true, forumWaterY: 0.12 });   // REPOUSSOIR dark FRAME (two-shelf): dark face → the open sky-through bays read BRIGHT by contrast (Fable audit)
     },
     // FAR off-lane horizon massif (arcade/rampart rhythm): comp floor 0.45 (mostly-continuous, thins in the
     // breaths), foam:false, ZERO glow. r 90–125, h COUPLED to r (round arches), inner edge ~80–105 (never near
@@ -3126,7 +3179,7 @@ const ARCHETYPES = {
   // Kill on sight: broccoli (domed pads), lollipop (crown creeping down the trunk), Christmas-tree (base-wide
   // cypress). NO glow — it PRICES the gold by being the darkest thing in frame. ONE material group. ≤150 tris.
   pinisle: {
-    step: 31, biomes: forumV1, matIndex: 0, comp: { floor: 0.12, sMin: 0.90, sMax: 1.10 },   // punctuation: near-absent in the breaths
+    step: 43, biomes: forumV1, matIndex: 0, comp: { floor: 0.06, sMin: 0.90, sMax: 1.10 },   // SINGULAR Lorrain dark side-tree (Fable density pass): step 31→43 + floor 0.12→0.06 → 1–2 per congregation per flank, near-zero in the breaths (a lone black parasol against the gold, not a hedgerow of pines)
     build: () => {
       const parts = [];
       // RUBBLE BASE — 2 drowned-stone chunks (tide ladder → the sunken-city tie; the pine roots split them). (24)
@@ -3554,7 +3607,7 @@ const ARCHETYPES = {
   // a window you built a second aqueduct — the openings are DARK (bake:'reveal'). Solid wall + pierced arcade
   // alternating per flank = the two-shelf corridor. NO glow, NO gilt (a common mass; it prices the heroes). ≤150.
   basilica: {
-    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.35, sMin: 0.92, sMax: 1.08 },
+    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'wall', comp: { floor: 0.12, sMin: 0.92, sMax: 1.08 },   // flankAlt:'wall': the basilica holds ONE flank per congregation while the aqueduct arches take the other → the "two-shelf" Lorrain corridor. floor 0.35→0.12 (Fable gate: the breaths must OPEN — the wall thins between congregations to clear the fog-line sightline on at least one flank, and swells back at the peaks)
     build: () => {
       const parts = [];
       // WORLD-ASPECT: a TALL wall, so R_NOM≪H_NOM is wrong — this is 80 long × 34 tall; couple h=0.94·r in
@@ -3648,7 +3701,7 @@ const ARCHETYPES = {
       const wall = new THREE.BufferGeometry();
       wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); wall.computeVertexNormals();
       wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
-      parts.push({ mat: 0, bake: 'forum', geo: wall });
+      parts.push({ mat: 0, bake: 'forumdark', geo: wall });   // REPOUSSOIR dark wall (two-shelf): dark face + lit cornice/parapet rim; the dark reveals fade to a mute whisper against it (Fable audit)
       // revealHi re-keys the reveal gradient to the WINDOW band (sill→crown in object Y) so the deep window backers
       // read sill-lit→dark instead of clamping to flat-black; forumWaterY low for the tall-wall tide ladder.
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.07, revealHi: { y0: wy(SILL), span: wy(CROWN - SILL) } });
@@ -4747,6 +4800,17 @@ function writeMatrix(band, i, d) {
         const pickRight = heroHash(peakIdx * 2 + 1) < 0.5;
         if ((pickRight && d.side < 0) || (!pickRight && d.side > 0)) active = false;
       }
+    }
+    // FORUM flank ALTERNATION (Fable density pass): anti-phase the two big framing registers per side so any
+    // stretch reads as the Lorrain "two-shelf" corridor — a solid DARK basilica wall on ONE flank + pierced
+    // aqueduct arches (sky/sun through the bays) on the OTHER — instead of a symmetric both-walls barrier. A
+    // per-congregation hash picks the wall's flank; arches take the opposite. Pure render-gate (no rnd) → the
+    // gold-determinism call order is untouched, and lagoon archetypes (no flankAlt) never enter this branch.
+    if (active && band.def.flankAlt) {
+      const peakIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
+      const wallSide = heroHash(peakIdx * 7 + 3) < 0.5 ? 1 : -1;         // which flank is the dark wall this congregation
+      const want = band.def.flankAlt === 'wall' ? wallSide : -wallSide;
+      if ((d.side > 0 ? 1 : -1) !== want) active = false;
     }
     if (active && band.def.comp) {
       const g = lagoonComp(d.dist);
