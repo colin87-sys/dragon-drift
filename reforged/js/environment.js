@@ -336,6 +336,17 @@ function makeMats() {
   mats.lagoonFoil = addPropDetail(new THREE.MeshStandardMaterial({
     ...opts, color: 0x6f7a68, roughness: 0.74, metalness: 0.03, emissive: 0x1a241f, emissiveIntensity: 0.12,
   }));
+  // VERDIGRIS BRONZE (DROWNED-FORUM-BUILD-SHEET §2C, PR-6 colossus) — the biome's ONE saturated green, on BRONZE
+  // ALONE (the quarantined cool-anchor accent): an old-bronze shell weathered by centuries of rain + tide. The
+  // teal is BAKED (normal-keyed exposure — patina on rain-washed up-faces, dark bronze in the shelter), never the
+  // material colour, so it reads as WEATHER RECORDED ON METAL, not paint. Own DARKER, cooler emissive floor than
+  // travertine (0xa39b84 @0.22 vs forumStone 0xbcb492 @0.28) so the ladder fold mints patina without the mint
+  // shift; roughness 0.48 = old-bronze sheen (slicker than stone 0.66), metalness 0.18 (NOT higher — chrome is
+  // banned). ladderEmissive fold (true) keeps sheltered bronze + the drowned merge genuinely dark.
+  mats.verdigrisBronze = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.48, metalness: 0.18,
+    emissive: 0xa39b84, emissiveIntensity: 0.22,
+  }), true);
   // TEMPEST REACH new-kit material (TEMPEST-REACH-BIBLE.md) — a FOURTH ladder, the WIND-SCOUR
   // ladder: cool-dominant storm slate whose carved read comes entirely from the baked vColor
   // stops keyed to the scour axis (wind-facing = pale SCOUR / body = DAMP / waterline belly =
@@ -937,6 +948,35 @@ function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// VERDIGRIS BRONZE exposure bake (PR-6 colossus) — bake:'verdigris'. A NORMAL-keyed weathering (the Caldera
+// belly-bake precedent): rain-washed UP-faces (face ny > 0.35) take the teal PATINA, sheltered/side/down faces
+// keep dark old BRONZE — so the value ladder lands PER FACET (teal top / bronze under, alternating down each
+// two-segment finger), which is exactly what flat-shaded per-vertex colour delivers well (a green DECAL has no
+// such structure). A POSITION drowned-merge (below waterY) dissolves both toward the slate-teal deep so the
+// patina NEVER glows underwater — the one saturated green stays quarantined in the cool-anchor family. Albedos
+// pre-darkened for verdigrisBronze's ×0.22 emissive fold (patina 0x357F6C → renders ~0x3E8F7A teal).
+const _VRD_PATINA = [0.208, 0.498, 0.424];   // 0x357F6C rain-washed teal patina (up-faces)
+const _VRD_BRONZE = [0.369, 0.271, 0.169];   // 0x5E452B dark old bronze (sheltered) — self-suppresses in the fold
+const _VRD_DROWN = [0.118, 0.247, 0.255];    // 0x1E3F41 drowned slate-teal (below the tilted waterline)
+function bakeVerdigris(geo, waterY = 0.0) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // face normal
+    const base = nr.y > 0.35 ? _VRD_PATINA : _VRD_BRONZE;                                  // exposure key: rained-on vs sheltered
+    for (let k = 0; k < 3; k++) {
+      const o = (i + k) * 3, wet = Math.min(1, Math.max(0, (waterY + 0.04 - pos.getY(i + k)) / 0.12));   // drowned merge below the waterline
+      col[o] = base[0] * (1 - wet) + _VRD_DROWN[0] * wet;
+      col[o + 1] = base[1] * (1 - wet) + _VRD_DROWN[1] * wet;
+      col[o + 2] = base[2] * (1 - wet) + _VRD_DROWN[2] * wet;
+    }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+const _VRD_EDGE = [0.541, 0.420, 0.247];   // 0x8A6B3F worn gold-brown raised edge (bronzeEdge) — modelled wear, GEOMETRIC not keyed
 // PROTECTED-recess Pompeian-red fresco (§2B) — bake:'fresco'. Normal-keyed 2-zone like the bloom bake:
 // a weathered lit edge on up/out faces → deep wine-red in the recess, so a niche reads as painted plaster
 // with value, not a flat red decal. Deliberately OFF the magenta danger lane (bulletcontrast law).
@@ -969,13 +1009,15 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], forumDarkB = [], frescoB = [], pineB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], forumDarkB = [], frescoB = [], pineB = [], verdigrisB = [], bronzeEdgeB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
     else if (p.bake === 'forumdark') forumDarkB.push(g);                 // tagged → REPOUSSOIR dark travertine (two-shelf masses: basilica wall + aqueduct frame)
+    else if (p.bake === 'verdigris') verdigrisB.push(g);                 // tagged → VERDIGRIS BRONZE exposure patina (colossus body)
+    else if (p.bake === 'bronzeEdge') bronzeEdgeB.push(g);               // tagged → worn gold-brown raised edge (colossus nails/knuckle/torn rim)
     else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
     else if (p.bake === 'pine') pineB.push(g);                           // tagged → near-black stone-pine/cypress (Lorrain side-frame, PR-4)
     else if (p.bake === 'root') root.push(g);                            // tagged → dark green foliage (roots/branches)
@@ -1000,10 +1042,12 @@ function mergeLagoonParts(parts, opts = {}) {
   if (revealHiB.length) { const g = revealHiB.length > 1 ? mergeGeometries(revealHiB) : revealHiB[0]; bakeReveal(g, opts.revealHi ? opts.revealHi.y0 : 0.12, opts.revealHi ? opts.revealHi.span : 0.44); stone.push(g); }
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
   if (forumDarkB.length) { const g = forumDarkB.length > 1 ? mergeGeometries(forumDarkB) : forumDarkB[0]; bakeForumDark(g, opts.forumWaterY); stone.push(g); }
+  if (verdigrisB.length) { const g = verdigrisB.length > 1 ? mergeGeometries(verdigrisB) : verdigrisB[0]; bakeVerdigris(g, opts.forumWaterY || 0); stone.push(g); }
+  if (bronzeEdgeB.length) { const g = bronzeEdgeB.length > 1 ? mergeGeometries(bronzeEdgeB) : bronzeEdgeB[0]; bakeSolid(g, _VRD_EDGE); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   if (pineB.length) { const g = pineB.length > 1 ? mergeGeometries(pineB) : pineB[0]; bakePine(g); stone.push(g); }
   const geos = [], mats = [];
-  if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.foil ? propMats.lagoonFoil : (opts.forum ? propMats.forumStone : propMats.lagoonStone)); }
+  if (stone.length) { geos.push(stone.length > 1 ? mergeGeometries(stone) : stone[0]); mats.push(opts.verdigris ? propMats.verdigrisBronze : (opts.foil ? propMats.lagoonFoil : (opts.forum ? propMats.forumStone : propMats.lagoonStone))); }
   if (accent.length) {
     const ag = accent.length > 1 ? mergeGeometries(accent) : accent[0];
     // the stone group carries a per-vertex `color` from the bake; pad the accent group with a matching
@@ -3784,6 +3828,68 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // colossus — the DROWNED BRONZE HAND (DROWNED-FORUM-BUILD-SHEET §3 #9, PR-6). Ozymandias: a colossal right
+  // hand still reaching out of the gold mirror, palm to the lane, fingers in graduated curl — order outlasting
+  // its makers. Fable chose the HAND over the head (a face is a low-poly trap) / foot (its toes drown) / figure
+  // (a doll). Name-test = the OPPOSED THUMB (nothing else in ruin or nature has an off-plane opposing digit) +
+  // graduated finger curl/length (kills starfish/fork/spider) + the HOLLOW broken forearm (a 5mm bronze shell,
+  // never solid marble). verdigrisBronze: teal patina baked onto rain-washed up-faces, dark bronze in the
+  // shelter (the one saturated green in the biome, quarantined on bronze). UNDER the wall cornice (world top
+  // ~14-18); the pharos keeps the solo tall note. ≤150 tris, 2 material groups (verdigrisBronze + gilt).
+  colossus: {
+    step: 167, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arcade', duty: 0.55, comp: { floor: 0, sMin: 1.0, sMax: 1.0 },   // congregation-gated (density = g), on the ARCADE flank (dark bronze reads against the pierced sky-light, not the dark wall); full-size-or-absent; duty hash → an EVENT, ~1 per 2-3 congregations, never paired with the pharos
+    build: () => {
+      const parts = [];
+      const V = (g) => parts.push({ mat: 0, bake: 'verdigris', geo: g });      // patina/bronze exposure body
+      const E = (g) => parts.push({ mat: 0, bake: 'bronzeEdge', geo: g });     // worn gold-brown raised edges (GEOMETRIC wear)
+      // OBJECT SPACE (1:1 r=h coupling → uniform, so every built joint angle is honest): x across the hand
+      // (thumb side +x), y up (finger length), palm faces +z / back −z. Waterline ~object y0.03 (world 0).
+      V(xform(new THREE.BoxGeometry(0.62, 0.36, 0.24), { x: 0, y: 0.36 }));                 // metacarpal block (back-of-hand mass)
+      V(xform(new THREE.BoxGeometry(0.52, 0.30, 0.22), { x: 0, y: 0.10, z: 0.01, rx: 0.18 }));   // palm-heel wedge (drowns to the tide line)
+      E(xform(new THREE.BoxGeometry(0.60, 0.06, 0.09), { x: 0, y: 0.53, z: -0.09 }));       // KNUCKLE RIDGE bar (back-of-hand plane break, bronzeEdge)
+      // 4 FINGERS — nearly-parallel columns (spread ≤15°), 2 segments each with a hard knuckle break, graduated
+      // length + curl: index straightest/longest → pinky most curled/shortest. Tips curl toward +z (the palm).
+      const finger = (x, len, curl, rB, sides) => {
+        const kneeY = 0.53 + len * 0.5, tipY = 0.53 + len, kneeZ = curl * 0.3, tipZ = curl;
+        V(frustumBetween([x, 0.53, 0.0], [x, kneeY, kneeZ], rB, rB * 0.84, sides));          // proximal phalanx
+        V(frustumBetween([x, kneeY, kneeZ], [x, tipY, tipZ], rB * 0.84, rB * 0.62, sides));  // distal phalanx (curls)
+        E(xform(new THREE.PlaneGeometry(rB * 1.5, rB * 1.5), { x, y: tipY - 0.01, z: tipZ + 0.03, rx: -0.6 }));   // fingernail plate (bronzeEdge cap)
+      };
+      finger(0.225, 0.44, 0.05, 0.075, 4);    // INDEX — longest, straightest, silhouette-critical → 4-sided
+      finger(0.075, 0.41, 0.12, 0.072, 3);    // middle
+      finger(-0.075, 0.35, 0.19, 0.066, 3);   // ring
+      finger(-0.225, 0.27, 0.26, 0.058, 3);   // pinky — shortest, most curled
+      // THUMB — OPPOSED: outboard (+x) at the wrist, OFF the finger plane (~50°), 2 seg, ~0.6× length, curling
+      // INWARD toward the index. THE name-test cue. 4-sided (silhouette-critical).
+      V(frustumBetween([0.33, 0.16, 0.10], [0.46, 0.36, 0.06], 0.08, 0.068, 4));             // thumb metacarpal (out + up + forward)
+      V(frustumBetween([0.46, 0.36, 0.06], [0.42, 0.54, -0.04], 0.068, 0.05, 4));            // thumb distal (curls inward toward index)
+      E(xform(new THREE.PlaneGeometry(0.10, 0.10), { x: 0.42, y: 0.54, z: -0.06, rx: -0.5 }));   // thumbnail
+      // WRIST stump (mostly submerged) — an open cylinder plunging into the mirror.
+      V(xform(new THREE.CylinderGeometry(0.24, 0.27, 0.34, 5, 1, true), { x: 0, y: -0.10 }));
+      // FOREARM SECTION half-buried beside the hand — a HOLLOW broken bronze tube (the bronze-shell tell): outer
+      // shell + a dark void inner liner (FrontSide culls the tube's inner wall, so the hollow needs its own liner).
+      V(xform(new THREE.CylinderGeometry(0.17, 0.19, 0.52, 6, 1, true), { x: 0.62, y: 0.02, z: 0.30, rx: Math.PI / 2, rz: 0.35 }));   // outer shell
+      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.CylinderGeometry(0.135, 0.155, 0.52, 6, 1, true), { x: 0.62, y: 0.02, z: 0.30, rx: Math.PI / 2, rz: 0.35 }) });   // dark hollow interior
+      // GILT (mat 1) — recessed crevice slots ONLY (finger-root shadow + under the knuckle), read only at the near
+      // flyby: the withheld reward. NO glow on fingertips/nails.
+      parts.push({ mat: 1, geo: xform(new THREE.PlaneGeometry(0.50, 0.045), { x: 0, y: 0.52, z: 0.02, rx: 1.2 }) });   // finger-root shadow slot
+      const merged = mergeLagoonParts(parts, { verdigris: true, forumWaterY: 0.0 });   // exposure bake + drowned merge at the object waterline
+      skewX(merged.geometry, 0.20);   // the toppling LEAN (shear, not offsets — the pharos law): world r·k/h = 0.20 → ~11° off-plumb, inboard
+      return merged;
+    },
+    // RARE congregation EVENT on the ARCADE flank, |x| 46-58 (inner edge ≈ 37-38 ≫ 14.5 lane floor; outer ≤67 clears
+    // the aqueduct band 80-113). UNDER the wall cornice. h 14-17, r COUPLED 1:1 (uniform — a hand is all built
+    // rotations; a non-uniform scale would lie). Side-pinned rotY so the palm plane is BROADSIDE to the lane (an
+    // edge-on hand is a post — the FLAP depth trap). Bradyseism tilt ON TOP of the built lean.
+    place: (side, rnd) => {
+      const h = 14 + rnd() * 3;
+      const p = { x: side * (46 + rnd() * 12), h, r: h, tilt: side * (0.02 + rnd() * 0.015) };
+      p.rotY = (side > 0 ? -Math.PI / 2 : Math.PI / 2) + side * (rnd() * 0.16 - 0.08);   // palm broadside to the lane (never edge-on)
+      if (HERO_SET.has('colossus')) { p.rotY = -Math.PI / 2; p.tilt = 0; }
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -3834,6 +3940,7 @@ const FOAM_CFG = {
   viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
   viamarinaM: { rx: 0.30, rz: 1.0 },  // mirrored near-rail — same elliptical collar (footprint is z-mirror-symmetric)
   pharos: { r: 0.78 },   // leaning lighthouse — a round tide collar hugging the square plinth foot where the tower meets the drowned mirror
+  colossus: { r: 0.45 },   // drowned bronze hand — one round tide collar at the wrist emergence where it rises from the mirror
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
@@ -4893,6 +5000,13 @@ function writeMatrix(band, i, d) {
         const bIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
         if (heroHash(bIdx * 13 + 7) >= 0.6) active = false;             // duty cycle — the beacon is an EVENT, not wallpaper
       }
+    }
+    // LANDMARK DUTY CYCLE (Fable PR-6 colossus): a per-congregation hash keeps a comp-gated landmark to an EVENT
+    // (~1 per 2-3 congregations) so it never reads as wallpaper and never pairs in one frame with another rare
+    // landmark. Pure (no rnd) → determinism byte-identical; lagoon defs have no `duty`, so they never enter.
+    if (active && band.def.duty !== undefined) {
+      const dIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
+      if (heroHash(dIdx * 17 + 5) >= band.def.duty) active = false;
     }
     if (active && band.def.comp) {
       const g = lagoonComp(d.dist);
