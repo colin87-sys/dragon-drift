@@ -355,7 +355,7 @@ export const BIOMES = [
     // warm far air) WITHOUT reading as a warm field light; kept 1 step below the veil so props recede into it
     // rather than fuse, and chroma below the gold sockets so the rationed burn is untouched. 0 elsewhere =
     // byte-identical; the <55m floor keeps the near hero props byte-untouched.
-    propAerial: 0.55, propAerialColor: C(0x98948d),
+    propAerial: 0.65, propAerialColor: C(0x98948d),   // owner device call: 0.55 read a touch subtle → bumped to 0.65 (top of Fable's authorized 0.45–0.65 scalar band; hue/ramp unchanged) for a clearer recede while still holding the silhouette drama
     // THEOLOGY FIREWALL (the fix): "the sun is HIDDEN above the storm." An overcast storm's key light
     // is DIM + COOL-NEUTRAL, not a warm gold sun. sun was 0xffd28a @1.25 (a sunny-day key that washed
     // the whole scene warm); now a flat cool storm-grey at low intensity. Warmth survives ONLY as the
