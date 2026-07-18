@@ -3035,7 +3035,7 @@ const ARCHETYPES = {
   // LEFT→RIGHT: the upper tier dies FIRST, then a lower bay breaks, then pier stumps step down into the water
   // (last one drowned below the tide line). Fable pre-assessed. ≤150 tris.
   aqueduct: {
-    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, sizeClass: true, flankAlt: 'arch', comp: { floor: 0.45, sMin: 0.95, sMax: 1.12 },   // PROMOTED to a mid-ground register (Fable density pass): sizeClass adds a nearer 0.62 child band (inner edge ~49–70, between the basilica band and the far horizon line = repoussoir depth-layering); flankAlt:'arch' anti-phases it against the basilica wall (arches on the flank opposite the dark wall). floor stays 0.45 (flank-floor budget ceiling 1.10); sMax 1.06→1.12 swells the peaks instead
+    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arch', comp: { floor: 0.15, sMin: 0.95, sMax: 1.12 },   // flankAlt:'arch' anti-phases the arcade against the basilica wall (arches on the flank opposite the dark wall). floor 0.45→0.15 (Fable gate: a floor is a promise the BREATH can never open — the breaths must open to the fog line, so the far arcade thins between congregations and swells (sMax 1.12) at the peaks). NOTE: sizeClass dropped — the (r,h,r) scale never moves x (writeMatrix), so a smaller instance reads FARTHER, not nearer; true "nearer" needs a place()-level near-class (parked pending the two-shelf value-contrast decision)
     build: () => {
       // WORLD-ASPECT DESIGN (the arcade a1 law): the (r,h,r) placement scale multiplies object-x by r and
       // object-y by h INDEPENDENTLY (r≈100, h≈18.5 → h/r≈0.185), so a WORLD-semicircular arch must be an
@@ -3554,7 +3554,7 @@ const ARCHETYPES = {
   // a window you built a second aqueduct — the openings are DARK (bake:'reveal'). Solid wall + pierced arcade
   // alternating per flank = the two-shelf corridor. NO glow, NO gilt (a common mass; it prices the heroes). ≤150.
   basilica: {
-    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'wall', comp: { floor: 0.35, sMin: 0.92, sMax: 1.08 },   // flankAlt:'wall' (Fable density pass): the basilica holds ONE flank per congregation while the aqueduct arches take the other → the "two-shelf" Lorrain corridor (dark repoussoir wall one side, pierced arches with sky/sun-through on the other). Also cures the both-flanks barrier-merge at floor 0.35
+    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'wall', comp: { floor: 0.12, sMin: 0.92, sMax: 1.08 },   // flankAlt:'wall': the basilica holds ONE flank per congregation while the aqueduct arches take the other → the "two-shelf" Lorrain corridor. floor 0.35→0.12 (Fable gate: the breaths must OPEN — the wall thins between congregations to clear the fog-line sightline on at least one flank, and swells back at the peaks)
     build: () => {
       const parts = [];
       // WORLD-ASPECT: a TALL wall, so R_NOM≪H_NOM is wrong — this is 80 long × 34 tall; couple h=0.94·r in
