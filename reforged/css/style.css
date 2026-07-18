@@ -250,7 +250,6 @@ body.app-loaded > canvas { opacity: 1; }
    renders, so it is stripped. The visible multiplier (.gauntlet-x) owns its own token size,
    tabular numerals and the gold→white-hot colour ramp; only the opacity escalation is kept. */
 .combo { font-weight: 700; margin-top: 2px; opacity: 0.7; transition: opacity 0.25s; }
-.combo .combo-x { display: inline-block; }
 .combo[data-tier="1"], .combo[data-tier="2"], .combo[data-tier="3"],
 .combo[data-tier="4"], .combo[data-tier="5"] { opacity: 1; }
 @keyframes combo-pop { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }

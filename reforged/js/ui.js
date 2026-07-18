@@ -903,7 +903,7 @@ export const ui = {
       lastSpeedlines = slOpacity;
     }
 
-    // Score pulses while boosting, warms with combo, glows pink during fever
+    // Score pulses while boosting, warms with combo, goes white-hot ember during fever
     els.score.classList.toggle('boost-pulse', player.boosting);
     els.score.classList.toggle('fever', game.feverActive);
     const tier = game.feverActive ? 5 : comboTier(game.combo);
