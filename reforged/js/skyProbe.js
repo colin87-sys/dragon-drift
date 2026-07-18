@@ -84,7 +84,10 @@ export function skyColorAt(d, env, sunDir, out) {
   const t2 = smoothstep(0.2 - 0.13 * b, 0.7 - 0.34 * b, h);
   const ff = env.fogFarMix * (1.0 - smoothstep(0.0, 0.15, h));
   const s = Math.max(d.x * sunDir.x + d.y * sunDir.y + d.z * sunDir.z, 0);
-  const glow = Math.pow(s, 10.0) * 0.16;
+  // THE EMPYREAN: the visible sky shader kills the broad sun glow via (1 - uEmpyMix); mirror that here or
+  // probe-ON (?ibl) re-introduces a directional sun lobe into the sourceless void (the SH fill would carry a
+  // sun the dome doesn't draw). 0 empyMix → ×1 → byte-identical (guards tests/skyprobe.mjs).
+  const glow = Math.pow(s, 10.0) * 0.16 * (1.0 - (env.empyMix || 0));
   const H = env.skyHorizon, M = env.skyMid, T = env.skyTop, F = env.fogFarColor, G = env.sunGlow;
   out.x = lerp(lerp(lerp(H.r, M.r, t1), T.r, t2), F.r, ff) + G.r * glow;
   out.y = lerp(lerp(lerp(H.g, M.g, t1), T.g, t2), F.g, ff) + G.g * glow;

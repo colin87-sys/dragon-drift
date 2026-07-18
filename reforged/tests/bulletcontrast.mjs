@@ -62,15 +62,20 @@ const REFLECTED_CYAN = 0x66ddff;
 // rework). The outline+white-core system still gives a strong layered read
 // against this biome's FOG; only the distant horizon strip falls short. Tracked
 // here, not silently ignored — any OTHER failure still fails the gate hard.
-// THE EMPYREAN is the same class as AMBER WASTES, harder: its ENTIRE field is deliberately high-key
-// (the Inversion Law — "light is the field; dark is the only threat"; fog L≈0.84, horizon L≈0.83, both
-// above the layered read's ≤0.75 ceiling). The BAND flips dark and clears directly, but the two FIXED
-// reflect role-colours (amber L≈0.77 / cyan L≈0.78 — never biome-tinted, no per-biome lever, REFLECT_COLOR
-// pinned) can't clear a field that bright, and the failure trips on FOG first (Wastes only failed on the
-// distant horizon). Accepted because the Empyrean ships a BREATHER (EMPYREAN-BIBLE.md §7 — no anchored
-// boss, hazard deferred): boss reflect/parry bullets render against THE UNMASKED's DARK arena skin
-// (ARENA_CONTRAST below — the RENDERED authority), never against this bright biome sky. Any OTHER Empyrean
-// failure still fails the gate hard.
+// THE EMPYREAN is the same class as AMBER WASTES, harder: its ENTIRE field is deliberately high-key (the
+// Inversion Law — "light is the field; dark is the only threat"; fog L≈0.84, horizon L≈0.83, both above
+// the layered read's ≤0.75 ceiling). The BAND flips dark and clears directly, but the two FIXED reflect
+// role-colours (amber L≈0.77 / cyan L≈0.78 — never biome-tinted, no per-biome lever, REFLECT_COLOR pinned)
+// can't clear a field that bright. It's the SAME accepted exception AMBER WASTES already carries for these
+// fixed colours on a bright sky — extended to the Empyrean's FOG side too, because here even the NEAR fog
+// exceeds the layered ceiling (Wastes only failed on the distant horizon; Wastes' near fog L≈0.72 still
+// gives a layered read). What backstops it at runtime: reflect/parry bullets are only ever fired AT/NEAR a
+// boss, whose dark T5 silhouette provides the local contrast the sky can't (the AMBER-WASTES-regime
+// reasoning this gate's own header note spells out) — AND the Empyrean ships a BREATHER (EMPYREAN-BIBLE.md
+// §7: no anchored boss, the THE UNMASKED coupling deferred), so there is no biome-5 boss by design yet.
+// The DEEPER options (exclude biome 5 from the boss scheduler like aurora blocks, or a per-biome reflect-
+// colour lift) are tracked for the boss-coupling work, NOT bolted onto the atmosphere PRs. Any OTHER
+// Empyrean failure still fails the gate hard.
 const KNOWN_EXCEPTIONS = new Set([
   'AMBER WASTES|reflect-amber|horizon',
   'AMBER WASTES|reflected-cyan|horizon',
