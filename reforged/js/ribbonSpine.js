@@ -41,6 +41,11 @@ export function initRibbonSim(rib, opts = {}) {
     minSample: opts.minSample ?? 0.08,
     swimAmp: opts.swimAmp ?? 0.16, swimFreq: opts.swimFreq ?? 0.9, swimSpeed: opts.swimSpeed ?? 3.0,
     headFade: opts.headFade ?? 4,
+    // STEER CURL: a lateral bend the caller ramps up with SUSTAINED steering (set S.curl each tick,
+    // signed [-1,1]). Once steering saturates to a diagonal the head path stops curving, so a held
+    // turn would look like a momentary one; this curls the trailing body into the turn on top of the
+    // path — the "twirl" beat. Quadratic in arc length → the tail curls most (a J-hook).
+    curl: 0, curlAmp: opts.curlAmp ?? 2.6,
   };
   return rib.sim;
 }
@@ -164,6 +169,17 @@ export function updateRibbonSim(rib, hx, hy, hz, fwd, dt) {
       const arc = S.segCum[i];
       const fade = Math.min(1, i / S.headFade);
       const off = S.swimAmp * fade * Math.sin(S.swimFreq * arc - S.swimSpeed * S.swimT);
+      S.sx[i] += S.bx[i] * off; S.sy[i] += S.by[i] * off; S.sz[i] += S.bz[i] * off;
+    }
+  }
+  // STEER CURL — sustained steering (S.curl, smoothed by the caller so a flick barely curls) bends
+  // the trailing body into the turn, quadratic in arc length so the tail hooks most. Zero at rest,
+  // so a straight flight stays a clean line.
+  if (S.curl) {
+    const bodyLen = S.segCum[N - 1] || 1;
+    for (let i = 0; i < N; i++) {
+      const k = S.segCum[i] / bodyLen;
+      const off = S.curlAmp * S.curl * k * k;
       S.sx[i] += S.bx[i] * off; S.sy[i] += S.by[i] * off; S.sz[i] += S.bz[i] * off;
     }
   }
