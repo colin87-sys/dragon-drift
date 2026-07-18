@@ -167,4 +167,13 @@ function applyMix(env, mix) {
     if (m < T0) { copyInto(env, VOID); blend(env, GOLDFLOOD, sstep(m / T0)); }
     else { copyInto(env, GOLDFLOOD); blend(env, HEAVEN, sstep((m - T0) / (1 - T0))); }
   }
+  // THE EMPYREAN is THE UNMASKED's anchor biome, so its arena WILL start in biome 5. The empy/nacre gates
+  // are graphics-stream fields the arena palette does NOT lerp (like auroraMix/breachMix/deckBias — 24 such
+  // gates, by design), so silence them explicitly as the arena floods the sky/water, or the Empyrean bloom +
+  // sun-kill + nacre would draw OVER the void/heaven. Fade with the flood; 0 at full void/heaven. (mix===0
+  // returns before applyMix → byte-identical off-arena; non-Empyrean biomes have empy/nacre 0 already.)
+  const _k = 1.0 - Math.min(1, mix);
+  env.empyMix *= _k;
+  env.nacreMix *= _k;
+  env.moteMix *= _k;   // the Mote must not hang over the void/heaven either (THE UNMASKED IS the Mote when the coupling lands — boss-side work)
 }

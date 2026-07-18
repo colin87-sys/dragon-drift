@@ -93,6 +93,12 @@ const sharedUniforms = {
   uReflStretch: { value: 0 },
   uReflGlint: { value: 0 },
   uReflGreenPull: { value: 0 },
+  // THE EMPYREAN — NACRE (EMPYREAN-BIBLE.md §4b): mother-of-pearl water, not a mirror. 0 = shipped
+  // (byte-identical). >0 KILLS the pow-240 sun-glitter lane + the cheap sparkle flakes (the second engine
+  // sun — R1's named failure mode) and replaces them with a broad fresnel SATIN sheen (luster, not gloss)
+  // + a constrained thin-film IRIDESCENCE band (rose↔lilac↔periwinkle, off green+gold) firing on crest
+  // faces at grazing angles. MUST live here or it vanishes on the reflective↔cheap/swell tier rebuild.
+  uNacreMix: { value: 0 },
   // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
   // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
   // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
@@ -188,6 +194,7 @@ const fragmentShader = /* glsl */`
   uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   uniform vec3 uHeroPos, uHeroCol; uniform float uHeroPool; // Fable 75: player light-pool on the mirror (0 = shipped)
   uniform float uReflStretch, uReflGlint, uReflGreenPull;    // Fable 85: reflection craft (0 = shipped)
+  uniform float uNacreMix;   // THE EMPYREAN nacre (§4b): 0 = shipped; >0 kills the sun-glitter + adds satin sheen + iridescence
   uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
@@ -299,7 +306,7 @@ const fragmentShader = /* glsl */`
       vec3 R = reflect(-V, N);
       refl = mix(horizonColor, zenithColor, pow(clamp(R.y, 0.0, 1.0), 0.55));
       float sk = hash(floor(p * 2.6) + floor(time * 3.0));
-      refl += sunColor * step(0.985, sk) * 2.2 * pow(1.0 - NdotV, 2.0);
+      refl += sunColor * step(0.985, sk) * 2.2 * pow(1.0 - NdotV, 2.0) * (1.0 - uNacreMix);   // nacre: the cheap sparkle flakes ARE the plastic-pearlescent tell — killed on the nacre water (§4b)
       // Aurora sheen (tier2 has no mirror): a horizonward green glow so weak devices keep the
       // biome's money shot. uAuroraGlow is 0 in every other biome → byte-identical.
       refl += vec3(0.33, 1.0, 0.52) * 0.4 * pow(1.0 - clamp(R.y, 0.0, 1.0), 3.0) * uAuroraGlow;
@@ -325,6 +332,35 @@ const fragmentShader = /* glsl */`
     }
     vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0) * (1.0 - 0.45 * uStormSea));
 
+    // THE EMPYREAN — NACRE (§4b, uNacreMix 0 = shipped byte-identical; R1 consumed). Mother-of-pearl, not
+    // a mirror: luster, not gloss. TWO cheap fragment terms, both view-driven (NO sun direction → no source):
+    //  (1) a broad fresnel-weighted SATIN sheen — a wide soft grazing lift (the anti-glitter lobe), and
+    //  (2) a constrained thin-film IRIDESCENCE band whose gamut is rose↔lilac↔periwinkle ONLY (the cosine
+    //      stops can't reach green or gold), firing on CREST faces at GRAZING angles and dying in troughs
+    //      (that's where real nacre fires). Banded + angular + soft — never the oil-slick rainbow or the
+    //      plastic car-paint sheen. The pow-240 sun-glitter + the cheap sparkle flakes are killed below.
+    if (uNacreMix > 0.0001) {
+      float _graze = pow(1.0 - NdotV, 1.7);                 // grazing-view weight — broadened so the mid-field fires too, not only the far horizon
+      float _crest = mix(0.34, 1.0, smoothstep(-0.06, 0.14, h));   // a base luster everywhere, STRONGER on crest faces (still recedes in the deep troughs) — the calm swell has little crest, so a floor keeps the read
+      // Interference bands: t from fresnel + wave height → a repeating rose→lilac→periwinkle sweep (the real
+      // nacre band ORDER). Higher frequency → more, tighter bands (the interference read); the two mixes keep
+      // the gamut off green + off gold. fract() gives the repeat.
+      float _it = fract(fresnel * 3.4 + h * 2.6);
+      vec3 _irid = _it < 0.5 ? mix(vec3(0.949, 0.769, 0.863), vec3(0.863, 0.824, 0.941), _it * 2.0)
+                             : mix(vec3(0.863, 0.824, 0.941), vec3(0.769, 0.804, 0.957), (_it - 0.5) * 2.0);
+      col = mix(col, _irid, uNacreMix * _graze * _crest * 0.62);   // luster read — banded + angular + soft, never an oil slick
+      // SECOND interference order (Fable-model gate: the water read as one-hue "violet satin"; nacre needs a
+      // second interference hue to become true mother-of-pearl). A BROAD low-frequency sweep keyed to WORLD
+      // position (not view), so at a glance the surface crosses between periwinkle-violet and a soft ROSE
+      // across its expanse — along-surface zones that read as FORM, not a painted stripe. ΔH only, S≈0.15
+      // (≤0.30 cap), sourceless, still off green + gold. Softer/broader than the primary band.
+      float _it2 = fract(dot(vWorldPos.xz, vec2(0.011, 0.008)) + h * 0.4 + fresnel * 0.5);
+      vec3 _irid2 = mix(vec3(0.786, 0.772, 0.918), vec3(0.949, 0.792, 0.872), smoothstep(0.18, 0.82, _it2));   // periwinkle-violet ↔ soft rose
+      col = mix(col, _irid2, uNacreMix * _graze * _crest * 0.34);
+      // Broad SATIN sheen: a wide soft grazing lift, no sun dir — the luster read that replaces the glint.
+      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix;
+    }
+
     // Golden sun streak: compress the normal's x so the highlight stretches
     // toward the camera (classic low-sun water glitter lane).
     // STORMSEA: the sun is HIDDEN behind the deck — there is no coherent specular PATH to the viewer.
@@ -333,7 +369,10 @@ const fragmentShader = /* glsl */`
     vec3 Ns = normalize(vec3(N.x * mix(0.30, 0.70, uStormSea), N.y, N.z));
     vec3 H = normalize(normalize(sunDir) + V);
     float spec = pow(max(dot(Ns, H), 0.0), 240.0);
-    col += sunColor * spec * 2.6 * (1.0 - 0.45 * uStormSea);
+    // THE EMPYREAN sun #2 kill (§4b): the classic low-sun pow-240 glitter LANE is a mirror-sharp
+    // directional glint keyed on sunDir — a sun by any other name. × (1 - uNacreMix) → gone on the nacre
+    // water; the broad view-driven satin sheen above carries the luster instead. 0 elsewhere → byte-identical.
+    col += sunColor * spec * 2.6 * (1.0 - 0.45 * uStormSea) * (1.0 - uNacreMix);
     // HEAVEN reflection COLUMN: a broad soft gold lobe under the detonation — the sea-scale answer to the
     // sky-scale blast (the thin pow-240 glitter alone was nowhere near the scale of the fire). Breathes.
     col += sunColor * pow(max(dot(Ns, H), 0.0), 18.0) * 0.35 * uHeavenGlow * breath;   // 0.35 (not 0.5): the column sits in the parry corridor — keep fairness headroom under the p90 cap
@@ -732,9 +771,10 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull, nacreMix }) {
   if (!water) return;
   const u = water.material.uniforms;
+  u.uNacreMix.value = nacreMix || 0;   // THE EMPYREAN nacre (§4b); 0 in every other biome → byte-identical water
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical

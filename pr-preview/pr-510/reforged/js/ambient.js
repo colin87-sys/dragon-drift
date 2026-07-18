@@ -216,7 +216,9 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
 
   // Sky whale: drifts the far horizon, fading with the biome seam.
   if (whale) {
-    const mix = env.whaleMix;
+    // §8: the whale MESH shows only the non-mote remainder of the landmark mix — a 'mote' landmark biome
+    // (the Empyrean) renders the Mote (a sky-shader term) instead, so its whale portion is subtracted out.
+    const mix = env.whaleMix - (env.moteMix || 0);
     whale.visible = mix > 0.02;
     if (whale.visible) {
       whaleTail.material.opacity = mix * 0.92;
