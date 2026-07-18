@@ -218,7 +218,11 @@ export function updateHazards(dt, player, time) {
       const firing = bt >= 0 && bt < 0.35;
       const charge = charging ? cyc / v.warn : 0;
       const pulseHz = 2.0 + charge * charge * 3.0;                  // 2→5Hz accelerate (the "about to fire" grammar)
-      const pulse = 0.5 + 0.5 * Math.sin(time * pulseHz * 6.283);
+      // Phase ACCUMULATOR, not sin(absolute-time × ramping-Hz): multiplying the large
+      // absolute `time` by a changing pulseHz aliases into hundreds of Hz of shimmer
+      // within the first minute of a run. Integrate the instantaneous frequency instead.
+      v.pulsePhase = (v.pulsePhase || 0) + pulseHz * dt;
+      const pulse = 0.5 + 0.5 * Math.sin(v.pulsePhase * 6.283);
       if (firing) {
         if (!v.fired) { lightningStrike(v.x, -v.dist, 1.0); v.fired = true; }   // the bolt + full flash, at the site
         v.bruise.material.opacity = 0.0;

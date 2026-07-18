@@ -33,6 +33,16 @@ const GODRAY_TINT_DEF = new THREE.Color(1.0, 0.9, 0.72);
 
 const C = (hex) => new THREE.Color(hex);
 
+// THE DROWNED FORUM seam (DROWNED-FORUM-BUILD-SHEET.md §5 PR-1): `?props=forum` swaps Biome 0's
+// ATMOSPHERE to the sunken-Pompeii palette (§2D) at the same time environment.js swaps its props —
+// so the gold-on-water sky and the Roman kit always travel together. Default (flag absent, and always
+// in headless where there is no window) = THE LOST LAGOON, byte-identical, until the PR-8 flip. The
+// palette itself is exported as FORUM_BIOME0 and validated unconditionally by tests/bulletcontrast.mjs
+// (the danger-magenta hue-safety gate the sheet mandates after every palette change).
+const _biomeParams = (typeof window !== 'undefined' && window.location)
+  ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const PROPS_FORUM = _biomeParams.get('props') === 'forum';
+
 // Canonical sun direction — a low sun ahead of the player. Shared by the sky
 // shader, the water shader and the god-ray pass so the light shafts streak from
 // exactly where the visible sun disc sits. (Previously duplicated as a literal
@@ -405,6 +415,52 @@ export const BIOMES = [
     // frame transiently — its grade is CAPPED there so the magenta danger still clears at peak.
   },
 ];
+
+// ── THE DROWNED FORUM — Biome 0 atmosphere substrate (DROWNED-FORUM-BUILD-SHEET §2D) ──────────────
+// "The light still keeps its appointments" — a straight gold sun-lane down a drowned Roman axis, over
+// a wine-dark bay, under a Mediterranean dusk. The green purge: no jade water, no jungle horizon; the
+// warmth reads rich ONLY because of THREE cool anchors (the anti-"orange-soup" law, §2C) — wine-dark
+// DEEP water, violet-slate ZENITH, and the slate-teal hemisphere bounce (the drowned bases live on the
+// props, PR-2+). Built as a spread over the shipped LOST LAGOON entry so every field the sheet doesn't
+// re-spec (keyShift, stars, matIndex, faunaFlyby…) inherits unchanged; only the §2D fields move.
+export const FORUM_BIOME0 = {
+  ...BIOMES[0],
+  name: 'THE DROWNED FORUM',
+  // Mediterranean dusk: violet-slate zenith (a COOL ANCHOR) → rose mid → apricot horizon → warm sun.
+  // The horizon is authored at L≈0.74 — deliberately UNDER the 0.75 layered-read ceiling (the same
+  // discipline the Tempest horizon documents) so the fixed magenta danger bullet + the amber/cyan swat
+  // roles all clear it via the outline/white-core read (bulletcontrast). Bloom + the god-ray swell lift
+  // it on screen to a brilliant apricot sun-slot; readable in authoring space, gorgeous when lit.
+  sky: { top: C(0x3a3f66), mid: C(0xe8907a), horizon: C(0xf7b276), sun: C(0xffd891),
+    // Warm Mediterranean dusk cumulus — apricot-lit tops over cool violet-slate undersides.
+    cloud: { amount: 0.8, lit: C(0xffe0b4), shadow: C(0x2a2c44) } },
+  // Warm gold-umber fog pushed hard into distance (§2D) — the binder that melts the ranks of arches
+  // into the sun. NEAR = gold-umber (L≈0.73, under the read ceiling so the danger band clears it);
+  // FAR melts one step brighter toward the sun-lane so the city dissolves into gold, not grey.
+  fog: { color: C(0xe8b27e), near: 74, far: 440 },
+  fogFarColor: C(0xf0c48c),
+  atmos: { heightK: 0.025 },   // evening bay-mist pooling on the water; dive into the hush, climb into clear gold
+  // Low warm sun; hemiSky is the COOL violet-slate sky-fill and hemiGround the drowned SLATE-TEAL water
+  // bounce — the two cool anchors that keep the gold from going to soup (§2C). sunI a hair under the
+  // lagoon so the mirror stays the composition's spine, not a glare.
+  light: { sun: C(0xffc98a), sunI: 1.5, hemiSky: C(0x9aa0c0), hemiGround: C(0x2e5850) },
+  // Wine-dark deep (the third cool anchor) + Baiae glass-turquoise shallow, sunset-warmed. Calm waveAmp:
+  // a BAY, not a sea — ≥45% of the visible water must stay an unbroken mirror (the awe is in the silence).
+  water: { deep: C(0x0d2b36), shallow: C(0x54a090), waveAmp: 0.3 },
+  // Gold-dust motes drifting on the bay air (replaces the lagoon's blossom-petal wind) — fine, warm, slow.
+  ambient: { color: C(0xf2d9a8), fall: 0.35, sway: 2.0, size: 0.3, opacity: 0.6 },
+  // Pale gulls down the sun-lane — the deliberate SCALE ANCHORS (§11.8) that make a 40m arch feel 40m.
+  fauna: { color: C(0xf2e6ce), scale: 1.15, flap: 0.6 },
+  // No per-biome bullet override needed: the bright gold-umber fog + apricot horizon push the DEFAULT
+  // danger/band/swat colours clear of both backgrounds (verified in bulletcontrast) — drop the lagoon's
+  // dark-band lift, which existed only for the lagoon's DARK teal fog.
+  bullets: undefined,
+};
+
+// The forum atmosphere rides the SAME `?props=forum` flag as its props (environment.js). Default and
+// headless (no window) → BIOMES[0] stays THE LOST LAGOON, so gold-determinism / biomecycle are
+// byte-identical. A const array's ELEMENT may be reassigned (const only pins the binding).
+if (PROPS_FORUM) BIOMES[0] = FORUM_BIOME0;
 
 // The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
 // array order. This indirection lets a new biome be APPENDED to BIOMES (with its mats/skins/

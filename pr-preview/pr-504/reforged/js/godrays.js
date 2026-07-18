@@ -167,6 +167,12 @@ export function resizeGodRays() {
 // Render the sky=white / geometry=black mask. Called once per frame, right
 // before the composer, only while god-rays are active.
 let _maskParity = 0, _maskEver = false;
+// Mask duty divisor: render the full mask pass on 1 of every _maskDuty frames (default 3 = 1/3, shipped).
+// The boss-fight perf diet stretches this to 1/6 on a STRUGGLING device only (paired with a god-ray DIM so
+// the extra staleness is invisible) — a fixed-cost extra scene pass halved when the frame can't afford it.
+// Capable devices never engage the diet, so this stays 3 → byte-identical.
+let _maskDuty = 3;
+export function setGodRayMaskDuty(n) { _maskDuty = Math.max(1, n | 0); }
 export function renderGodRayMask() {
   if (!_enabled || !occRT || !_renderer) return;
   // DUTY-CYCLE + STAGGER: the mask is a FULL extra scene render (~169 draw calls — every layer-0 mesh
@@ -177,7 +183,7 @@ export function renderGodRayMask() {
   // is never a black mask. (The clean structural win — deriving the mask from the depth buffer to drop
   // this pass entirely — is deferred pending real-GPU MSAA-depth verification.)
   const p = _maskParity++;
-  if (_maskEver && (p % 3) !== 1) return;
+  if (_maskEver && (p % _maskDuty) !== 1) return;
   _maskEver = true;
   const r = _renderer;
   const pTarget = r.getRenderTarget();

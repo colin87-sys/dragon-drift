@@ -243,7 +243,7 @@ export const DRAGONS = {
     // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
     // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
-    parts: { torso: 'koiSerpent', wings: 'silkFinWings', head: 'draconic', tail: 'none' },
+    parts: { torso: 'jadeSerpent', wings: 'none', head: 'draconic', tail: 'none' },   // fresh spine-frame skeleton (dragonJadeSerpent) owns the body web-fans + leaf-fork tail; no wing module, no chin pearl (Fable gate r3: the pearl read as a floating jaw orb)
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
       // ── UNDULATING KOI BODY (koiSerpent) ──────────────────────────────────────
@@ -251,12 +251,13 @@ export const DRAGONS = {
       // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
       // stacked spheres that read as an "astral worm." The tail is the tapering rear of
       // this same tube (parts.tail:'none'), continuous by construction.
-      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 6, bodyGlow: 0.2, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,   // hexagonal cross-section → the tube reads CLEARLY faceted paper-craft (8 sides looked round); green emissive floor holds jade under cool ambient
       bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
       bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
       bodyWaveSpeed: 3.2,                 // cruise wave rate (dragon.js eases it up with speed)
-      bodyArcY: 0.14,                     // resting vertical S (line-of-action)
+      bodyArcY: 0.14,                     // resting vertical S (line-of-action) — ladders 0.14→0.16→0.19 per form (§3a.C)
+      crestColor: 0xbdf5d0,               // P4 — the dorsal crest ribbon paint (diffuse only); nullable caudalBloom/crestRibbon dials accrete per-form below
       // silk-fin fans beat SYMMETRICALLY in flight (dragon.js): the N lobes fire L_i↔R_i
       // together with a small inboard→outboard lag (a living koi-fin beat, both fans in sync).
       lobeBeatAmp: 0.3, lobeBeatLag: 0.5,
@@ -271,7 +272,11 @@ export const DRAGONS = {
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
-      finGlow: 0.6,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
+      finGlow: 0.22,                     // modest GREEN emissive floor — holds jade in cool light but LOW enough that the fan's emerald hub / pale arc / pleat-rib value structure reads (0.6 washed the broad fans flat-pale)
+      fanSpread: 0.66, fanPleat: 0.08, fanMarch: 0.62, fanRadius: 0.42,   // broad koi web-fan dials (IMG_7739): PROPORTIONAL fans (smaller) marching well down the LONG body — not giant kite-wings
+      bodyLatArc: 1.05, bodyLatWaves: 1.7,   // an OPEN resting S (≈1.5 clean waves), not a tight closed loop (Fable gate)
+      bodyFinScale: 4.6, bodyFinTilt: 0.5,   // BODY WEB-FANS: mounted LATERALLY (perpendicular-ish to the spine, fanning out + slightly up) as a consistent mirrored row — the reference's koi web-fan row
+      finsOnBody: true,                  // the fans live in the TORSO now (spine-frame mounted) → silkFinWings builds only the chin pearl
       finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
       spineGlow: 0.3,
       flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
@@ -288,11 +293,13 @@ export const DRAGONS = {
       // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
       { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
-        bodyGirth: 0.66, bodyLength: 1.7,   // chubby river-pup: still a long koi, but its BIG head makes it read short (head:body ~3)
+        bodyGirth: 0.6, bodyLength: 1.7,   // chubby river-pup — but already a long-ish koi so the fins read proportional
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
-        lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        lobeCount: 2, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        bodyFins: 0.6, bodyFinCount: 3, caudalFork: 0.4, bodyReach: 11,   // whelp: a few small budding web-fans + a short leaf-fork; a proper RIBBON length even on the pup (Fable ribbon gate: the body IS the ribbon → give it real length to trail)
         moonTail: 0.15,                    // GLOW-UP ladder: the tiniest veiltail NUB on the pup, so the tail grows pup-nub → bud → full veiltail across the three forms (same dragon growing, not a leap)
+        crestRibbon: 0.2,                  // AAA: a faint nape hint of the dorsal crest ribbon (§5 ladder) — paint only, byte-identical geometry
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
         colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
           wingEmissive: 0x9ff0c8, scales: 0x9fe6c4, horn: 0xcfe8c0,
@@ -301,11 +308,15 @@ export const DRAGONS = {
       // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
       { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
-        bodyGirth: 0.58, bodyLength: 1.35,   // lengthening river-serpent
+        bodyGirth: 0.48, bodyLength: 1.7,   // lengthening river-serpent — long + slim so the web-fans sit proportional
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
-        lobeCount: 3, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        lobeCount: 2, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        bodyFins: 0.85, bodyFinCount: 4, caudalFork: 0.65, bodyReach: 16,   // web-fans unfurl down the lengthening body; leaf-fork buds — a long trailing ribbon (Fable ribbon gate)
         moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
+        caudalBloom: 0.35,                 // AAA §5: the fan BUDS (split barely dimples) — ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
+        crestRibbon: 0.55, bodyArcY: 0.16, bodyWaveAmpY: 0.18,   // AAA §5: the ribbon becomes a line; the vertical swim share deepens (rear-visible majesty, lateral amp untouched)
+        lobeBreath: 0.05,                  // AAA §5: the pectoral fan starts to breathe open on the swim crest (wave-locked)
         rayRelief: 0.5,                    // GLOW-UP ladder: the silk STARTS to ray at Kindled ("lobes unfurl") — a partial pre-echo of the apex's full koi-fin rays, so f1 reads as the adolescent stage of the SAME rayed silk, not a plain smaller dragon. (Dew gems stay apex-exclusive — the coronation reward.)
         tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
@@ -315,14 +326,18 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
-        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
-        bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
+      { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.74, eyeShape: 0.78, cuteEye: false,   // solid luminous-green gem eye (no black cartoon pupil) — Fable gate r7
+        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.2, hornCount: 2,
+        bodyGirth: 0.46, bodyLength: 1.8,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube. Fable ribbon gate: the follow-the-leader body IS the ribbon, so it needs true trailing length (reach 14→20) to read as a gymnast's ribbon, not a sash.
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
+        lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 0,   // pearlStage 0: drop the chin pearl entirely — it read as a floating blob under the jaw and isn't a reference feature (Fable gate r2)
+        bodyFins: 1.0, bodyFinCount: 6, caudalFork: 1.0, bodyReach: 20,    // full ROW of broad koi web-fans down a LONG serpent + the grand leaf-fork tail (IMG_7739)
         rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
-        tipGems: 1,                        // GLOW-UP apex: pearl-light hierarchy — fin-tip dew gems (bloom-safe opaque mint emissive; the pearl stays the hero bloom).
+        caudalBloom: 1.0,                  // AAA §5: THE GRAND FAN-BLOOM — 3-blade split caudal fan (the hero). ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
+        crestRibbon: 1.0, bodyArcY: 0.19, bodyWaveAmpY: 0.24,   // AAA §5: full seafoam ribbon; the deepest vertical swim share the rear cam reads
+        lobeBreath: 0, lyreGems: 0, streamerPulse: 0,   // OFF: these lit the OLD wing/caudal design — with the fresh spine-frame skeleton they orphaned into floating gems below the belly (Fable gate: kill the floaters)
+        tipGems: 0,                        // OFF: dew gems rode the (now-removed) wing lobes → floating diamonds. Removed.
         lobeFlareBoost: 1.25, bodyWaveAmp: 0.9, waveBreath: 0.12,   // GLOW-UP motion: fan blooms harder on boost, a deeper swim, a slow breathing meander.
         streamerCount: 3,                  // GLOW-UP: a third staggered streamer pair reads as continuous river-current
         tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
@@ -341,6 +356,12 @@ export const DRAGONS = {
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
     eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,
+    // ── THE FEVER FIELDS (§4.4) — jade is a cool dragon; the default fever palette is magenta ──
+    feverEye: 0xbdf3dc,     // REAL fix: eyeMat is driven AFTER the flare loop (dragon.js:1773) and
+                            // currently falls to the magenta 0xff66ee default on Surge — pin it mint.
+    feverWing: 0x9ff0c8,    // hygiene only: inert for jade (finMat ∈ spineMats — the flare loop overwrites
+                            // the 1595 write); documented so it never becomes a mystery later.
+    feverWash: [0.02, 0.06, 0.04],   // faint mint screen wash on Surge (setFeverTint path)
   },
 
 
@@ -538,6 +559,11 @@ export const DRAGONS = {
     // the tail boost cool; surgeMotes breathes arcane motes off the tail + body.
     hasStyle: true, surgeMotes: true,
     feverWing: 0x8a5cf0, feverEye: 0xc8a8ff, feverWash: [0.06, 0.025, 0.10],
+    // SUNBREAK I1 world-suppression DARK band: the eclipse-violet crushed to shadow
+    // (L≈0.14, B>R>G — the sovereign's hue), so a Surge darkens the world toward the
+    // dragon's own shadow, not a neutral grey. The hero-tuned reference value (a
+    // saturated eclipse-violet: R>G, B highest — so the darks read violet at distance).
+    surgeDark: [0.185, 0.11, 0.24],
     body: 0x080b14, belly: 0x1a1830, scales: 0xd4a84f, horn: 0xddc070,
     // Wing membrane runs dark copper at the ROOT → dark burnt-crimson at the
     // outer edge — antique bronze struts, blue-violet veins. Never bright orange.

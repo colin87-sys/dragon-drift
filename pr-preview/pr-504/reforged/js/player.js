@@ -223,5 +223,9 @@ export const player = {
     this.dist += this.speed * dt;
     this.position.z = -this.dist;
     this.feverActive = game.feverActive;
+    // SUNBREAK I2: mirror the REMAINING fever time so dragon.js can drive the pre-expiry
+    // ignition DECAY off it (§M.1-5 — the body dims in step with the HUD gauge, never ahead).
+    this.feverTimer = game.feverTimer;
+    this.feverDuration = CONFIG.feverDuration;
   },
 };
