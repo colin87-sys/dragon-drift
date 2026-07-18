@@ -196,7 +196,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x0d1410, emissive: 0x0a1508, emissiveIntensity: 0.1 }),   // 4 LUMEN MIRE dead/wet matter — near-black warm-neutral bark/root/mud; "matter drinks" (light-absorbing); the low emissive is only a crush floor, never a light source
-      new THREE.MeshStandardMaterial({ ...opts, color: 0xcbc7d6, emissive: 0xcdc8da, emissiveIntensity: 0.34 }),   // 5 THE EMPYREAN empyStone — pale BONE-NACRE matte. The pale emissive FLOOR is raised (0.14→0.34) so the sentinel's shadowless vertical faces read bone-white, NOT the violet the hemiGround bounce sinks them to (Fable gate: "saturated purple putty"); low-chroma cool-neutral, never warm. Not a light source — a luminance floor so undersides never crush.
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xcbc7d6, emissive: 0xcdc8da, emissiveIntensity: 0.34, vertexColors: true }),   // 5 THE EMPYREAN empyStone — pale BONE-NACRE matte. vertexColors + ladderEmissive: reads the _bakeRamp value ladder (crown-light → base-dip) so pale props get VALUE STRUCTURE + mid-field CARRY under the shadowless rig (Fable-model gate). The emissive FLOOR (0.34) keeps undersides off the violet hemiGround bounce; the ladder rides ON it. Low-chroma cool-neutral, never warm.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4b545c, roughness: 0.34, metalness: 0.06, emissive: 0x1a2228, emissiveIntensity: 0.18 }), // 7 tempest storm slate — wet dark rock (PR-1 replaces with the wind-scour vertex-colour ladder mats)
     ],
@@ -206,13 +206,15 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xd8f6ff, roughness: 0.22, emissive: 0x3fc8e8, emissiveIntensity: 0.85 }),   // Sunset Glacier: the CYAN CORE — the light inside the ice (Candle slivers + Sail panes only; warm is NEVER emissive)
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6 }), // 4 LUMEN MIRE living amber glow — firefly-gold gills/motes/lanterns; "life glows" (the ONLY emitter); off-teal by construction (~562nm warm, never 490–510nm). Fable v33: emissive ×~1.8 so existing glow pulls weight until PR-3
-      new THREE.MeshStandardMaterial({ ...opts, color: 0xe8c4d8, roughness: 0.4, emissive: 0xf2b8d8, emissiveIntensity: 0.35 }),  // 5 THE EMPYREAN empyRim — rose edge-light (PR-1 interim: the old saturated-blue "starlit crystal" glow was a cool SOURCE, forbidden). Pale rose, low emissive — an accent tint on the interim props until the PR-4/5 rim kit.
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xe8c4d8, roughness: 0.4, emissive: 0xf2b8d8, emissiveIntensity: 0.35, vertexColors: true }),  // 5 THE EMPYREAN empyRim — rose edge-light. vertexColors + ladderEmissive: the crest ramp lifts it LUMINOUS (hi>1) so the rose reads as a lit nacre bloom sitting at/above water value, never a dark decal (Fable-model gate). Pale rose, low emissive — a graze on crowns/crest ridges only, never a body tint.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
       new THREE.MeshStandardMaterial({ ...opts, color: 0xcaa25a, roughness: 0.4, metalness: 0.05, emissive: 0xffd870, emissiveIntensity: 1.5 }), // 7 tempest STOLEN GOLD — THE one burning hue in a monochrome storm (Fable: ink-dark rock + warm pale slot + rare burning gold = Tsushima storm grammar). @0.85 was invisible against grey; @1.5 makes the socket the biome's single warm accent
     ],
   };
-  for (const m of mats.primary) addPropDetail(m);
-  for (const m of mats.accent) addPropDetail(m);
+  // Index 5 (THE EMPYREAN empyStone/empyRim) gets the ladderEmissive variant so its baked value ramp
+  // (_bakeRamp) folds into emissive too — under the shadowless rig a diffuse-only ramp would wash out.
+  mats.primary.forEach((m, i) => addPropDetail(m, i === 5));
+  mats.accent.forEach((m, i) => addPropDetail(m, i === 5));
   // EMBERFALL CALDERA new-kit materials (CALDERA-BIBLE.md §5) — kept SEPARATE from the
   // legacy primary/accent[3] (which stay flat for ?props=v1). The primary is a DARK
   // basalt whose carved read comes entirely from the inverted value ladder: color white
@@ -444,7 +446,7 @@ function buildSentinelParts() {
   // The canted top-cut is a GENTLE flat SLANT (slope in x): the high point sits on the ROUNDED broad face
   // (not a sharp corner), so there is no pencil apex. Rose lives ONLY on this cut FACE + a hair of the top
   // lip — never the tapering shaft (a rose-covered taper reads as a crystal triangle, the headline fail).
-  const slope = 0.42;                  // top-cut slant ≈ 23° off horizontal (Stenness truncation)
+  const slope = 0.24;                  // top-cut slant ≈ 13° — a GENTLE truncation. A steeper cut (was 0.42) towers the high corner of this narrow blade into a rose TRIANGLE spike (Fable-model gate: "pink-tipped lance"); a shallow slant reads as a cut top, not a point, but is never level.
   // Stations: a BROAD blade with a strongly FLARED, BEDDED foot (a submerged skirt below y=0 + a foot flare
   // at the waterline → it grows OUT of the swell). Gentle taper (top ~0.7× base). cx drifts → asymmetric
   // offset taper + lean (one long edge near-vertical, the other rakes in).
@@ -488,22 +490,43 @@ function buildSentinelParts() {
   for (const p of top) { mx += p[0]; my += p[1]; mz += p[2]; }
   const ctr = [mx / seg, my / seg, mz / seg];
   for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
-  const mk = (arr) => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
-    g.computeVertexNormals();
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((arr.length / 3) * 2), 2));
-    return g;
-  };
-  return [{ mat: 0, geo: mk(body) }, { mat: 1, geo: mk(crown) }];
+  // value ladder (same as the court): bone-pale crown → a shallow base dip for carry + AO grounding.
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.68, 1.0)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.90, 1.05, 0.03)) }];
 }
 
-// A non-indexed flat-shaded geometry from a flat [x,y,z,...] triangle-soup array.
-function _mkFlatGeo(arr) {
+// THE EMPYREAN value ladder (Fable-model gate PR-5): a crown-light → base-DIP grayscale ramp baked to
+// vertex colour, keyed to normalized local height + a low-freq erosion mottle. empyStone/empyRim read it
+// via vertexColors + ladderEmissive (folds into DIFFUSE *and* EMISSIVE), so the ramp survives the
+// shadowless rig where a flat emissive floor would wash it out. This is what gives the pale props VALUE
+// STRUCTURE (crown catches the zenith, base reads as ambient occlusion) and the mid-field CARRY the harsh
+// Fable gate demanded — the base sits well under the pearl fog so the stone doesn't dissolve into it,
+// while the crown stays bone-pale. `lo`/`hi` = base/crown grayscale multipliers; `mot` = mottle depth.
+function _bakeRamp(arr, lo, hi, mot = 0.055) {
+  const n = arr.length / 3;
+  let yMin = Infinity, yMax = -Infinity;
+  for (let i = 0; i < n; i++) { const y = arr[i * 3 + 1]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
+  const span = Math.max(1e-3, yMax - yMin);
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = arr[i * 3], y = arr[i * 3 + 1], z = arr[i * 3 + 2];
+    const t = (y - yMin) / span;                                   // 0 base → 1 crown
+    const v = lo + (hi - lo) * (t * t * (3 - 2 * t));              // smoothstep ramp
+    const m = 1 + mot * (Math.sin(x * 3.1 + z * 2.3) * Math.sin(y * 4.7 - x * 1.9));  // erosion mottle (kills the flat-facet crystal tell)
+    const g = Math.max(0.05, v * m);
+    col[i * 3] = g; col[i * 3 + 1] = g; col[i * 3 + 2] = g;
+  }
+  return col;
+}
+
+// A non-indexed flat-shaded geometry from a flat [x,y,z,...] triangle-soup array. Optional `ramp` (a
+// Float32Array of per-vertex colour from _bakeRamp) bakes the Empyrean value ladder onto it.
+function _mkFlatGeo(arr, ramp) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
   g.computeVertexNormals();
   g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((arr.length / 3) * 2), 2));
+  if (ramp) g.setAttribute('color', new THREE.Float32BufferAttribute(ramp, 3));
   return g;
 }
 
@@ -551,25 +574,33 @@ function buildChoirstonesParts() {
   // is the station-2→3 band + the cut cap) — a rose-covered shaft reads as a candy crystal (the headline
   // fail). Height VARIETY comes from per-stele `sy` in the 0.6–0.95 range (SHORTER than 1 — a mid-mass
   // court that never rivals the sentinel), NEVER an amplifying stretch. Shared across all stelae.
+  // BROAD SLAB profile (Fable-model gate: "these are needles/fins, not Stenness blades"): a wide barely-
+  // tapering broad face (0.375→0.345 = 0.92×, NOT a needle) on a strongly flared BEDDED skirt, cut by a
+  // definite canted top-cut. The top two stations carry almost NO weathering jitter (amp ~0.02) so the
+  // planar cut fans to a CLEAN flat cap — the jittered narrow hexagon was fanning into a twin-prong
+  // swallow-tail (the apex-spike must-pass fail). Thin blade (zLens 0.24) so the side reads ~⅓ the face.
   const st = [
-    { y: -0.06, r: 0.490, cx: 0.000 },  // buried SKIRT — WIDEST, bedded below the waterline (grows OUT of the swell, never stabbed in)
-    { y: 0.14, r: 0.350, cx: 0.020 },   // foot tucks in — a strong flare over the bottom ~18% (Fable gate: "bed the bases")
-    { y: 0.90, r: 0.300, cx: 0.115 },   // upper shaft (crown starts here → only the top ~10% lip is rose, a thin cut-lip not a fat band)
-    { y: 1.00, r: 0.285, cx: 0.145 },   // top ring before the canted cut
+    { y: -0.06, r: 0.500, cx: 0.000 },  // buried SKIRT — WIDEST, bedded below the waterline (grows OUT, never stabbed in)
+    { y: 0.16, r: 0.375, cx: 0.020 },   // foot — strong flare over the bottom ~16%
+    { y: 0.88, r: 0.355, cx: 0.100 },   // upper shaft — BROAD, barely tapering (a slab face, not a needle)
+    { y: 1.00, r: 0.345, cx: 0.130 },   // top ring before the canted cut
   ];
-  const amp = [0.0, 0.05, 0.09, 0.07];  // radial weathering jitter (0 at the buried foot, strongest mid/shoulder)
-  const slope = 0.38;                   // top-cut slant — high point on the ROUNDED broad face → a flat cut, no apex
+  const amp = [0.0, 0.05, 0.025, 0.015]; // weathering jitter — strong at the foot, near-ZERO at the top (clean cut, no prongs)
+  const slope = 0.24;                   // GENTLE top-cut slant ≈ 13° — a truncation across the broad top, NOT a steep cut that spikes the high corner into a rose triangle (Fable-model gate must-pass)
   // greater elder (broadest, near centre, tallest of the court but still short of a sentinel)
-  _bladeInto(body, crown, { seg: 6, zLens: 0.32, slope, st, amp, sx: 1.0, sy: 0.95, ry: 0.5, tx: 0.10, tz: 0.05 });
+  _bladeInto(body, crown, { seg: 6, zLens: 0.24, slope, st, amp, sx: 1.0, sy: 0.95, ry: 0.5, tx: 0.10, tz: 0.05 });
   // 3 lesser stelae — a TIGHT irregular cluster (small tx/tz so the court footprint clears the lane),
   // each a different height (sy), broad-face facing (ry) and slight girth (sx). A congregation, not a fence.
   const L = [
-    { tx: 0.95, tz: 0.35, sy: 0.72, sx: 0.92, ry: 1.2 },
-    { tx: -0.85, tz: -0.50, sy: 0.60, sx: 0.86, ry: 2.9 },
-    { tx: 0.15, tz: 0.98, sy: 0.66, sx: 0.90, ry: 4.5 },
+    { tx: 0.95, tz: 0.35, sy: 0.74, sx: 0.94, ry: 1.2 },
+    { tx: -0.85, tz: -0.50, sy: 0.62, sx: 0.90, ry: 2.9 },
+    { tx: 0.15, tz: 0.98, sy: 0.68, sx: 0.92, ry: 4.5 },
   ];
-  for (const t of L) _bladeInto(body, crown, { seg: 5, zLens: 0.30, slope: 0.40, st, amp, ...t });
-  return [{ mat: 0, geo: _mkFlatGeo(body) }, { mat: 1, geo: _mkFlatGeo(crown) }];
+  for (const t of L) _bladeInto(body, crown, { seg: 5, zLens: 0.24, slope: 0.26, st, amp, ...t });
+  // value ladder: bone-pale upper (lifts to 1.04) → a shallow base dip (0.68) for carry + AO grounding;
+  // rose crown stays luminous.
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.68, 1.04)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.92, 1.06, 0.03)) }];
 }
 
 // Append ONE low nacre LOAF (a "surfacing back") into the body/crest triangle-soup arrays. A heightfield
@@ -599,7 +630,11 @@ function _humpInto(body, crest, { nL, nW, len, wid, hgt, ry = 0, tx = 0, tz = 0,
   const T = (p) => [p[0] * cr + p[2] * sr + tx, p[1], -p[0] * sr + p[2] * cr + tz];   // yaw about Y, then translate
   for (let i = 0; i < nL; i++) for (let j = 0; j < nW; j++) {
     const A = V[i][j], B = V[i][j + 1], C = V[i + 1][j + 1], D = V[i + 1][j];
-    const tgt = ((A[1] + B[1] + C[1] + D[1]) / 4) > roseTop * maxY ? crest : body;    // only the crest ridge is rose
+    // rose ONLY on the HIGH centerline ridge — high enough AND near the local crest line (|z| small);
+    // without the |z| gate the rose spilled onto a flank facet and read as a sticker on a shoulder (Fable).
+    const highEnough = ((A[1] + B[1] + C[1] + D[1]) / 4) > roseTop * maxY;
+    const zAbs = (Math.abs(A[2]) + Math.abs(B[2]) + Math.abs(C[2]) + Math.abs(D[2])) / 4;
+    const tgt = (highEnough && zAbs < 0.14 * wid) ? crest : body;
     const a = T(A), b = T(B), c = T(C), d = T(D);
     tgt.push(...a, ...b, ...c, ...a, ...c, ...d);                          // UP-facing winding (the cruise cam looks DOWN at the water — tops must not backface-cull)
   }
@@ -613,10 +648,18 @@ function _humpInto(body, crest, { nL, nW, len, wid, hgt, ry = 0, tx = 0, tz = 0,
 function buildPearlshoalParts() {
   const body = [], crest = [];
   // lead loaf (longest, near centre) + two smaller rest loaves — different size / yaw (fanned) / overlap.
-  _humpInto(body, crest, { nL: 6, nW: 4, len: 1.0, wid: 0.60, hgt: 0.26, ry: 0.18, tx: 0.00, tz: 0.00, roseTop: 0.72 });
-  _humpInto(body, crest, { nL: 5, nW: 4, len: 0.74, wid: 0.48, hgt: 0.205, ry: -0.55, tx: 0.52, tz: 0.44, roseTop: 0.72 });
-  _humpInto(body, crest, { nL: 4, nW: 4, len: 0.60, wid: 0.42, hgt: 0.175, ry: 0.70, tx: -0.40, tz: -0.42, roseTop: 0.72 });
-  return [{ mat: 0, geo: _mkFlatGeo(body) }, { mat: 1, geo: _mkFlatGeo(crest) }];
+  // TIGHT overlapping pod (Fable: "three disconnected flecks" → pull the rest humps in so silhouettes
+  // overlap at cruise); roseTop 0.80 → the rose is a narrow crest RIDGE (~15-20% of the top), not a panel.
+  // nW 5 on the lead rounds the plan outline off the gem-cut octagon tell.
+  _humpInto(body, crest, { nL: 6, nW: 5, len: 1.0, wid: 0.62, hgt: 0.27, ry: 0.18, tx: 0.00, tz: 0.00, roseTop: 0.86 });
+  _humpInto(body, crest, { nL: 5, nW: 4, len: 0.78, wid: 0.50, hgt: 0.215, ry: -0.50, tx: 0.40, tz: 0.30, roseTop: 0.86 });
+  _humpInto(body, crest, { nL: 4, nW: 4, len: 0.62, wid: 0.44, hgt: 0.185, ry: 0.62, tx: -0.34, tz: -0.30, roseTop: 0.86 });
+  // value ladder FLIPPED for the fog (Fable re-gate): a LOW prop fogs fast, so a dark base-dip just prints a
+  // dark chip while the pale crown dissolves. Instead the CROWN gets a fog-resistant pale-pearl LIFT (hi 1.35
+  // emissive — reads LIGHTER than the water at cruise, so the back separates as a form), and the waterline
+  // dip is shallow (0.90 — just seats it, no dark band). The rose crest ridge rides luminous on top (1.1→1.3).
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.94, 1.55)) },
+    { mat: 1, geo: _mkFlatGeo(crest, _bakeRamp(crest, 1.15, 1.40, 0.03)) }];
 }
 
 function mergeParts(parts, biomeIdx) {
@@ -631,6 +674,13 @@ function mergeParts(parts, biomeIdx) {
   }
   const geometry = mergeGeometries(geos, true);
   bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  // biome 5 mats declare vertexColors → any geometry lacking a colour attr would render BLACK (the missing-
+  // attribute default). The new roster props bake the _bakeRamp ladder; the interim legacy monolith/arcshard
+  // (box geos, ?props=v1 only) don't — give them a flat-white colour so they read as the plain pale stone.
+  if (biomeIdx === 5 && !geometry.getAttribute('color')) {
+    const w = new Float32Array(geometry.attributes.position.count * 3).fill(1);
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(w, 3));
+  }
   return { geometry, materials: mats };
 }
 
@@ -1689,9 +1739,12 @@ const ARCHETYPES = {
   pearlshoal: {
     step: 41, biomes: empyNew, matIndex: 5, comp: { floor: 0.35, sMin: 0.85, sMax: 1.1 },
     build: () => mergeParts(buildPearlshoalParts(), 5),
-    // low + wide + pushed off-lane (the pod spreads ±0.9 in object space). h tiny (only the crest crowns the
-    // water); r modest. propclearance audits the spread clears the ±16 gate veil.
-    place: (side, rnd) => ({ x: side * (24 + rnd() * 10), h: 2.2 + rnd() * 1.8, r: 4 + rnd() * 2.2, tilt: side * (rnd() * 0.03 - 0.012) }),
+    // MID-FIELD, not horizon (Fable re-gate): a low pale prop parked far off-lane sits in the thickest fog
+    // band where fog value (~L90) always exceeds the crown, so it can only wash out. Bringing it in (x 19–28)
+    // seats it on the nearer, DARKER water (~L77) so the pale-pearl crown reads LIGHTER than the local water.
+    // Bigger too (h 3.5–7, r 4.5–7.5) so the back is a real mid-mass note. Exempt-below-lane (crest never
+    // reaches the flight band), so it may sit closer than the tall stones.
+    place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 3.5 + rnd() * 3.5, r: 4.5 + rnd() * 3, tilt: side * (rnd() * 0.03 - 0.012) }),
   },
   // Interim retinted astral monolith wearing a rose band (empyOld — ?props=v1 only; replaced by the kit).
   monolith: {
