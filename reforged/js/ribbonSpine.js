@@ -35,6 +35,9 @@ export function initRibbonSim(rib, opts = {}) {
     nx: new Float32Array(N), ny: new Float32Array(N), nz: new Float32Array(N),   // normal (belly-ish)
     bx: new Float32Array(N), by: new Float32Array(N), bz: new Float32Array(N),   // binormal
     swimT: 0,
+    // the head STATION's local rest position — station 0 is pinned here so the animated body stays
+    // welded to the (separately-placed) head mesh; the sim's world head is group.localToWorld(anchor).
+    anchor: { x: rf[0].p.x, y: rf[0].p.y, z: rf[0].p.z },
     minSample: opts.minSample ?? 0.08,
     swimAmp: opts.swimAmp ?? 0.16, swimFreq: opts.swimFreq ?? 0.9, swimSpeed: opts.swimSpeed ?? 3.0,
     headFade: opts.headFade ?? 4,
@@ -180,9 +183,13 @@ export function ribbonToLocal(rib, invQuat, hx, hy, hz) {
     out.y = iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z;
     out.z = iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x;
   };
+  const a = S.anchor;
   for (let i = 0; i < S.N; i++) {
     const f = F[i];
+    // position: rotate the world offset-from-head into group-local, then pin to the head's local
+    // rest position (so station 0 lands exactly where the head mesh is, never at the group origin).
     rot(S.sx[i] - hx, S.sy[i] - hy, S.sz[i] - hz, f.p);
+    f.p.x += a.x; f.p.y += a.y; f.p.z += a.z;
     rot(S.tx[i], S.ty[i], S.tz[i], f.T);
     rot(S.nx[i], S.ny[i], S.nz[i], f.Nn);
     rot(S.bx[i], S.by[i], S.bz[i], f.B);
