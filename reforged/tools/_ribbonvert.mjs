@@ -36,12 +36,14 @@ await page.evaluate(() => {
 
 let n = 0;
 const shot = async () => { await page.screenshot({ path: `/tmp/vert-${key}-${String(n).padStart(2, '0')}.png`, timeout: 15000 }); n++; };
-// REAL key input: rapid hard UP/DOWN alternation (what the pilot does), dense filmstrip.
-const hold = async (dir, ms) => { await page.keyboard.down(dir); await page.waitForTimeout(ms); await page.keyboard.up(dir); };
-for (let i = 0; i < 20; i++) {
-  const k = (Math.floor(i / 2) % 2 === 0) ? 'ArrowUp' : 'ArrowDown';
-  await page.keyboard.down(k); await shot(); await page.waitForTimeout(55); await page.keyboard.up(k);
-  if ((await page.evaluate(() => window.__dd?.game?.state)) !== 'playing') { console.log('  ! left playing at frame', i); break; }
+// REAL key input: hold each direction ~0.32s while shooting DENSELY (~40ms) so any erratic frame-to-
+// frame motion within a single up/down stroke is legible. A few strokes: up, down, up, down.
+const dirs = ['ArrowUp', 'ArrowDown', 'ArrowUp', 'ArrowDown'];
+for (const k of dirs) {
+  await page.keyboard.down(k);
+  for (let i = 0; i < 7; i++) { await shot(); await page.waitForTimeout(40); }
+  await page.keyboard.up(k);
+  if ((await page.evaluate(() => window.__dd?.game?.state)) !== 'playing') { console.log('  ! left playing'); break; }
 }
 
 console.log(`  ✓ ${n} frames · ` + (errors.length ? 'errors: ' + errors.slice(0, 3).join(' | ') : 'no console errors'));
