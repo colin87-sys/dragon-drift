@@ -175,4 +175,5 @@ function applyMix(env, mix) {
   const _k = 1.0 - Math.min(1, mix);
   env.empyMix *= _k;
   env.nacreMix *= _k;
+  env.moteMix *= _k;   // the Mote must not hang over the void/heaven either (THE UNMASKED IS the Mote when the coupling lands — boss-side work)
 }

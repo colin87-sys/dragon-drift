@@ -270,11 +270,12 @@ export const BIOMES = [
     name: 'THE EMPYREAN',
     keyShift: 3,
     stars: 1,     // R7 bright-field treatment (§4a): the empyMix branch reshapes this to 20–60 sparse, luma-faded stars
-    // The landmark slot is EMPTY in PR-1: the shipped astral sky-whale renders a WARM TAN/GOLD body — a
-    // gold source-object in a "no gold, no source" biome (the audit's #1 firewall), and a big warm blob in
-    // the bright void. PR-3 generalizes this slot (whale → the black MOTE) and restores a landmark; until
-    // then the Aurora→Empyrean seam simply fades the curtain to clean light (whaleMix 0, no handoff object).
-    whale: 0,
+    // THE LANDMARK slot, generalized (§8, PR-3): the sky-whale machinery now declares WHICH landmark it
+    // draws. `whale: 1` drives the landmark MIX (it rides whaleMix → fades in over the 400m Aurora seam so
+    // the Mote arrives as the light does), and `landmark: 'mote'` selects the black MOTE instead of the
+    // gold whale mesh (the whale is suppressed for mote biomes in ambient.js; the Mote is a sky-shader term).
+    whale: 1,
+    landmark: 'mote',
     empy: 1.0,    // EMPYREAN gate (a new xMix): the inverted-sky nebula blooms + the sky-disc sun kill. 0 in every other biome → byte-identical (the three-touch rule; skyProbe is the 4th touch).
     bright: true, // EMBERSIGHT H6 skyLuma: the brightest field in the game → HUD keylines swap to the ember-core variant
     // INVERTED ramp (§3/§4a): value INCREASES upward — horizon → mid → ZENITH is the frame's bright pole.
@@ -512,6 +513,8 @@ const env = {
   ambColor: new THREE.Color(), ambFall: 1, ambSway: 1, ambSize: 0.4, ambOpacity: 0.75,
   faunaColor: new THREE.Color(), faunaScale: 1, faunaFlap: 1,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
+  moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
   // pattern) → the aurora sky-splice is a byte-identical no-op until a biome
   // declares `aurora`. Consumed by auroraSky.js via applyAurora(env).
@@ -633,6 +636,11 @@ export function computeEnv(dist) {
   // whaleMix now rides the SAME 400m window the curtain dies in → the "curtain hands off to the whale"
   // handoff PR-4 described finally happens in one window (was 150m while the curtain took 300m).
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, ts);
+  // THE MOTE (§8, PR-3): the portion of the landmark mix that belongs to a 'mote' landmark biome — drives
+  // the sky-shader Mote term. The whale MESH (ambient.js) shows only the NON-mote remainder (whaleMix −
+  // moteMix), so a mote biome renders the Mote, not the whale. 0 elsewhere → byte-identical.
+  const _lm = (x) => (x.landmark === 'mote' ? (x.whale || 0) : 0);
+  env.moteMix = lerp(_lm(a), _lm(b), ts);
   env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);

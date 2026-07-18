@@ -3270,6 +3270,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // LUMEN MIRE HORIZON SHAFT (Fable 90 lever-7): 0 = off → byte-identical in the other 6 biomes + all
       // skins. A sourceless warm glow-column off the horizon — metabolic light, NOT a sun.
       uShaft: { value: 0 },
+      // THE EMPYREAN — THE MOTE (§8, PR-3): 0 = off → byte-identical. uMoteMix fades the disc in over the
+      // Aurora seam; uMoteGrow (0→1 biome progress) grows its apparent size 1.5°→3°. The one true-dark
+      // object — an opaque black disc that ZEROES the stars inside it (the hole-vs-object firewall).
+      uMoteMix: { value: 0 },
+      uMoteGrow: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
       ...empyUniforms, // THE EMPYREAN: uEmpyMix 0 = shipped (biome gate; the nebula blooms + sky-disc sun kill)
@@ -3287,6 +3292,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform float uSurgeWarm;   // Fable 94: per-biome ember-Surge override (0 = magenta shipped)
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
+      uniform float uMoteMix, uMoteGrow;   // THE EMPYREAN Mote (§8): 0 = off → byte-identical
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -3467,6 +3473,26 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         float _sLuma = dot(col, vec3(0.299, 0.587, 0.114));
         vec3 _starEmpy = vec3(0.96, 0.965, 1.0) * (_sLuma * 0.95 * star * clamp(1.0 - _sLuma, 0.0, 1.0)) * starMix;
         col += mix(_starNight, _starEmpy, uEmpyMix);
+        // THE EMPYREAN — THE MOTE (§8, uMoteMix 0 = off → byte-identical). The one true-dark object: a
+        // perfectly round, perfectly BLACK disc at a FIXED bearing just above the dissolve (inside the
+        // reserved easement), fog-exempt, drawn AFTER the stars so it ZEROES them inside its radius (the
+        // hole-vs-object firewall — a hole in the skybox can't wink stars out; this can). A partial hairline
+        // PEARL limb hugs ONE arc (light bending round a mass — eclipse optics; non-gold, non-corona), and
+        // the disc grows slowly across the biome (uMoteGrow). Hard ≈1px edge — the sharpest thing in frame.
+        if (uMoteMix > 0.001) {
+          vec3 _mDir = normalize(vec3(0.12, 0.055, -1.0));            // fixed bearing: ahead, just above the dissolve, a touch off the corridor axis (inside the 30° easement)
+          float _md = acos(clamp(dot(d, _mDir), -1.0, 1.0));         // angular distance from the Mote centre (rad)
+          float _mR = radians(0.75 + 0.75 * uMoteGrow);              // half-angle 0.75°→1.5° (diameter 1.5°→3° across the biome)
+          // one-sided hairline limb (r/28 thick), biased to ONE arc, fading to nothing on the opposite limb.
+          vec3 _mT = normalize(cross(vec3(0.0, 1.0, 0.0), _mDir));
+          float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
+          float _limbSide = smoothstep(-0.2, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
+          float _limb = smoothstep(_mR, _mR * 1.018, _md) * (1.0 - smoothstep(_mR * 1.018, _mR * 1.036, _md));
+          col += vec3(0.96, 0.94, 0.99) * _limb * _limbSide * 0.05 * uMoteMix;   // ≤ +1 value step, pearl, non-gold
+          // the opaque black disc, OVER everything → stars/sky inside are replaced (not blended): hole-vs-object.
+          float _core = (1.0 - smoothstep(_mR, _mR + 0.0022, _md)) * uMoteMix;   // hard ≈0.13° (≈1px) coverage edge
+          col = mix(col, vec3(0.020, 0.012, 0.031), _core);          // 0x050308 — the biome's one true dark
+        }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
         col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12 * (1.0 - uAuroraMix);
@@ -4315,6 +4341,11 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
   su.uShaft.value = env.horizonShaft ?? 0;   // Fable 90 lever-7: Lumen Mire horizon glow-column; 0 elsewhere → byte-identical sky
+  // THE EMPYREAN Mote (§8): fade rides the landmark mix (widens to the 400m Aurora seam); the scripted growth
+  // is biome-LOCAL progress 0→1 (slow + monotonic across the run, resetting each lap — below conscious notice
+  // frame-to-frame, unmistakable court-to-court). 0 off-biome → byte-identical sky.
+  su.uMoteMix.value = env.moteMix ?? 0;
+  { const _L = CONFIG.biomeLength; su.uMoteGrow.value = _L > 0 ? (((playerDist % _L) + _L) % _L) / _L : 0; }
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
   // (0 for every biome that doesn't set propAerial → byte-identical; the Mire runs 0.85).
