@@ -67,6 +67,32 @@ const stats = await page.evaluate(async (b64) => {
   }
   return { base, rose, orchid, zenith, stars };
 }, png);
+// ── Mote measurement: disc px-diameter → degrees, + limb brightness just outside the edge ──
+const vfov = await page.evaluate(() => window.__dd.camera.fov);
+const motePng = readFileSync('/tmp/rg-mote.png').toString('base64');
+const mote = await page.evaluate(async (b64) => {
+  const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+  const W = img.width, H = img.height, D = cx.getImageData(0, 0, W, H).data;
+  const L = (x, y) => { const i = (y * W + x) * 4; return 0.299*D[i]+0.587*D[i+1]+0.114*D[i+2]; };
+  // disc = connected dark pixels near frame centre-top (avoid the brown arch: only scan the upper-centre)
+  let minx=W,maxx=0,miny=H,maxy=0,n=0,sx=0,sy=0;
+  for (let y=40;y<360;y++) for (let x=260;x<700;x++){ if(L(x,y)<16){ n++; sx+=x; sy+=y; if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y; } }
+  if(!n) return { found:false };
+  const cxp=sx/n, cyp=sy/n, dpx=Math.max(maxx-minx,maxy-miny)+1, r=dpx/2;
+  // limb: max brightness on a ring ~r+3 around the centroid, and the mean, to see one-sidedness
+  let lmax=0, lsum=0, ln=0;
+  for(let a=0;a<360;a+=4){ const rx=Math.round(cxp+(r+2)*Math.cos(a*Math.PI/180)), ry=Math.round(cyp+(r+2)*Math.sin(a*Math.PI/180)); if(rx<2||rx>W-2||ry<2||ry>H-2)continue; const v=L(rx,ry); lmax=Math.max(lmax,v); lsum+=v; ln++; }
+  // local background just beyond the limb
+  let bg=0,bn=0; for(let a=0;a<360;a+=8){ const rx=Math.round(cxp+(r+10)*Math.cos(a*Math.PI/180)), ry=Math.round(cyp+(r+10)*Math.sin(a*Math.PI/180)); if(rx<2||rx>W-2||ry<2||ry>H-2)continue; bg+=L(rx,ry); bn++; }
+  return { found:true, dpx, cxp:Math.round(cxp), cyp:Math.round(cyp), coreMin:Math.round(Math.min(...[L(Math.round(cxp),Math.round(cyp))])), limbMax:Math.round(lmax), limbMean:Math.round(lsum/ln), bg:Math.round(bg/bn), W, H };
+}, motePng);
+if (mote.found) {
+  const degPerPx = vfov / mote.H;                 // vertical deg per px (vfov is vertical)
+  const diamDeg = (mote.dpx * degPerPx).toFixed(2);
+  console.log(`MOTE disc=${mote.dpx}px ≈ ${diamDeg}° diam | core L=${mote.coreMin} | limb max=${mote.limbMax} mean=${mote.limbMean} bg=${mote.bg} (limb-bg=${mote.limbMax-mote.bg}) | centre(${mote.cxp},${mote.cyp})`);
+} else console.log('MOTE not found in scan window');
 const f3 = (a) => `H${a[0].toFixed(0)} S${a[1].toFixed(3)} V${a[2].toFixed(3)}`;
 console.log(`SAMPLE base=[${f3(stats.base)}] zenith=[${f3(stats.zenith)}]`);
 console.log(`SAMPLE rose=[${f3(stats.rose)}] orchid=[${f3(stats.orchid)}]`);
