@@ -498,6 +498,127 @@ function buildSentinelParts() {
   return [{ mat: 0, geo: mk(body) }, { mat: 1, geo: mk(crown) }];
 }
 
+// A non-indexed flat-shaded geometry from a flat [x,y,z,...] triangle-soup array.
+function _mkFlatGeo(arr) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((arr.length / 3) * 2), 2));
+  return g;
+}
+
+// Append ONE weathered lens BLADE (the sentinel grammar — canted flat top-cut, rose crown on the cut lip
+// only, flared foot) into the body/crown triangle-soup arrays, under a per-blade transform (scale sx/sy,
+// yaw ry, translate tx/tz). Lets choirstones compose a whole court of stelae in ONE archetype. Deterministic.
+function _bladeInto(body, crown, { seg, zLens, slope, st, amp, sx = 1, sy = 1, ry = 0, tx = 0, tz = 0 }) {
+  const cr = Math.cos(ry), sr = Math.sin(ry), N = st.length;
+  const rings = st.map((s, i) => {
+    const ring = [];
+    for (let j = 0; j < seg; j++) {
+      const th = (j / seg) * Math.PI * 2;
+      const f = 1 + amp[i] * (0.62 * Math.sin(3 * th + i * 1.3) + 0.38 * Math.sin(5 * th + i * 2.7 + 0.9));
+      const rr = s.r * f;
+      let x = Math.cos(th) * rr + s.cx, y = s.y, z = Math.sin(th) * rr * zLens;
+      if (i === N - 1) y += slope * (x - s.cx);            // planar canted top-cut
+      x *= sx; y *= sy; z *= sx;
+      ring.push([x * cr + z * sr + tx, y, -x * sr + z * cr + tz]);   // yaw about Y, then translate
+    }
+    return ring;
+  });
+  for (let i = 0; i < N - 1; i++) {
+    const tgt = i >= N - 2 ? crown : body;
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      tgt.push(...A, ...C, ...B, ...A, ...D, ...C);
+    }
+  }
+  const top = rings[N - 1]; let mx = 0, my = 0, mz = 0;
+  for (const p of top) { mx += p[0]; my += p[1]; mz += p[2]; }
+  const ctr = [mx / seg, my / seg, mz / seg];
+  for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
+}
+
+// THE EMPYREAN — CHOIRSTONES (§5 "THE MID MASS"; Money-Shot-3's subject): a recurring COURT in one
+// archetype — one greater stele ringed by lesser stelae in an IRREGULAR ellipse, each a DIFFERENT height,
+// lean, and broad-face facing (a congregation, not a picket fence). Same blade grammar as the sentinel at
+// smaller scale. ~130 tris, 2 mats. The whole court yaws with the instance rotY, so instances vary.
+function buildChoirstonesParts() {
+  const body = [], crown = [];
+  // ONE proven stele profile (the sentinel grammar at court scale): a flared FOOT → broad barely-tapering
+  // shaft → a canted flat TOP-CUT, with `cx` drift for the asymmetric offset-taper lean. STOCKY, not a
+  // knife (taper only 0.42→0.285 = 0.68×). Rose lives ONLY on the top ~17% lip (the crown split `i>=N-2`
+  // is the station-2→3 band + the cut cap) — a rose-covered shaft reads as a candy crystal (the headline
+  // fail). Height VARIETY comes from per-stele `sy` in the 0.6–0.95 range (SHORTER than 1 — a mid-mass
+  // court that never rivals the sentinel), NEVER an amplifying stretch. Shared across all stelae.
+  const st = [
+    { y: -0.06, r: 0.490, cx: 0.000 },  // buried SKIRT — WIDEST, bedded below the waterline (grows OUT of the swell, never stabbed in)
+    { y: 0.14, r: 0.350, cx: 0.020 },   // foot tucks in — a strong flare over the bottom ~18% (Fable gate: "bed the bases")
+    { y: 0.90, r: 0.300, cx: 0.115 },   // upper shaft (crown starts here → only the top ~10% lip is rose, a thin cut-lip not a fat band)
+    { y: 1.00, r: 0.285, cx: 0.145 },   // top ring before the canted cut
+  ];
+  const amp = [0.0, 0.05, 0.09, 0.07];  // radial weathering jitter (0 at the buried foot, strongest mid/shoulder)
+  const slope = 0.38;                   // top-cut slant — high point on the ROUNDED broad face → a flat cut, no apex
+  // greater elder (broadest, near centre, tallest of the court but still short of a sentinel)
+  _bladeInto(body, crown, { seg: 6, zLens: 0.32, slope, st, amp, sx: 1.0, sy: 0.95, ry: 0.5, tx: 0.10, tz: 0.05 });
+  // 3 lesser stelae — a TIGHT irregular cluster (small tx/tz so the court footprint clears the lane),
+  // each a different height (sy), broad-face facing (ry) and slight girth (sx). A congregation, not a fence.
+  const L = [
+    { tx: 0.95, tz: 0.35, sy: 0.72, sx: 0.92, ry: 1.2 },
+    { tx: -0.85, tz: -0.50, sy: 0.60, sx: 0.86, ry: 2.9 },
+    { tx: 0.15, tz: 0.98, sy: 0.66, sx: 0.90, ry: 4.5 },
+  ];
+  for (const t of L) _bladeInto(body, crown, { seg: 5, zLens: 0.30, slope: 0.40, st, amp, ...t });
+  return [{ mat: 0, geo: _mkFlatGeo(body) }, { mat: 1, geo: _mkFlatGeo(crown) }];
+}
+
+// Append ONE low nacre LOAF (a "surfacing back") into the body/crest triangle-soup arrays. A heightfield
+// shell (nL×nW grid): an arch along the length (peak OFF-centre toward the head) × a cosine cross-section,
+// head/tail width taper → a long low loaf, NOT a dome/half-ball. The rim verts dip just below y=0 so the
+// hump SEATS in the nacre (only the top ~30% shows). The HIGHEST crest faces route to `crest` (mat 1 rose);
+// everything else is body empyStone. Per-hump transform (scale via len/wid/hgt, yaw ry, translate tx/tz).
+function _humpInto(body, crest, { nL, nW, len, wid, hgt, ry = 0, tx = 0, tz = 0, roseTop = 0.82 }) {
+  const cr = Math.cos(ry), sr = Math.sin(ry);
+  const V = []; let maxY = 0;
+  for (let i = 0; i <= nL; i++) {
+    const s = i / nL;
+    const w = wid * (0.36 + 0.64 * Math.pow(Math.sin(Math.PI * s), 0.5)); // ROUNDED loaf ends (keep ~36% width at head/tail, not a point)
+    const aL = Math.pow(Math.sin(Math.PI * s), 0.60);                     // BROAD crest plateau (a rounded back, not a sharp fin)
+    const skew = 1 - 0.18 * (s - 0.5);                                    // crown offset toward the head (asymmetric back)
+    V.push([]);
+    for (let j = 0; j <= nW; j++) {
+      const u = j / nW;
+      const aW = Math.pow(Math.cos((u - 0.5) * Math.PI), 0.72);           // rounded, flatter-topped cross-section (a back, not a tent ridge)
+      const jit = 0.05 * Math.sin(i * 1.7 + j * 2.3) * Math.sin(i * 0.9 - j * 1.1);   // deterministic wave-polish wobble
+      const edge = (i === 0 || i === nL || j === 0 || j === nW);
+      let y = edge ? -0.07 * hgt : hgt * (aL * aW * skew + jit * aL * aW); // rim dips below the waterline → seats in
+      V[i].push([(s - 0.5) * len, y, (u - 0.5) * w]);
+      if (y > maxY) maxY = y;
+    }
+  }
+  const T = (p) => [p[0] * cr + p[2] * sr + tx, p[1], -p[0] * sr + p[2] * cr + tz];   // yaw about Y, then translate
+  for (let i = 0; i < nL; i++) for (let j = 0; j < nW; j++) {
+    const A = V[i][j], B = V[i][j + 1], C = V[i + 1][j + 1], D = V[i + 1][j];
+    const tgt = ((A[1] + B[1] + C[1] + D[1]) / 4) > roseTop * maxY ? crest : body;    // only the crest ridge is rose
+    const a = T(A), b = T(B), c = T(C), d = T(D);
+    tgt.push(...a, ...b, ...c, ...a, ...c, ...d);                          // UP-facing winding (the cruise cam looks DOWN at the water — tops must not backface-cull)
+  }
+}
+
+// THE EMPYREAN — PEARLSHOAL (§ "the horizontal rest"): low white mother-of-pearl humps — "surfacing backs" —
+// the calm horizontal note UNDER the tall stones. A cluster of long low loaves, one lead + two rest, stepped
+// 0.65–0.8, staggered / fanned / overlapping (a pod, never parallel clones). NO specular (a wet glint implies
+// a sun) — an even emissive MOP lift + a rose blush on the crest ridge only. ~90 tris, 2 mats. Seats at the
+// waterline; only the top ~30% shows.
+function buildPearlshoalParts() {
+  const body = [], crest = [];
+  // lead loaf (longest, near centre) + two smaller rest loaves — different size / yaw (fanned) / overlap.
+  _humpInto(body, crest, { nL: 6, nW: 4, len: 1.0, wid: 0.60, hgt: 0.26, ry: 0.18, tx: 0.00, tz: 0.00, roseTop: 0.72 });
+  _humpInto(body, crest, { nL: 5, nW: 4, len: 0.74, wid: 0.48, hgt: 0.205, ry: -0.55, tx: 0.52, tz: 0.44, roseTop: 0.72 });
+  _humpInto(body, crest, { nL: 4, nW: 4, len: 0.60, wid: 0.42, hgt: 0.175, ry: 0.70, tx: -0.40, tz: -0.42, roseTop: 0.72 });
+  return [{ mat: 0, geo: _mkFlatGeo(body) }, { mat: 1, geo: _mkFlatGeo(crest) }];
+}
+
 function mergeParts(parts, biomeIdx) {
   const groups = [[], []];
   for (const p of parts) groups[p.mat].push(p.geo);
@@ -1004,11 +1125,13 @@ const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the
 const mireNew = PROPS_V1 ? [] : [4];     // canopywall/reedveil/boleveil/drape (+ hero/roster/skins to come)
 const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevine (retired once the kit completes)
 // THE EMPYREAN overhaul (EMPYREAN-BIBLE.md / EMPYREAN-PROP-REFERENCE.md) — same flip idiom. Default = the
-// new pale-megalith kit (the SENTINEL hero first; haloarc/choirstones/pearlshoal + the inkShoal to come in
-// PR-5); `?props=v1` restores the interim retinted astral monolith/arcshard. Kit grows over PRs — while it
-// does the biome is intentionally sparse (restraint > clutter; density only means something against the
-// framing mass — build the skeleton first, then dial the small stuff — EMPYREAN-PROP-REFERENCE §register).
-const empyNew = PROPS_V1 ? [] : [5];     // sentinel (+ haloarc/choirstones/pearlshoal/inkShoal to come)
+// new pale-megalith kit, now the FULL reference roster: SENTINEL (tall lone elder, PR-4) + CHOIRSTONES
+// (the mid-mass court, PR-5) + PEARLSHOAL (the low horizontal rest note, PR-5) — all Fable-gated ≥4.2.
+// `?props=v1` restores the interim retinted astral monolith/arcshard (now RETIRED from the default kit).
+// The three cover the reference's THREE size registers (tall vertical / mid court / low horizontal), so
+// density-follows-framing has its skeleton — EMPYREAN-PROP-REFERENCE §register. (The inkShoal FLOCK is a
+// system-sized ambient, deferred to PR-5b; the "haloarc" has no Fable-audited reference spec and is dropped.)
+const empyNew = PROPS_V1 ? [] : [5];     // sentinel + choirstones + pearlshoal (full roster; inkShoal flock → PR-5b)
 const empyOld = PROPS_V1 ? [5] : [];     // interim retinted astral monolith/arcshard (retired once the kit completes)
 // THE LOST LAGOON overhaul (LOST-LAGOON-BIBLE.md) — consolidates biomes 0+1. Default (v2) = the
 // new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
@@ -1546,6 +1669,29 @@ const ARCHETYPES = {
     step: 53, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0, sMin: 0.92, sMax: 1.3 },
     build: () => mergeParts(buildSentinelParts(), 5),
     place: (side, rnd) => ({ x: side * (19 + rnd() * 11), h: 22 + rnd() * 20, r: 8.5 + rnd() * 4.5, tilt: side * (rnd() * 0.05 - 0.015) }),
+  },
+  // THE EMPYREAN — CHOIRSTONES (§5 "THE MID MASS"): the mid-register court that FRAMES the corridor
+  // between the sentinel elders and the Mote (density-follows-framing). One archetype paints a whole
+  // congregation — a greater stele ringed by lesser stelae, each a different height/lean/facing. floor
+  // 0.1 → present in more breaths than the sentinel (it's the connective mid-mass, not a rare elder);
+  // sMax 1.15 → gentle swell, never rivals the sentinel; rotY random so each court presents fresh.
+  choirstones: {
+    step: 47, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0.1, sMin: 0.85, sMax: 1.15 },
+    build: () => mergeParts(buildChoirstonesParts(), 5),
+    // Pushed further off-lane than the sentinel (x 25–34) because the COURT footprint spreads ±1 in object
+    // space — the extra reach must still clear the ±16 gate veil (propclearance audits it). h 8–14 keeps the
+    // court a clear mid-mass, roughly a third the sentinel. r modest so the spread stays a court, not a wall.
+    place: (side, rnd) => ({ x: side * (25 + rnd() * 9), h: 8 + rnd() * 6, r: 3.4 + rnd() * 1.8, tilt: side * (rnd() * 0.04 - 0.015) }),
+  },
+  // THE EMPYREAN — PEARLSHOAL (§ "the horizontal rest"): the calm LOW note under the tall stones. floor 0.35
+  // → the most COMMON Empyrean prop (it's the connective breather, present in most breaths); sMax 1.1 → stays
+  // low, never swells; a wide LOW footprint (r large, h small) so it reads as a surfacing back, not a hill.
+  pearlshoal: {
+    step: 41, biomes: empyNew, matIndex: 5, comp: { floor: 0.35, sMin: 0.85, sMax: 1.1 },
+    build: () => mergeParts(buildPearlshoalParts(), 5),
+    // low + wide + pushed off-lane (the pod spreads ±0.9 in object space). h tiny (only the crest crowns the
+    // water); r modest. propclearance audits the spread clears the ±16 gate veil.
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 10), h: 2.2 + rnd() * 1.8, r: 4 + rnd() * 2.2, tilt: side * (rnd() * 0.03 - 0.012) }),
   },
   // Interim retinted astral monolith wearing a rose band (empyOld — ?props=v1 only; replaced by the kit).
   monolith: {
@@ -3095,6 +3241,8 @@ const FOAM_CFG = {
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   sentinel: { r: 0.5 },              // THE EMPYREAN hero — a faint pearl waterline shimmer where the bedded blade meets the nacre (not white surf; the biome foam is tuned faint)
+  choirstones: { r: 0.42 },          // THE EMPYREAN mid-mass court — a faint pearl collar around the congregation's bedded feet (matches the sentinel's tuned-faint waterline)
+  pearlshoal: { r: 0.6 },            // THE EMPYREAN low rest note — a faint pearl waterline seat around the surfacing backs (wide low footprint; keeps the loaf seated, never a wet-dark band)
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
   // Lumen Mire PR-2 depth/canopy: reedveil gets a faint warm waterline collar; the mid/far
