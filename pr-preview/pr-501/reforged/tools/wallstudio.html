@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Calved Canyon Wall Studio</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #sheet{position:fixed;left:0;top:0;display:none;background:#0a0e1a}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ff9a9a;font-size:13px;white-space:pre-wrap;
+      background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__e = (m) => { const e = document.getElementById('err'); if (e) { e.style.display='block'; e.textContent='Studio error:\n'+m; } };
+    window.addEventListener('error', (ev)=>window.__e((ev.error&&ev.error.stack)||ev.message||String(ev)));
+    window.addEventListener('unhandledrejection', (ev)=>window.__e('Promise: '+((ev.reason&&ev.reason.stack)||ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="600" height="600"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildCanyonWallMass } from '../js/obstacles.js';
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 6000);
+    // Low sun near the horizon behind the wall = the BACKLIT stress test (where the old
+    // rock run went black). Hemisphere for a little sky bounce, key from behind-ish.
+    scene.add(new THREE.HemisphereLight(0xdfeaff, 0x2a2438, 0.9));
+    const key = new THREE.DirectionalLight(0xffd9a8, 1.3); key.position.set(2, 3, -6); scene.add(key);
+
+    function gradTex(stops){ const c=document.createElement('canvas'); c.width=8;c.height=256; const g=c.getContext('2d'); const grd=g.createLinearGradient(0,0,0,256); for(const [p,col] of stops) grd.addColorStop(p,col); g.fillStyle=grd; g.fillRect(0,0,8,256); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+    const BG = {
+      sunset: gradTex([[0,'#241f47'],[0.42,'#7a4a86'],[0.6,'#e07a4a'],[0.8,'#ffb060'],[1,'#ffd69a']]),
+      frost:  gradTex([[0,'#7aa8d8'],[0.5,'#bcd8ee'],[0.8,'#e2f0fb'],[1,'#f4fbff']]),
+    };
+    let built = null;
+    function dispose(){ if(built){ scene.remove(built); built.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); built=null; } }
+    // Build a stretch of canyon wall: masses tiled along z (both banks), so the skyline
+    // rhythm + the calved profile read the way they do in-flight.
+    function build(o){
+      dispose();
+      built = new THREE.Group();
+      const hz = 4, gap = hz * 1.9;
+      const n = o.n || 6;
+      for (let i=0;i<n;i++){
+        const z = -i * gap;
+        // left bank (channel toward +x) and right bank (channel toward -x)
+        const L = buildCanyonWallMass(o.hw||6, hz, { crest:true, family:(i)%3, seed: 10+i, lean:0.06 });
+        L.position.set(-(o.hw||6) - 6, 0, z); built.add(L);
+        const R = buildCanyonWallMass(o.hw||6, hz, { crest:true, family:(i+1)%3, seed: 40+i, lean:-0.06 });
+        R.position.set((o.hw||6) + 6, 0, z); built.add(R);
+      }
+      scene.add(built); built.updateMatrixWorld(true);
+    }
+    const _c = new THREE.Vector3();
+    function fit(o){
+      // In the channel at flight height, looking DOWN the canyon (the only angle a wall is
+      // seen from in play). 'side' steps out to read the calved profile in cross-section.
+      camera.up.set(0,1,0);
+      if (o.angle==='side') { camera.position.set(28, 12, -14); camera.lookAt(-6, 8, -20); }
+      else if (o.angle==='low') { camera.position.set(3, 6, 16); camera.lookAt(-2, 8, -50); }
+      else { camera.position.set(2, 11, 14); camera.lookAt(-1, 9, -55); }
+      camera.near=0.1; camera.far=6000; camera.updateProjectionMatrix();
+    }
+    function sizeGL(px){ gl.width=px; gl.height=px; renderer.setSize(px,px,false); camera.aspect=1; camera.updateProjectionMatrix(); }
+
+    window.wsRender = (o)=>{ if(!built||o.rebuild) build(o); scene.background = BG[o.bg||'sunset']; fit(o); renderer.render(scene,camera); return true; };
+    const _sheet=document.getElementById('sheet');
+    window.wsSheetInit=(cols,rows,cell)=>{ _sheet.width=cols*cell;_sheet.height=rows*cell;_sheet.style.display='block'; const c=_sheet.getContext('2d');c.fillStyle='#0a0e1a';c.fillRect(0,0,_sheet.width,_sheet.height); _sheet.__cell=cell;_sheet.__cols=cols; sizeGL(cell); return true; };
+    window.wsTile=(q,label)=>{ const cell=_sheet.__cell,cols=_sheet.__cols,ctx=_sheet.getContext('2d'); const ox=(q%cols)*cell,oy=((q/cols)|0)*cell; ctx.drawImage(gl,ox,oy,cell,cell); if(label){ctx.font='600 20px system-ui';ctx.textBaseline='top';ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.85)';ctx.strokeText(label,ox+12,oy+12);ctx.fillStyle='#ffe08a';ctx.fillText(label,ox+12,oy+12);} return true; };
+    try { renderer.setSize(600,600,false); window.__ready=true; } catch(e){ window.__e((e&&e.stack)||String(e)); throw e; }
+  </script>
+</body>
+</html>
