@@ -965,12 +965,20 @@ function bakeVerdigris(geo, waterY = 0.0) {
   for (let i = 0; i < n; i += 3) {
     ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
     e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // face normal
-    const base = nr.y > 0.35 ? _VRD_PATINA : _VRD_BRONZE;                                  // exposure key: rained-on vs sheltered
+    // EXPOSURE GRADIENT (Fable gate: a hard ny>0.35 key put ~0% teal on the vertical-faced hand and ~95% on the
+    // angled thumb → they read as different materials, "a teal fin not a thumb"). Rain runs down verticals too:
+    // t = 0 (dark bronze) on clear undersides → ~0.36 (muted teal) on verticals → 1 (full patina) on up-faces, so
+    // EVERY component gets the same bronze-with-teal-weather treatment and the thumb snaps back into the hand.
+    // Per-FACE (flat facets) → the value ladder lands per facet, not a flat decal.
+    const t = Math.min(1, Math.max(0, (nr.y + 0.20) / 0.55));
+    const base0 = _VRD_BRONZE[0] + (_VRD_PATINA[0] - _VRD_BRONZE[0]) * t;
+    const base1 = _VRD_BRONZE[1] + (_VRD_PATINA[1] - _VRD_BRONZE[1]) * t;
+    const base2 = _VRD_BRONZE[2] + (_VRD_PATINA[2] - _VRD_BRONZE[2]) * t;
     for (let k = 0; k < 3; k++) {
       const o = (i + k) * 3, wet = Math.min(1, Math.max(0, (waterY + 0.04 - pos.getY(i + k)) / 0.12));   // drowned merge below the waterline
-      col[o] = base[0] * (1 - wet) + _VRD_DROWN[0] * wet;
-      col[o + 1] = base[1] * (1 - wet) + _VRD_DROWN[1] * wet;
-      col[o + 2] = base[2] * (1 - wet) + _VRD_DROWN[2] * wet;
+      col[o] = base0 * (1 - wet) + _VRD_DROWN[0] * wet;
+      col[o + 1] = base1 * (1 - wet) + _VRD_DROWN[1] * wet;
+      col[o + 2] = base2 * (1 - wet) + _VRD_DROWN[2] * wet;
     }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -3845,32 +3853,38 @@ const ARCHETYPES = {
       const E = (g) => parts.push({ mat: 0, bake: 'bronzeEdge', geo: g });     // worn gold-brown raised edges (GEOMETRIC wear)
       // OBJECT SPACE (1:1 r=h coupling → uniform, so every built joint angle is honest): x across the hand
       // (thumb side +x), y up (finger length), palm faces +z / back −z. Waterline ~object y0.03 (world 0).
-      V(xform(new THREE.BoxGeometry(0.62, 0.36, 0.24), { x: 0, y: 0.36 }));                 // metacarpal block (back-of-hand mass)
-      V(xform(new THREE.BoxGeometry(0.52, 0.30, 0.22), { x: 0, y: 0.10, z: 0.01, rx: 0.18 }));   // palm-heel wedge (drowns to the tide line)
+      V(xform(new THREE.BoxGeometry(0.62, 0.55, 0.24), { x: 0, y: 0.285 }));                // metacarpal block + palm-heel mass (one box; the base drowns to the tide line)
       E(xform(new THREE.BoxGeometry(0.60, 0.06, 0.09), { x: 0, y: 0.53, z: -0.09 }));       // KNUCKLE RIDGE bar (back-of-hand plane break, bronzeEdge)
       // 4 FINGERS — nearly-parallel columns (spread ≤15°), 2 segments each with a hard knuckle break, graduated
       // length + curl: index straightest/longest → pinky most curled/shortest. Tips curl toward +z (the palm).
+      // Nail CAPS the open frustum tip (kills Fable's "lamppost" — the see-through hollow behind a floating cap):
+      // the distal tapers to a near-point (top r 0.42×) and a small bronzeEdge disc sits FLUSH on it, pitched up
+      // along the finger axis, ≤0.55× finger width. No gap, no hole.
       const finger = (x, len, curl, rB, sides) => {
         const kneeY = 0.53 + len * 0.5, tipY = 0.53 + len, kneeZ = curl * 0.3, tipZ = curl;
-        V(frustumBetween([x, 0.53, 0.0], [x, kneeY, kneeZ], rB, rB * 0.84, sides));          // proximal phalanx
-        V(frustumBetween([x, kneeY, kneeZ], [x, tipY, tipZ], rB * 0.84, rB * 0.62, sides));  // distal phalanx (curls)
-        E(xform(new THREE.PlaneGeometry(rB * 1.5, rB * 1.5), { x, y: tipY - 0.01, z: tipZ + 0.03, rx: -0.6 }));   // fingernail plate (bronzeEdge cap)
+        V(frustumBetween([x, 0.53, 0.0], [x, kneeY, kneeZ], rB, rB * 0.86, sides));          // proximal phalanx
+        V(frustumBetween([x, kneeY, kneeZ], [x, tipY, tipZ], rB * 0.86, rB * 0.42, sides));  // distal phalanx (curls, tapers near-shut)
+        E(xform(new THREE.CircleGeometry(rB * 0.5, sides), { x, y: tipY, z: tipZ, rx: -Math.PI / 2 + 0.45 }));   // fingernail — flush cap on the tip
       };
-      finger(0.225, 0.44, 0.05, 0.075, 4);    // INDEX — longest, straightest, silhouette-critical → 4-sided
-      finger(0.075, 0.41, 0.12, 0.072, 3);    // middle
-      finger(-0.075, 0.35, 0.19, 0.066, 3);   // ring
-      finger(-0.225, 0.27, 0.26, 0.058, 3);   // pinky — shortest, most curled
+      finger(0.225, 0.46, 0.05, 0.079, 4);    // INDEX — longest, straightest, WIDEST (1.5× pinky), silhouette-critical → 4-sided
+      finger(0.075, 0.42, 0.12, 0.070, 3);    // middle
+      finger(-0.075, 0.35, 0.19, 0.061, 3);   // ring
+      finger(-0.225, 0.27, 0.26, 0.052, 3);   // pinky — shortest, most curled, THINNEST
       // THUMB — OPPOSED: outboard (+x) at the wrist, OFF the finger plane (~50°), 2 seg, ~0.6× length, curling
-      // INWARD toward the index. THE name-test cue. 4-sided (silhouette-critical).
-      V(frustumBetween([0.33, 0.16, 0.10], [0.46, 0.36, 0.06], 0.08, 0.068, 4));             // thumb metacarpal (out + up + forward)
-      V(frustumBetween([0.46, 0.36, 0.06], [0.42, 0.54, -0.04], 0.068, 0.05, 4));            // thumb distal (curls inward toward index)
-      E(xform(new THREE.PlaneGeometry(0.10, 0.10), { x: 0.42, y: 0.54, z: -0.06, rx: -0.5 }));   // thumbnail
+      // INWARD toward the index. THE name-test cue. 4-sided (silhouette-critical). Now bronze-with-teal like the
+      // hand (the gradient key), so it reads as a thumb, not a teal fin.
+      V(frustumBetween([0.33, 0.16, 0.10], [0.46, 0.36, 0.06], 0.082, 0.070, 4));            // thumb metacarpal (out + up + forward)
+      V(frustumBetween([0.46, 0.36, 0.06], [0.42, 0.54, -0.04], 0.070, 0.042, 4));           // thumb distal (curls inward, tapers)
+      E(xform(new THREE.CircleGeometry(0.05, 4), { x: 0.42, y: 0.54, z: -0.04, rx: -Math.PI / 2 + 0.6 }));   // thumbnail — flush cap
       // WRIST stump (mostly submerged) — an open cylinder plunging into the mirror.
-      V(xform(new THREE.CylinderGeometry(0.24, 0.27, 0.34, 5, 1, true), { x: 0, y: -0.10 }));
-      // FOREARM SECTION half-buried beside the hand — a HOLLOW broken bronze tube (the bronze-shell tell): outer
-      // shell + a dark void inner liner (FrontSide culls the tube's inner wall, so the hollow needs its own liner).
-      V(xform(new THREE.CylinderGeometry(0.17, 0.19, 0.52, 6, 1, true), { x: 0.62, y: 0.02, z: 0.30, rx: Math.PI / 2, rz: 0.35 }));   // outer shell
-      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.CylinderGeometry(0.135, 0.155, 0.52, 6, 1, true), { x: 0.62, y: 0.02, z: 0.30, rx: Math.PI / 2, rz: 0.35 }) });   // dark hollow interior
+      V(xform(new THREE.CylinderGeometry(0.24, 0.27, 0.34, 4, 1, true), { x: 0, y: -0.10 }));
+      // FOREARM SECTION half-buried beside the hand — a HOLLOW broken bronze tube (the bronze-shell tell). Stands
+      // NEARLY UPRIGHT with its BROKEN MOUTH at top tilted toward the lane (Fable gate: a flat-laid tube hid the
+      // hollow — the void must be VISIBLE), a dark void DISC recessed down the bore (the cavity floor), a bronzeEdge
+      // torn RIM capping the broken edge. Half-sunk (base drowns).
+      V(xform(new THREE.CylinderGeometry(0.185, 0.205, 0.54, 6, 1, true), { x: 0.60, y: -0.02, z: 0.30, rz: 0.34, rx: -0.18 }));   // outer shell
+      parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.CircleGeometry(0.17, 6), { x: 0.575, y: 0.10, z: 0.325, rz: 0.34, rx: -Math.PI / 2 - 0.18 }) });   // dark cavity floor recessed down the bore → reads as a hollow, not see-through
+      E(xform(new THREE.CylinderGeometry(0.205, 0.185, 0.05, 6, 1, true), { x: 0.685, y: 0.235, z: 0.253, rz: 0.34, rx: -0.18 }));   // torn RIM at the broken mouth (bronzeEdge)
       // GILT (mat 1) — recessed crevice slots ONLY (finger-root shadow + under the knuckle), read only at the near
       // flyby: the withheld reward. NO glow on fingertips/nails.
       parts.push({ mat: 1, geo: xform(new THREE.PlaneGeometry(0.50, 0.045), { x: 0, y: 0.52, z: 0.02, rx: 1.2 }) });   // finger-root shadow slot
