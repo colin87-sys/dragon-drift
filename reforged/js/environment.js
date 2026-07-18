@@ -205,7 +205,8 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xffc23a, roughness: 0.35, emissive: 0xf79a2e, emissiveIntensity: 1.6 }), // 4 LUMEN MIRE living amber glow — firefly-gold gills/motes/lanterns; "life glows" (the ONLY emitter); off-teal by construction (~562nm warm, never 490–510nm). Fable v33: emissive ×~1.8 so existing glow pulls weight until PR-3
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
       new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
-      new THREE.MeshStandardMaterial({ ...opts, color: 0xcaa25a, roughness: 0.4, metalness: 0.05, emissive: 0xffd870, emissiveIntensity: 1.5 }), // 7 tempest STOLEN GOLD — THE one burning hue in a monochrome storm (Fable: ink-dark rock + warm pale slot + rare burning gold = Tsushima storm grammar). @0.85 was invisible against grey; @1.5 makes the socket the biome's single warm accent
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xcaa25a, roughness: 0.4, metalness: 0.05, emissive: 0xffd870, emissiveIntensity: 0.9 }), // 7 tempest STOLEN GOLD — THE one burning hue in a monochrome storm (Tsushima grammar). @0.85 invisible, @1.5 made the socket OUTSHINE the eye-breach focal (measured L≈0.88 > breach 0.87); @0.9 drops VALUE not chroma (Fable focal-rival gate: rival ≤0.85× breach → target socket peak L≈0.58–0.62). Warm-rim survives; stolen gold reads as embers in shadow = MORE Tsushima, not less
+
     ],
   };
   for (const m of mats.primary) addPropDetail(m);
@@ -647,7 +648,7 @@ function bakeSocketSpill(geo, centers, spillR = 0.24) {
       if (w > best) best = w;
     }
     if (best <= 0) continue;
-    const t = best * best * 0.55;   // ease + cap the spill so it's a warm bleed, not a repaint
+    const t = best * best * 0.33;   // ease + cap the spill so it's a warm bleed, not a repaint (×0.6 from 0.55 — Fable focal-rival gate: dim the rim-bloom so the socket stops outshining the eye-breach)
     col.setX(i, col.getX(i) + (_SOCK_GOLD[0] - col.getX(i)) * t);
     col.setY(i, col.getY(i) + (_SOCK_GOLD[1] - col.getY(i)) * t);
     col.setZ(i, col.getZ(i) + (_SOCK_GOLD[2] - col.getZ(i)) * t);
