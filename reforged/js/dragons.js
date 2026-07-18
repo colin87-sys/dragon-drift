@@ -538,6 +538,10 @@ export const DRAGONS = {
     // the tail boost cool; surgeMotes breathes arcane motes off the tail + body.
     hasStyle: true, surgeMotes: true,
     feverWing: 0x8a5cf0, feverEye: 0xc8a8ff, feverWash: [0.06, 0.025, 0.10],
+    // SUNBREAK I1 world-suppression DARK band: the eclipse-violet crushed to shadow
+    // (L≈0.14, B>R>G — the sovereign's hue), so a Surge darkens the world toward the
+    // dragon's own shadow, not a neutral grey. The hero-tuned reference value.
+    surgeDark: [0.16, 0.13, 0.21],
     body: 0x080b14, belly: 0x1a1830, scales: 0xd4a84f, horn: 0xddc070,
     // Wing membrane runs dark copper at the ROOT → dark burnt-crimson at the
     // outer edge — antique bronze struts, blue-violet veins. Never bright orange.

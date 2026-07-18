@@ -47,5 +47,40 @@ const off = await page.evaluate(() => {
 check('no cinematic leaks into off frames', off.active === false && off.beam === false);
 check('timeScale untouched with Surge idle', off.ts === 1);
 
+// ── I1: world-suppression grade envelope (trace-based per §M.1-10) ──────────────
+// Byte-identity: with Surge idle the exposure write is untouched and the grade is 0.
+const idle = await page.evaluate(() => window.__dd.surgeState());
+check('grade 0 + exposure == base when Surge idle (off-frame byte-identity)',
+  idle.gradeMix === 0 && Math.abs(idle.exposure - idle.exposureBase) < 1e-6);
+
+// Rising edge → DRAGON LEADS: the grade onset is delayed, so the first frames after the
+// edge are still ~0 (the world waits a beat while the dragon ignites).
+await page.evaluate(() => { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; });
+await page.waitForTimeout(60);
+const onset = await page.evaluate(() => window.__dd.surgeState().gradeMix);
+check(`world grade lags ignition onset (${onset.toFixed(3)} ≤ 0.15 just after the edge)`, onset <= 0.15);
+
+// Sustained → the grade ramps to full and the exposure dips ~−0.4 EV (≤ base×0.80).
+let full = 0;
+for (let i = 0; i < 40; i++) {
+  full = await page.evaluate(() => window.__dd.surgeState().gradeMix);
+  if (full >= 0.9) break;
+  await page.waitForTimeout(400);
+}
+check(`grade ramps to full under sustained Surge (${full.toFixed(3)} ≥ 0.9)`, full >= 0.9);
+const dip = await page.evaluate(() => window.__dd.surgeState());
+check(`exposure dips ≈ −0.4 EV at full grade (${(dip.exposure / dip.exposureBase).toFixed(3)}× ≤ 0.80)`,
+  dip.exposure <= dip.exposureBase * 0.80 && dip.exposure >= dip.exposureBase * 0.70);
+
+// Falling edge → the grade releases (and the exposure lifts back toward base).
+await page.evaluate(() => { window.__dd.game.feverActive = false; window.__dd.game.feverTimer = 0; });
+let rel = full;
+for (let i = 0; i < 20; i++) {
+  rel = await page.evaluate(() => window.__dd.surgeState().gradeMix);
+  if (rel < 0.3) break;
+  await page.waitForTimeout(300);
+}
+check(`grade releases after the Surge ends (${rel.toFixed(3)} < 0.3)`, rel < 0.3);
+
 check('no console errors', errors.length === 0) || console.error(errors.join('\n'));
 await done();

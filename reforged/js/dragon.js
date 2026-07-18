@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { damp, makeGlowTexture, makeTrailTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
-import { setFeverTint } from './postfx.js';
+import { setFeverTint, setSurgeDark } from './postfx.js';
 import { setFeverWarm, getHeroRim } from './environment.js';
 import { setWaterHeroPool } from './water.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
@@ -432,6 +432,10 @@ export function createDragon(scene, def, riderDef) {
   // Per-dragon Surge wash hue (def.feverWash): the Phoenix Rebirth washes warm
   // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
   setFeverTint(def.feverWash || null);
+  // SUNBREAK I1: the world-suppression DARK band (def.surgeDark) — the hue the world's
+  // shadows pull toward on Surge. Fallback (null) derives it from the wash hue crushed to
+  // shadow, so the darkness always carries the dragon's identity, never neutral grey.
+  setSurgeDark(def.surgeDark || null);
   setFeverWarm(!!def.fireTrails);   // fire dragons: the Surge sky/aurora go FIERY ember, not magenta (keeps the phoenix's warm colours from washing to cream)
 
   buildRider(riderDef, result.parts.riderSocket);

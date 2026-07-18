@@ -3297,8 +3297,13 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // × (1 - uAuroraMix): the SURGE also shifts the whole sky GRADIENT toward magenta — the second
         // (bigger) half of the aurora-biome "color explosion". Suppress it too so the night sky + curtain
         // stay the spectacle during a boost (0 in every other biome → byte-identical).
-        vec3 hor = mix(horizonColor, horF, feverMix * 0.8 * (1.0 - uAuroraMix));
-        vec3 mid = mix(midColor, midF, feverMix * 0.7 * (1.0 - uAuroraMix));
+        // SUNBREAK I1: the magenta Surge SKY-SHIFT is RETIRED — the screen-space
+        // world-suppression grade (postfx) carries the Surge now, so the sky no longer
+        // washes toward the effect colour (which raised the world's luminance, the exact
+        // cheap-tell we're deleting). Only WARM dragons / the Mire (_fw) still shift the
+        // sky, toward ember; every other dragon keeps the biome sky (× _fw gate).
+        vec3 hor = mix(horizonColor, horF, feverMix * 0.8 * (1.0 - uAuroraMix) * _fw);
+        vec3 mid = mix(midColor, midF, feverMix * 0.7 * (1.0 - uAuroraMix) * _fw);
         // uDeckBias pulls the belt + deck transitions DOWN (0 = shipped): the storm ceiling owns
         // the sky, the belt compresses to a thin strip. Edges stay ordered for all bias in [0,1].
         vec3 col = mix(hor, mid, smoothstep(0.0, 0.25 - 0.12 * uDeckBias, h));
@@ -3429,7 +3434,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // × (1 - uAuroraMix): in Aurora Shallows the CURTAIN is the sky spectacle — the magenta SURGE wash
         // on top of it is the "color explosion" the owner kept seeing (it is NOT the aurora eruption, which
         // is why cutting the eruption never fixed it). Suppress it here like the night-surge veil below.
-        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix) * (1.0 - uSurgeWarm);   // Fable 94: the Mire (uSurgeWarm 1) ZEROES the magenta Surge sky-curtain — a curtain is a sky-spectacle object, forbidden by the Canopy Law; the ember gradient carries the Surge read on its own
+        // SUNBREAK I1: the magenta Surge sky-CURTAIN is retired for the default palette (it
+        // brightened the sky toward magenta — a second wash, §M.1-7 P1). × feverWarm keeps it
+        // ONLY for warm/ember dragons (Mire already zeroed via 1-uSurgeWarm); the eclipse/cool
+        // dragons get the biome sky + the suppression grade. Dragon-hued SUSTAIN halo → I2.
+        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix) * (1.0 - uSurgeWarm) * feverWarm;
         // Starfield (night biomes): hashed cells in the upper dome, gently
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);
@@ -3445,7 +3454,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         col += vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
-        col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12 * (1.0 - uAuroraMix);
+        col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12 * (1.0 - uAuroraMix) * feverWarm;   // SUNBREAK I1: night-biome magenta Surge veil retired for the default palette (warm-gated, like the curtain above)
         // Aurora Shallows tier2 banding guard: a per-pixel ±0.5/255 dither breaks the
         // smooth green ramp's Mach bands on 8-bit panels (only where the curtain is lit).
         col += (_aHash(gl_FragCoord.xy) - 0.5) * (1.0 / 255.0) * uAuroraMix;

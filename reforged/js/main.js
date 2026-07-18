@@ -26,7 +26,7 @@ import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, surgeExposureDip, surgeGradeMix } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -434,7 +434,8 @@ if (urlParams.has('debug')) {
     // draw-call total; pin the cinematic to a beat for montage stills (apex/beam/
     // impact) — a normally-undefined global, so byte-identical in play; and cast the
     // full charge→beam cinematic from a fight for the state-machine test.
-    surgeState: () => ({ ...debugSurgeState(), drawCalls: renderer.info.render.calls }),
+    surgeState: () => ({ ...debugSurgeState(), drawCalls: renderer.info.render.calls,
+      gradeMix: surgeGradeMix(), exposure: renderer.toneMappingExposure, exposureBase }),
     surgeSeam: (beat) => {
       if (beat == null) delete globalThis.__ddSurgeForce;
       else globalThis.__ddSurgeForce = (typeof beat === 'string') ? { beat } : beat;
@@ -1648,7 +1649,11 @@ function tick() {
   // a live run can never inherit a menu grade. Shop + hub keep full exposure.
   if (game.state === 'playing') menuDimW = 0;
   else menuDimW += ((ui.atDimScreen() ? 1 : 0) - menuDimW) * (1 - Math.exp(-10 * rawDt));
-  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW);
+  // SUNBREAK I1: the Surge world-suppression exposure dip (−0.4 EV at full) is composed
+  // into the SINGLE exposure write (§M.1-4) so it survives at tier 2 where the grading
+  // pass is absent — the weak-mobile read depends on it. surgeExposureDip() lags the
+  // dragon's ignition by a frame (grade updates in updatePostFX below), which is fine.
+  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW) * (1 - surgeExposureDip());
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
