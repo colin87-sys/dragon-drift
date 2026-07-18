@@ -3732,6 +3732,55 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // pharos — the LEANING LIGHTHOUSE (DROWNED-FORUM-BUILD-SHEET §3 #11, PR-6). The biome's ONE vertical
+  // exclamation: a rare tall counterweight standing in the BREATH where the wall rhythm breaks (breathGate),
+  // overtopping the monument register (world top ~52-62 ≈ 1.5× the tallest wall) — a solo top note. Name-test =
+  // 3 SQUARE SETBACK TIERS (the Ostia/Alexandria ziggurat taper) + the whole stack 5° OFF-PLUMB against a biome
+  // of level cornices (the counter-rhythm IS the read) + a dark open fire-chamber crown holding ONE recessed
+  // gilt ember (the one distant light, withheld-glow law). Lean is BUILT from tier offsets (the flatten law:
+  // internal rz is stretched to a lie under the (r,h,r) scale), and INBOARD = cross-lane so it isn't edge-on
+  // invisible (the FLAP depth-projection trap). forumdark bake → every setback ledge catches the apricot cap
+  // rim for free; ZERO new bake. ≤150 tris, 2 material groups (forumdark stone + gilt ember).
+  pharos: {
+    step: 139, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'wall', breathGate: 0.05,   // full-size-or-absent (no comp block): a landmark never rides the comp scale lottery
+    build: () => {
+      const parts = [];
+      const S = (g) => parts.push({ mat: 0, bake: 'forumdark', geo: g });
+      // OBJECT SPACE: y∈[0,1]→world[0,h]; x,z scaled by r=0.5h (place couples them). Tiers step inboard (+x) so
+      // the accumulated offset is the 5° lean; top-tier centre offset/H ≈ 0.09 ≥ 0.07 (the anti-plumb-chimney law).
+      const box = (cx, y0, y1, hw) => S(xform(new THREE.BoxGeometry(2 * hw, y1 - y0, 2 * hw), { x: cx, y: (y0 + y1) / 2 }));
+      box(0, 0, 0.06, 0.56); box(0, 0.06, 0.11, 0.56);   // PLINTH split at the tide line (0.06) → the travertine ladder edge loop
+      box(0.03, 0.11, 0.44, 0.50);                        // tier 1  ── each tier steps further inboard (+x): the accumulated
+      box(0.12, 0.44, 0.70, 0.38);                        // tier 2     offset is the LEAN. crown offset/H ≈ 0.13 → ~7.4° world
+      box(0.20, 0.70, 0.86, 0.28);                        // tier 3     (well past the 4° plumb-chimney floor; the setbacks are
+      // CROWN LOGGIA — 4 corner piers with ONE sheared off (the ruin bite / broken crown), the ember behind them.
+      const xc = 0.26;                                    //            deliberately ASYMMETRIC so the taper reads as a LEAN)
+      const pier = (dx, dz) => S(xform(new THREE.CylinderGeometry(0.05, 0.05, 0.13, 4, 1, true), { x: xc + dx, z: dz, y: 0.915, ry: Math.PI / 4 }));
+      pier(0.19, 0.19); pier(0.19, -0.19); pier(-0.19, -0.19);   // 4th corner (−0.19,+0.19) sheared away — the sea took it (broken crown = the ruin bite)
+      // BROKEN-CORNER STUB — a short remnant of the sheared 4th pier, so the gap reads as DAMAGE (a jagged section)
+      // rather than a symmetric 3-legged design. Half-height, its top an angled shear face.
+      S(xform(new THREE.BoxGeometry(0.09, 0.06, 0.09), { x: xc - 0.19, z: 0.19, y: 0.875, rz: 0.5 }));
+      S(xform(new THREE.ConeGeometry(0.27, 0.10, 4), { x: xc, y: 1.0, ry: Math.PI / 4 }));   // pyramid cap
+      // GILT EMBER (mat 1) — recessed INSIDE the loggia, read only THROUGH the pier voids: the one distant light.
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.13, 0.11, 0.13), { x: xc, y: 0.905 }) });
+      // DOOR — a dark reveal at the base on the +x (inboard/lane-facing) face: a ~7m door under a 55m tower = the
+      // colossal-scale anchor.
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.16, 0.16), { x: 0.561, y: 0.09, ry: Math.PI / 2 }) });
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.06 });   // tall prop → low object waterline (basilica precedent)
+    },
+    // RARE tall counterweight in the deep breath, |x| 60-72 (inner edge ≥ ~44 — 3× the 14.5 floor; never near the
+    // lane). h 52-62, r COUPLED 0.5h (base ≥50% of H — an uncoupled skinny draw is the flagpole bug). Small
+    // bradyseism ground tilt ON TOP of the built lean. rotY side-based so object +x (the lean) points INBOARD.
+    place: (side, rnd) => {
+      const h = 52 + rnd() * 10;
+      const r = 0.5 * h;
+      const p = { x: side * (60 + rnd() * 12), h, r, tilt: side * (0.012 + rnd() * 0.010) };
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.24 - 0.12);   // +x → inboard (toward the sun-path) on both flanks
+      if (HERO_SET.has('pharos')) { p.rotY = 0; p.tilt = 0; }      // debug: pin the lean cross-camera + kill ground tilt
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -3781,6 +3830,7 @@ const FOAM_CFG = {
   triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
   viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
   viamarinaM: { rx: 0.30, rz: 1.0 },  // mirrored near-rail — same elliptical collar (footprint is z-mirror-symmetric)
+  pharos: { r: 0.78 },   // leaning lighthouse — a round tide collar hugging the square plinth foot where the tower meets the drowned mirror
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
@@ -4827,6 +4877,19 @@ function writeMatrix(band, i, d) {
       const wallSide = heroHash(peakIdx * 7 + 3) < 0.5 ? 1 : -1;         // which flank is the dark wall this congregation
       const want = band.def.flankAlt === 'wall' ? wallSide : -wallSide;
       if ((d.side > 0 ? 1 : -1) !== want) active = false;
+    }
+    // LANDMARK PUNCTUATION (Fable PR-6): a rare landmark reads because a wall rhythm BREAKS for it — so it stands
+    // in the BREATH (the deep open-mirror trough where the wall floor thins to near-empty), NOT at a congregation.
+    // Survives only where lagoonComp < breathGate (the ph≈0.52–0.84 deep-breath window), then a duty-cycle hash
+    // keeps ~1 breath in 2 so it's 1–2 per ~1500m, never a metronome. flankAlt:'wall' stands it on the flank where
+    // the NEXT congregation's wall will rise (breath ph>0.5 rounds peakIdx up → same hash the basilica evaluates).
+    // Pure (no rnd) → gold-determinism byte-identical; lagoon defs have no breathGate, so they never enter.
+    if (active && band.def.breathGate !== undefined) {
+      if (lagoonComp(d.dist) > band.def.breathGate) active = false;
+      else {
+        const bIdx = Math.round(d.dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
+        if (heroHash(bIdx * 13 + 7) >= 0.6) active = false;             // duty cycle — the beacon is an EVENT, not wallpaper
+      }
     }
     if (active && band.def.comp) {
       const g = lagoonComp(d.dist);
