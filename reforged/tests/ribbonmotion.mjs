@@ -22,7 +22,7 @@ if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 const { DRAGONS } = await import('../js/dragons.js');
 const { ascendedDef } = await import('../js/ascension.js');
 const { buildDragonModel } = await import('../js/dragonModel.js');
-const { initRibbonSim, updateRibbonSim } = await import('../js/ribbonSpine.js');
+const { initRibbonSim, updateRibbonSim, ribbonWhip } = await import('../js/ribbonSpine.js');
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('  ✗ ' + m); } };
@@ -111,6 +111,36 @@ function stationArr(S) { const a = []; for (let i = 0; i < S.N; i++) a.push([S.s
   const a = run(), b = run(); let same = true;
   for (let i = 0; i < a.length; i++) for (let k = 0; k < 3; k++) if (a[i][k] !== b[i][k]) same = false;
   ok(same, `determinism: same input tape → bit-identical spine`);
+}
+
+// ── RESPONSE RATIO (Levers 1+2): steering must deviate the body markedly more than idle. This is
+//    the owner's "it doesn't respond to my input, it just coils idly" complaint expressed as a number
+//    (Fable's metric): rear-body peak deviation while STEERING ÷ while IDLE, target ≥ 2.5×.
+{
+  const opts = { swimAmp: 1.2, swimAmpY: 0.95, swimFreq: 0.9, swimSpeed: 2.7, swimPhaseY: 1.5, swimGrow: 0.4, headFade: 3, curlAmp: 3.6 };
+  const measure = (steering) => {
+    const def = ascendedDef(DRAGONS.jade, 2);
+    const rib = buildDragonModel(def).parts.bodyWave.ribbon;
+    initRibbonSim(rib, opts);
+    const S = rib.sim, h = { x: 0, y: 0, z: 0 }, fwd = { x: 0, y: 0, z: -1 };
+    let peak = 0;
+    for (let f = 0; f < 90; f++) {
+      h.z -= 12 * dt;
+      if (steering) {                       // a sustained right steer + its onset whip
+        S.steerMag = 1; S.driveX = 0.9; S.curl = Math.min(1, f / 30);
+        if (f === 2) ribbonWhip(rib, S.pulseAmp, 0);
+      }
+      updateRibbonSim(rib, h.x, h.y, h.z, fwd, dt);
+      for (let i = Math.floor(S.N * 0.5); i < S.N; i++) {   // rear half: where the response lives
+        const dev = Math.hypot(S.sx[i] - h.x, S.sy[i] - h.y);
+        if (dev > peak) peak = dev;
+      }
+    }
+    return peak;
+  };
+  const idle = measure(false), resp = measure(true), ratio = resp / (idle || 1);
+  console.log(`  · response ratio ${ratio.toFixed(2)}× (idle ${idle.toFixed(2)} → steer ${resp.toFixed(2)}; target ≥2.5)`);
+  ok(ratio >= 2.5, `response ratio: steering deviates the rear body ${ratio.toFixed(2)}× vs idle (≥2.5) [idle ${idle.toFixed(2)} → steer ${resp.toFixed(2)}]`);
 }
 
 console.log(`\nRibbon motion (R1-R6): ${pass} passed, ${fail} failed.`);

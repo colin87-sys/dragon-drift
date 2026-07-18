@@ -29,7 +29,7 @@ import { createPulseTimer, mulberry32 } from './pulseTimer.js';
 import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
 import { bondState } from './dragonBond.js';
-import { initRibbonSim, updateRibbonSim, ribbonToLocal } from './ribbonSpine.js';
+import { initRibbonSim, updateRibbonSim, ribbonToLocal, ribbonWhip } from './ribbonSpine.js';
 
 // ── EMBERSIGHT H7 — DRAGON VITALS (the living gauge, HUD-REDESIGN §B.1/§B.2) ──
 // All state for the flag-gated bond channel. THE HARD CONTRACT: while the
@@ -142,6 +142,8 @@ let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniform
 const _ribHeadW = new THREE.Vector3(), _ribAnchor = new THREE.Vector3(), _ribFwd = new THREE.Vector3(), _ribInvQ = new THREE.Quaternion();
 let ribbonCurl = 0;   // slowly-ramped steer signal → the sustained-turn body curl (the "twirl" beat)
 let ribDriveX = 0, ribDriveY = 0;   // smoothed steer/pitch magnitude → the swim swells into your movement
+let ribSteerMag = 0;                 // smoothed |steer| → ducks the idle swim (Lever 1, contrast)
+let ribPrevSx = 0, ribPrevSy = 0, ribWhipCd = 0;   // steer-edge detector → whip pulses (Lever 2)
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
 let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let jadeChainMats = null; // jade pearl-chain links 1/3/4 (sat/lyre/streamer) — pulsed via userData.baseIntensity (§4.3b)
@@ -1507,12 +1509,31 @@ export function updateDragon(dt, player, time) {
         rib.sim.curl = ribbonCurl;
         // swim swells into the axis you're steering: |lateral| feeds the lateral S, |vertical| the
         // vertical S (smoothed so it flows in, doesn't pop), and it energises with cruise speed.
-        const driveXt = Math.min(1, Math.abs(player.velocity.x) / CONFIG.lateralSpeed) * 0.9;
-        const driveYt = Math.min(1, Math.abs(player.velocity.y) / (CONFIG.verticalSpeed || 18)) * 0.7;
+        const sxN = player.velocity.x / CONFIG.lateralSpeed;         // signed steer, ~[-1,1]
+        const syN = player.velocity.y / (CONFIG.verticalSpeed || 18);
+        const driveXt = Math.min(1, Math.abs(sxN)) * 0.9;
+        const driveYt = Math.min(1, Math.abs(syN)) * 0.7;
         ribDriveX = damp(ribDriveX, driveXt, 3, dt);
         ribDriveY = damp(ribDriveY, driveYt, 3, dt);
         rib.sim.driveX = ribDriveX; rib.sim.driveY = ribDriveY;
         rib.sim.gain = 1 + speedNorm * 0.45;
+        // Lever 1 — idle DUCK: smoothed |steer| (fast attack so it quiets promptly, slower release).
+        const steerMagT = Math.min(1, Math.max(Math.abs(sxN), Math.abs(syN)));
+        ribSteerMag = damp(ribSteerMag, steerMagT, ribSteerMag < steerMagT ? 8 : 3, dt);
+        rib.sim.steerMag = ribSteerMag;
+        // Lever 2 — WHIP on a steer EDGE: a fast change in steer (onset OR reversal) spawns a
+        // travelling pulse, signed by the edge direction and sized by its speed. A short cooldown
+        // stops a mashed stick from stacking pulses every frame.
+        ribWhipCd -= dt;
+        const dSx = sxN - ribPrevSx, dSy = syN - ribPrevSy;   // per-frame steer change
+        const edge = Math.hypot(dSx, dSy);
+        if (ribWhipCd <= 0 && edge > 0.045) {
+          const k = Math.min(1, edge * 7);                    // edge speed → pulse strength
+          ribbonWhip(rib, dSx !== 0 ? Math.sign(dSx) * k * rib.sim.pulseAmp : 0,
+                          dSy !== 0 ? Math.sign(dSy) * k * (rib.sim.pulseAmp * 0.7) : 0);
+          ribWhipCd = 0.13;
+        }
+        ribPrevSx = sxN; ribPrevSy = syN;
         updateRibbonSim(rib, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z, _ribFwd, dt);
         _ribInvQ.copy(group.quaternion).invert();
         ribbonToLocal(rib, _ribInvQ, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z);
