@@ -160,12 +160,16 @@ Composition engine: `tempestComp(dist, side)` — 4 periods/biome, seg 375 m, pe
 (banks SWAY, congregations alternate flanks), raised-cosine SQUARED → wide genuinely-empty breaths
 (`4475–4491`). The `bi === 7` branch (`4903–4922`): arrivalPark opens the seam (<200 m), then
 `density = floor + (1−floor)·g`, `compHash` parks off-beat slots, survivors swell `sMin→sMax`.
-Precedents you will reuse: the Frozen hero phase-lock (`~4753–4759`), the Lagoon `oneSide` per-peak
-duty/side pick (`~4795–4801`, `heroHash`). FOAM_CFG tempest entries: 3776–3784. **The last archetype in
-`ARCHETYPES` is `basilica` (3609); the object closes at 3721 — `scarpwall` is appended AFTER `basilica`,
-immediately before the closing brace.** The rotY-init determinism line: `eul.set(0, d.rotY ?? (d.rotY =
-rnd()*Math.PI), d.tilt)` (~4740) — returning `rotY` from `place()` skips that `rnd()`, which only
-affects your new prop's own stream (fine).
+**Important asymmetry: the two banks NEVER share a peak** — left (side<0, shift 0) peaks at
+`seg·(n+0.18)`, right (side>0, shift 0.42) at `seg·(n+0.60)`; congregations interleave L,R,L,R at
+~157/218 m spacing. Any per-peak logic must lock to a SIDE's peak, never to a shared "peak center"
+(§4.6). Precedents you will reuse: the Frozen hero phase-lock + its FIXED `slotJit`
+(`~4374–4376`, `~4753–4759`), the Lagoon `oneSide` per-peak duty pick (`~4795–4801`, `heroHash`).
+FOAM_CFG tempest entries: 3776–3784. **The last archetype in `ARCHETYPES` is `basilica` (3609); the
+object closes at 3721 — `scarpwall` is appended AFTER `basilica`, immediately before the closing
+brace.** The rotY-init determinism line: `eul.set(0, d.rotY ?? (d.rotY = rnd()*Math.PI), d.tilt)`
+(~4740) — returning `rotY` from `place()` skips that `rnd()`, which only affects your new prop's own
+stream (fine). `writeMatrix` composes the `(r,h,r)` instance scale at ~4938 (grep `sclV.set(d.r * k`).
 
 ---
 
@@ -185,28 +189,32 @@ no windows, no white.
 Model on `basilica` (`environment.js:3609–3660`) — design in WORLD units ÷ a nominal, exactly as it
 does (`R_NOM`, `wx()`, `wy()`).
 
-- **World targets:** length **70–110**, height **26–34**, masonry thickness **~3.5–5 world**.
+- **World targets:** length **84–110**, height **25–35**; masonry faces **~1.7–2.2 world** thick,
+  with deep cap/end returns to **~4.6–6.0 world**.
 - **Nominals:** `R_NOM = 40`, `H_NOM = 30`. Object X spans ±1.0 → world length = 2r.
-- **`place()` draws:** `r = 35 + rnd()*15` (35–50 → length 70–100); **couple `h = 0.62·r ·
-  (0.97+0.06·rnd())`** (→ h 21–32 raw; clamp to ≥26 by flooring the draw: `h = Math.max(26, …)`).
-  Aspect is this prop's identity — protect it from independent r/h draws (the aqueduct a1 law,
-  restated at pinisle).
+- **`place()` draws:** `r = 42 + rnd()*13` (42–55 → length 84–110); **couple `h = 0.62·r ·
+  (0.97+0.06·rnd())`** (→ h ≈ 25–35, matching the world target — NO clamp; a `Math.max` floor would
+  pin h flat across half the r-range and kill the coupling). Aspect is this prop's identity —
+  protect it from independent r/h draws (the aqueduct a1 law, restated at pinisle).
 - **THE FLATTEN LAW:** the instance scale is `(r, h, r)` — `writeMatrix` composes
-  `sclV.set(d.r·k, d.h·k·…, d.r·k)` (~4890). With h/r ≈ 0.62, object-space vertical features read
-  ~0.62× their object proportion relative to length — **author the scarp face and the skyline rise
-  STEEPER than the world read you want** (the rampart lesson: an object pier must be ~2× as tall as it
-  should read; here the h/r coupling is fixed, so steepen in object space and verify on the broadside
-  capture, never trust the object numbers).
-- **Z-THICKNESS TRAP:** object z is multiplied by r. `zf/zb = ±0.02` at r 35–50 = 2.8–4.0 world
-  masonry (basilica ships ±0.017 + a deep back plane at `zf−0.10`). Use `zf = ±0.02` faces + a deep
-  back plane `zTop = zf − 0.09` (~3.6–4.5 world) for caps/ends/returns. **Audit every z offset in
-  world units** (× r) before trusting it — the two-shelf lesson's welded-shut-bays bug was exactly
-  this, in reverse.
+  `sclV.set(d.r·k, d.h·k·…, d.r·k)` (~4938; grep `sclV.set(d.r * k`). With h/r ≈ 0.62, object-space
+  vertical features read ~0.62× their object proportion relative to length — **author the scarp face
+  and the skyline rise STEEPER than the world read you want** (the rampart lesson: an object pier
+  must be ~2× as tall as it should read; here the h/r coupling is fixed, so steepen in object space
+  and verify on the broadside capture, never trust the object numbers).
+- **Z-THICKNESS TRAP:** object z is multiplied by r — audit EVERY z offset in world units (× r)
+  before trusting it (the two-shelf lesson's welded-shut-bays bug). `zf/zb = ±0.02` faces at r 42–55
+  = `0.04·r` ≈ **1.7–2.2 world** masonry (basilica ships ±0.017 + a deep back plane at `zf−0.10`).
+  Use `zf = ±0.02` faces + a deep back plane `zTop = zf − 0.09` → `0.11·r` ≈ **4.6–6.0 world** where
+  the caps/ends/returns land.
 
 ### 4.3 Build technique (the cheap-tell insurance, budgeted from I1 — not discovered in round 2)
 - **Skewed strata, lean by lateral OFFSET, never internal rotation** — the `(r,h,r)` scale shears
-  internal tilts flat (`stormprow` law, 3222–3226). The dip-slope rise and the down-wind lean are both
-  carried by per-stratum X offsets, like `buildStormprow`.
+  internal tilts flat (`stormprow` law, 3222–3226). The dip-slope rise and the down-wind lean are
+  both carried by per-stratum X offsets — but **borrow only `buildStormprow`'s offset-lean PATTERN,
+  never its boxes**: stacked `BoxGeometry` strata cost 12 tris each (~120+ for a wall — blows the
+  cap). Author raw quads with the basilica kit idiom (`wallF`/`capF`/side-return/`q()`,
+  3617–3660) and carry the lean in the quad corner offsets; then 110–130 tris is comfortable.
 - **Silhouette-edge thickness from day one** (the basilica flatness cure, all four moves): (a) top
   caps span `zf → zTop` (deep, not a sheet); (b) a full-height END-CAP cross-section on the tall scarp
   end; (c) a shear-return section at the collapse notch (a headland showing its bitten section IS the
@@ -226,8 +234,12 @@ does (`R_NOM`, `wx()`, `wy()`).
 - **Pre-darkened + widened bake** (the pinisle law): add a `scarp` bake variant of the wind-scour
   ladder — body/belly stops at ~⅓–½ the stormprow albedo, but KEEP the pale `_TMP_SCOUR` crest stops
   on up-facing/skyline strata (the sun-caught rim, free from the existing dot-keyed ladder,
-  524–553). Watch the Y-keyed-bake coordinate-space trap: any bake keyed to object Y authored for
-  small props will mis-fire on a `wy()`-normalized wall — parametrize the band, don't inherit it.
+  524–553). **PLUMBING (part of PR-A):** `mergeTempestParts(parts)` (~564–575) takes NO opts and
+  hardcodes the one ladder bake — unlike `mergeLagoonParts(parts, opts)` — so PR-A must extend it
+  with per-part bake tags/opts before a `scarp` variant can exist. And the Y-keyed-bake
+  coordinate-space trap is live here: the ladder's soaked wet band keys on unit `yc ≤ 0.24` (~545) =
+  **~7–8 world on a 30-tall wall** — parametrize the band per archetype, don't inherit the
+  small-prop default.
 - **Numeric targets (gated in §6):** near-read face L ≤ 0.38 · skyline crest rim ≥ 0.50 · the foot
   anchored by the `wrackline` surf ribbon (which never parks — it is the fairness layer AND the
   massif's bright waterline thread). Remember: measure the dark face NEAR — at distance, fog
@@ -235,43 +247,79 @@ does (`R_NOM`, `wx()`, `wy()`).
   ~0.45–0.55: correct, don't fight it.
 
 ### 4.5 Placement, clearance, foam
-- **`place()`:** `x = side·(20 + 0.28·r + rnd()·4)` → |x| ≈ 30–42. **rotY side-pinned lane-parallel,
+- **`place()`:** `x = side·(20 + 0.28·r + rnd()·4)` → |x| ≈ 32–39 at r 42–55. **rotY side-pinned lane-parallel,
   basilica idiom:** `rotY = (side>0 ? -Math.PI/2 : Math.PI/2) + side·rnd()·0.08` — the +z scarp face
   always turns to the lane; the sheared/broken end falls away down-lane. `tilt = side·(−0.02 −
   rnd()·0.02)` (lean AWAY from the lane, small — the visible lean lives in the strata offsets; ALWAYS
   numeric, a missing tilt → NaN quaternion → invisible, the stormprow gotcha at 3242–3244).
-- **Clearance:** lane-facing extent = object-z × r ≈ ±1.0–2.3 world → inner edge ≈ |x| − 2 ≥ 28, far
-  clear of the 14.5 fairness floor and the ±16 gate veil. Run `tools/propclearance.mjs` anyway; it
-  uses a symmetric facing ρ (it can't know rotY is pinned) — read the basilica row as the precedent
-  for how a lane-parallel wall reports.
-- **Foam: `foam: false`** (the stormprowFar/riftwall precedent, 3264–3266 — a collar 28+ off-lane is
-  a bright artifact; `wrackline` provides the surf foot). If the Stage-2 gate says the foot reads
-  "floated," add a thin elliptical weld (`{ rx: 1.0, rz: 0.25 }`, viamarina precedent 3768) — gate
-  decision, not a default.
-- **Register ratio check:** h 26–34 vs the near `stormprow` rail h 7–13 → **2.6–3.0× the near
-  register**, screen area (70–100 long × ~30 tall) dwarfs every pillar, and the skyline stays UNDER
-  the breach slot (the sky band above ~35 world stays the focal's — `stormstack` big class h 42–56
-  remains the only thing that pierces it, as punctuation on the OTHER flank).
+- **Clearance — THE TOOL AMENDMENT (ships IN PR-A; without it §8 can never go green):**
+  `propClearanceData` (`environment.js:3858`) measures facing ρ as the max object **XZ radial**
+  extent, and `propclearance.mjs` picks facing per-flag (`line 52`: `gate → apertureHalf`,
+  `overhead → rhoLane`, `paired → xMax`, else the symmetric `rho`). A ±1.0-object-x lane-parallel
+  wall therefore reports ρ ≈ 1.0 → inner = |x| − 1.0·r ≈ 30 − (42…55) ≈ **negative**, and biome 7
+  IS CI-enforced (`SCOPE_BIOME = [2, 3, 4, 7]`, `propclearance.mjs:40`, hard `process.exit(1)`).
+  **Fix as part of PR-A, mirroring the existing paired/overhead amendments:** add
+  `lanePinned: true` on `scarpwall`, track `zMax` (max object |z|) in `propClearanceData`, and
+  extend the facing chain with `a.lanePinned ? a.zMax : …`. Then facing ≈ 0.12 (zf 0.02 + the 0.09
+  back plane + jitter) → inner ≈ |x| − 0.12·r ≈ **23–37 ✓** against the 14.5 floor / ±16 veil.
+  (Do NOT lean on basilica as a clearance precedent: it is biome 0 — NOT in `SCOPE_BIOME` — and its
+  headless whitelist is empty, so it prints no row at all. `scarpwall` is the first lane-pinned wall
+  the tool actually enforces.)
+- **Foam:** `envcount` FAILS any archetype missing from `FOAM_CFG` (~3922) — add
+  **`scarpwall: false,`** to `FOAM_CFG` beside `stormprowFar` (~3778) (the stormprowFar/riftwall
+  no-collar precedent, 3264–3266: a collar 28+ off-lane is a bright artifact; `wrackline` provides
+  the surf foot). If the Stage-2 gate says the foot reads "floated," add a thin elliptical weld —
+  **foam `rx`/`rz` track the prop's OWN object axes** (orientation-dependent: cf. `viamarina`
+  `{ rx: 0.30, rz: 1.0 }` at 3768, whose long axis is object z), so a scarpwall weld with its
+  length in object X is `{ rx: 1.0, rz: ~0.25 }` — gate decision, not a default.
+- **Register ratio check — audit RENDERED tops, not `place()` h** (`envcount` prints world top =
+  h·yMax per prop): the near `stormprow` rail renders tops ≈ 0.90·h ≈ **6–12 world**, so scarpwall
+  h 25–35 gives a real ratio ~**2.2–5× (mean ≈ 3×)** over the near register; screen area (84–110
+  long × ~30 tall) dwarfs every pillar; and the skyline stays UNDER the breach slot (the sky band
+  above ~35 world stays the focal's — `stormstack` big class h 42–56 remains the only piercer, as
+  punctuation on the OTHER flank).
 
 ### 4.6 Composition flags + the phase-lock (every congregation gets exactly ONE massif flank)
-- **Archetype fields:** `step: 170` (one candidate ~per half-period per side; coprime-ish with
-  22/36/60/95), `biomes: tempestNew`, `matIndex: 7`, `arrivalPark: true`,
-  `comp: { floor: 0.0, sMin: 0.96, sMax: 1.10 }`, plus a NEW flag `massif: true`.
-- **In the `bi === 7` branch (4903–4922), add a `massif` block PURE (no `rnd()`), evaluated after the
-  rotY init** — mirror the Lagoon `oneSide` block (~4795–4801) with two changes:
-  1. **Duty = EVERY peak** (the whole point is the guarantee — no `heroHash ≥ 0.38` rarity park).
-     `peakIdx = Math.round(d.dist / (CONFIG.biomeLength / TEMPEST_COMP_PERIODS))`.
-  2. **Side = the heavier bank at that peak** — pick the side whose `tempestComp(peakCenterDist,
-     side)` is greater (deterministic, no hash needed; fall back to `heroHash(peakIdx) < 0.5` only if
-     the weights tie). Park any `massif` instance on the other side. This rides the existing 0.42
-     per-side sway, so massif flanks ALTERNATE banks window-to-window — the Lorrain frame swaps sides
-     and forces the eye across the lane (the Tsushima trick the sway was built for).
-  3. Additionally park all but the candidate slot nearest the peak center (one wall per
-     congregation, not a conveyor — the Lagoon "an EVENT, not wallpaper" ruling).
-- Expose the side choice as a pure helper `massifSide(peakIdx)` — §5 reuses it for the counter-flank
-  law. **Determinism:** append the archetype at the END of `ARCHETYPES` (after `basilica`, 3609–3720,
-  before the closing `};` at 3721); the new branch logic is pure and post-rotY-init →
-  `gold-determinism` stays byte-identical.
+- **Archetype fields:** `step: 170` (coprime-ish with 22/36/60/95; well under the 375 m per-side peak
+  spacing, so exactly one slot lands in each peak window), `biomes: tempestNew`, `matIndex: 7`,
+  `arrivalPark: true`, plus a NEW flag `massif: true`. **NO `comp` block** — the `bi === 7` branch
+  parks on `compHash ≥ density` (~4916–4920), and a slot can sit up to ~85 m off-peak where g ≈ 0.33,
+  so a `comp` block would park ~⅔ of the massifs and defeat the every-congregation guarantee. This is
+  the Frozen `hero` precedent exactly: the landmark uses its lock INSTEAD of `comp` — full size
+  (k = 1) or not at all. (Skip the swell: a prop that only exists at peaks has nothing to swell
+  relative to, and with no `comp` block `propClearanceData` audits `sMax = 1` — keep render scale
+  and audit in agreement.)
+- **Slot cadence (or the guarantee leaks by seed):** `makeBand` draws a per-slot `rnd()` dist jitter
+  (~4380), so a peak can fall in a slot gap with NO candidate inside the ±step/2 window. The Frozen
+  heroes fix this with a FIXED `slotJit` (~4374–4376). **Wire `massif` into that ternary with a
+  CONSTANT jitter** (e.g. `def.massif ? new Array(perSide).fill(0.5) : …`) so massif slots tick at
+  exactly `step` and every peak window has its candidate. Do NOT reuse `hero: true` — its jitter and
+  park logic are Frozen-specific (`HERO_PEAK_OFFSET`, `frozenComp` phase). (Beware: the `stormstack`
+  comment at 3313 claims `hero: true`; the def at 3315 has none — don't copy the comment.)
+- **The peak lock (in the `bi === 7` branch, PURE — no `rnd()` — evaluated after the rotY init):
+  each massif locks to its OWN bank's congregation peak.** The two banks NEVER share a peak
+  (`tempestComp`: left peaks at `seg·(n+0.18)`, right at `seg·(n+0.60)` — a naive "heavier bank at
+  peakIdx·seg" comparison ALWAYS picks left, ≈0.51 vs ≈0.009, and alternation never happens). For an
+  instance `(d.dist, d.side)`:
+  ```
+  seg   = CONFIG.biomeLength / TEMPEST_COMP_PERIODS;        // 375
+  shift = d.side > 0 ? 0.42 : 0;                            // tempestComp's own sideShift
+  kS    = Math.round(d.dist / seg - 0.18 - shift);          // this bank's nearest peak index
+  Pd    = seg * (kS + 0.18 + shift);                        // that peak's dist
+  keep  iff |d.dist − Pd| < step/2;  else park.
+  ```
+  Alternation is then FREE: kept massifs interleave L,R,L,R every ~157/218 m — the 0.42 sway doing
+  the Tsushima trick. One wall per congregation falls out of the window check (≤1 slot fits in
+  ±85 m); no extra "nearest-slot" pruning needed.
+- **Cadence + the wallpaper fallback:** 4 peaks/side × 2 sides = 8 side-peaks per 1500 m biome; the
+  arrival beat parks the first left peak (local 67.5 < 200) → **~7 massifs/biome**, each 84–110 long
+  → roughly 40–50% of ONE flank walled at any moment, alternating banks. This is deliberate (the
+  guarantee is the point), but if the owner calls "walling" at PR-C, the one-round retreat is a
+  `heroHash(kS)` duty park at ~0.6–0.7 — name it in the PR, don't improvise it.
+- Expose the lock as a pure helper `massifSide(dist)` → the side whose peak window covers `dist`
+  (i.e. the `s` with `|dist − Pd(s)| <` the window) — §5 reuses it for the counter-flank law.
+  **Determinism:** append the archetype at the END of `ARCHETYPES` (after `basilica`, 3609–3720,
+  before the closing `};` at 3721); the branch logic is pure and post-rotY-init.
 - Doc-only: add `'scarpwall'` to `BIOMES[7].props` (`biomes.js:410`) with the "doc-only" note kept.
 
 ---
@@ -286,11 +334,13 @@ does (`R_NOM`, `wx()`, `wy()`).
      ribbon is the breath's floor, the virga is its far anchor. A breath then = violent sea + sun-lane
      + surf line + virga + breach: composed REST, not absence.
 2. **The counter-flank law (kills the picket standing in front of the wall):** in the `bi === 7`
-   branch, within a congregation whose `massifSide(peakIdx)` = S, park `stormstack` and
-   `stormprowHero` instances on side S (pure check on `d.side` — both already have floor ≈ 0, so this
-   only bites at peaks, exactly where the massif stands). Verticals congregate on the COUNTER-flank:
-   mass one side, punctuation the other = the authored Lorrain frame. `tafonihold` + `stackgrave` stay
-   both-flanks (the debris pools at the massif's foot on side S by simply not being parked there).
+   branch, park `stormstack` and `stormprowHero` instances whose `d.side === massifSide(d.dist)`
+   (the §4.6 pure helper — the side whose peak window covers `dist`; widen the suppression window to
+   ~±½·seg·0.25 around that side's `Pd` if step/2 proves too narrow to clear the wall's full length).
+   Both already have floor ≈ 0, so this only bites at peaks, exactly where the massif stands.
+   Verticals congregate on the COUNTER-flank: mass one side, punctuation the other = the authored
+   Lorrain frame. `tafonihold` + `stackgrave` stay both-flanks (the debris pools at the massif's
+   foot by simply not being parked there).
 3. **FOCAL GUARD-RAILS — GAMEPLAY-OWNED, propose to the owner, do NOT change unilaterally:**
    - The flat yellow pickup quads rival the breach (rubric #7 — nothing shares the focal's value
      band). Proposal: desaturate/shrink toward the gold-ember pickup language or warm-rim them.
@@ -326,7 +376,8 @@ a technique ceiling, not a tuning miss.
 
 **The pass condition for the whole correction:** re-run the 6-frame sweep. (a) The current best-frame
 composition (dark near flank + framed bright slot + fog depth) is now the AVERAGE frame — every
-congregation window has a massif flank + counter-flank punctuation + the breach slot. (b) The thumb
+congregation window has a massif flank + counter-flank punctuation + the breach slot (**arrival
+window exempt**: `arrivalPark` parks the first left-bank peak at local 67.5 < 200 by design). (b) The thumb
 test passes in both directions on every congregation frame: cover the small props → still composes;
 cover the `scarpwall` → falls apart. (c) No breath frame reads as sprinkle. (d) The breach is the
 value extreme in all six.
@@ -338,8 +389,9 @@ value extreme in all six.
 - 100% procedural Three.js r160, no assets, no build step, 60 fps on weak mobile.
 - **≤150 tris per archetype** (`envcount` enforces). ≤2 material groups (`mergeTempestParts` supports
   exactly 2: ladder + accent; `scarpwall` uses group 0 only).
-- **`(r,h,r)` flatten law** — see §4.2. Size-scale `k` never moves `x` (`writeMatrix` ~4890): a
-  smaller instance reads FARTHER, not nearer; a register change is a `place()` change.
+- **`(r,h,r)` flatten law** — see §4.2. Size-scale `k` never moves `x` (`writeMatrix` ~4938, grep
+  `sclV.set(d.r * k`): a smaller instance reads FARTHER, not nearer; a register change is a
+  `place()` change.
 - **Side-pinned rotY for lane-parallel masses** (§4.5) — a random yaw flip shows the blank back;
   `FrontSide` single-sided faces must face the lane AFTER the pinned rotY (verify in-context, the
   studio can't show a culled face).
@@ -348,9 +400,14 @@ value extreme in all six.
   top per prop.
 - **DETERMINISM LAW:** `gold-determinism` byte-identical. Append at the END of `ARCHETYPES`; comp
   logic PURE (no `rnd()`), evaluated after the rotY-init line (~4740); never reorder existing bands.
-  Placement/comp-floor edits (§5) are render-only.
-- **Tempest comp specifics:** `tempestComp` is per-side (sway 0.42) — any per-peak logic must decide
-  which bank a peak belongs to (§4.6). arrivalPark seam beat < 200 m (4910–4914).
+  Placement/comp-floor edits (§5) are render-only. **Know the mechanism's limits:** the gate tests
+  `level.js`'s isolated RNG — env props roll their OWN `mulberry32(seed+99)` stream (~3987), so
+  `gold-determinism` CANNOT catch an ARCHETYPES-ordering mistake. Append-at-END is still mandatory
+  (it keeps `?seed` layouts stable run-to-run); the discipline must be followed blind, because no
+  gate will save you.
+- **Tempest comp specifics:** `tempestComp` is per-side (sway 0.42) — the banks NEVER share a peak;
+  all per-peak logic locks to a SIDE's peak via the §4.6 formula. arrivalPark seam beat < 200 m
+  (4910–4914).
 - **`stormarch` overhead law** (3450): crown spans are `overhead`-audited (`minWorldY 21`) —
   `scarpwall` has no span and needs no overhead entry; do not give it one.
 
@@ -363,7 +420,7 @@ cd /home/user/dragon-drift/reforged
 node tests/gold-determinism.mjs      # byte-identical RNG — the sacred gate
 node tests/biomecycle.mjs            # cycle order intact
 node tools/envcount.mjs              # ≤150 tris, instance caps, FOAM_CFG audit; prints measured ρ + world top
-node tools/propclearance.mjs         # inner edge clears the fatal lane (lane-parallel walls over-report; basilica row = precedent)
+node tools/propclearance.mjs         # inner edge clears the fatal lane — biome 7 is CI-ENFORCED (SCOPE_BIOME [2,3,4,7], exit 1); scarpwall needs the §4.5 lanePinned facing amendment or this can never pass
 node tools/tricount.mjs              # roster tri budget
 node tests/bulletcontrast.mjs        # only if any color/material constant moved
 ```
@@ -389,13 +446,19 @@ never `playwright install`.
 **Recipe A — one prop in context (Stage-2 gate):** clone `tools/_forumclose.mjs` (itself a
 `_kfclose.mjs` clone) → `_tempestclose.mjs`: boot `?biome=7&debug&hero=scarpwall`, force playing,
 kill non-scenery (`noBoss`, `clearVents`, pin health), override `cameraCtl.update` to a low
-outer-side ¾ broadside vantage, screenshot. Full-game screenshots are slow (~30–40 s) — budget 2–3
-frames per run.
+outer-side ¾ broadside vantage, screenshot. **Caveat: `?hero=` does NOT isolate in biome 7** — the
+`HERO_POSE` strip removes biome 0 from other archetypes only (~3789), so the rest of the storm
+roster still spawns. Harmless for the in-context read (judge the scarpwall, ignore the neighbors),
+but don't expect a clean-plate frame. Add the studio-facing debug branch in `place()` like basilica
+(3717): `if (HERO_SET.has('scarpwall')) p.rotY = -Math.PI/2;`. Full-game screenshots are slow
+(~30–40 s) — budget 2–3 frames per run.
 
 **Recipe B — the composition sweep (the owner's view):** the biome in flight, game's own follow-cam
-(do NOT override the camera), 6 frames across congregation + breath windows (`?biome=7&debug`,
-natural cruise or one-boot-per-frame per the stall caveat; `?seed=` pins the layout — `tempestshot`
-uses `seed=73101`). Montage with `tools/_montage.mjs` for the Fable spawn.
+(do NOT override the camera), 6 frames across congregation + breath windows. `tempestshot.mjs` takes
+only `[outPath] [cruiseSeconds]` and HARDCODES `seed=73101` (line ~24) — **clone it to
+`_tempsweep.mjs` with the seed as an argument**, then one boot per frame (vary `cruiseSeconds` /
+`seed` per the stall caveat; `?seed=` pins the layout so a fixed seed + varied cruise sweeps one
+layout's windows). Montage with `tools/_montage.mjs` for the Fable spawn.
 
 ---
 
@@ -443,7 +506,7 @@ biggest failure, and the ONE highest-leverage fix**. Bar = **4.2**.
 
 | PR | Content | Gate |
 |---|---|---|
-| **PR-A** | `scarpwall` skeleton: build + bake (`scarp` dark ladder variant) + `place()` + `massif` phase-lock in the `bi===7` branch + doc-only whitelist note | §8 all green · Stage-1 + Stage-2 Fable ≥4.2 · §6 lumprobe face/crest |
+| **PR-A** | `scarpwall` skeleton: build (basilica quad kit) + `scarp` bake (via the `mergeTempestParts` opts extension, §4.4) + `place()` + the §4.6 per-side peak lock + `massif` slotJit wiring + the `lanePinned` propclearance amendment (§4.5) + `FOAM_CFG scarpwall:false` + doc-only whitelist note | §8 all green · Stage-1 + Stage-2 Fable ≥4.2 · §6 lumprobe face/crest |
 | **PR-B** | Density-follows-framing: stackgrave 0.20→0.05, stormprowFar 0.22→0.10, counter-flank park via `massifSide` · focal guard-rail proposals to the owner (gameplay-owned) | §8 green (render-only) · breath-frame ≤3 mid-field props |
 | **PR-C** | Convergence: the full sweep + montage, one revise round, then the owner preview | Composition Fable ≥4.2 · the §6 pass condition · owner gasp |
 
@@ -451,11 +514,14 @@ Skeleton before density — never tune density before the mass it serves exists.
 `leapfrog/lessons/` file per PR (`graphics-tempest-` slug).
 
 **Closing audit (PR-C, checkable):**
-1. **Register audit:** from the sweep, the world-size table reads near 7–13 / **massif 26–34 ×
-   70–100** / punctuation 22–56 thin / far veil — the area histogram is bimodal.
+1. **Register audit:** from the sweep, the RENDERED-top table (via `envcount` world tops, not
+   `place()` h) reads near ~6–12 / **massif ~25–35 × 84–110 long** / punctuation thin verticals /
+   far veil — the area histogram is bimodal and the near:massif ratio lands ~2.2–5× (mean ≈ 3×).
 2. **Thumb test** both directions on every congregation frame (§6d).
 3. **Guarantee audit:** every congregation window in a full biome pass shows exactly one massif
-   flank, alternating banks; no breath shows a massif.
+   flank, alternating banks; no breath shows a massif. **Arrival window exempt** — `arrivalPark`
+   parks the first left-bank peak (local 67.5 < 200) by design; the guarantee starts at the first
+   post-arrival peak.
 4. **Value audit:** lumprobe numbers on record in the PR description (face / crest / breach-max).
 5. **One-coastline test:** montage scarpwall + stormprow + stormstack — shared geology audible
    (skewed strata, down-wind lean, scour crests, wet slate); nothing reads imported.
@@ -478,7 +544,8 @@ Skeleton before density — never tune density before the mass it serves exists.
 ---
 
 **Summary:** one new archetype (`scarpwall`, the wave-cut headland massif — the missing mid-ground
-MASS register, 2.6–3× the near rail, one flank per congregation, alternating banks, dark repoussoir
+MASS register, ~3× the near rail by rendered top, one flank per congregation, alternating banks
+via the per-side peak lock, dark repoussoir
 under the breach), two comp-floor edits + a counter-flank law (density follows framing), two
 gameplay-owned focal guard-rail proposals, three PRs, numeric lumprobe pre-gates, the two-stage Fable
 gate at 4.2, and a pass condition with teeth: the biome's best frame becomes its average, and the
