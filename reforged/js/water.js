@@ -349,6 +349,14 @@ const fragmentShader = /* glsl */`
       vec3 _irid = _it < 0.5 ? mix(vec3(0.949, 0.769, 0.863), vec3(0.863, 0.824, 0.941), _it * 2.0)
                              : mix(vec3(0.863, 0.824, 0.941), vec3(0.769, 0.804, 0.957), (_it - 0.5) * 2.0);
       col = mix(col, _irid, uNacreMix * _graze * _crest * 0.62);   // luster read — banded + angular + soft, never an oil slick
+      // SECOND interference order (Fable-model gate: the water read as one-hue "violet satin"; nacre needs a
+      // second interference hue to become true mother-of-pearl). A BROAD low-frequency sweep keyed to WORLD
+      // position (not view), so at a glance the surface crosses between periwinkle-violet and a soft ROSE
+      // across its expanse — along-surface zones that read as FORM, not a painted stripe. ΔH only, S≈0.15
+      // (≤0.30 cap), sourceless, still off green + gold. Softer/broader than the primary band.
+      float _it2 = fract(dot(vWorldPos.xz, vec2(0.011, 0.008)) + h * 0.4 + fresnel * 0.5);
+      vec3 _irid2 = mix(vec3(0.786, 0.772, 0.918), vec3(0.949, 0.792, 0.872), smoothstep(0.18, 0.82, _it2));   // periwinkle-violet ↔ soft rose
+      col = mix(col, _irid2, uNacreMix * _graze * _crest * 0.34);
       // Broad SATIN sheen: a wide soft grazing lift, no sun dir — the luster read that replaces the glint.
       col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix;
     }
