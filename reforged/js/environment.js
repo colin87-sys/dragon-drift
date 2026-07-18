@@ -3556,7 +3556,8 @@ const ARCHETYPES = {
       // place() so the window arcs stay round under the (r,h,r) scale. Design in WORLD units ÷ the nominal.
       const R_NOM = 36, H_NOM = 34;
       const wx = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
-      const zf = 0.017, zb = -0.017;   // front face + returns → ~1.2-world masonry thickness
+      const zf = 0.017, zb = -0.017;   // front face + window/door reveals → ~1.2-world (splayed reveals stay shallow)
+      const zTop = zf - 0.10;          // DEEP masonry back plane (~3.5-world at r36) → the caps/ends/returns read as MASS, not a sheet (Fable flatness ruling)
       const TIDE = 2.4;                // low object waterline (2.4/34) → crisp 3-band ladder via the edge loop
       const v = [];
       const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
@@ -3573,7 +3574,10 @@ const ARCHETYPES = {
         for (let k = 0; k < 3; k++) { const p0 = pt(Math.PI * k / 3), p1 = pt(Math.PI * (k + 1) / 3); q(p0, p1, [p1[0], topo, zf], [p0[0], topo, zf]); }
       };
       const jambF = (X, yB, yT) => { const x = wx(X), b = wy(yB), t = wy(yT); q([x, b, zf], [x, t, zf], [x, t, zb], [x, b, zb]); };
-      const capF = (xL, xR, y) => { const l = wx(xL), r = wx(xR), yo = wy(y); q([l, yo, zf], [r, yo, zf], [r, yo, zb], [l, yo, zb]); };
+      const capF = (xL, xR, y) => { const l = wx(xL), r = wx(xR), yo = wy(y); q([l, yo, zf], [r, yo, zf], [r, yo, zTop], [l, yo, zTop]); };   // top cap now spans zf→zTop (deep) → cornice/notch read thick
+      // VERTICAL SIDE RETURN (the cross-section face that kills the knife edge). dir>0 → faces +x, dir<0 → −x. zf→zTop.
+      const sideRet = (X, yB, yT, dir) => { const x = wx(X), b = wy(yB), t = wy(yT);
+        if (dir > 0) q([x, b, zf], [x, b, zTop], [x, t, zTop], [x, t, zf]); else q([x, b, zTop], [x, b, zf], [x, t, zf], [x, t, zTop]); };
       // DARK window backer (bake:'reveal') — a plane at zb behind the opening; the arch spandrel frames it round.
       const backer = (cx, w, yB, yT) => parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(wx(w), wy(yT - yB)), { x: wx(cx), y: wy((yB + yT) / 2), z: zb }) });
 
@@ -3602,10 +3606,27 @@ const ARCHETYPES = {
       // CORNICE — one long LEVEL top cap (the civic tell), notched once over window 3. (4)
       capF(-40, X0 + 3 * MOD + PW, CORN); capF(X0 + 3 * MOD + PW + 2.4, 40, CORN);
       // BROKEN PARAPET — stepped courses above the cornice (rampart law: tall→low→med→stub, never monotonic). (16)
-      const par = (xL, xR, top) => { wallF(xL, xR, CORN - 0.4, top); capF(xL, xR, top); };   // start 0.4 BELOW the cornice → overlap, no seam
-      par(-40, -15, 34); par(-16.5, 3, 31); par(2, 23, 32.5); par(22, X0 + 7 * MOD, 29);   // x-ranges overlap their neighbours (kill the horizon-bleed seam)
-      // SHEARED END — a diagonal cut from the cornice down into the water at the +x end (the sea took this corner).
-      { const xa = wx(X0 + 7 * MOD), xb = wx(40), yT = wy(CORN), yLo = wy(13); v.push(xa, yT, zf, xb, yLo, zf, xa, wy(0), zf); v.push(xa, wy(0), zf, xb, yLo, zf, xb, wy(0), zf); }
+      // Each course's front plane is z-JITTERED ±0.01 (Frozen "each riser holds its own shadow" borrow) so the four
+      // skyline courses stop being one coplanar sheet → distinct facet values against the sky. Cap runs to zTop (deep).
+      const par = (xL, xR, top, zoff) => {
+        const l = wx(xL), r = wx(xR), zp = zf + zoff, b = wy(CORN - 0.4), t = wy(top);
+        q([l, b, zp], [r, b, zp], [r, t, zp], [l, t, zp]);            // front face at jittered z
+        q([l, t, zp], [r, t, zp], [r, t, zTop], [l, t, zTop]);        // deep top cap zp→zTop
+      };
+      par(-40, -15, 34, 0.010); par(-16.5, 3, 31, -0.010); par(2, 23, 32.5, 0.008); par(22, X0 + 7 * MOD, 29, -0.008);
+      // PARAPET STEP RETURNS — the vertical side-quad on the exposed end of the TALLER course at each skyline break
+      // (silhouette-against-sky is where thickness registers hardest from flight altitude). (6)
+      sideRet(-15, 31, 34, +1);      // course1 (34) steps down to course2 (31): right end exposed, faces +x
+      sideRet(3, 31, 32.5, -1);      // course3 (32.5) taller than course2 (31): course3 left end, faces −x
+      sideRet(23, 29, 32.5, +1);     // course3 (32.5) steps down to course4 (29): right end exposed, faces +x
+      // LEADING END CAP — the tall −x end is the knife edge the approach vector stares straight at (Fable's #1
+      // cardboard tell). A full-height cross-section, split at the tide band so the travertine ladder keeps its
+      // edge loop. Own flat facet → a two-tone lit corner = mass. (4)
+      sideRet(-40, 0, TIDE, -1); sideRet(-40, TIDE, 34, -1);
+      // SHEARED END — a diagonal cut from the cornice down into the water at the +x end (the sea took this corner)
+      // + its cross-section RETURN (a broken wall showing its section = the classic ruin cue). (2 + 2)
+      { const xa = wx(X0 + 7 * MOD), xb = wx(40), yT = wy(CORN), yLo = wy(13); v.push(xa, yT, zf, xb, yLo, zf, xa, wy(0), zf); v.push(xa, wy(0), zf, xb, yLo, zf, xb, wy(0), zf);
+        q([xa, yT, zf], [xb, yLo, zf], [xb, yLo, zTop], [xa, yT, zTop]); }   // shear return along the diagonal → up/out-facing cut face
       // GROUND DOORWAY at the tall end — a RECTANGULAR dark reveal (door≠arch; a 6.5-tall door under a 34 wall =
       // the colossal scale anchor) with a recessed Pompeian-red fresco panel + jamb returns. (dark + red + 2 jambs)
       parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(wx(3.2), wy(6.5)), { x: wx(-35.5), y: wy(3.25), z: zb }) });
