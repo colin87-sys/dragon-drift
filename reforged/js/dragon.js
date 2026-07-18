@@ -1906,7 +1906,7 @@ export function updateDragon(dt, player, time) {
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 0.82 + igS(2) * 1.05) * sgm
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 1.15 + igS(2) * 1.4) * sgm
     + inhale01 * 0.9;   // PR-C: the mantled wings GLOW as the charge draws
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
@@ -2070,7 +2070,7 @@ export function updateDragon(dt, player, time) {
       // until the spine station ignites — so the "before" is genuinely dark and ignition is a 3×+
       // step, not a nudge (the critic's root-cause fix). armedDim=1 off-Surge → byte-identical.
       const armedDim = surgeCascadeT >= 0 ? 0.35 + 0.65 * Math.min(1, casLevel[1]) : 1;
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * armedDim * Math.max(0.12, 1 + (casLevel[1] * 1.35 + igS(1) * 2.1) * sgm * wi);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * armedDim * Math.max(0.12, 1 + (casLevel[1] * 1.9 + igS(1) * 2.8) * sgm * wi);
     }
   } else {
     for (const m of spineFlareMats) {
@@ -2099,7 +2099,7 @@ export function updateDragon(dt, player, time) {
   // While Surge is armed the RESTING rim (the cruise edge glow — the bright gold strut spikes) is
   // dimmed to ~40% until the rim station ignites, so the silhouette is dark before and blazes after.
   const rimArmed = surgeCascadeT >= 0 ? 0.4 + 0.6 * Math.min(1, casLevel[3]) : 1;
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[3] * 1.35 + surgeHump * casLevel[3] * 0.5) * quality * (1 + igniteBeat01 * 0.30);
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[3] * 2.0 + surgeHump * casLevel[3] * 0.7) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
@@ -2124,7 +2124,7 @@ export function updateDragon(dt, player, time) {
   if (stormArcMats.length === 0) {
     if (eyeMat.userData.eyeBaseI == null && surgeCascadeT < 0) eyeMat.userData.eyeBaseI = eyeMat.emissiveIntensity || 1;
     const eb = eyeMat.userData.eyeBaseI ?? 1;
-    if (surgeCascadeT >= 0) eyeMat.emissiveIntensity = eb * (1 + casLevel[0] * 2.6 + surgeHump * casLevel[0] * 1.2);
+    if (surgeCascadeT >= 0) eyeMat.emissiveIntensity = eb * (1 + casLevel[0] * 3.6 + surgeHump * casLevel[0] * 1.6);
     else if (eyeMat.userData.eyeBaseI != null) eyeMat.emissiveIntensity = eb;   // cascade idle → restore the baseline
   }
   // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
@@ -2137,7 +2137,7 @@ export function updateDragon(dt, player, time) {
   // the un-ignited dragon is dark (contrast reclaimed); the eye-beat corona adds a bright
   // head-local flash at ignition onset (the screen-space carrier for the subpixel eye).
   const auraTarget = (player.feverActive
-    ? (0.20 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.06) * casOverall + eyeCorona * 0.55 + casLevel[3] * 0.12
+    ? (0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 0.9 + casLevel[3] * 0.20
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
