@@ -56,6 +56,10 @@ export function initRibbonSim(rib, opts = {}) {
     steerMag: 0, duckAmt: opts.duckAmt ?? 0.65, pulses: [],
     pulseSpeed: opts.pulseSpeed ?? 14, pulseWidth: opts.pulseWidth ?? 3.2,
     pulseLife: opts.pulseLife ?? 0.9, pulseAmp: opts.pulseAmp ?? 2.2,
+    // ATTACK: a whip must GROW from 0 over pulseAttack (smoothstep) — born at full amplitude it is a
+    // single-frame teleport (~2.2u pop = the "stop-motion on hard snap" bug). 0.15s puts the envelope's
+    // peak velocity at ~75ms, right on the "flick → wave" beat, so readability is kept.
+    pulseAttack: opts.pulseAttack ?? 0.15,
     // STEER CURL: a lateral bend the caller ramps up with SUSTAINED steering (set S.curl each tick,
     // signed [-1,1]). Once steering saturates to a diagonal the head path stops curving, so a held
     // turn would look like a momentary one; this curls the trailing body into the turn on top of the
@@ -71,8 +75,10 @@ export function initRibbonSim(rib, opts = {}) {
 // mashed stick can't stack an unbounded number; the oldest is dropped.
 export function ribbonWhip(rib, bAmp, nAmp) {
   const S = rib.sim; if (!S) return;
-  S.pulses.push({ t: 0, b: bAmp, n: nAmp });
-  if (S.pulses.length > 4) S.pulses.shift();
+  S.pulses.push({ t: 0, b: bAmp, n: nAmp, env: 0 });
+  // cap 8: cooldown 0.13s × life 0.9s → ≤7 ever concurrent, so life-cull always wins and this shift
+  // (which would evict a still-live pulse mid-flight — a SECOND single-frame pop) never fires in play.
+  if (S.pulses.length > 8) S.pulses.shift();
 }
 
 // Seed the whole history as a straight line behind the head along `-dir` so the body starts as a
@@ -229,12 +235,18 @@ export function updateRibbonSim(rib, hx, hy, hz, fwd, dt) {
   if (S.pulses.length) {
     for (const p of S.pulses) p.t += dt;
     S.pulses = S.pulses.filter((p) => p.t < S.pulseLife);
+    // per-pulse ATTACK×decay envelope, hoisted out of the station loop (kills the birth pop; the
+    // smoothstep attack grows it from 0, the existing linear decay reaches 0 at cull so death is clean).
+    for (const p of S.pulses) {
+      const a = Math.min(1, p.t / S.pulseAttack);
+      p.env = a * a * (3 - 2 * a) * (1 - p.t / S.pulseLife);
+    }
     for (let i = 0; i < N; i++) {
       let ob = 0, on = 0;
       const arc = S.segCum[i];
       for (const p of S.pulses) {
         const d = (arc - S.pulseSpeed * p.t) / S.pulseWidth;
-        const g = Math.exp(-d * d) * (1 - p.t / S.pulseLife);
+        const g = Math.exp(-d * d) * p.env;
         ob += p.b * g; on += p.n * g;
       }
       if (ob !== 0 || on !== 0) {

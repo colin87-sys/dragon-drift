@@ -1,6 +1,10 @@
-// _jumpprobe.mjs — quantify the "stop-motion jump on aggressive snap" bug. Measures per-frame max
-// station displacement of the ribbon during (a) a SMOOTH weave and (b) a HARD SNAP, isolating whether
-// a discontinuity (a single-frame pop) appears on the snap. Also isolates a bare whip spawn.
+// tests/ribbonsmooth.mjs — SMOOTHNESS regression guard: the ribbon must never single-frame "pop"
+// (the "stop-motion jump on aggressive snap" bug). Replicates the game's ribbon drive and measures
+// per-frame body-relative station displacement across a smooth weave, a hard snap, and a rapid wiggle,
+// plus an isolated whip. The bug was the whip pulse born at FULL amplitude (a ~2.2u single-frame
+// teleport) + a pool-eviction pop; the fix is a smoothstep attack envelope + a larger pulse pool.
+// The anti-pop criterion is the SPIKE RATIO (a frame's jump ÷ its neighbours' — ≈1 smooth, big = pop).
+//   node tests/ribbonsmooth.mjs
 import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 const ctx2d = { createRadialGradient: () => ({ addColorStop() {} }), createLinearGradient: () => ({ addColorStop() {} }), fillRect() {}, clearRect() {}, strokeRect() {}, beginPath() {}, arc() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {}, set fillStyle(v) {}, set strokeStyle(v) {}, set shadowColor(v) {}, set shadowBlur(v) {}, set lineWidth(v) {}, set globalAlpha(v) {}, set lineCap(v) {} };
@@ -59,25 +63,40 @@ const smooth = run((f) => Math.sin(f * 0.06) * 0.5, 180);
 // HARD SNAP: instant full-left then full-right steps (aggressive snap — "jumps/skips").
 const snap = run((f) => (f < 40 ? 0 : f < 80 ? 1 : f < 120 ? -1 : 1), 180);
 
-console.log(`SMOOTH weave : max per-frame body jump ${smooth.maxJump.toFixed(3)}  (frame ${smooth.jumpFrame})`);
-console.log(`HARD SNAP    : max per-frame body jump ${snap.maxJump.toFixed(3)}  (frame ${snap.jumpFrame})`);
-console.log(`ratio snap/smooth = ${(snap.maxJump / smooth.maxJump).toFixed(2)}×`);
-// show the snap series around the spike
-const jf = snap.jumpFrame;
-console.log('snap jumps near spike:', snap.series.slice(Math.max(0, jf - 3), jf + 3).map((v) => v.toFixed(2)).join(' '));
+// RAPID WIGGLE: alternate direction every ~5 frames for 2s → a whip spawn every cooldown (>8 spawns),
+// exercising the pulse-pool path (the pool-eviction pop lives here).
+const wiggle = run((f) => (Math.floor(f / 5) % 2 === 0 ? 1 : -1), 120);
+// spike ratio: the anti-pop criterion — max over frames of jump[f] / max(neighbours). ≈1 = smooth,
+// large = a single-frame teleport among quiet neighbours (the stop-motion signature).
+const spikeRatio = (s) => { let r = 0; for (let f = 1; f < s.length - 1; f++) { const n = Math.max(s[f - 1], s[f + 1], 0.03); if (s[f] / n > r) r = s[f] / n; } return r; };
 
-// ISOLATE a bare whip: straight flight, one whip at frame 40, measure the pop.
+// isolated whip: pop + readability
+let whipPop = 0, whipPeak = 0;
 {
-  const rib = newRib(), S = rib.sim; let z = 0, prev = null, popAt = -1, pop = 0;
+  const rib = newRib(), S = rib.sim; let z = 0, prev = null;
   for (let f = 0; f < 90; f++) {
     z -= SPEED * dt;
     if (f === 40) ribbonWhip(rib, S.pulseAmp, 0);
     S.gain = 1;
     updateRibbonSim(rib, 0, 26, z, { x: 0, y: 0, z: -1 }, dt);
-    let mj = 0; if (prev) for (let i = 0; i < S.N; i++) { const d = Math.hypot((S.sx[i]) - prev[i * 2], (S.sy[i] - 26) - prev[i * 2 + 1]); if (d > mj) mj = d; }
+    let mj = 0; if (prev) for (let i = 0; i < S.N; i++) { const d = Math.hypot(S.sx[i] - prev[i * 2], (S.sy[i] - 26) - prev[i * 2 + 1]); if (d > mj) mj = d; }
+    if (f >= 40) for (let i = 0; i < S.N; i++) { const off = Math.abs(S.sx[i]); if (off > whipPeak) whipPeak = off; }
     const cur = new Float32Array(S.N * 2); for (let i = 0; i < S.N; i++) { cur[i * 2] = S.sx[i]; cur[i * 2 + 1] = S.sy[i] - 26; }
-    if (prev && f >= 40 && f <= 44 && mj > pop) { pop = mj; popAt = f; }
+    if (prev && f >= 40 && f <= 44 && mj > whipPop) whipPop = mj;
     prev = cur;
   }
-  console.log(`BARE WHIP    : single-frame pop at spawn = ${pop.toFixed(3)} (frame ${popAt}) — this is the born-at-full-amplitude jump`);
 }
+
+let pass = 0, fail = 0;
+const ok = (c, m) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m); } };
+
+ok(smooth.maxJump < 0.30, `smooth weave stays smooth (max jump ${smooth.maxJump.toFixed(3)} < 0.30)`);
+// the REAL bug test: no single-frame discontinuity on aggressive input (spike ratio ≈ 1).
+ok(spikeRatio(snap.series) < 1.6, `hard snap has NO single-frame pop (spike ratio ${spikeRatio(snap.series).toFixed(2)} < 1.6)`);
+ok(spikeRatio(wiggle.series) < 1.6, `rapid wiggle has NO pool-eviction pop (spike ratio ${spikeRatio(wiggle.series).toFixed(2)} < 1.6)`);
+ok(snap.maxJump < 1.0, `hard snap body motion bounded (max jump ${snap.maxJump.toFixed(3)} < 1.0)`);
+ok(whipPop < 0.5, `whip birth does not teleport (spawn pop ${whipPop.toFixed(3)} < 0.5)`);
+ok(whipPeak >= 1.5, `whip stays readable after the attack (peak offset ${whipPeak.toFixed(2)}u ≥ 1.5)`);
+
+console.log(`\nRibbon smoothness: ${pass} passed, ${fail} failed.`);
+process.exit(fail ? 1 : 0);
