@@ -4757,13 +4757,18 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           // ~1.6–3.4° DIAMETER (half the 4–7° floor, "speck-adjacent"). ~1.7× bigger lands it in-band as a
           // real ominous focal point. Growth still brings presence forward (not only near the loop).
           float _mR = radians(3.4 + 1.8 * uMoteGrow);                // half-angle 3.4°→5.2° → renders ~4.5–6.9° diameter at the game's ~77° FOV (Fable's 3.94° used a wrong 55° FOV assumption; the true render is mid-band)
+          // The one-sided arc weight (used by BOTH the occultation depth and the rim below).
+          vec3 _mT = normalize(cross(vec3(0.0, 1.0, 0.0), _mDir));
+          float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
+          float _limbSide = smoothstep(-0.1, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
           // (0) OCCULTATION — the sky DIMS in a soft ring JUST OUTSIDE the disc (a total eclipse darkens the sky
           // toward totality; theology-legal — an occultation, not a light source). Starts OUTSIDE the pearl-rim
-          // band (below) so the rim isn't dimmed with it — the rim then reads against this darker halo, which is
-          // the ONLY way a bright rim clears +50 summed on the near-white luminous void (the sky sits at the ACES
-          // white-shoulder, so a bright add alone saturates). Fades out by ~1.7 disc-radii.
+          // band (below) so the rim isn't dimmed with it — the rim reads against this darker halo (a bright rim
+          // alone can't clear the ACES white-shoulder on the luminous void — contrast from BELOW, not brightness
+          // from above). The halo is DEEPER behind the rim arc (+_limbSide) so the rim-vs-surround delta reads
+          // (Fable-model gate #3 polish). Fades out by ~1.7 disc-radii.
           float _occ = (1.0 - smoothstep(_mR + 0.009, _mR + 0.009 + _mR * 0.8, _md)) * uMoteMix;
-          col *= 1.0 - 0.28 * _occ;
+          col *= 1.0 - (0.26 + 0.22 * _limbSide) * _occ;
           // (1) THE DISC — an opaque near-TRUE-BLACK core that REPLACES sky+stars inside its radius
           // (hole-vs-object: a hole can't wink stars out, this does). Deepened toward pixel-0 so it owns the
           // darkest pixel in the biome (was 0x050308 — Fable: "core never reaches 0").
@@ -4772,11 +4777,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           col = mix(col, vec3(0.004, 0.003, 0.011), _core);          // ≈0x010103 — the biome's one true dark
           // (2) THE PEARL LIMB — a one-sided eclipse hairline drawn OUTSIDE the disc edge and AFTER the core
           // mix, so the disc can no longer ERASE it (the prior limb band overlapped the core coverage and was
-          // ~96% wiped — the "measurably absent" fail). Hugs ONE arc, non-gold/non-corona, ~1.5px, +~65 summed
-          // RGB over the local field (≤ a value step).
-          vec3 _mT = normalize(cross(vec3(0.0, 1.0, 0.0), _mDir));
-          float _mAng = atan(dot(d, cross(_mDir, _mT)), dot(d, _mT));
-          float _limbSide = smoothstep(-0.1, 1.0, cos(_mAng - 2.1));  // strongest on one arc, ~0 opposite
+          // ~96% wiped — the "measurably absent" fail). Hugs ONE arc (_limbSide, above), non-gold/non-corona.
           float _l0 = _mR + _edge * 0.5;                             // start just outside the disc
           float _lw = 0.007;                                         // hairline thickness ~2-3px — the prior ~0.9px band was SUB-PIXEL, so AA flattened the rim to nothing (Fable: "measurably absent"); a 2-3px band renders at full brightness
           float _limb = smoothstep(_l0, _l0 + _lw * 0.4, _md) * (1.0 - smoothstep(_l0 + _lw * 0.4, _l0 + _lw, _md));
