@@ -3747,27 +3747,30 @@ const ARCHETYPES = {
     build: () => {
       const parts = [];
       const S = (g) => parts.push({ mat: 0, bake: 'forumdark', geo: g });
-      // OBJECT SPACE: y∈[0,1]→world[0,h]; x,z scaled by r=0.5h (place couples them). Tiers step inboard (+x) so
-      // the accumulated offset is the 5° lean; top-tier centre offset/H ≈ 0.09 ≥ 0.07 (the anti-plumb-chimney law).
+      // OBJECT SPACE: y∈[0,1]→world[0,h]; x,z scaled by r=0.5h (place couples them). Tiers are built CENTRED — the
+      // LEAN is a skewX SHEAR applied to the whole stack at the end, NOT step-offsets: Fable gate — axis-aligned
+      // offsets tilt the CENTROID but leave every EDGE plumb (a staggered ziggurat, the plumb-chimney tell), while
+      // a shear tilts every windward edge into ONE continuous diagonal (parallelogram faces) = a real lean.
       const box = (cx, y0, y1, hw) => S(xform(new THREE.BoxGeometry(2 * hw, y1 - y0, 2 * hw), { x: cx, y: (y0 + y1) / 2 }));
       box(0, 0, 0.06, 0.56); box(0, 0.06, 0.11, 0.56);   // PLINTH split at the tide line (0.06) → the travertine ladder edge loop
-      box(0.03, 0.11, 0.44, 0.50);                        // tier 1  ── each tier steps further inboard (+x): the accumulated
-      box(0.12, 0.44, 0.70, 0.38);                        // tier 2     offset is the LEAN. crown offset/H ≈ 0.13 → ~7.4° world
-      box(0.20, 0.70, 0.86, 0.28);                        // tier 3     (well past the 4° plumb-chimney floor; the setbacks are
-      // CROWN LOGGIA — 4 corner piers with ONE sheared off (the ruin bite / broken crown), the ember behind them.
-      const xc = 0.26;                                    //            deliberately ASYMMETRIC so the taper reads as a LEAN)
-      const pier = (dx, dz) => S(xform(new THREE.CylinderGeometry(0.05, 0.05, 0.13, 4, 1, true), { x: xc + dx, z: dz, y: 0.915, ry: Math.PI / 4 }));
-      pier(0.19, 0.19); pier(0.19, -0.19); pier(-0.19, -0.19);   // 4th corner (−0.19,+0.19) sheared away — the sea took it (broken crown = the ruin bite)
-      // BROKEN-CORNER STUB — a short remnant of the sheared 4th pier, so the gap reads as DAMAGE (a jagged section)
-      // rather than a symmetric 3-legged design. Half-height, its top an angled shear face.
-      S(xform(new THREE.BoxGeometry(0.09, 0.06, 0.09), { x: xc - 0.19, z: 0.19, y: 0.875, rz: 0.5 }));
-      S(xform(new THREE.ConeGeometry(0.27, 0.10, 4), { x: xc, y: 1.0, ry: Math.PI / 4 }));   // pyramid cap
-      // GILT EMBER (mat 1) — recessed INSIDE the loggia, read only THROUGH the pier voids: the one distant light.
-      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.13, 0.11, 0.13), { x: xc, y: 0.905 }) });
+      box(0, 0.11, 0.44, 0.50);                           // tier 1  ── setback INSETS give the taper (0.56→0.50→0.38→0.28),
+      box(0, 0.44, 0.70, 0.38);                           // tier 2     the shear gives the lean; the two are orthogonal.
+      box(0, 0.70, 0.86, 0.28);                           // tier 3
+      // CROWN LOGGIA — 4 corner piers, ONE snapped to half-height (the ruin bite), the ember behind them.
+      const pier = (dx, dz, ph) => S(xform(new THREE.CylinderGeometry(0.05, 0.05, ph, 4, 1, true), { x: dx, z: dz, y: 0.86 + ph / 2, ry: Math.PI / 4 }));
+      pier(0.19, 0.19, 0.13); pier(0.19, -0.19, 0.13); pier(-0.19, -0.19, 0.13);   // 3 full corner piers
+      pier(-0.19, 0.19, 0.055);                            // 4th pier SNAPPED to half-height — the ruin bite (a broken loggia, not a symmetric 3-leg design)
+      S(xform(new THREE.ConeGeometry(0.27, 0.10, 4), { x: 0, y: 1.0, ry: Math.PI / 4 }));   // pyramid cap
+      // GILT EMBER (mat 1) — a SMALL hot lantern recessed inside the loggia, read only THROUGH the pier voids (the
+      // one distant light). hw 0.13→0.09 + taller (Fable gate: the fat quad read as a flat sticker; a small tall
+      // flame reads as a flame between the piers, not a yellow panel).
+      parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(0.09, 0.15, 0.09), { x: 0, y: 0.925 }) });
       // DOOR — a dark reveal at the base on the +x (inboard/lane-facing) face: a ~7m door under a 55m tower = the
       // colossal-scale anchor.
       parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(0.16, 0.16), { x: 0.561, y: 0.09, ry: Math.PI / 2 }) });
-      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.06 });   // tall prop → low object waterline (basilica precedent)
+      const merged = mergeLagoonParts(parts, { forum: true, forumWaterY: 0.06 });   // tall prop → low object waterline (basilica precedent)
+      skewX(merged.geometry, 0.26);   // THE LEAN: world angle = r·k/h = 0.5·0.26 = 0.13 → ~7.4° off-plumb, every edge tilted coherently (about the y=0 base, so the footprint stays put and the crown leans inboard)
+      return merged;
     },
     // RARE tall counterweight in the deep breath, |x| 60-72 (inner edge ≥ ~44 — 3× the 14.5 floor; never near the
     // lane). h 52-62, r COUPLED 0.5h (base ≥50% of H — an uncoupled skinny draw is the flagpole bug). Small

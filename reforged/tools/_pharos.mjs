@@ -45,7 +45,9 @@ for (let i = 0; i < 6 && shot < 3; i++) {
     // views: 0 = front elevation (lean tilts L/R), 1 = ¾ from the inboard/lane side (player vantage), 2 = crown close
     if (o.view === 0) window.__dd.__cam = { p: [p.x, H * 0.52, p.z + H * 2.7], t: [p.x, H * 0.5, p.z], fov: 40 };
     else if (o.view === 1) window.__dd.__cam = { p: [p.x - s * H * 1.1, H * 0.42, p.z + H * 2.1], t: [p.x, H * 0.5, p.z], fov: 42 };
-    else window.__dd.__cam = { p: [p.x - s * H * 0.5, H * 0.92, p.z + H * 1.0], t: [p.x, H * 0.9, p.z], fov: 38 };
+    // view 2 = IN-CONTEXT at range: eye near the flight lane (x≈6), at flight altitude (~15), ~250 down-lane —
+    // the pharos as a distant OFF-LANE tilted silhouette with the ember (the actual in-game punctuation read).
+    else window.__dd.__cam = { p: [s * 6, 15, p.z + 250], t: [p.x * 0.85, H * 0.55, p.z], fov: 46 };
   }, { p, view: shot });
   await page.waitForTimeout(260);
   writeFileSync(`reforged-captures/pharos-${tag}-${String(shot).padStart(2, '0')}.png`, await page.screenshot());
