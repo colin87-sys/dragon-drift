@@ -15,7 +15,7 @@ const mkSave = (q = 0) => `localStorage.setItem('dragonDriftSave', JSON.stringif
 }))`;
 
 async function capture(name, { dist = 3200, ibl = false, q = 0, pitch = 0, yaw = 0, lookUp = 0 }) {
-  const query = `?biome=5&debug&seed=73101${ibl ? '&ibl' : ''}`;
+  const query = `?biome=5&debug&cleanshot&seed=73101${ibl ? '&ibl' : ''}`;   // cleanshot strips HUD chrome + course rings + trail
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 1, initScript: mkSave(q) });
   // Robust start: poll-and-click the button's own handler until the game enters 'playing'. Avoids both the
   // overlay pointer-interception (page.click) AND the re-render race that flakes waitForSelector — el.click()
@@ -31,7 +31,11 @@ async function capture(name, { dist = 3200, ibl = false, q = 0, pitch = 0, yaw =
   await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; }, dist);
   await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, dist).catch(() => {});
   await page.waitForTimeout(1900); // fog/sky lerp settle
-  await page.evaluate(() => { window.__dd.game.timeScale = 0; });
+  await page.evaluate(() => {
+    window.__dd.game.timeScale = 0;               // freeze first so nothing respawns
+    window.__dd.clearObstacles && window.__dd.clearObstacles();  // despawn flow-gate tunnels / crystal walls / runs
+    window.__dd.clearVents && window.__dd.clearVents();          // and any hazards (Empyrean is a breather, but harmless)
+  });
   if (lookUp) await page.evaluate((u) => {
     // Clean upward-forward look (no roll): point the frozen camera up the lane at the SKY DOME so the
     // nebula blooms fill the frame and the water-level props/gates drop below the bottom edge.
