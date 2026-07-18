@@ -196,7 +196,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x0d1410, emissive: 0x0a1508, emissiveIntensity: 0.1 }),   // 4 LUMEN MIRE dead/wet matter — near-black warm-neutral bark/root/mud; "matter drinks" (light-absorbing); the low emissive is only a crush floor, never a light source
-      new THREE.MeshStandardMaterial({ ...opts, color: 0xc2bcd6, emissive: 0xbfb2d8, emissiveIntensity: 0.14 }),   // 5 THE EMPYREAN empyStone — pale bone-nacre matte (PR-1 interim retint of the legacy astral-slate props). The low PALE emissive is a crush FLOOR so undersides stay luminous under the shadowless rig (no dark bellies), never a light source. The final edge-lit sentinel kit lands PR-4/5.
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xcbc7d6, emissive: 0xcdc8da, emissiveIntensity: 0.34 }),   // 5 THE EMPYREAN empyStone — pale BONE-NACRE matte. The pale emissive FLOOR is raised (0.14→0.34) so the sentinel's shadowless vertical faces read bone-white, NOT the violet the hemiGround bounce sinks them to (Fable gate: "saturated purple putty"); low-chroma cool-neutral, never warm. Not a light source — a luminance floor so undersides never crush.
       new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4b545c, roughness: 0.34, metalness: 0.06, emissive: 0x1a2228, emissiveIntensity: 0.18 }), // 7 tempest storm slate — wet dark rock (PR-1 replaces with the wind-scour vertex-colour ladder mats)
     ],
@@ -422,6 +422,80 @@ function jitterLathe(prof, seg, amp) {
   g.computeVertexNormals();
   g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
   return g;
+}
+
+// THE EMPYREAN — the SENTINEL (EMPYREAN-PROP-REFERENCE.md, Fable-audited): a colossal weathered
+// bone-nacre standing STONE, built to the real thin-slab megalith grammar (Stenness/Callanish/Brodgar),
+// NOT an obelisk. The four make-or-break cues, all in the silhouette:
+//   • a LEANING BLADE — an elliptical LENS cross-section (soft-rounded vertical edges, never a hard corner
+//     or a round pill), with an ASYMMETRIC OFFSET taper (the ring centres drift so one long edge stays
+//     near-vertical while the other rakes in);
+//   • a CANTED flat TOP-CUT (the Stenness truncation — the top ring's y is slanted, never a point/dome/
+//     level top): the single cue that turns a "gray rock primitive" back into an "ancient standing stone";
+//   • BEDDED IN THE GROUND — a flared foot + an open base (seated below the waterline, so it grows OUT of
+//     the swell, not placed on it);
+//   • weathering as radial JITTER (per-ring seamless noise → no straight silhouette edge, no lathe rings).
+// Two material groups: mat 0 = empyStone body; mat 1 = the crown (empyRim rose — rim on the CROWN only).
+// Deterministic (fixed trig, no rnd) → build() stable, gold-determinism untouched. ~ (5 gaps ×10 seg ×2)
+// + a 10-tri canted cap ≈ 110 tris.
+function buildSentinelParts() {
+  const seg = 10;                      // lens sectors
+  const zLens = 0.26;                  // depth = 0.26 × width → a thick BLADE, not a paper slab (softer edges)
+  // The canted top-cut is a GENTLE flat SLANT (slope in x): the high point sits on the ROUNDED broad face
+  // (not a sharp corner), so there is no pencil apex. Rose lives ONLY on this cut FACE + a hair of the top
+  // lip — never the tapering shaft (a rose-covered taper reads as a crystal triangle, the headline fail).
+  const slope = 0.42;                  // top-cut slant ≈ 23° off horizontal (Stenness truncation)
+  // Stations: a BROAD blade with a strongly FLARED, BEDDED foot (a submerged skirt below y=0 + a foot flare
+  // at the waterline → it grows OUT of the swell). Gentle taper (top ~0.7× base). cx drifts → asymmetric
+  // offset taper + lean (one long edge near-vertical, the other rakes in).
+  const st = [
+    { y: -0.05, r: 0.46, cx: 0.000 },  // buried SKIRT (below the waterline) — the bedded weld
+    { y: 0.00, r: 0.40, cx: 0.000 },   // flared FOOT at the waterline
+    { y: 0.10, r: 0.315, cx: 0.010 },  // foot tucks in
+    { y: 0.40, r: 0.290, cx: 0.044 },  // mid — broad, barely tapering
+    { y: 0.70, r: 0.272, cx: 0.104 },
+    { y: 0.89, r: 0.258, cx: 0.168 },  // shoulder
+    { y: 1.00, r: 0.246, cx: 0.212 },  // top ring (before the canted cut)
+  ];
+  const amp = [0.0, 0.02, 0.05, 0.085, 0.10, 0.09, 0.07];   // radial weathering jitter (0 at the buried foot, strongest mid/shoulder)
+  const N = st.length;
+  const rings = st.map((s, i) => {
+    const ring = [];
+    for (let j = 0; j < seg; j++) {
+      const th = (j / seg) * Math.PI * 2;
+      const f = 1 + amp[i] * (0.62 * Math.sin(3 * th + i * 1.3) + 0.38 * Math.sin(5 * th + i * 2.7 + 0.9));
+      const rr = s.r * f;
+      const x = Math.cos(th) * rr + s.cx;
+      let y = s.y;
+      if (i === N - 1) y += slope * (x - s.cx);            // planar top-cut: y slants with x → a flat canted face, high point on the rounded broad edge (no apex)
+      ring.push([x, y, Math.sin(th) * rr * zLens]);
+    }
+    return ring;
+  });
+  const body = [], crown = [];
+  for (let i = 0; i < N - 1; i++) {
+    const tgt = i >= N - 2 ? crown : body;                 // only the TOP gap (the lip just under the cut) is rose; the whole shaft is empyStone body
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      tgt.push(...A, ...C, ...B, ...A, ...D, ...C);        // outward winding (matches jitterLathe)
+    }
+  }
+  // the flat canted TOP-CUT face → crown (rose). Fan the planar top ring to its centroid (which lies IN
+  // the cut plane → a flat cap, no tent).
+  const top = rings[N - 1];
+  let mx = 0, my = 0, mz = 0;
+  for (const p of top) { mx += p[0]; my += p[1]; mz += p[2]; }
+  const ctr = [mx / seg, my / seg, mz / seg];
+  for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
+  const mk = (arr) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+    g.computeVertexNormals();
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((arr.length / 3) * 2), 2));
+    return g;
+  };
+  return [{ mat: 0, geo: mk(body) }, { mat: 1, geo: mk(crown) }];
 }
 
 function mergeParts(parts, biomeIdx) {
@@ -929,6 +1003,13 @@ const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the
 // emissive) — the darkness is the investment the PR-3 hero pays off (owner brightness lock).
 const mireNew = PROPS_V1 ? [] : [4];     // canopywall/reedveil/boleveil/drape (+ hero/roster/skins to come)
 const mireOld = PROPS_V1 ? [4] : [];     // legacy glowcap/glowcapSmall/spirevine (retired once the kit completes)
+// THE EMPYREAN overhaul (EMPYREAN-BIBLE.md / EMPYREAN-PROP-REFERENCE.md) — same flip idiom. Default = the
+// new pale-megalith kit (the SENTINEL hero first; haloarc/choirstones/pearlshoal + the inkShoal to come in
+// PR-5); `?props=v1` restores the interim retinted astral monolith/arcshard. Kit grows over PRs — while it
+// does the biome is intentionally sparse (restraint > clutter; density only means something against the
+// framing mass — build the skeleton first, then dial the small stuff — EMPYREAN-PROP-REFERENCE §register).
+const empyNew = PROPS_V1 ? [] : [5];     // sentinel (+ haloarc/choirstones/pearlshoal/inkShoal to come)
+const empyOld = PROPS_V1 ? [5] : [];     // interim retinted astral monolith/arcshard (retired once the kit completes)
 // THE LOST LAGOON overhaul (LOST-LAGOON-BIBLE.md) — consolidates biomes 0+1. Default (v2) = the
 // new drowned-ruins kit (rotunda hero + roster as it lands, position-keyed tide ladder); `?props=v1`
 // restores the legacy Sanctuary/Wastes roster. Legacy props stay whitelisted while the kit grows
@@ -1455,9 +1536,20 @@ const ARCHETYPES = {
     ], 4),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 5), h: 7 + rnd() * 9, r: 2 + rnd() * 1.5, tilt: side * (rnd() * 0.25 - 0.05) }),
   },
-  // Astral Shallows: slate monolith wearing a band of starlit crystal.
+  // THE EMPYREAN hero — the SENTINEL: a colossal leaning bone-nacre standing STONE (canted top-cut, lens
+  // blade, asymmetric taper, bedded foot; rose crown). The composition engine is the generic comp/
+  // arrivalPark: floor 0 → absent in the open-water "breaths", clustering into COURTS at congregation peaks
+  // (density-follows-framing); sMax 1.3 lets a peak survivor SWELL into the elder that dwarfs its court
+  // (focal hierarchy); arrivalPark keeps the ~450m Aurora seam clean (The Breach). rotY is left random so
+  // every stele presents a DIFFERENT broad-face azimuth — a court, never a picket fence.
+  sentinel: {
+    step: 53, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0, sMin: 0.92, sMax: 1.3 },
+    build: () => mergeParts(buildSentinelParts(), 5),
+    place: (side, rnd) => ({ x: side * (19 + rnd() * 11), h: 22 + rnd() * 20, r: 8.5 + rnd() * 4.5, tilt: side * (rnd() * 0.05 - 0.015) }),
+  },
+  // Interim retinted astral monolith wearing a rose band (empyOld — ?props=v1 only; replaced by the kit).
   monolith: {
-    step: 30, biomes: [5], matIndex: 5,
+    step: 30, biomes: empyOld, matIndex: 5,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.96, 0.26), { y: 0.48 }) },
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.5, 0.07, 0.34), { y: 0.62 }) },
@@ -1470,7 +1562,7 @@ const ARCHETYPES = {
   // on CROWNS/EDGES only (§5), so the blade is a pale cutout one step below sky and the rose stays on the
   // monolith crowns. Replaced by the real haloarc (inner-rim edge only) in PR-5.
   arcshard: {
-    step: 22, biomes: [5], matIndex: 5,
+    step: 22, biomes: empyOld, matIndex: 5,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.ConeGeometry(0.8, 1, 4), { y: 0.42, sx: 0.55 }) },
     ], 5),
@@ -3002,6 +3094,7 @@ const FOAM_CFG = {
   rampart: false,                    // Lost Lagoon v3 far massif — NO collar (a bright foam ring 30+ off-lane on the fog line is an artifact; the glacierwall/riftwall/arcade precedent — the jade tide-stain slab carries the waterline)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
+  sentinel: { r: 0.5 },              // THE EMPYREAN hero — a faint pearl waterline shimmer where the bedded blade meets the nacre (not white surf; the biome foam is tuned faint)
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
   // Lumen Mire PR-2 depth/canopy: reedveil gets a faint warm waterline collar; the mid/far
