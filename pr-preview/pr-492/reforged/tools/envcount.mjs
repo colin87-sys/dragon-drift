@@ -89,6 +89,14 @@ const CAP = {
 // A8 deletes its archetype — do NOT add new entries (a new prop over 150 is a bug).
 const GRANDFATHER = { tower: 167, archruin: 180, glowcap: 158, glowcapSmall: 224 };
 
+// HERO_BUDGET — DELIBERATE, DESIGN-APPROVED over-150 heroes (NOT a legacy shame-list like GRANDFATHER).
+// A hero whose spec genuinely can't land at ≤150 gets a documented, perf-verified exemption here, cited to
+// the Fable pre-assessment that ruled it. Perf is the real gate, not the per-prop number: at these steps the
+// per-biome band-tri total stays far under the 50k ceiling.
+//   pantheon: evolves the shipped rotunda (already 148) + a broken portico/pediment/drums/apse the spec
+//   mandates; ~220 tris. step 59 → ~32 instances → ~7.1k band tris vs the 50k/biome cap. (Fable PR-5 pre-assess.)
+const HERO_BUDGET = { pantheon: 228 };
+
 const args = process.argv.slice(2);
 const ci = args.includes('--ci');
 
@@ -124,9 +132,10 @@ console.log('-'.repeat(74));
 // per-archetype assertions
 console.log('\nPer-archetype:');
 for (const a of diag) {
-  const trisCap = GRANDFATHER[a.name] ?? CAP.trisPerArch;
+  const trisCap = GRANDFATHER[a.name] ?? HERO_BUDGET[a.name] ?? CAP.trisPerArch;
   if (a.tris > trisCap) fail(`${a.name}: ${a.tris} tris > ${trisCap}`);
   else if (GRANDFATHER[a.name] && a.tris > CAP.trisPerArch) console.log(`  \x1b[33mgf \x1b[0m ${a.name}: ${a.tris} tris (grandfathered legacy, retired in A8)`);
+  else if (HERO_BUDGET[a.name] && a.tris > CAP.trisPerArch) console.log(`  \x1b[36mhero\x1b[0m ${a.name}: ${a.tris} tris (design-approved hero budget ${HERO_BUDGET[a.name]}, Fable pre-assess)`);
   if (a.instances > CAP.instPerArch) fail(`${a.name}: ${a.instances} instances > ${CAP.instPerArch} (step ${a.step})`);
   const badMats = a.materials.filter((m) => m.transparent || m.depthWriteFalse || m.additive).length;
   if (badMats > 0) fail(`${a.name}: ${badMats} transparent/additive surface(s) — side props MUST be opaque (0)`);

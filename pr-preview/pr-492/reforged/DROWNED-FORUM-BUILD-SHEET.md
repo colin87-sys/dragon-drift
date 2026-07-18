@@ -158,13 +158,16 @@ are suggested coprime primes — tune at placement.
 
 | PR | Content | Rationale |
 |---|---|---|
-| **PR-1** | **Atmosphere substrate:** water/fog/sky/mote/foliage constants (§2D), the tide-ladder re-stop (§2A), fresco/terracotta zone paints + `verdigrisBronze` into the material kit, mosaic-decal plumbing on the foam system. **Blind test: must read as a NEW biome vs current captures before any prop lands.** | Transforms 100% of pixels; proves the palette before geometry spends on it |
-| **PR-2** | **HERO: `triumphgate`** (studio → in-context gate), then reskin the Sinking-Gates hazard with it (colliders identical, skin only) | Owner's archway ask closed; identity proven; hazard payoff same breath |
-| **PR-3** | **`viamarina` + `drumfall`** (near-rail + foil) | Owner's "weird stone things" closed; the lane frame is what the player sees most |
-| **PR-4** | **`aqueduct` + `pinisle`** (far massif + Lorrain frame) | The processional composes end-to-end — **first full money-shot capture** |
-| **PR-5** | **`pantheon` retint + `forumfield` + `roofline`** | Population; the mosaic read-through + domestic-order beats |
-| **PR-6** | **`colossus` + `portico` + `pharos`** | Statues, temple, the distant light |
+| **PR-1 ✅ DONE** | **Atmosphere substrate:** water/fog/sky/mote/foliage constants (§2D), the tide-ladder re-stop (§2A), fresco/terracotta zone paints + `verdigrisBronze` into the material kit, mosaic-decal plumbing on the foam system. **Blind test: must read as a NEW biome vs current captures before any prop lands.** | Transforms 100% of pixels; proves the palette before geometry spends on it |
+| **PR-2 ✅ DONE** | **HERO: `triumphgate`** (studio → in-context gate, Fable 4.3), then reskin the Sinking-Gates hazard with it (colliders identical, skin only — opus-quadratum rebuild, Fable 4.3) | Owner's archway ask closed; identity proven; hazard payoff same breath |
+| **PR-3 ✅ DONE** | **`viamarina` + `drumfall`** (near-rail + foil) — both two-stage Fable-gated: viamarina Stage-1 4.3 / Stage-2 4.3; drumfall Stage-1 4.4 / Stage-2 4.3 | Owner's "weird stone things" closed; the lane frame is what the player sees most |
+| **PR-4 ✅ DONE** | **`aqueduct` + `pinisle`** (far massif + Lorrain frame) — both in-context Fable-gated: aqueduct 4.5 (round-arch far-massif), pinisle 4.4 (near-black stone-pine repoussoir) | The processional composes end-to-end — **first full money-shot capture** |
+| **PR-5 (pantheon ✅ DONE)** | **`pantheon` retint** (drowned-dome mid-hero, Fable 4.3 PASS, HERO_BUDGET 228). `forumfield` + `roofline` **PARKED** → moved to the END (see REORDER below) | Population; the mosaic read-through + domestic-order beats |
+| **⚠ REORDER (Fable ruling, owner "cluttered, needs big framing pieces"):** The biome reads as small-prop clutter because it has NO MID-GROUND REGISTER — it jumps from the knee-high near-rail straight to the far horizon, nothing tall + continuous frames the corridor like Frozen's ice-shelves. **Clutter = many props at ONE scale with no mass to be subordinate to.** Density is only tunable RELATIVE to the framing masses, so build the SKELETON (walls) first, tune density in-context after, finish the small props LAST. | |
+| **PR-WALLS (NEXT)** | **`basilica`** (a NEW long tall SOLID ruined civic wall — the Forum's "ice shelf": the continuous mid-ground framing mass, rampart wall-toolkit) **+ promote `aqueduct`** (floor 0.45→0.55, nearer/taller size class) **+ in-context density thin** (drumfall/pinisle floors 0.12→~0.05, tuned WITH the walls in). **Gated on the whole-biome flythrough, not one prop.** | Fixes the owner's read: gives the corridor its mid-ground register + Frozen-style framing |
+| **PR-6** | **`colossus` + `portico` + `pharos`** — placed as PUNCTUATION in the wall gaps (a landmark reads because a wall rhythm breaks for it) | Statues, temple, the distant light |
 | **PR-7** | **`arena` (+ `nymphaeum` stretch)** — built LAST, most practiced hand | The crown; the amphitheater-hush money shot |
+| **PR-END** | **`forumfield` + `roofline`** at CONSERVATIVE density (seasoning; the mosaic gut-punch needs the walls around it to read as a plaza, not more scatter) + **final rhythm pass** across all bands | The low/flat props land last, tuned into the finished composition |
 | **PR-8** | **The purge + closing audit (§10)** — flip whitelists, park v3, delete retired kit after sign-off, final montage | The audit is a PR, not a vibe |
 
 Coexist → prove the hero → migrate. Add a **`forumV1` seam** in `environment.js` (mirror the existing
