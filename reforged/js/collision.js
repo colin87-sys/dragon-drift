@@ -168,7 +168,14 @@ export function updateCollision(dt, player) {
       }
 
     } else if (c.type === 'gate') {
-      if (Math.abs(dz) < c.thick + R) {
+      // The gate is the only FATAL per-frame overlap test, and its z-window
+      // (2*(thick+R) ≈ 5.4m) is thinner than one worst-case frame of travel
+      // (~7m at the top speed stack, rawDt capped at 0.05s) — so at high speed a
+      // gate can be tunnelled clean through: no crash, no thread, no phase.
+      // Sweep it: also resolve when the player crossed the gate plane this frame
+      // (prevDist→dist sign flip), evaluating the gap at the arrival x/y.
+      const crossedGate = (player.prevDist - c.dist < 0) !== (dz < 0);
+      if (Math.abs(dz) < c.thick + R || crossedGate) {
         const inGap =
           Math.abs(p.x - c.gapX) < c.gapW - 0.5 &&
           Math.abs(p.y - c.gapY) < c.gapH - 0.5;
