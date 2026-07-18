@@ -4,7 +4,8 @@ import { RenderPass } from '../lib/postprocessing/RenderPass.js';
 import { ShaderPass } from '../lib/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/postprocessing/OutputPass.js';
-import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays, setGodRayMaskScale } from './godrays.js';
+import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays, setGodRayMaskScale, setGodRayMaskDuty } from './godrays.js';
+export { setGodRayMaskDuty };   // re-exported so main.js drives the whole god-ray control surface through postfx
 import { damp, clamp } from './util.js';
 import { game } from './gameState.js';
 
@@ -213,6 +214,12 @@ let _grBoost = 0;
 const GODRAY_HEAVEN_SWELL = 0.45;   // max +45% over base (O-B1 owner dial) — tempered so the unveiling reads "lit not blinding"
 const GODRAY_INTEN_CAP = 1.0;       // hard ceiling on uIntensity — only a rendered frame bounds the OUTPUT (the probe)
 export function setGodRayBoost(k) { _grBoost = Math.max(0, Math.min(1, k)); }
+// BOSS-FIGHT PERF DIET (struggling device only): dim the shafts to license the 1/6 mask duty (a full-strength
+// shaft updated 1/6 as often would visibly swim; a faint one hides its own staleness). 1 = shipped. The
+// controller eases this toward ~0.4 on engage and back to 1 under the FELLED wash. Capable device never
+// engages → stays 1 → byte-identical.
+let _grDietDim = 1;
+export function setGodRayDietDim(k) { _grDietDim = Math.max(0, Math.min(1, k)); }
 
 // Called once after the world (and its sky) exist — wires the occlusion buffer
 // to the pass. Safe no-op if post-FX is unsupported.
@@ -541,7 +548,7 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // `_grIntenScale` halves tier1's shafts (1.0 at tier0 → byte-identical).
   if (postfx.godRayPass) {
     if (_grTierOK && _grAvailable) {
-      const inten = Math.min(GODRAY_INTEN_CAP, _grIntensity * _grIntenScale * (1 - postfx._feverMix * 0.45) * (1 + _grBoost * GODRAY_HEAVEN_SWELL));   // ARENA (PR-B): the heaven swell, hard-capped
+      const inten = Math.min(GODRAY_INTEN_CAP, _grIntensity * _grIntenScale * _grDietDim * (1 - postfx._feverMix * 0.45) * (1 + _grBoost * GODRAY_HEAVEN_SWELL));   // ARENA (PR-B): the heaven swell, hard-capped; _grDietDim = boss-fight diet (1 = shipped)
       const gu = postfx.godRayPass.uniforms;
       gu.uSunUv.value.set(_grSunX, _grSunY);
       gu.uIntensity.value = inten;
