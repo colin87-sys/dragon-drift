@@ -3579,8 +3579,16 @@ const ARCHETYPES = {
 
       const SILL = 19, SPRING = 22.5, RISE = 2.25, CROWN = 24.75, CORN = 27.5;   // window band (top third)
       const MOD = 8.5, PW = 4.0, SPAN = 4.5, X0 = -29.75;   // 7 modules centred; pier≈span → SOLID ≥ void
-      // LOWER SOLID WALL (y0→SILL, full length) — the mass. Split at the tide band. (4)
-      wallF(-40, 40, 0, SILL);
+      // LOWER SOLID WALL (y0→SILL, full length) — the mass. Split at the tide band. Extended 0.5 PAST the sill
+      // to OVERLAP the window band → no hairline seam letting the horizon knife through (Fable comp gate). (4)
+      wallF(-40, 40, 0, SILL + 0.5);
+      // MID-WALL STRING COURSE — a proud horizontal molding at flight altitude (Fable comp gate: the solid 2/3
+      // read as a BLANK BARGE on a close flank pass — windows/door out of frame; a proud band gives a DARK
+      // SOFFIT shadow-line in frame + civic relief). (6)
+      { const zp = zf + 0.018, yb = wy(13.6), yt = wy(14.7), l = wx(-40), r = wx(40);
+        q([l, yb, zp], [r, yb, zp], [r, yt, zp], [l, yt, zp]);           // proud front face
+        q([l, yb, zf], [r, yb, zf], [r, yb, zp], [l, yb, zp]);           // soffit (down-normal → the ladder undercut darkens it = the shadow line)
+        q([l, yt, zp], [r, yt, zp], [r, yt, zf], [l, yt, zf]); }         // top fillet
       // WINDOW BAND — 8 piers + 6 intact round windows + a 7th torn by the shear. Piers/end-walls solid to the
       // cornice; spandrels fill arc→cornice; dark backers behind; jambs give the openings thickness.
       wallF(-40, X0, SILL, CORN);              // solid tall end (holds the doorway)
@@ -3594,8 +3602,8 @@ const ARCHETYPES = {
       // CORNICE — one long LEVEL top cap (the civic tell), notched once over window 3. (4)
       capF(-40, X0 + 3 * MOD + PW, CORN); capF(X0 + 3 * MOD + PW + 2.4, 40, CORN);
       // BROKEN PARAPET — stepped courses above the cornice (rampart law: tall→low→med→stub, never monotonic). (16)
-      const par = (xL, xR, top) => { wallF(xL, xR, CORN, top); capF(xL, xR, top); };
-      par(-40, -16, 34); par(-16, 2, 31); par(2, 22, 32.5); par(22, X0 + 7 * MOD, 29);
+      const par = (xL, xR, top) => { wallF(xL, xR, CORN - 0.4, top); capF(xL, xR, top); };   // start 0.4 BELOW the cornice → overlap, no seam
+      par(-40, -15, 34); par(-16.5, 3, 31); par(2, 23, 32.5); par(22, X0 + 7 * MOD, 29);   // x-ranges overlap their neighbours (kill the horizon-bleed seam)
       // SHEARED END — a diagonal cut from the cornice down into the water at the +x end (the sea took this corner).
       { const xa = wx(X0 + 7 * MOD), xb = wx(40), yT = wy(CORN), yLo = wy(13); v.push(xa, yT, zf, xb, yLo, zf, xa, wy(0), zf); v.push(xa, wy(0), zf, xb, yLo, zf, xb, wy(0), zf); }
       // GROUND DOORWAY at the tall end — a RECTANGULAR dark reveal (door≠arch; a 6.5-tall door under a 34 wall =
