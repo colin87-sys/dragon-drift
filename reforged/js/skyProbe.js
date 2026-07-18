@@ -84,7 +84,10 @@ export function skyColorAt(d, env, sunDir, out) {
   const t2 = smoothstep(0.2 - 0.13 * b, 0.7 - 0.34 * b, h);
   const ff = env.fogFarMix * (1.0 - smoothstep(0.0, 0.15, h));
   const s = Math.max(d.x * sunDir.x + d.y * sunDir.y + d.z * sunDir.z, 0);
-  const glow = Math.pow(s, 10.0) * 0.16;
+  // THE EMPYREAN: the visible sky shader kills the broad sun glow via (1 - uEmpyMix); mirror that here or
+  // probe-ON (?ibl) re-introduces a directional sun lobe into the sourceless void (the SH fill would carry a
+  // sun the dome doesn't draw). 0 empyMix → ×1 → byte-identical (guards tests/skyprobe.mjs).
+  const glow = Math.pow(s, 10.0) * 0.16 * (1.0 - (env.empyMix || 0));
   const H = env.skyHorizon, M = env.skyMid, T = env.skyTop, F = env.fogFarColor, G = env.sunGlow;
   out.x = lerp(lerp(lerp(H.r, M.r, t1), T.r, t2), F.r, ff) + G.r * glow;
   out.y = lerp(lerp(lerp(H.g, M.g, t1), T.g, t2), F.g, ff) + G.g * glow;
@@ -98,6 +101,20 @@ export function skyColorAt(d, env, sunDir, out) {
   if (bm > 0) {
     const bwin = Math.pow(s, 8.0) * bm;   // s = clamped alignment to sunDir (computed above)
     out.x += 0.30 * bwin; out.y += 0.28 * bwin; out.z += 0.24 * bwin;   // warm-white ambient lift
+  }
+  // THE EMPYREAN mirror — the FOURTH touch (the ported-drift trap that bit deckBias + breachMix). The
+  // inverted RAMP flows through automatically (env.skyTop/Mid/Horizon are data), but the two nebula blooms
+  // are fragment-shader-only steady-state radiance — so the SH ambient must be told about them or the
+  // sky-IBL fill won't answer the ~35° rose bloom. Kept deliberately SIMPLE (the shaped filaments are a
+  // fragment-only cosmetic; the probe only needs the NET pale lift): a faint uniform pearl fill + a
+  // directional lift toward the rose bloom flank. 0 when env.empyMix is absent/0 → byte-identical (guards
+  // tests/skyprobe.mjs, which never sets empyMix).
+  const em = env.empyMix || 0;
+  if (em > 0) {
+    // rose bloom centre = normalize(0.30, 0.22, -1.0) (mirror of empyreanSky.js EMPY_BODY).
+    const rd = Math.max(d.x * 0.281 + d.y * 0.206 + d.z * -0.937, 0);
+    const lift = em * (0.030 + 0.050 * rd * rd);
+    out.x += lift * 0.98; out.y += lift * 0.86; out.z += lift * 0.92;   // pale rose radiance
   }
 }
 
