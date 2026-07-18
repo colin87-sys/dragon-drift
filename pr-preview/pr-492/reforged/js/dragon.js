@@ -1514,10 +1514,24 @@ export function updateDragon(dt, player, time) {
     const arr = bodyWave.geo.attributes.position.array;
     const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
     const breathMul = 1 + (bodyWave.breath || 0) * Math.sin(phase * 0.21);   // GLOW-UP: slow breathing meander — the S periodically deepens like a koi coasting
-    for (let v = 0; v < count; v++) {
-      const ph = freq * spineZ[v] + phase;
-      arr[v * 3] = baseX[v] + amp * breathMul * ramp[v] * Math.sin(ph);
-      arr[v * 3 + 1] = baseY[v] + ampY * breathMul * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+    if (bodyWave.ribbon && bodyWave.ribbon.active) {
+      // ── RIBBON re-loft (RIBBON-ANIMATION-PLAN.md) — the follow-the-leader sim fills liveFrames,
+      // then the WHOLE welded mesh is re-lofted from them: vertex = frame.p + offT·T + offB·B + offN·Nn.
+      // (Inc 0 scaffold: `active` is off, so jade stays on the sine below — this branch is proven
+      // headless by tests/ribbonspine.mjs and switched on with the swim/parity gate at Inc 2.)
+      const rib = bodyWave.ribbon, F = rib.liveFrames, ST = rib.station, oT = rib.offT, oB = rib.offB, oN = rib.offN;
+      for (let v = 0; v < rib.count; v++) {
+        const f = F[ST[v]], t = oT[v], b = oB[v], n = oN[v];
+        arr[v * 3] = f.p.x + t * f.T.x + b * f.B.x + n * f.Nn.x;
+        arr[v * 3 + 1] = f.p.y + t * f.T.y + b * f.B.y + n * f.Nn.y;
+        arr[v * 3 + 2] = f.p.z + t * f.T.z + b * f.B.z + n * f.Nn.z;
+      }
+    } else {
+      for (let v = 0; v < count; v++) {
+        const ph = freq * spineZ[v] + phase;
+        arr[v * 3] = baseX[v] + amp * breathMul * ramp[v] * Math.sin(ph);
+        arr[v * 3 + 1] = baseY[v] + ampY * breathMul * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+      }
     }
     bodyWave.geo.attributes.position.needsUpdate = true;
     // §4.3a: the river-pearl (the ONE bloom) + fin-tip dew gems BREATHE with the swim, written

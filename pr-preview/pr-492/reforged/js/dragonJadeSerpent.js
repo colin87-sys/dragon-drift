@@ -86,6 +86,12 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const rb = model.crestRibbon ?? 0;
   const colCrest = new THREE.Color(model.crestColor ?? 0xbdf5d0);
   const positions = [], normals = [], colors = [], indices = [];
+  // RIBBON SPINE (Inc 0): record each vertex's HOME station (spine frame index) so the per-frame
+  // tick can re-loft the whole welded mesh from a dynamic spine. `stampStation(i)` marks every
+  // vertex pushed since the last call as belonging to station i — one call per emit block, so the
+  // bookkeeping can't silently drift as the geometry evolves. (See reforged/RIBBON-ANIMATION-PLAN.md.)
+  const vertStation = [];
+  const stampStation = (st) => { const n = positions.length / 3; while (vertStation.length < n) vertStation.push(st); };
   const tmp = new THREE.Color();
   const ringBase = [];
   for (let i = 0; i < N; i++) {
@@ -118,6 +124,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       }
       colors.push(tmp.r, tmp.g, tmp.b);
     }
+    stampStation(i);                                       // ring i verts → station i
   }
   for (let i = 0; i < N - 1; i++) {
     const a0 = ringBase[i], b0 = ringBase[i + 1];
@@ -131,9 +138,11 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const noseIdx = positions.length / 3;
   const nose = f0.p.clone().addScaledVector(f0.T, -f0.r * 0.9);
   positions.push(nose.x, nose.y, nose.z); normals.push(-f0.T.x, -f0.T.y, -f0.T.z); colors.push(colBody.r, colBody.g, colBody.b);
+  stampStation(0);                                         // nose cap → station 0
   const tailIdx = positions.length / 3;
   const tailP = fN.p.clone().addScaledVector(fN.T, fN.r * 1.4);
   positions.push(tailP.x, tailP.y, tailP.z); normals.push(fN.T.x, fN.T.y, fN.T.z); colors.push(colBody.r, colBody.g, colBody.b);
+  stampStation(N - 1);                                     // tail cap → station N-1
   for (let j = 0; j < K; j++) {
     const j2 = (j + 1) % K;
     indices.push(noseIdx, ringBase[0] + j2, ringBase[0] + j);
@@ -168,6 +177,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         colors.push(c.r, c.g, c.b);
       }
       rowsS.push(row);
+      stampStation(i);                                     // stripe row i → station i
     }
     for (let i = 0; i < N - 1; i++) for (let k = 0; k < angs.length - 1; k++) {
       const a = rowsS[i][k], b = rowsS[i][k + 1], d = rowsS[i + 1][k], e = rowsS[i + 1][k + 1];
@@ -230,7 +240,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       const fi = Math.min(N - 1, Math.max(0, Math.round(ft * (N - 1))));
       const f = frames[fi];
       const R = f.r * finScale * (1 - 0.58 * kf) * bodyFins;         // HIERARCHY: shoulder fan is the hero, stepping down to ~0.42× at the tail (reference law)
-      for (const s of [-1, 1]) emitFan(f, s, R, tiltUp);
+      for (const s of [-1, 1]) { emitFan(f, s, R, tiltUp); stampStation(fi); }   // each fan → its anchor station fi
     }
   }
 
@@ -302,6 +312,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       }
     }
   }
+  stampStation(N - 1);                                     // leaf-fork tail + whiskers → station N-1 (also the catch-all so vertStation.length === vcount)
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -354,6 +365,29 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     breath: model.waveBreath ?? 0,
     phase: 0, spd: 0,
   };
+
+  // ── RIBBON SPINE (Inc 0 scaffold) ─────────────────────────────────────────────────────
+  // Decompose every vertex ONCE into (home station, offset expressed in that station's rest
+  // T/B/Nn frame). The per-frame tick can then re-loft the ENTIRE welded mesh (tube + stripe +
+  // fans + tail) from a dynamic set of station frames with ONE formula:
+  //     vertex = liveFrame[station].p + offT·T + offB·B + offN·Nn
+  // Fed the REST frames this reproduces `positions` to float precision (the Inc-0 identity proof).
+  // `restFrames` is the baked identity; `liveFrames` is what the follow-the-leader sim fills each
+  // tick (Inc 3). Everything jade-gated behind `bodyWave.ribbon` → the roster stays byte-identical.
+  const station = new Uint16Array(vcount);
+  const offT = new Float32Array(vcount), offB = new Float32Array(vcount), offN = new Float32Array(vcount);
+  for (let v = 0; v < vcount; v++) {
+    const i = vertStation[v] ?? (N - 1), f = frames[i];
+    const dx = positions[v * 3] - f.p.x, dy = positions[v * 3 + 1] - f.p.y, dz = positions[v * 3 + 2] - f.p.z;
+    station[v] = i;
+    offT[v] = dx * f.T.x + dy * f.T.y + dz * f.T.z;
+    offB[v] = dx * f.B.x + dy * f.B.y + dz * f.B.z;
+    offN[v] = dx * f.Nn.x + dy * f.Nn.y + dz * f.Nn.z;
+  }
+  const cloneFrames = () => frames.map((f) => ({
+    p: f.p.clone(), T: f.T.clone(), B: f.B.clone(), Nn: f.Nn.clone(),
+  }));
+  bodyWave.ribbon = { N, count: vcount, station, offT, offB, offN, restFrames: cloneFrames(), liveFrames: cloneFrames() };
 
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x203a30, emissive: cEye, emissiveIntensity: 2.2 });
 
