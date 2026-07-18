@@ -28,14 +28,21 @@ const state = () => page.evaluate(() => window.__dd?.game?.state);
 const shot = async (name) => { await page.screenshot({ path: `/tmp/ribbon-${key}-${name}.png`, clip: CLIP, timeout: 20000 }); console.log(`  ✓ /tmp/ribbon-${key}-${name}.png  [state=${await state()}]`); };
 const hold = async (dir, ms) => { await page.keyboard.down(dir); await page.waitForTimeout(ms); await page.keyboard.up(dir); };
 
-// STRAIGHT — body should trail as a near-line with a gentle swim.
+// STRAIGHT — body carries the silky travelling S even at rest.
 await shot('straight');
 
-// SLALOM — alternate left/right early (before the run accrues obstacles); an S-ripple should
-// travel head→tail (the twirl). Gentle taps so it doesn't fly into a crate.
+// CRUISE FILMSTRIP — 5 frames ~140ms apart with NO input, to see the travelling wave move down the
+// body (silkiness is a motion quality a single still can't show).
+for (let i = 0; i < 5; i++) { await shot(`cruise${i}`); await page.waitForTimeout(140); }
+
+// SLALOM — alternate left/right; the lateral S should swell + travel head→tail.
 await hold('ArrowLeft', 300); await hold('ArrowRight', 320);
 await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(220); await shot('slalom'); await page.keyboard.up('ArrowLeft');
 await page.waitForTimeout(300);
+
+// UP/DOWN — gentle climb then a short dip; the VERTICAL S should swell (flows up/down, not just L/R).
+await hold('ArrowUp', 260); await page.keyboard.down('ArrowDown'); await page.waitForTimeout(180); await shot('updown'); await page.keyboard.up('ArrowDown');
+await page.waitForTimeout(260);
 
 // SUSTAINED HARD TURN — hold right; the head traces a curve so the body sweeps/coils behind it.
 await page.keyboard.down('ArrowRight');
