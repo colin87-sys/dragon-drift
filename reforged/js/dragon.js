@@ -134,6 +134,7 @@ let prevSpeedActive = false;
 let flapPhase = 0;        // INTEGRATED wingbeat clock (advance by dt·flapSpeed, NOT time·freq)
 let scarfPhase = 0;       // integrated rider-scarf sway clock (same reason)
 let vySmooth = 0;         // lagged vertical velocity → vertJerk drives the spine pitch-whip
+let vyPose = 0;           // SLOW-engage / fast-release vertical vel → gates the dive/climb POSES so a rapid up↔down mash can't flip them (only a SUSTAINED dive/climb commits the pose)
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
@@ -1043,8 +1044,15 @@ export function updateDragon(dt, player, time) {
   // so a committed dive ≈ −18): ~0 below DIVE_ON, ramps to 1 by DIVE_FULL. The collision box
   // is a fixed point+radius — this only changes the VISUAL posture, never clearance.
   const ss = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
-  const diveAmount = ss(9, 16, -vy);    // DIVE_ON 9 · DIVE_FULL 16 (raise DIVE_ON for a bigger deadzone)
-  const climbAmount = ss(8, 16, vy);    // CLIMB_ON 8 · CLIMB_FULL 16
+  // The dive/climb POSES are meant for a RAPID SUSTAINED drop/rise (see note above) — but a plain
+  // deadzone has no notion of "sustained", so a fast up↔down mash kept crossing it and FLIPPING the
+  // whole posture (nose + wing tuck/spread + flap gating) every ~0.35s = the "vertical spasm". Gate
+  // them on a SLOW-engage / fast-release smoothed vy: a mash attenuates vyPose below the deadzone so
+  // the poses never engage; a committed dive/climb still fully commits ~0.4-0.6s in, and pulling out
+  // relaxes promptly. Steady-state (a held dive/climb) is byte-identical to before.
+  vyPose = damp(vyPose, vy, Math.abs(vy) > Math.abs(vyPose) ? 3 : 7, dt);   // slow engage · fast release
+  const diveAmount = ss(9, 16, -vyPose);    // DIVE_ON 9 · DIVE_FULL 16 (raise DIVE_ON for a bigger deadzone)
+  const climbAmount = ss(8, 16, vyPose);    // CLIMB_ON 8 · CLIMB_FULL 16
   // Banking DEADZONE: gentle steering = a subtle lean only; the dramatic wing-tuck / tail
   // counter-sweep / head-lead engage only on a HARD bank. (turnBias saturates at 0.28.)
   const bankHard = ss(0.12, 0.26, Math.min(Math.abs(player.velocity.x * 0.018), 0.28));
@@ -1090,7 +1098,10 @@ export function updateDragon(dt, player, time) {
   // Body coupling: the flap lifts the chest at apex / compresses (nose-down) on the downstroke.
   // bodyFlapLift is set by the yoke solver below (1-frame lag = natural inertia, "suspended under
   // the wings"); only applies to yoke dragons (else 0). The damp(…,9) adds the trailing response.
-  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
+  // pitch coupling reads vySmooth (2nd-order smoothed) not raw vy — halves the nose-rock on a rapid
+  // up↔down mash while leaving soft/slow vertical untouched (gain≈1 there). The HEAD + rider below
+  // stay on raw velocity.y, so the head still noses into the input instantly (the input still reads).
+  group.rotation.x = damp(group.rotation.x, vySmooth * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
   // Slight yaw toward lateral movement — unless a cinematic is turning the dragon
   // to face something (ASHTALON's overtake): then blend toward that look yaw.
   const yawTarget = lookYaw != null ? lookYaw : player.velocity.x * 0.008;
