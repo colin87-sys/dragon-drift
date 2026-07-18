@@ -5,7 +5,7 @@ import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul, godrayTint, godrayBreak } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug, surgeCascadeDebug, surgeCascadeSample, surgeFlareSample } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug, surgeCascadeDebug, surgeCascadeSample, surgeFlareSample, surgeDecaySample } from './dragon.js';
 import { setVitals, setSurge } from './dragonBond.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -440,6 +440,8 @@ if (urlParams.has('debug')) {
     surgeCascade: () => surgeCascadeDebug(),
     surgeCascadeAt: (t) => surgeCascadeSample(t),   // pure forward envelope at cascade-time t (fine-res, frame-clock-independent)
     surgeFlareAt: (t, s) => surgeFlareSample(t, s), // seeded sustain flare at (t, station)
+    surgeDecayAt: (p) => surgeDecaySample(p),       // reverse-decay envelope at progress p (rim→wings→spine→eye-last)
+    surgeCascadePin: (t) => { if (t == null) delete globalThis.__ddSurgeCascadePin; else globalThis.__ddSurgeCascadePin = t; },  // pin the cascade clock for capture (undefined in play)
     surgeSeam: (beat) => {
       if (beat == null) delete globalThis.__ddSurgeForce;
       else globalThis.__ddSurgeForce = (typeof beat === 'string') ? { beat } : beat;

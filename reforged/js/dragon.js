@@ -754,6 +754,11 @@ export function surgeCascadeSample(t) {
 }
 // The seeded SUSTAIN flare-ripple at (t, station) — for the non-metronome cadence + travel asserts.
 export function surgeFlareSample(t, station = 0) { return _surgeFlare(t, station); }
+// Pure REVERSE-decay envelope at decay-progress p (0 sustain → 1 fully out) — the DECAY order
+// assert (rim→wings→spine→EYE-LAST). Returns per-station retained level [eye,spine,wing,rim].
+export function surgeDecaySample(p) {
+  return CAS_REV.map(([a, b]) => 1 - _sstep(a, b, p));
+}
 
 // H7/H8 debug seam: bond-channel FX introspection for the roster-fallback proof
 // (which fallback tier the surge nodes resolved to, and the live stud/node
@@ -1673,11 +1678,14 @@ export function updateDragon(dt, player, time) {
     surgeIndex++;
     surgeRng = mulberry32((surgeIndex * 2654435761) >>> 0);
     surgeSeedA = surgeRng(); surgeSeedB = surgeRng(); surgeSeedC = surgeRng();
-    // Seed 4 SUSTAIN flare centres: first shortly after ignition, then gaps ~1.25–1.65s
-    // (seeded → no two gaps equal, non-metronome). Deterministic, never Math.random.
+    // Seed 4 SUSTAIN flare centres: first shortly after ignition, then three GUARANTEED-uneven
+    // gaps (each ≥26% apart) in a seed-SHUFFLED order — non-metronome by construction, never two
+    // gaps within 12%, deterministic (mulberry32, never Math.random). Raw random draws can cluster.
     surgeFlareCenters = [];
+    const fgaps = [1.15, 1.45, 1.82];
+    for (let i = fgaps.length - 1; i > 0; i--) { const j = Math.floor(surgeRng() * (i + 1)); const s = fgaps[i]; fgaps[i] = fgaps[j]; fgaps[j] = s; }
     let cc = 1.0 + surgeRng() * 0.3;
-    for (let k = 0; k < 4; k++) { surgeFlareCenters.push(cc); cc += 1.25 + surgeRng() * 0.4; }
+    for (let k = 0; k < 4; k++) { surgeFlareCenters.push(cc); if (k < 3) cc += fgaps[k]; }
     casOnAt[0] = casOnAt[1] = casOnAt[2] = casOnAt[3] = -1;
   }
   // IGNITION EMBER-BURST — on the Surge rising edge, fling a one-shot shower of ~18 saturated embers off
@@ -1710,6 +1718,12 @@ export function updateDragon(dt, player, time) {
   // ── Advance the ignition cascade ──
   if (player.feverActive && surgeCascadeT >= 0) surgeCascadeT += dt;
   if (surgeReleaseT >= 0) surgeReleaseT += dt;
+  // Capture seam (I2): a normally-undefined global PINS the cascade clock so a headless montage
+  // can still each staggered beat (+300ms isolation, full-ignition). Undefined in play → skipped
+  // → byte-identical (the __ddSurgeForce contract). Requires an armed surge (fever on) for the seed.
+  if (typeof globalThis !== 'undefined' && typeof globalThis.__ddSurgeCascadePin === 'number' && surgeCascadeT >= 0) {
+    surgeCascadeT = globalThis.__ddSurgeCascadePin;
+  }
   // DECAY progress: during fever it's keyed off the REMAINING feverTimer (the last DECAY_WINDOW
   // seconds), so the body dims in lockstep with the HUD gauge and never leads it (§M.1-5); an
   // abrupt hit-cancel fast-forwards from that point over RELEASE_FAST.
@@ -1760,7 +1774,7 @@ export function updateDragon(dt, player, time) {
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 0.55 + igS(2) * 0.8) * sgm
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 0.82 + igS(2) * 1.05) * sgm
     + inhale01 * 0.9;   // PR-C: the mantled wings GLOW as the charge draws
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
@@ -1918,7 +1932,7 @@ export function updateDragon(dt, player, time) {
       // A NEGATIVE flareIntensityWeight lets an already-bloom-bright mat DIM on Surge (so a DENSE field of
       // emissive faces stays saturated fire instead of the bloom summing them to white). Clamp the factor
       // ≥0.28 so a strongly-dimmed mat holds a steady deep glow and never black-blinks on the ignite spike.
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (casLevel[1] * 0.9 + igS(1) * 1.6) * sgm * wi);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (casLevel[1] * 1.35 + igS(1) * 2.1) * sgm * wi);
     }
   } else {
     for (const m of spineFlareMats) {
@@ -1944,7 +1958,7 @@ export function updateDragon(dt, player, time) {
   }
   // WELCOME+HUB §1.2a layer B — the ignite RIM/key LIFT: a one-shot +~10% rim strength (∈ +8–12%),
   // decaying with the same envelope. ×1 exactly when igniteBeat01===0 → byte-identical rim.
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + casLevel[3] * 0.7) * quality * (1 + igniteBeat01 * 0.30);
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + casLevel[3] * 0.95 + surgeHump * casLevel[3] * 0.35) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
@@ -1960,7 +1974,7 @@ export function updateDragon(dt, player, time) {
     eyeMat.emissive.lerp(_casCol.setHex(activeDef.feverEye ?? 0xff66ee), Math.min(1, casLevel[0]));
     if (eyeMat.userData.stormEyeBase == null) {
       const eyeBase = eyeMat.userData.eyeBaseI ?? (eyeMat.userData.eyeBaseI = eyeMat.emissiveIntensity || 1);
-      eyeMat.emissiveIntensity = eyeBase * (1 + casLevel[0] * 1.8);
+      eyeMat.emissiveIntensity = eyeBase * (1 + casLevel[0] * 2.6 + surgeHump * casLevel[0] * 1.2);
     }
   }
   // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
