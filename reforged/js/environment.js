@@ -895,10 +895,16 @@ function bakeForumLadder(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
 // a dark MASS with a bright rim, never a flat-black slab. Applied to the BASILICA (a solid dark wall whose
 // dark reveals fade to a mute whisper) AND the AQUEDUCT (a dark FRAME whose open sky-through bays then read
 // BRIGHT by contrast — the aperture value SIGN-FLIP that is the whole two-shelf read). Zero tri cost.
-const _FRD_CROWN = [0.335, 0.300, 0.250];  // dark warm travertine wall face (vertical faces) — repoussoir, L≈0.30
-const _FRD_CAP   = [0.610, 0.560, 0.470];  // LIT up-facing cap rim (cornice/parapet/string top) — L≈0.56
+// Crown pulled to ~0.22 L (was 0.30): forumStone folds vColor into emissive (×0.28) so a SIDE-LIT face lifts
+// well above its backlit value — at 0.30 the lit basilica rendered ~0.47 (Fable re-gate: "the old 60% cream
+// still alive"), over the ≤0.40 repoussoir gate. At ~0.22 the lit face lands ~0.35 and stays a dark mass, while
+// the lit cap rim (0.61) still reads. A per-vertex value JITTER (±0.16) adds a within-face variation OCTAVE so a
+// close/grazing wall crop isn't a featureless plane (Fable re-gate: ΔL≈0.02 at 477m → target ≥0.12).
+const _FRD_CROWN = [0.250, 0.222, 0.185];  // dark warm travertine wall face (vertical faces) — repoussoir, L≈0.22
+const _FRD_CAP   = [0.680, 0.545, 0.395];  // LIT up-facing cap rim (cornice/parapet/string top) — L≈0.55, warmed toward APRICOT (Fable re-gate: the rim was neutral-grey on a sunset scene; the cornice must catch the gold)
 const _FRD_ALGAE = [0.190, 0.240, 0.140];  // algae line — kept dark (slightly deepened off _FRM_ALGAE)
 const _FRD_DROWN = [0.100, 0.205, 0.235];  // drowned slate-teal base — kept dark (the teal anchor survives)
+const _frdHash = (x, y, z) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
 function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -910,11 +916,17 @@ function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
     const soff = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));  // down-facing soffit factor (undercut)
     const uf = 1 - 0.48 * soff;                                   // darken undercuts toward ~0.16
     for (let k = 0; k < 3; k++) {
-      const key = pos.getY(i + k) - tiltX * pos.getX(i + k);      // signed height above the single tilted plane
+      const px = pos.getX(i + k), py = pos.getY(i + k), pz = pos.getZ(i + k);
+      const key = py - tiltX * px;                                // signed height above the single tilted plane
       const o = (i + k) * 3;
       if (key > waterY + bandH) {
+        // face gets a per-quad mottle octave (±0.16) so adjacent piers/spandrels don't read as one flat cream
+        // plane; the lit cap rim stays clean (a crisp bright line, not noisy). (Sub-quad within-FACE detail needs a
+        // fragment pass — the low-poly wall's big quads interpolate a per-vertex bake, so it's carried by the
+        // pier/window/parapet structure + the forumStone weathering noise, not the bake.)
+        const j = isCap ? 1 : 0.84 + 0.32 * _frdHash(px * 6.3, py * 6.3, pz * 6.3);
         const base = isCap ? _FRD_CAP : _FRD_CROWN;
-        col[o] = base[0] * uf; col[o + 1] = base[1] * uf; col[o + 2] = base[2] * uf;
+        col[o] = base[0] * uf * j; col[o + 1] = base[1] * uf * j; col[o + 2] = base[2] * uf * j;
       } else if (key < waterY) {
         col[o] = _FRD_DROWN[0]; col[o + 1] = _FRD_DROWN[1]; col[o + 2] = _FRD_DROWN[2];
       } else {
