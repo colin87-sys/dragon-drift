@@ -1,7 +1,7 @@
 // _empyregate.mjs — ONE boot, multiple frames for the Fable-model re-gate of PR-1/2/3.
 // Frames: sky (blooms+stars+zenith, sun-kill), water (waterline nacre + glitter-kill), mote (the black disc).
 // Reapplies the view in a tight loop right before each screenshot to beat the chase-cam reassert.
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
 
 const VIEW = { width: 960, height: 600 };
@@ -43,5 +43,33 @@ async function shot(name, tx, ty, tz) {
 await shot('sky', 0.6, 26, -8);      // PR-1: aim UP the dome — blooms + R7 stars + zenith value + the killed zenith sun
 await shot('water', 0.4, -7, -13);   // PR-2: aim DOWN to the waterline — nacre sheen + no gold glitter lane
 await shot('mote', 6, 5, -50);       // PR-3: aim at the Mote's bearing (normalize ~0.12,0.10,-1) at the vanishing point
+
+// ── Fable-style machine sample of the sky frame (avg HSV per region + a countable-star estimate) ──
+const png = readFileSync('/tmp/rg-sky.png').toString('base64');
+const stats = await page.evaluate(async (b64) => {
+  const img = new Image(); img.src = 'data:image/png;base64,' + b64;
+  await img.decode();
+  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+  const W = img.width, H = img.height, D = cx.getImageData(0, 0, W, H).data;
+  const px = (x, y) => { const i = (y * W + x) * 4; return [D[i], D[i + 1], D[i + 2]]; };
+  const toHSV = ([r, g, b]) => { r/=255;g/=255;b/=255; const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+    let h=0; if(d){ if(mx===r)h=((g-b)/d)%6; else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0)h+=360;} return [h, mx?d/mx:0, mx]; };
+  const avg = (cx0, cy0, r) => { let R=0,G=0,B=0,n=0; for(let y=cy0-r;y<=cy0+r;y++)for(let x=cx0-r;x<=cx0+r;x++){const p=px(x,y);R+=p[0];G+=p[1];B+=p[2];n++;} return toHSV([R/n,G/n,B/n]); };
+  // regions (960x600): base upper-centre; rose lower-right; orchid lower-left
+  const base = avg(480, 90, 8), rose = avg(760, 430, 10), orchid = avg(210, 380, 10), zenith = avg(480, 40, 8);
+  // star estimate: bright outliers in the upper dome (y<300) that exceed the local 9x9 mean by a margin
+  let stars = 0; const seen = [];
+  for (let y = 60; y < 300; y += 2) for (let x = 20; x < W - 20; x += 2) {
+    const c = px(x, y); const L = 0.299*c[0]+0.587*c[1]+0.114*c[2];
+    let m = 0; for (let dy=-4;dy<=4;dy+=2)for(let dx=-4;dx<=4;dx+=2){const p=px(x+dx,y+dy);m+=0.299*p[0]+0.587*p[1]+0.114*p[2];} m/=25;
+    if (L - m > 12 && L > 210) { if(!seen.some(s=>Math.abs(s[0]-x)<6&&Math.abs(s[1]-y)<6)){seen.push([x,y]);stars++;} }
+  }
+  return { base, rose, orchid, zenith, stars };
+}, png);
+const f3 = (a) => `H${a[0].toFixed(0)} S${a[1].toFixed(3)} V${a[2].toFixed(3)}`;
+console.log(`SAMPLE base=[${f3(stats.base)}] zenith=[${f3(stats.zenith)}]`);
+console.log(`SAMPLE rose=[${f3(stats.rose)}] orchid=[${f3(stats.orchid)}]`);
+console.log(`SAMPLE stars≈${stats.stars} | rose-base ΔS=${(stats.rose[1]-stats.base[1]).toFixed(3)} ΔH=${Math.abs(stats.rose[0]-stats.base[0]).toFixed(0)} | orchid-base ΔS=${(stats.orchid[1]-stats.base[1]).toFixed(3)} ΔH=${Math.abs(stats.orchid[0]-stats.base[0]).toFixed(0)}`);
 console.log('done.');
 await done();
