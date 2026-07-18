@@ -29,6 +29,7 @@ import { createPulseTimer, mulberry32 } from './pulseTimer.js';
 import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
 import { bondState } from './dragonBond.js';
+import { initRibbonSim, updateRibbonSim, ribbonToLocal } from './ribbonSpine.js';
 
 // ── EMBERSIGHT H7 — DRAGON VITALS (the living gauge, HUD-REDESIGN §B.1/§B.2) ──
 // All state for the flag-gated bond channel. THE HARD CONTRACT: while the
@@ -137,6 +138,8 @@ let tailFins = [];        // apex deployable tail-fin groups (empty for every ot
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
 let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
+// RIBBON drive temporaries (reused each frame — no per-tick allocation).
+const _ribHeadW = new THREE.Vector3(), _ribAnchor = new THREE.Vector3(), _ribFwd = new THREE.Vector3(), _ribInvQ = new THREE.Quaternion();
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
 let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let jadeChainMats = null; // jade pearl-chain links 1/3/4 (sat/lyre/streamer) — pulsed via userData.baseIntensity (§4.3b)
@@ -359,6 +362,10 @@ export function createDragon(scene, def, riderDef) {
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
   bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
+  // RIBBON (jade): stand up the follow-the-leader sim on the published ribbon record and switch the
+  // re-loft branch on. The head lays a world breadcrumb trail; the body samples it at rest arc-length
+  // offsets → straight input settles to a line, a hard steer whips head→tail, sustained turning coils.
+  if (bodyWave && bodyWave.ribbon) { initRibbonSim(bodyWave.ribbon); bodyWave.ribbon.active = true; }
   jadePearlMat = result.parts.pearlMat || null;   // jade river-pearl — breathes with the swim (CP3)
   jadeTipGemMat = result.parts.tipGemMat || null; // jade fin-tip dew gems — shimmer travels here (glow-up)
   jadeChainMats = result.parts.pearlChainMats || null;   // jade pearl-chain (§4.3b) — sat/lyre/streamer, each its own lag
@@ -1519,7 +1526,20 @@ export function updateDragon(dt, player, time) {
       // then the WHOLE welded mesh is re-lofted from them: vertex = frame.p + offT·T + offB·B + offN·Nn.
       // (Inc 0 scaffold: `active` is off, so jade stays on the sine below — this branch is proven
       // headless by tests/ribbonspine.mjs and switched on with the swim/parity gate at Inc 2.)
-      const rib = bodyWave.ribbon, F = rib.liveFrames, ST = rib.station, oT = rib.offT, oB = rib.offB, oN = rib.offN;
+      const rib = bodyWave.ribbon;
+      // Drive the follow-the-leader sim: the head world position = group.localToWorld(anchor). Feed
+      // it (with the group's world −z as the seed forward), then fold the world stations/frames back
+      // into group-local (inverse group quaternion) so the re-loft lands in the mesh's own space.
+      if (rib.sim) {
+        const a = rib.sim.anchor;
+        _ribAnchor.set(a.x, a.y, a.z).applyQuaternion(group.quaternion);
+        _ribHeadW.copy(group.position).add(_ribAnchor);
+        _ribFwd.set(0, 0, -1).applyQuaternion(group.quaternion);
+        updateRibbonSim(rib, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z, _ribFwd, dt);
+        _ribInvQ.copy(group.quaternion).invert();
+        ribbonToLocal(rib, _ribInvQ, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z);
+      }
+      const F = rib.liveFrames, ST = rib.station, oT = rib.offT, oB = rib.offB, oN = rib.offN;
       for (let v = 0; v < rib.count; v++) {
         const f = F[ST[v]], t = oT[v], b = oB[v], n = oN[v];
         arr[v * 3] = f.p.x + t * f.T.x + b * f.B.x + n * f.Nn.x;
