@@ -192,6 +192,44 @@ const _stormHot = new THREE.Color(0xf2f4ff);   // the near-white strike core (hu
 let surgeMix = 0;         // 0..1 damped Surge transition
 let prevFever = false;    // rising-edge detect for the Surge ignition flourish
 let surgeAnimT = 0;       // one-shot transformation timer (s)
+
+// ── SUNBREAK I2 anatomical ignition cascade ──────────────────────────────────
+// The Surge ignites the dragon's own emissive as a STAGGERED cascade (eyes→spine→wings→rim),
+// not one uniform surgeMix blend (the "whole dragon lights at once" tell). Retimed onsets
+// (Fable pre-assess caught that the plan's 0/120/250/400 fail its OWN ≥10% uneven-gap test):
+//   eyes 0→120 · spine 120→440 · wings 265→620 · rim 440→900 ms — gaps 120/145/175 (≥20% uneven).
+// Each station holds at 1 through SUSTAIN (post-ignition state byte-identical to the shipped
+// look), breathes with seeded flare-ripples, and runs a REVERSE cascade on DECAY (rim→wings→
+// spine→EYE-LAST), keyed off the remaining feverTimer so the body never leads the HUD gauge.
+const CAS_ON  = [0.00, 0.12, 0.265, 0.44];   // station onset (s): [eye, spine, wing, rim] — gaps 120/145/175 (≥20% uneven)
+const CAS_END = [0.10, 0.26, 0.425, 0.66];   // station reaches full (s): fast per-station attack (10→70% ≤~120ms; eye ≤60ms), rim/membrane blooms slowest; wingtip trail tails to ~0.9s
+const CAS_REV = [[0.60, 1.00], [0.30, 0.75], [0.15, 0.55], [0.00, 0.30]]; // decay windows: eye holds LAST, rim dims FIRST
+const DECAY_WINDOW = 1.4;    // last 1.4s of remaining feverTimer = the pre-expiry reverse cascade (§M.1-5)
+const RELEASE_FAST = 0.16;   // abrupt hit-cancel → fast reverse (≤180ms), order preserved, eye still last
+let surgeCascadeT = -1;      // s since the Surge rising edge (-1 = idle)
+let surgeReleaseT = -1;      // s since an ABRUPT release (hit-cancel); -1 = not fast-releasing
+let surgeReleaseFrom = 0;    // decay progress captured at an abrupt release (clean handoff)
+let surgeIndex = 0;          // ++ each rising edge → the per-surge deterministic seed
+let surgeRng = null;         // mulberry32(index-hash) — PRIME/SUSTAIN jitter, never Math.random
+let surgeSeedA = 0, surgeSeedB = 0, surgeSeedC = 0;   // frozen per-surge phase offsets (seeded)
+let surgeFlareCenters = [];   // seeded SUSTAIN flare eye-crest times (s), non-metronome cadence
+// SUSTAIN flare-ripple: a gaussian bump at each seeded centre, its crest travelling eye→rim
+// (station delay ≈0.11s/stage → rim lags eye ~0.33s, in the 250–450ms band), amplitude ~+35%.
+function _surgeFlare(t, station) {
+  const delay = station * 0.11;
+  let acc = 0;
+  for (let k = 0; k < surgeFlareCenters.length; k++) {
+    const d = (t - (surgeFlareCenters[k] + delay)) / 0.22;   // half-width ~0.22s
+    acc += 0.35 * Math.exp(-d * d);
+  }
+  return acc;
+}
+const casLevel = [0, 0, 0, 0];    // live per-station level [eye,spine,wing,rim] (introspection + the emissive gates)
+const casOnAt  = [-1, -1, -1, -1]; // latched 10%-crossing timestamps (the order/gap asserts)
+let casDecayProg = 0;             // 0 (sustain) → 1 (fully decayed) — shared with the release handoff
+const _sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const _casCol = new THREE.Color();   // scratch: staged station tint (base → fever hue by casLevel)
+
 const _surgeBaseCol = new THREE.Color();
 const _surgeHi = new THREE.Color(); // per-dragon Surge highlight (def.surgeHi)
 let quality = 1;
@@ -697,6 +735,25 @@ export function __trailDebug() {
     tailSegs: tailSegs.length, dragon: activeDef && activeDef.name,
   };
 }
+
+// SUNBREAK I2 introspection seam (§M.1-10: trace-based cascade asserts). Reports the live
+// per-station ignition levels [eye,spine,wing,rim], the latched 10%-onset timestamps (order +
+// uneven-gap asserts), the cascade/decay clocks, and the seeded SUSTAIN flare centres. Read-only.
+export function surgeCascadeDebug() {
+  return {
+    t: surgeCascadeT, level: casLevel.slice(), onset: casOnAt.slice(),
+    decay: casDecayProg, releaseT: surgeReleaseT, index: surgeIndex,
+    flares: surgeFlareCenters.slice(), timer: null,
+  };
+}
+// Pure FORWARD-cascade envelope at cascade-time t (s), decay-free — lets the tests measure the
+// stagger at fine (1ms) resolution independent of the headless frame clock, which quantizes the
+// live latch to ~150ms and would falsely fail the uneven-gap assert (§M.1-10 trace discipline).
+export function surgeCascadeSample(t) {
+  return CAS_ON.map((on, i) => _sstep(on, CAS_END[i], t));
+}
+// The seeded SUSTAIN flare-ripple at (t, station) — for the non-metronome cadence + travel asserts.
+export function surgeFlareSample(t, station = 0) { return _surgeFlare(t, station); }
 
 // H7/H8 debug seam: bond-channel FX introspection for the roster-fallback proof
 // (which fallback tier the surge nodes resolved to, and the live stud/node
@@ -1610,6 +1667,19 @@ export function updateDragon(dt, player, time) {
   // the spine, swells a glow around the wings and pulses the body, then settles
   // into the steady transformed state (surgeMix).
   if (player.feverActive && !prevFever) surgeAnimT = 0.7;
+  // Arm the anatomical cascade on the rising edge (deterministic per-surge seed).
+  if (player.feverActive && !prevFever) {
+    surgeCascadeT = 0; surgeReleaseT = -1; surgeReleaseFrom = 0;
+    surgeIndex++;
+    surgeRng = mulberry32((surgeIndex * 2654435761) >>> 0);
+    surgeSeedA = surgeRng(); surgeSeedB = surgeRng(); surgeSeedC = surgeRng();
+    // Seed 4 SUSTAIN flare centres: first shortly after ignition, then gaps ~1.25–1.65s
+    // (seeded → no two gaps equal, non-metronome). Deterministic, never Math.random.
+    surgeFlareCenters = [];
+    let cc = 1.0 + surgeRng() * 0.3;
+    for (let k = 0; k < 4; k++) { surgeFlareCenters.push(cc); cc += 1.25 + surgeRng() * 0.4; }
+    casOnAt[0] = casOnAt[1] = casOnAt[2] = casOnAt[3] = -1;
+  }
   // IGNITION EMBER-BURST — on the Surge rising edge, fling a one-shot shower of ~18 saturated embers off
   // every trailing-edge/tail emitter at once: the silhouette outlined in flying sparks for half a second,
   // the "matter becomes fire" beat that reads as a real transformation (replaces the old white flash).
@@ -1630,13 +1700,59 @@ export function updateDragon(dt, player, time) {
       }
     }
   }
+  // Falling edge: an ABRUPT end (fever cancelled while time remained = a hit) fast-reverses the
+  // cascade from wherever the pre-expiry decay had reached (order preserved, eye still last).
+  if (!player.feverActive && prevFever && surgeCascadeT >= 0) {
+    surgeReleaseT = 0; surgeReleaseFrom = casDecayProg;
+  }
   prevFever = player.feverActive;
   if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
+  // ── Advance the ignition cascade ──
+  if (player.feverActive && surgeCascadeT >= 0) surgeCascadeT += dt;
+  if (surgeReleaseT >= 0) surgeReleaseT += dt;
+  // DECAY progress: during fever it's keyed off the REMAINING feverTimer (the last DECAY_WINDOW
+  // seconds), so the body dims in lockstep with the HUD gauge and never leads it (§M.1-5); an
+  // abrupt hit-cancel fast-forwards from that point over RELEASE_FAST.
+  if (player.feverActive) {
+    const ft = player.feverTimer ?? DECAY_WINDOW + 1;
+    casDecayProg = ft < DECAY_WINDOW ? _sstep(DECAY_WINDOW, 0, ft) : 0;
+  } else if (surgeReleaseT >= 0) {
+    casDecayProg = Math.min(1, surgeReleaseFrom + surgeReleaseT / RELEASE_FAST);
+    if (casDecayProg >= 1 && surgeCascadeT >= 0) { surgeCascadeT = -1; surgeReleaseT = -1; }  // fully out → idle
+  } else {
+    casDecayProg = 0;
+  }
+  // SUSTAIN breathing + seeded flare-ripples (travelling eyes→rim). Only meaningful once a
+  // station is lit and not decaying; a constant idle-max glow goes invisible in ~2s, so the
+  // sustain BREATHES below the ignition peak and throws 3–4 non-metronome flares. Seeded from
+  // surgeRng (deterministic); the flare travels so it reads as a ripple, not a global pulse.
+  const casElapsed = surgeCascadeT >= 0 ? surgeCascadeT : 0;
+  const inSustain = surgeCascadeT >= 0 && player.feverActive && casDecayProg < 0.02;
+  const breatheS = 0.5 + 0.5 * Math.sin(casElapsed * 2 * Math.PI * 0.28 + surgeSeedA * 6.28)
+                 + 0.28 * Math.sin(casElapsed * 2 * Math.PI * 0.63 + surgeSeedB * 6.28);
+  // per-station forward × reverse, plus the travelling sustain flare.
+  for (let i = 0; i < 4; i++) {
+    const ig = surgeCascadeT >= 0 ? _sstep(CAS_ON[i], CAS_END[i], surgeCascadeT) : 0;
+    const dc = 1 - _sstep(CAS_REV[i][0], CAS_REV[i][1], casDecayProg);
+    let lvl = ig * dc;
+    if (inSustain && lvl > 0.5) {
+      // breathing: ±~8% below the peak; flare: a ripple whose crest arrives eye→rim over ~350ms
+      const flare = _surgeFlare(casElapsed, i);
+      lvl *= 0.92 + 0.08 * (breatheS * 0.5 + 0.5) + flare;
+    }
+    casLevel[i] = Math.min(1.6, lvl);
+    if (casOnAt[i] < 0 && ig >= 0.1 && surgeCascadeT >= 0) casOnAt[i] = surgeCascadeT;   // latch the 10% crossing (order/gap asserts)
+  }
   // WELCOME+HUB §1.2a — the splash ignite beat drives the SAME proven ignition-flare visual as a
   // Surge flourish (wings glow, body emissive spike, scale pulse), so the dragon visibly IGNITES —
   // not just moves. max() → byte-identical when the beat is idle (igniteBeat01===0), and the two
   // never overlap (the beat is menu-only, Surge is in-run).
-  const ignite = Math.max(surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0, igniteBeat01);
+  const surgeHump = surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0;   // in-run ignition flourish
+  const ignite = Math.max(surgeHump, igniteBeat01);   // menu splash OR surge flourish (scale pulse uses this uniform form)
+  // Per-station surge drive: the flourish is STAGGERED by the cascade (surgeHump × casLevel[i]) so
+  // the overshoot doesn't smear all stations to full at once (the pre-assess's #1 failure mode),
+  // while the menu splash beat (igniteBeat01, casLevel≈0) stays ungated so the hub ignite still fires.
+  const igS = (i) => surgeHump * casLevel[i] + igniteBeat01;
   surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
   // Per-form Surge intensity (apex Obsidian flares a touch harder); default 1 =
   // unchanged. Scales ONLY the Surge-delta terms below, never the steady base.
@@ -1644,12 +1760,16 @@ export function updateDragon(dt, player, time) {
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (surgeMix * 0.55 + ignite * 0.8) * sgm
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 0.55 + igS(2) * 0.8) * sgm
     + inhale01 * 0.9;   // PR-C: the mantled wings GLOW as the charge draws
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
-  wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : (activeDef.wingMembraneEmissive ?? activeDef.wingEmissive));
+  // Wing tint is STAGED by the cascade: base → feverWing lerped by casLevel[2], so the wings
+  // take their Surge hue as the wing-bone station ignites (root→tip), not on frame 1. casLevel[2]=0
+  // off-Surge → base (byte-identical); =1 at full ignition → feverWing (the shipped steady look).
+  wingMat.emissive.setHex(activeDef.wingMembraneEmissive ?? activeDef.wingEmissive);
+  if (casLevel[2] > 0.001) wingMat.emissive.lerp(_casCol.setHex(activeDef.feverWing ?? 0xff44cc), Math.min(1, casLevel[2]));
   // PR-C: lean the glow toward lance-jade with the inhale (fever pink wins —
   // Surge is the reserved role colour; the lerp only runs while charging).
   if (inhale01 > 0.01 && !player.feverActive) wingMat.emissive.lerp(_jadeGlow, inhale01 * 0.6);
@@ -1780,8 +1900,10 @@ export function updateDragon(dt, player, time) {
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
   // overshooting on the ignition.
-  if (surgeMix > 0.002 || ignite > 0.002) {
+  if (casLevel[1] > 0.002 || ignite > 0.002) {
     _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
+    // Spine is the SECOND cascade station: its surge flare is gated by casLevel[1] (igS(1) keeps
+    // the menu splash). Travel nose→tail: each mat reads casLevel delayed by its position bucket.
     for (const m of spineFlareMats) {
       // Per-mat flare WEIGHTS (Surge composition), split into two independent channels so a broad face
       // can shift HUE toward surgeHi (read as "glowing") WITHOUT gaining intensity (which would bloom it
@@ -1792,11 +1914,11 @@ export function updateDragon(dt, player, time) {
       const wc = m.userData.flareColorWeight ?? m.userData.flareWeight ?? 1;
       const wi = m.userData.flareIntensityWeight ?? m.userData.flareWeight ?? 1;
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
-      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, (surgeMix * 0.85 + ignite * 0.4) * wc));
+      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, (casLevel[1] * 0.85 + igS(1) * 0.4) * wc));
       // A NEGATIVE flareIntensityWeight lets an already-bloom-bright mat DIM on Surge (so a DENSE field of
       // emissive faces stays saturated fire instead of the bloom summing them to white). Clamp the factor
       // ≥0.28 so a strongly-dimmed mat holds a steady deep glow and never black-blinks on the ignite spike.
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (casLevel[1] * 0.9 + igS(1) * 1.6) * sgm * wi);
     }
   } else {
     for (const m of spineFlareMats) {
@@ -1816,20 +1938,31 @@ export function updateDragon(dt, player, time) {
   // The boost is SCENE light (the ember horizon behind the hero), so it drags the edge hue toward the
   // biome backlight — capped at 0.65 so a cold-identity skin (Tempest) keeps a third of its own edge.
   if (lever.k > 0.001) _rimCol.lerp(lever.color, Math.min(0.65, lever.k * 1.1));
-  if (surgeMix > 0.002) {
+  if (casLevel[3] > 0.002) {   // rim is the LAST cascade station (membrane edge lights after the wing-bones)
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
-    _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));   // Surge still takes the hue over the biome backlight
+    _rimCol.lerp(_rimHi, Math.min(1, casLevel[3] * 0.7));   // Surge still takes the hue over the biome backlight
   }
   // WELCOME+HUB §1.2a layer B — the ignite RIM/key LIFT: a one-shot +~10% rim strength (∈ +8–12%),
   // decaying with the same envelope. ×1 exactly when igniteBeat01===0 → byte-identical rim.
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality * (1 + igniteBeat01 * 0.30);
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + casLevel[3] * 0.7) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   // H7 DRAGON VITALS: bondBodyMul steps the emissive floor down per heart lost,
   // clamped ≥0.75 (§B.1); exactly ×1 with the toggle off.
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, (player.feverActive ? 0.35 : 0.12) * bondBodyMul, 4, dt);
-  eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
+  // EYE is the FIRST cascade station: hue lerps base→feverEye by casLevel[0], and the eye FLASHES
+  // bright as it ignites (the ≤120ms eye-flash — the first tell the transformation has begun; the
+  // strongest single greyscale cue for the colorblind read). Off-Surge (casLevel[0]=0) leaves the
+  // eye untouched → byte-identical; storm dragons keep their own thunder-crack eye conductor below.
+  eyeMat.emissive.setHex(activeDef.eye);
+  if (casLevel[0] > 0.001) {
+    eyeMat.emissive.lerp(_casCol.setHex(activeDef.feverEye ?? 0xff66ee), Math.min(1, casLevel[0]));
+    if (eyeMat.userData.stormEyeBase == null) {
+      const eyeBase = eyeMat.userData.eyeBaseI ?? (eyeMat.userData.eyeBaseI = eyeMat.emissiveIntensity || 1);
+      eyeMat.emissiveIntensity = eyeBase * (1 + casLevel[0] * 1.8);
+    }
+  }
   // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
   // Surge reads as one giant synchronized event. stormCrack is 0 for every non-storm dragon.
   if (stormCrack > 0.001 && eyeMat.userData.stormEyeBase == null) eyeMat.userData.stormEyeBase = eyeMat.emissiveIntensity || 1;
