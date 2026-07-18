@@ -140,6 +140,7 @@ let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling w
 let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
 // RIBBON drive temporaries (reused each frame — no per-tick allocation).
 const _ribHeadW = new THREE.Vector3(), _ribAnchor = new THREE.Vector3(), _ribFwd = new THREE.Vector3(), _ribInvQ = new THREE.Quaternion();
+let ribbonCurl = 0;   // slowly-ramped steer signal → the sustained-turn body curl (the "twirl" beat)
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
 let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let jadeChainMats = null; // jade pearl-chain links 1/3/4 (sat/lyre/streamer) — pulsed via userData.baseIntensity (§4.3b)
@@ -365,7 +366,13 @@ export function createDragon(scene, def, riderDef) {
   // RIBBON (jade): stand up the follow-the-leader sim on the published ribbon record and switch the
   // re-loft branch on. The head lays a world breadcrumb trail; the body samples it at rest arc-length
   // offsets → straight input settles to a line, a hard steer whips head→tail, sustained turning coils.
-  if (bodyWave && bodyWave.ribbon) { initRibbonSim(bodyWave.ribbon); bodyWave.ribbon.active = true; }
+  if (bodyWave && bodyWave.ribbon) {
+    // Swim tuned for a graceful TRAILING RIBBON on the long body: a long-wavelength travelling S
+    // (low freq) that fades over the front third (headFade) so the head-adjacent body stays a crisp
+    // near-line at rest, and blooms into flutter down the tail. Turns carry the drama via the path.
+    initRibbonSim(bodyWave.ribbon, { swimAmp: 0.2, swimFreq: 0.55, swimSpeed: 2.4, headFade: 8, curlAmp: 3.6 });
+    bodyWave.ribbon.active = true;
+  }
   jadePearlMat = result.parts.pearlMat || null;   // jade river-pearl — breathes with the swim (CP3)
   jadeTipGemMat = result.parts.tipGemMat || null; // jade fin-tip dew gems — shimmer travels here (glow-up)
   jadeChainMats = result.parts.pearlChainMats || null;   // jade pearl-chain (§4.3b) — sat/lyre/streamer, each its own lag
@@ -1535,6 +1542,11 @@ export function updateDragon(dt, player, time) {
         _ribAnchor.set(a.x, a.y, a.z).applyQuaternion(group.quaternion);
         _ribHeadW.copy(group.position).add(_ribAnchor);
         _ribFwd.set(0, 0, -1).applyQuaternion(group.quaternion);
+        // ramp the steer-curl SLOWLY (≈1s) toward the normalised steer so a momentary flick barely
+        // curls but a SUSTAINED hard turn hooks the tail — making the coil read distinct from a turn.
+        const steerN = Math.max(-1, Math.min(1, player.velocity.x / CONFIG.lateralSpeed));
+        ribbonCurl = damp(ribbonCurl, steerN, 1.1, dt);
+        rib.sim.curl = ribbonCurl;
         updateRibbonSim(rib, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z, _ribFwd, dt);
         _ribInvQ.copy(group.quaternion).invert();
         ribbonToLocal(rib, _ribInvQ, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z);
