@@ -3541,6 +3541,97 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // basilica — the MID-FLANK FRAMING WALL (Fable "walls before density" ruling — the Forum's missing mid-ground
+  // register / its "ice shelf"). The INVERSION of the aqueduct: SOLID-under-void — two-thirds unbroken masonry
+  // rising from the water, a rank of small DARK round WINDOWS punched ONLY in the top third, under one long level
+  // cornice + a broken parapet, one sheared end, one ground doorway (the scale anchor). If sky ever shows through
+  // a window you built a second aqueduct — the openings are DARK (bake:'reveal'). Solid wall + pierced arcade
+  // alternating per flank = the two-shelf corridor. NO glow, NO gilt (a common mass; it prices the heroes). ≤150.
+  basilica: {
+    step: 34, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0.35, sMin: 0.92, sMax: 1.08 },
+    build: () => {
+      const parts = [];
+      // WORLD-ASPECT: a TALL wall, so R_NOM≪H_NOM is wrong — this is 80 long × 34 tall; couple h=0.94·r in
+      // place() so the window arcs stay round under the (r,h,r) scale. Design in WORLD units ÷ the nominal.
+      const R_NOM = 36, H_NOM = 34;
+      const wx = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
+      const zf = 0.017, zb = -0.017;   // front face + returns → ~1.2-world masonry thickness
+      const TIDE = 2.4;                // low object waterline (2.4/34) → crisp 3-band ladder via the edge loop
+      const v = [];
+      const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
+      // SOLID front wall quad (split at the tide band if it spans it).
+      const wallF = (xL, xR, yB, yT) => {
+        const l = wx(xL), r = wx(xR);
+        if (yB < TIDE && yT > TIDE) { const b = wy(TIDE); q([l, wy(yB), zf], [r, wy(yB), zf], [r, b, zf], [l, b, zf]); q([l, b, zf], [r, b, zf], [r, wy(yT), zf], [l, wy(yT), zf]); }
+        else q([l, wy(yB), zf], [r, wy(yB), zf], [r, wy(yT), zf], [l, wy(yT), zf]);
+      };
+      // ROUND-ARCH SPANDREL over a window (nseg=3 ODD → round crown), arc → cornice top.
+      const archF = (cx, spring, S, rise, top) => {
+        const cxo = wx(cx), spo = wy(spring), topo = wy(top);
+        const pt = (a) => [cxo - wx(S) * Math.cos(a), spo + wy(rise) * Math.sin(a), zf];
+        for (let k = 0; k < 3; k++) { const p0 = pt(Math.PI * k / 3), p1 = pt(Math.PI * (k + 1) / 3); q(p0, p1, [p1[0], topo, zf], [p0[0], topo, zf]); }
+      };
+      const jambF = (X, yB, yT) => { const x = wx(X), b = wy(yB), t = wy(yT); q([x, b, zf], [x, t, zf], [x, t, zb], [x, b, zb]); };
+      const capF = (xL, xR, y) => { const l = wx(xL), r = wx(xR), yo = wy(y); q([l, yo, zf], [r, yo, zf], [r, yo, zb], [l, yo, zb]); };
+      // DARK window backer (bake:'reveal') — a plane at zb behind the opening; the arch spandrel frames it round.
+      const backer = (cx, w, yB, yT) => parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(wx(w), wy(yT - yB)), { x: wx(cx), y: wy((yB + yT) / 2), z: zb }) });
+
+      const SILL = 19, SPRING = 22.5, RISE = 2.25, CROWN = 24.75, CORN = 27.5;   // window band (top third)
+      const MOD = 8.5, PW = 4.0, SPAN = 4.5, X0 = -29.75;   // 7 modules centred; pier≈span → SOLID ≥ void
+      // LOWER SOLID WALL (y0→SILL, full length) — the mass. Split at the tide band. Extended 0.5 PAST the sill
+      // to OVERLAP the window band → no hairline seam letting the horizon knife through (Fable comp gate). (4)
+      wallF(-40, 40, 0, SILL + 0.5);
+      // MID-WALL STRING COURSE — a proud horizontal molding at flight altitude (Fable comp gate: the solid 2/3
+      // read as a BLANK BARGE on a close flank pass — windows/door out of frame; a proud band gives a DARK
+      // SOFFIT shadow-line in frame + civic relief). (6)
+      { const zp = zf + 0.018, yb = wy(13.6), yt = wy(14.7), l = wx(-40), r = wx(40);
+        q([l, yb, zp], [r, yb, zp], [r, yt, zp], [l, yt, zp]);           // proud front face
+        q([l, yb, zf], [r, yb, zf], [r, yb, zp], [l, yb, zp]);           // soffit (down-normal → the ladder undercut darkens it = the shadow line)
+        q([l, yt, zp], [r, yt, zp], [r, yt, zf], [l, yt, zf]); }         // top fillet
+      // WINDOW BAND — 8 piers + 6 intact round windows + a 7th torn by the shear. Piers/end-walls solid to the
+      // cornice; spandrels fill arc→cornice; dark backers behind; jambs give the openings thickness.
+      wallF(-40, X0, SILL, CORN);              // solid tall end (holds the doorway)
+      wallF(X0 + 7 * MOD, 40, SILL, CORN);     // solid sheared end block (trimmed by the shear diagonal below)
+      for (let i = 0; i < 8; i++) { const pl = X0 + i * MOD; wallF(pl, pl + PW, SILL, CORN); }   // 8 piers
+      for (let i = 0; i < 6; i++) {            // 6 intact windows (the 7th, i=6, is torn open by the shear)
+        const wl = X0 + i * MOD + PW, cx = wl + SPAN / 2;
+        archF(cx, SPRING, SPAN / 2, RISE, CORN); backer(cx, SPAN, SILL, CROWN);
+        jambF(wl, SILL, SPRING); jambF(wl + SPAN, SILL, SPRING);
+      }
+      // CORNICE — one long LEVEL top cap (the civic tell), notched once over window 3. (4)
+      capF(-40, X0 + 3 * MOD + PW, CORN); capF(X0 + 3 * MOD + PW + 2.4, 40, CORN);
+      // BROKEN PARAPET — stepped courses above the cornice (rampart law: tall→low→med→stub, never monotonic). (16)
+      const par = (xL, xR, top) => { wallF(xL, xR, CORN - 0.4, top); capF(xL, xR, top); };   // start 0.4 BELOW the cornice → overlap, no seam
+      par(-40, -15, 34); par(-16.5, 3, 31); par(2, 23, 32.5); par(22, X0 + 7 * MOD, 29);   // x-ranges overlap their neighbours (kill the horizon-bleed seam)
+      // SHEARED END — a diagonal cut from the cornice down into the water at the +x end (the sea took this corner).
+      { const xa = wx(X0 + 7 * MOD), xb = wx(40), yT = wy(CORN), yLo = wy(13); v.push(xa, yT, zf, xb, yLo, zf, xa, wy(0), zf); v.push(xa, wy(0), zf, xb, yLo, zf, xb, wy(0), zf); }
+      // GROUND DOORWAY at the tall end — a RECTANGULAR dark reveal (door≠arch; a 6.5-tall door under a 34 wall =
+      // the colossal scale anchor) with a recessed Pompeian-red fresco panel + jamb returns. (dark + red + 2 jambs)
+      parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(wx(3.2), wy(6.5)), { x: wx(-35.5), y: wy(3.25), z: zb }) });
+      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(wx(2.6), wy(4.4)), { x: wx(-35.5), y: wy(2.7), z: zb - 0.008 }) });
+      jambF(-37.1, 0, 6.5); jambF(-33.9, 0, 6.5);
+      // FLUSH drowned base strip (footprint-flush → no hull skirt at the worm's-eye). (2)
+      { const xa = wx(-40.5), xb = wx(40), y0 = 0; q([xa, y0, zb], [xb, y0, zb], [xb, y0, zf], [xa, y0, zf]); }
+
+      const wall = new THREE.BufferGeometry();
+      wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); wall.computeVertexNormals();
+      wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+      parts.push({ mat: 0, bake: 'forum', geo: wall });
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.07 });   // tall wall → low object waterline; edge loop keeps the ladder crisp
+    },
+    // MID-GROUND framing mass: face band |x|~32–42 (BETWEEN the near-rail and the far aqueduct), inner edge ≥~31
+    // (never walls the flight lane). h coupled 0.94·r (round windows). Lane-PARALLEL side-pinned yaw so it FRAMES
+    // the corridor, never crosses it; ONE-SIGNED jitter swings the sheared end away down-lane. Bradyseism tilt.
+    place: (side, rnd) => {
+      const r = 30 + rnd() * 12;
+      const h = 0.94 * r * (0.97 + 0.06 * rnd());
+      const p = { x: side * (24 + 0.28 * r + rnd() * 6), h, r, tilt: side * (0.03 + rnd() * 0.02) };
+      p.rotY = (side > 0 ? -Math.PI / 2 : Math.PI / 2) + side * rnd() * 0.10;   // front face (+z obj → toward the lane) + length lane-parallel; sheared end falls away down-lane
+      if (HERO_SET.has('basilica')) p.rotY = -Math.PI / 2;   // debug: face the studio/lane camera
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -3593,6 +3684,7 @@ const FOAM_CFG = {
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
   pantheon: { r: 0.9 },   // Drowned Forum mid-hero dome — a broad tide collar; the porch widens the waterline weld beyond the rotunda's 0.8
+  basilica: false,        // Drowned Forum mid-flank wall — NO collar (a bright foam ring 30+ off-lane doubles the mirror line into an artifact; the rampart/aqueduct precedent — the drowned foot + tide ladder carry the waterline)
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
   stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
