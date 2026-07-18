@@ -44,10 +44,16 @@ patch `__dd.cameraCtl.update` to track `__dd.player.position` from the chosen of
 game's chase controller). Filmstrips (N frames 120–140ms apart) are essential — silkiness is a *motion*
 quality a single still can't show.
 
-## Open polish (non-blocking)
-Give the neck's VERTICAL component the same forward onset the lateral got (~15–20% of tail-vertical at
-the neck, phase-locked, NOT a rider bob) so the S reads from every camera angle, not just the chase cam
-— chases 4.5–5. Left for a follow-up so the owner can feel the current build live first.
+## Gate result + open polish
+Strengthening the VERTICAL wave (swimAmpY 0.7→0.95, neck floor up via swimGrow 0.45→0.4) so the S
+reads from every camera angle cleared the owner's directive gate at **4.3/5 (bar 4.2): "the stiffness
+rejection is dead; a swimming ribbon in both axes from the view the owner plays in."**
+
+Remaining non-blocking polish the critic flagged: on NO-INPUT cruise the tail-region amplitude
+occasionally peaks into a near-closed coil (a "tangle" read) — clamp the tail amplitude or add a small
+along-path tension term so the idle wave tops out around a clean S and never self-coils. Also: on the
+chase cam the body still hangs a touch downward (dangling-tendril) rather than streaming straight
+behind — a camera/rest-pose tweak, not a swim one.
 
 **Reusable takeaways.** For any procedural undulation: (1) the amplitude ENVELOPE (where the wave
 enters, how the neck vs tail share amplitude) drives the "alive vs stiff" read more than raw amplitude;

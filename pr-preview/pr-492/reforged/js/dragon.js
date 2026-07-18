@@ -375,8 +375,8 @@ export function createDragon(scene, def, riderDef) {
       // headFade 3 (wave ENTERS just behind the head, not a dead front half) + swimGrow 0.45 (neck
       // carries ~40-55% of the tail's amplitude so the whole torso participates) + swimFreq 0.9
       // (~1.9 wave periods → two visible humps = a real travelling S, not a single slight bend).
-      swimAmp: 1.2, swimAmpY: 0.7, swimFreq: 0.9, swimSpeed: 2.7, swimPhaseY: 1.5,
-      swimGrow: 0.45, headFade: 3, curlAmp: 3.6,
+      swimAmp: 1.2, swimAmpY: 0.95, swimFreq: 0.9, swimSpeed: 2.7, swimPhaseY: 1.5,
+      swimGrow: 0.4, headFade: 3, curlAmp: 3.6,
     });
     bodyWave.ribbon.active = true;
   }
