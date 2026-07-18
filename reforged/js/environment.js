@@ -1551,10 +1551,16 @@ function buildViamarina(zSign) {
   return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.12 });   // waterline lifts the algae line onto the column feet / stylobate crown for a legible 3-step ladder
 }
 
-// scarpwall's slot step (TEMPEST-COMPOSITION-BUILD-SHEET §4.6): coprime-ish with the other tempest steps
-// (22/36/60/95) and well under the 375 m per-side peak spacing, so exactly one slot lands in each peak
-// window. Defined before ARCHETYPES so the scarpwall literal + the runtime peak-lock helpers share it.
-const TEMPEST_MASSIF_STEP = 170;
+// scarpwall's slot step (TEMPEST-COMPOSITION-BUILD-SHEET §4.6). MUST divide WALL_WINDOW (900) so
+// perSide·step === WALL_WINDOW (6·150 = 900): the recycle wrap adds dist += WALL_WINDOW, so the per-side
+// slot lattice stays STATIONARY across recycling (a non-divisor like 170 drifts the lattice 50 m per wrap
+// — 6 slots span only 850 of the 900 window, and the 50 m gap at the boundary lets TWO slots sit within
+// ±step/2 of one peak → two overlapping massifs; Codex review P2). With 150: the lattice is periodic at
+// 150, the peak window is ±75 (= one slot per same-bank peak, no same-bank double-keep), and the two banks
+// never share a massif because cross-bank peaks are ≥157.5 m apart (> the 150 m window), so no both-flanks.
+// Well under the 375 m per-side peak spacing → exactly one slot lands in each peak window. Defined before
+// ARCHETYPES so the scarpwall literal + the runtime peak-lock helpers share it.
+const TEMPEST_MASSIF_STEP = 150;
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
