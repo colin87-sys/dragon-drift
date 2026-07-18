@@ -1166,6 +1166,34 @@ function buildStormprow(SKEW) {
   return mergeTempestParts(parts);
 }
 
+// viamarina near-rail colonnade, parameterized by zSign so a MIRRORED variant (viamarinaM, zSign −1) flips the
+// down-lane COLLAPSE GRADIENT (intact end / drowned end swap) — the fix for "every rail segment falls the same
+// way" (Fable variety pre-assess). Mirror by NEGATING z-positions + the drum rolls only: each part is merely
+// RELOCATED (no negative scale), so triangle winding + normals stay valid on the lit forumStone material (a
+// writeMatrix z-sign or a DoubleSide mirror was rejected — it inverts lighting/culls backfaces). The decorated
+// +x colonnade face still fronts the lane (x + the fresco ry are untouched); only the length axis mirrors.
+function buildViamarina(zSign) {
+  const parts = [];
+  const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine (tide ladder by world Y)
+  const z = (v) => v * zSign;
+  S(xform(new THREE.BoxGeometry(0.30, 0.09, 1.02), { x: 0.22, y: 0.045 }));                              // stylobate (z-centred → mirror-neutral)
+  S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.26), { x: 0.12, y: 0.26, z: z(-0.37) }));                  // tabernae pier A — intact
+  S(xform(new THREE.BoxGeometry(0.09, 0.24, 0.14), { x: 0.12, y: 0.21, z: z(-0.05) }));                  // tabernae pier B — ruined
+  parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.11, 0.23), { x: 0.09, z: z(-0.18), y: 0.205, ry: Math.PI / 2 }) });   // shop-interior fresco (faces +x lane)
+  const col = (cz, h, rB, rT, lean) =>
+    parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.28, z: z(cz), y: 0.09 + h / 2, rz: lean }) });
+  col(-0.44, 0.66, 0.058, 0.046, 0.03);    // tall survivor (carries the architrave)
+  col(-0.30, 0.63, 0.058, 0.046, -0.02);   // tall survivor (carries the architrave)
+  col(-0.16, 0.44, 0.060, 0.052, 0.05);    // broken — FULL GIRTH (~⅔)
+  col(0.00, 0.30, 0.062, 0.056, -0.07);    // broken — full girth (~½; then the row dissolves into drums)
+  S(xform(new THREE.BoxGeometry(0.09, 0.055, 0.26), { x: 0.28, z: z(-0.37), y: 0.775, rz: 0.055 }));     // architrave fragment bridging the survivors
+  const drum = (x, dz, r, len, roll) => S(xform(new THREE.CylinderGeometry(r, r, len, 5, 1, false), { x, z: z(dz), y: 0.09 + r, rx: Math.PI / 2, rz: roll * zSign }));
+  drum(0.30, 0.18, 0.058, 0.15, 0.5);      // drum rolled off the line, nearest the last broken column
+  drum(0.20, 0.32, 0.056, 0.14, -0.35);    // drum rolled further into the lane-side gap
+  drum(0.31, 0.44, 0.054, 0.13, 0.9);      // drum at the far collapsed end, cross-rolled
+  return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.12 });   // waterline lifts the algae line onto the column feet / stylobate crown for a legible 3-step ladder
+}
+
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
   tower: {
@@ -2974,55 +3002,19 @@ const ARCHETYPES = {
   // gradient down the length (intact −z → drowned +z). Pompeian-red fresco ONLY in doorway recesses. No roof,
   // no clutter, no gilt (Fable discipline). Same forumStone + tide ladder as the hero (one-city). ≤150 tris.
   viamarina: {
-    step: 23, biomes: forumV1, matIndex: 0, comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor hugs the lane edge through the breaths (causeway rhythm)
-    build: () => {
-      const parts = [];
-      const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // forum travertine (tide ladder by world Y)
-      // STYLOBATE — ONE WIDE plinth (x0.07..0.37) under BOTH the colonnade AND the set-back tabernae wall, so
-      // the whole prop shares a single platform (Fable Stage-1: a wall floating beside a narrow stylobate read
-      // as two props — "a ruin comb + an unrelated crate"). Long+thin (0.30×1.02) still reads lane-parallel. (12)
-      S(xform(new THREE.BoxGeometry(0.30, 0.09, 1.02), { x: 0.22, y: 0.045 }));
-      // TABERNAE — a BROKEN OPEN-FRONTED shopfront in TWO pier segments seated on the deck (bottom y0.09) and set
-      // BACK behind the colonnade (x0.12), with a see-through DOORWAY GAP between them (Fable re-gate: flat painted
-      // doors on a solid slab throw no shadow facet under flat shading → a real opening gives free depth + shadow,
-      // and open-fronted piers are how a tabernae actually read). Tall intact pier −z, ruined shorter pier +z. (24)
-      S(xform(new THREE.BoxGeometry(0.09, 0.34, 0.26), { x: 0.12, y: 0.26, z: -0.37 }));   // pier A — intact (z −0.50..−0.24)
-      S(xform(new THREE.BoxGeometry(0.09, 0.24, 0.14), { x: 0.12, y: 0.21, z: -0.05 }));   // pier B — ruined, shorter (z −0.12..0.02)
-      // SHOP-INTERIOR FRESCO — a Pompeian-red panel recessed in the wall thickness (x0.09), seen THROUGH the WIDE
-      // doorway gap (z −0.24..−0.12) from the lane: a painted interior in shadow, not a decal on the face. Widened +
-      // pulled slightly forward so the biome's one color accent CATCHES from the lane-side ¾ the player actually
-      // flies (Fable vm5 polish: the red was shy — only birds saw it). Single-sided ry+π/2 → normal +x. (2)
-      parts.push({ mat: 0, bake: 'fresco', geo: xform(new THREE.PlaneGeometry(0.11, 0.23), { x: 0.09, z: -0.18, y: 0.205, ry: Math.PI / 2 }) });
-      // COLONNADE — a diminishing-ruin comb (Fable: rhythm + full-girth stumps PASS): 2 tall survivors carrying an
-      // architrave fragment (post-and-beam = "this was BUILT") → 2 broken full-girth columns → the row then
-      // DISSOLVES into fallen drums. CHUNKY Tuscan shafts (5-sided pentagon reads round; taper = entasis). No abacus
-      // — traded to fund SOLID drums; weathered Roman shafts read as columns without a clean capital. (10 each)
-      const col = (z, h, rB, rT, lean) =>
-        parts.push({ mat: 0, bake: 'forum', geo: xform(new THREE.CylinderGeometry(rT, rB, h, 5, 1, true), { x: 0.28, z, y: 0.09 + h / 2, rz: lean }) });
-      col(-0.44, 0.66, 0.058, 0.046, 0.03);    // tall survivor (carries the architrave)
-      col(-0.30, 0.63, 0.058, 0.046, -0.02);   // tall survivor (carries the architrave)
-      col(-0.16, 0.44, 0.060, 0.052, 0.05);    // broken — FULL GIRTH (~⅔)
-      col(0.00, 0.30, 0.062, 0.056, -0.07);    // broken — full girth (~½; then the row dissolves into drums)
-      // ARCHITRAVE FRAGMENT — one beam bridging the 2 tall survivors (z −0.44..−0.30), tilted ~4° (a ruin). (12)
-      S(xform(new THREE.BoxGeometry(0.09, 0.055, 0.26), { x: 0.28, z: -0.37, y: 0.775, rz: 0.055 }));
-      // FALLEN DRUMS — 3 SOLID (closed-end) cylinders lying ON the deck (y = radius above the y0.09 top), rolled
-      // apart at the decayed +z end where the colonnade collapsed. CLOSED (openEnded false) so no deck shows through
-      // them — Fable re-gate: open shells read as curled paper / the see-through cheap tell. rx π/2 lays the axis
-      // down; rz rolls each apart. 5-sided reads round as a fallen coin at near-rail distance. (20 each) (60)
-      const drum = (x, z, r, len, roll) => S(xform(new THREE.CylinderGeometry(r, r, len, 5, 1, false), { x, z, y: 0.09 + r, rx: Math.PI / 2, rz: roll }));
-      drum(0.30, 0.18, 0.058, 0.15, 0.5);    // drum rolled off the line, nearest the last broken column
-      drum(0.20, 0.32, 0.056, 0.14, -0.35);  // drum rolled further into the lane-side gap
-      drum(0.31, 0.44, 0.054, 0.13, 0.9);    // drum at the far collapsed end, cross-rolled
-      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.12 });   // waterline lifts the algae line onto the column feet / stylobate crown for a legible 3-step ladder
-    },
+    // step 23→46 (paired with the mirrored viamarinaM at 46 → combined density = the old 23). sizeOctave on the
+    // Z axis only varies segment LENGTH (intercolumniation ±20%), NOT height/girth — "one city, one column order;
+    // segments differ by how much street survived" (Fable variety pre-assess). Height datum h15-20 HELD.
+    step: 46, biomes: forumV1, matIndex: 0, sizeOctave: [[0.40, 0.82], [0.80, 1.0], [1, 1.22]], octaveAxis: 'z', comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 }, // near-continuous LOW rail: the highest floor hugs the lane edge through the breaths (causeway rhythm)
+    build: () => buildViamarina(1),
     // NEAR-RAIL, LONG down-lane + LOW: runs PARALLEL to the lane (rotY≈0/π) so the colonnade WALLS the corridor,
     // never blocks across it. High comp.floor hugs the edge. Couple x so the inner edge holds ≥14.5 (causeway
     // precedent — a low prop may hug inside the ±16 gate veil). Explicit tilt (a ruin leans a breath).
     place: (side, rnd) => {
       const r = 10 + rnd() * 5;   // r 10-15 (modest — r buys width the narrow PORTRAIT FOV can't see, and 1.14·r pushes it off-lane; spend the budget on h instead)
-      const p = { x: side * (13.5 + 1.14 * r + rnd() * 3), h: 15 + rnd() * 5, r, tilt: side * (rnd() * 0.03 - 0.015) };   // PORTRAIT scale-up (owner plays 9:19.5; the landscape gate misjudged it): h 9–12 → 15–20 so the nearest columns BREAK the horizon and read as architecture the player skims, not fence posts under the horizon band. x base 14.6→13.5 = the legal floor (inner edge worst-case 13.5+0.14·10 = 14.9 ≥ 14.5). Hard cap 20 (stays under the hero gate's midband).
-      // SIDE-BASED rotY: the decorated LANE-face (+x object: the colonnade + doorways) always turns to the lane.
-      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.20 - 0.10);
+      const p = { x: side * (13.5 + 1.14 * r + rnd() * 3), h: 15 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.025) };   // PORTRAIT scale-up (owner plays 9:19.5; the landscape gate misjudged it): h 9–12 → 15–20 so the nearest columns BREAK the horizon and read as architecture the player skims, not fence posts under the horizon band. x base 14.6→13.5 = the legal floor (inner edge worst-case 13.5+0.14·10 = 14.9 ≥ 14.5). Hard cap 20 (stays under the hero gate's midband). tilt ±0.015→±0.025 (Fable variety pass — a ruin leans a little more per instance).
+      // SIDE-BASED rotY: the decorated LANE-face (+x object: the colonnade + doorways) always turns to the lane. Jitter ±0.10→±0.18 (Fable variety pass — decorrelate the run without unwalling the street; stays ≤~10° so the architrave datum still reads BUILT).
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.36 - 0.18);
       if (HERO_SET.has('viamarina')) p.rotY = 0;   // debug: pin the colonnade face down-lane
       return p;
     },
@@ -3179,7 +3171,11 @@ const ARCHETYPES = {
   // Kill on sight: broccoli (domed pads), lollipop (crown creeping down the trunk), Christmas-tree (base-wide
   // cypress). NO glow — it PRICES the gold by being the darkest thing in frame. ONE material group. ≤150 tris.
   pinisle: {
-    step: 43, biomes: forumV1, matIndex: 0, comp: { floor: 0.06, sMin: 0.90, sMax: 1.10 },   // SINGULAR Lorrain dark side-tree (Fable density pass): step 31→43 + floor 0.12→0.06 → 1–2 per congregation per flank, near-zero in the breaths (a lone black parasol against the gold, not a hedgerow of pines)
+    // sizeOctave (UNIFORM — the aspect ratio IS the tree's identity, so k scales it whole): ~25% of instances hit
+    // the 1.25 bucket → h≈15-20, mature stone-pines overtopping the rail (the owner was right: the TREES were too
+    // uniformly small); the rest 10.6-16 → a parent/child grove spread, not clones. `side` in the hash decorrelates
+    // the flanks. Base 1.25r coupling HELD (raising it makes every tree big = a taller clone, not a grove).
+    step: 43, biomes: forumV1, matIndex: 0, sizeOctave: [[0.35, 0.88], [0.75, 1.0], [1, 1.25]], comp: { floor: 0.06, sMin: 0.90, sMax: 1.10 },   // SINGULAR Lorrain dark side-tree (Fable density pass): step 31→43 + floor 0.12→0.06 → 1–2 per congregation per flank, near-zero in the breaths (a lone black parasol against the gold, not a hedgerow of pines)
     build: () => {
       const parts = [];
       // RUBBLE BASE — 2 drowned-stone chunks (tide ladder → the sunken-city tie; the pine roots split them). (24)
@@ -3210,7 +3206,7 @@ const ARCHETYPES = {
       const r = 10 + rnd() * 3;
       const h = 1.25 * r * (0.95 + 0.10 * rnd());   // → 12–16 world; couple h≈1.25r (protect the aspect ratio)
       const p = { x: side * (17 + 0.9 * r + rnd() * 5), h, r, tilt: side * (0.02 + rnd() * 0.03) };
-      p.rotY = (side > 0 ? 0 : Math.PI) + (rnd() * 0.30 - 0.15);   // pine inboard, parasol overhangs toward the lane/gold
+      p.rotY = (side > 0 ? 0 : Math.PI) + (rnd() * 0.70 - 0.35);   // pine inboard, parasol overhangs toward the lane/gold; jitter ±0.15→±0.35 (Fable variety pass — the plan-asymmetric pine+cypress genuinely reshuffles apparent separation/overhang, killing the clone read while keeping the parasol biased inboard)
       if (HERO_SET.has('pinisle')) p.rotY = 0;   // debug: face the studio camera
       return p;
     },
@@ -3718,6 +3714,24 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // viamarinaM — the MIRRORED near-rail (buildViamarina(-1)): its down-lane COLLAPSE GRADIENT runs the OPPOSITE
+  // way, so paired at step 46 with viamarina (also 46 → combined density = the old single-stream 23) the rail
+  // alternates which end fell instead of every segment collapsing the same direction (Fable variety pre-assess:
+  // "no rigid transform flips the collapse on a lit material — it needs a mirrored second archetype"). Distinct
+  // _salt (from the key) decorrelates the two park hashes for free. Same place/comp/z-octave as viamarina.
+  // APPENDED AT THE END of ARCHETYPES (determinism law: never reorder existing slots).
+  viamarinaM: {
+    step: 46, biomes: forumV1, matIndex: 0, sizeOctave: [[0.40, 0.82], [0.80, 1.0], [1, 1.22]], octaveAxis: 'z', comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 },
+    build: () => buildViamarina(-1),
+    place: (side, rnd) => {
+      const r = 10 + rnd() * 5;
+      const p = { x: side * (13.5 + 1.14 * r + rnd() * 3), h: 15 + rnd() * 5, r, tilt: side * (rnd() * 0.05 - 0.025) };
+      p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 0.36 - 0.18);
+      if (HERO_SET.has('viamarinaM') || HERO_SET.has('viamarina')) p.rotY = 0;
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -3766,6 +3780,7 @@ const FOAM_CFG = {
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
   triumphgate: { r: 0.6 },   // Drowned Forum hero arch — a travertine tide collar where the two piers drown; the arch + its calm-water reflection complete the full circle (§1)
   viamarina: { rx: 0.30, rz: 1.0 },   // Drowned Forum near-rail — ELLIPTICAL collar wraps the long thin down-lane footprint (causeway precedent); the tide weld where the drowned stylobate meets the mirror
+  viamarinaM: { rx: 0.30, rz: 1.0 },  // mirrored near-rail — same elliptical collar (footprint is z-mirror-symmetric)
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
@@ -4743,6 +4758,7 @@ function writeMatrix(band, i, d) {
   // so no rnd() call order changes. Parks off-beat instances and scales the rest.
   let k = 1;
   let giantH = 1;   // Fable in-game review: a rare COLOSSAL karst class that punches the horizon — a HEIGHT-only boost (footprint stays lane-safe; only karstfang opts in via def.giant)
+  let octZ = 1;     // z-ONLY size octave (viamarina rail segment LENGTH) — leaves height + footprint-x + lane clearance untouched
   if (active && bi === 2 && band.def.comp) {
     const g = frozenComp(d.dist);
     const c = band.def.comp;
@@ -4830,6 +4846,18 @@ function writeMatrix(band, i, d) {
       // only boost so a few monoliths break the horizon and dwarf the dragon (awe), while the XZ footprint
       // stays at the 1.42 mother-island size that already clears the lane. Render-only, pure hash.
       if (band.def.giant && hc >= 0.90) giantH = 1.5;
+    }
+    // SIZE OCTAVE (Fable 88 lever-6, ported from the Mire to the forum): break the "picket of identical clones"
+    // — a pure per-instance hash (with `side` in it → the two flanks decorrelate) scales each survivor into a
+    // bucket. `octaveAxis:'z'` scales OBJECT-Z ONLY (segment LENGTH — the viamarina rail's intercolumniation),
+    // so height + footprint-x + lane clearance are untouched; default is uniform (pinisle tree size octave, the
+    // aspect ratio preserved). Render-only, no rnd → gold-determinism byte-identical (lagoon defs have no
+    // sizeOctave, so they never enter — and octZ stays 1 for them, so the compose is unchanged).
+    if (active && band.def.sizeOctave) {
+      const hc = compHash(band.def._salt ^ 0x5bd1e995, d.side, d.slot);
+      let m = 1;
+      for (const o of band.def.sizeOctave) { if (hc < o[0]) { m = o[1]; break; } }
+      if (band.def.octaveAxis === 'z') octZ = m; else k *= m;
     }
   } else if (active && bi === 4) {
     // THE LUMEN MIRE composition (LUMEN-MIRE-BIBLE §2 / Fable PR-3 §4). PURE (no rnd), after the
@@ -4935,7 +4963,7 @@ function writeMatrix(band, i, d) {
     }
   }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK * giantH, d.r * k));
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK * giantH, d.r * k * octZ));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }

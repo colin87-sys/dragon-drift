@@ -48,6 +48,14 @@ export function initRibbonSim(rib, opts = {}) {
     swimFreq: opts.swimFreq ?? 0.9, swimSpeed: opts.swimSpeed ?? 3.0, swimPhaseY: opts.swimPhaseY ?? 1.57,
     swimGrow: opts.swimGrow ?? 0.55, headFade: opts.headFade ?? 4,
     driveX: 0, driveY: 0, gain: 1,
+    // MOVEMENT RESPONSE (Levers 1+2). steerMag (0..1, caller-set) DUCKS the idle swim so a steer
+    // reads against relative quiet (contrast). pulses[] are travelling WHIP bumps spawned on a steer
+    // EDGE (ribbonWhip): a signed Gaussian in the binormal/normal offset, born at the neck and
+    // propagating tail-ward — the "flick the ribbon and a wave runs down it" beat a passive trail
+    // can't make at game speed.
+    steerMag: 0, duckAmt: opts.duckAmt ?? 0.65, pulses: [],
+    pulseSpeed: opts.pulseSpeed ?? 14, pulseWidth: opts.pulseWidth ?? 3.2,
+    pulseLife: opts.pulseLife ?? 0.9, pulseAmp: opts.pulseAmp ?? 2.2,
     // STEER CURL: a lateral bend the caller ramps up with SUSTAINED steering (set S.curl each tick,
     // signed [-1,1]). Once steering saturates to a diagonal the head path stops curving, so a held
     // turn would look like a momentary one; this curls the trailing body into the turn on top of the
@@ -55,6 +63,16 @@ export function initRibbonSim(rib, opts = {}) {
     curl: 0, curlAmp: opts.curlAmp ?? 2.6,
   };
   return rib.sim;
+}
+
+// Spawn a WHIP pulse (Lever 2). `bAmp`/`nAmp` = signed lateral (binormal) / vertical (normal)
+// amplitude of the travelling bump — the caller sizes them from the steer EDGE (Δinput). The pulse
+// is born at the neck (arc 0) and propagates tail-ward, fading over pulseLife. Pool capped so a
+// mashed stick can't stack an unbounded number; the oldest is dropped.
+export function ribbonWhip(rib, bAmp, nAmp) {
+  const S = rib.sim; if (!S) return;
+  S.pulses.push({ t: 0, b: bAmp, n: nAmp });
+  if (S.pulses.length > 4) S.pulses.shift();
 }
 
 // Seed the whole history as a straight line behind the head along `-dir` so the body starts as a
@@ -175,8 +193,12 @@ export function updateRibbonSim(rib, hx, hy, hz, fwd, dt) {
   S.swimT += dt;
   if (S.swimAmp > 0 || S.swimAmpY > 0) {
     const bodyLen = S.segCum[N - 1] || 1;
-    const latAmp = (S.swimAmp + S.driveX) * S.gain;
-    const verAmp = (S.swimAmpY + S.driveY) * S.gain;
+    // Lever 1 — idle DUCK: fade the always-on idle swim down as the pilot steers (steerMag) so the
+    // input-driven motion (drive swell + whip pulse + curl) reads against relative quiet. The idle is
+    // untouched at rest (steerMag 0 → duck 1); the drive term is NOT ducked (it's the response).
+    const duck = 1 - S.duckAmt * S.steerMag;
+    const latAmp = (S.swimAmp * duck + S.driveX) * S.gain;
+    const verAmp = (S.swimAmpY * duck + S.driveY) * S.gain;
     for (let i = 0; i < N; i++) {
       const arc = S.segCum[i];
       const u = arc / bodyLen;                               // 0 head → 1 tail
@@ -199,6 +221,27 @@ export function updateRibbonSim(rib, hx, hy, hz, fwd, dt) {
       const k = S.segCum[i] / bodyLen;
       const off = S.curlAmp * S.curl * k * k;
       S.sx[i] += S.bx[i] * off; S.sy[i] += S.by[i] * off; S.sz[i] += S.bz[i] * off;
+    }
+  }
+  // Lever 2 — WHIP PULSES: advance + cull, then add each pulse's travelling Gaussian bump. The crest
+  // rides tail-ward at pulseSpeed (arc units/s) from the neck; amplitude fades over pulseLife. This is
+  // the visible "the ribbon answered my hand" event, distinct from the (ducked) idle swim.
+  if (S.pulses.length) {
+    for (const p of S.pulses) p.t += dt;
+    S.pulses = S.pulses.filter((p) => p.t < S.pulseLife);
+    for (let i = 0; i < N; i++) {
+      let ob = 0, on = 0;
+      const arc = S.segCum[i];
+      for (const p of S.pulses) {
+        const d = (arc - S.pulseSpeed * p.t) / S.pulseWidth;
+        const g = Math.exp(-d * d) * (1 - p.t / S.pulseLife);
+        ob += p.b * g; on += p.n * g;
+      }
+      if (ob !== 0 || on !== 0) {
+        S.sx[i] += S.bx[i] * ob + S.nx[i] * on;
+        S.sy[i] += S.by[i] * ob + S.ny[i] * on;
+        S.sz[i] += S.bz[i] * ob + S.nz[i] * on;
+      }
     }
   }
 }
