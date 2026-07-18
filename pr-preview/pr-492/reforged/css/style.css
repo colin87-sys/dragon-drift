@@ -1190,12 +1190,8 @@ body.biome-bright #hud .bell {
 /* ============ EMBERSIGHT H1 — THE BELL + the center micro-pop ============ */
 /* The perfect-ring micro-pop (§B.11): tiny, 500ms, the ONE sanctioned center
    event text. Gold only — every other ephemeral line rings the Bell. */
-.popup { position: absolute; top: 40%; left: 50%; transform: translateX(-50%);
-  font-family: 'Rajdhani', sans-serif; font-size: var(--fs-label); font-weight: 700;
-  letter-spacing: var(--track-caps); text-transform: uppercase; color: #ffd86a;
-  opacity: 0; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-.popup.popup-anim { animation: popup 0.5s ease-out forwards; }
-@keyframes popup { 0%{opacity:0;transform:translate(-50%,6px) scale(0.9)} 20%{opacity:1;transform:translate(-50%,0) scale(1.05)} 70%{opacity:1;transform:translate(-50%,-8px) scale(1)} 100%{opacity:0;transform:translate(-50%,-14px) scale(1)} }
+/* DECLUTTER — the separate center `.popup` (perfect-ring float at top 40%) is retired;
+   perfect rings now ride THE BELL like every other earn, so there is one toast lane only. */
 
 /* THE BELL (§B.11): one anchored, queued toast lane at ~24% (portrait ~20%).
    One type style — a slug (smoked lozenge) with an accent underline by role.
@@ -1213,7 +1209,9 @@ body.biome-bright #hud .bell {
 body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px))); }
 .bell-slug { position: relative; max-width: min(420px, 84vw);
   padding: 6px 14px 7px; border-radius: var(--r-s);
-  background: rgba(12,8,6,0.28);
+  /* DECLUTTER (Fable) — plate was 0.28 alpha, near-invisible over the bright horizon band the
+     lane sits on; a warm-ink lozenge that actually reads (still transform/opacity-only). */
+  background: rgba(12,8,6,0.62);
   font-family: 'Rajdhani', sans-serif; font-size: var(--fs-label); font-weight: 600;
   letter-spacing: var(--track-caps); text-transform: uppercase; text-align: center;
   color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7);
@@ -1364,7 +1362,9 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 .death-cause { color: #ff9a8a; font-size: 14px; letter-spacing: 3px; margin: -4px 0 10px; opacity: 0.9; }
 .newbest   { color: #ffd86a; font-size: 20px; letter-spacing: 4px; margin-bottom: 8px;
   text-shadow: 0 0 16px rgba(255,200,90,0.9); animation: pulse 1.2s ease-in-out infinite; }
-.challenge     { color: #ff9a5a; font-size: 16px; letter-spacing: 2px; margin: 6px 0 10px; }
+/* WELCOME+HUB §5.5 — the cheap tell fixed: token size + em tracking, calm ink (not gilded),
+   tabular so the score doesn't jitter. GOLD stays withheld; the record beat is .won (jade). */
+.challenge     { color: var(--rf-ink-2); font-size: var(--fs-body); letter-spacing: var(--track-body); font-variant-numeric: tabular-nums; margin: 6px 0 10px; }
 .challenge.won { color: var(--tone-jade-hi); text-shadow: 0 0 14px color-mix(in srgb, var(--tone-jade) 70%, transparent); }
 .sub.gap       { color: #ffd86a; }
 
@@ -2246,9 +2246,10 @@ body.hud-boss .race-strip { display: none; }
 .start-notice { font-size: 13.5px; color: var(--tone-jade-hi); letter-spacing: 0.04em; margin: 4px 0;
   text-shadow: 0 0 12px color-mix(in srgb, var(--tone-jade) 50%, transparent); }
 
-/* Title chip */
-.meta-chip.title-chip { color: #ffd86a; font-style: italic; cursor: pointer;
-  border-color: rgba(255, 215, 110, 0.45); }
+/* Title chip (WELCOME+HUB §4.1 — italic + guillemets evicted; gold withheld to a leading dot) */
+.meta-chip.title-chip { color: var(--rf-ink-2); cursor: pointer;
+  border-color: rgba(255, 215, 110, 0.30); display: inline-flex; align-items: center; gap: 7px; }
+.meta-chip.title-chip::before { content: '◆'; color: #ffce6a; font-size: 0.72em; opacity: 0.95; }
 
 /* PILOT screen */
 .pilot-body { width: min(560px, 92vw); margin: 8px 0; }
@@ -2573,11 +2574,16 @@ body[data-qtier="2"] .speedlines { display: none; }
 @keyframes hero-word-in {
   from { opacity: 0; transform: translateY(16px) scale(0.94); letter-spacing: 26px; filter: blur(6px) drop-shadow(0 0 34px rgba(255,190,80,0.5)); }
 }
-.hero-title-chip { pointer-events: auto; cursor: pointer; font-family: inherit;
-  font-size: var(--fs-micro); letter-spacing: var(--track-caps); color: #ffe0a6; margin: 0 0 12px;
-  padding: 4px 14px; border-radius: 999px; background: rgba(40,28,8,0.5);
-  border: 1px solid var(--gold-trim); animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.25s; }
-.hero-title-chip:hover { background: rgba(60,44,14,0.65); }
+/* WELCOME+HUB §4.1 — premium title chip: guillemets evicted; GOLD withheld to a single leading
+   dot marker, the name itself in calm warm ink (near-monochrome EMBERLINE), quiet hairline pill. */
+.hero-title-chip { pointer-events: auto; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: var(--fs-label); letter-spacing: var(--track-caps); text-transform: uppercase;
+  color: var(--rf-ink-2); margin: 0 0 12px;
+  padding: 4px 14px; border-radius: 999px; background: rgba(var(--scrim-ink),0.42);
+  border: var(--panel-line); animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.25s; }
+.hero-title-chip::before { content: '◆'; color: #ffce6a; font-size: 0.72em; opacity: 0.95; }
+.hero-title-chip:hover { border-color: var(--rf-stroke-hi); color: var(--rf-ink); }
 
 /* The one primary action — large, gold, breathing, with a soft glow halo. */
 .btn-primary.hero-cta { font-size: 19px; letter-spacing: var(--track-disp); padding: 17px 52px;
@@ -2605,7 +2611,10 @@ body[data-qtier="2"] .speedlines { display: none; }
   background: rgba(40, 26, 18, 0.55); border: var(--panel-line);
   box-shadow: var(--panel-inner);
   transition: transform var(--t-micro) var(--ease-out), background var(--t-micro), border-color var(--t-micro); }
-.hero-rail-btn svg { width: 20px; height: 20px; color: #ffd9ac; }
+/* WELCOME+HUB §5.3 — rail icons resting in CALM ink (gold withheld to TAKE OFF + currency, ≤10%);
+   gold warms up only on hover/focus, so the standing hub holds the 60/30/10 accent budget. */
+.hero-rail-btn svg { width: 20px; height: 20px; color: var(--rf-ink-2); transition: color var(--t-micro); }
+.hero-rail-btn:hover svg, .hero-rail-btn:focus-visible svg { color: #ffd9ac; }
 .hero-rail-btn:hover { background: rgba(70, 44, 24, 0.7); border-color: var(--rf-stroke-hi);
   transform: translateY(-3px); }
 .hero-rail-btn:active { transform: scale(0.95); }

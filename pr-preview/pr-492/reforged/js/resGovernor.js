@@ -24,8 +24,16 @@ export const RES_RESTORE_AT = 59;      // median fps above which resolution is r
                                        // 55 degrade line so a VRR panel reading ~57–60 can't hunt.
 
 // Default ladder: pixel-scale multipliers applied ON TOP of the tier's base pixelRatio.
-// Fill cost ≈ scale²: [1.0, .93, .86, .79, .72] → ≈ [1.0, .86, .74, .62, .52] of full.
-export const RES_STEPS = buildResSteps(0.72, 5);
+// Fill cost ≈ scale²: [1.0, .86, .73, .59, .45] → ≈ [1.0, .74, .53, .35, .20] of full.
+// FLOOR = 0.45 (was 0.72). On-device Tempest-boss probes (VOIDMAW, 3× Retina) proved the frame
+// is DPR/fill-bound: `?pr=1` (effective ~0.9) held TIER 0 with every feature at avg 58, while the
+// shipped 0.72 floor could only trim tier-0 to 2.0×0.72 = 1.44 effective — still too heavy, so the
+// controller bailed to a FEATURE-tier drop instead. Deepening the floor to 0.45 lets the governor
+// trim tier-0 to ~0.9 effective and HOLD full features (confirmed: `?dynresmin=0.45` → tier 0,
+// avg 57, p95 20ms, vs the 0.72 baseline's tier 1, avg 51, p95 27ms). Spend pixels, keep the look:
+// on a stylized phone frame the bloom + grading dither hide the density loss. Idle/light scenes
+// never trim this deep (the governor only steps down under sustained load), so crisp stays crisp.
+export const RES_STEPS = buildResSteps(0.45, 5);
 
 // Build a ladder from full (1.0) down to `min` in `n` even steps. `?dynresmin=<n>` lets the
 // owner push the floor deeper (more fill headroom) or shallower (crisper) from device data.

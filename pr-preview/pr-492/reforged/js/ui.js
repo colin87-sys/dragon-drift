@@ -657,7 +657,6 @@ export const ui = {
         </div>
       </div>
       <!-- The perfect-ring micro-pop: the ONE sanctioned center event text (§B.11). -->
-      <div class="popup" id="popup"></div>
       <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
       <!-- H3 §B.10: quadrant-weighted damage vignette — the struck side blooms -->
@@ -743,7 +742,6 @@ export const ui = {
       raceStrip:    root.querySelector('#race-bar'),
       raceYou:      root.querySelector('#race-you'),
       raceRival:    root.querySelector('#race-rival'),
-      popup:        root.querySelector('#popup'),
       bell:         root.querySelector('#bell'),
       bellSlug:     root.querySelector('#bell-slug'),
       bellText:     root.querySelector('#bell-text'),
@@ -1190,21 +1188,12 @@ export const ui = {
     this._bellEnd();
   },
 
-  // The at-center micro-pop — perfect-ring only (§B.11: the one sanctioned
-  // center event text; tiny, 500ms, no reticle coupling — H4 owns the Lure).
-  _centerPop(text) {
-    if (!els.popup) return;
-    els.popup.textContent = text;
-    restartAnim(els.popup, 'popup-anim');
-  },
-
-  ringPopup(points, perfect, streak = 0) {
-    if (perfect) {
-      this._centerPop(streak > 1 ? `+${points} PERFECT ×${streak}` : `+${points} PERFECT`);
-    } else {
-      this.bell(`+${points}`, 'gold', { key: 'earn:ring' });
-    }
-  },
+  // DECLUTTER (Fable-gated) — routine scoring earns NO LONGER ring the toast lane. Per-action
+  // feedback is carried by the SCORE counter (climbs) + the COMBO multiplier (escalates) + the
+  // gold ring-flash; the lane is reserved for genuine MOMENTS (the chain-end tally, records,
+  // feats, Surge, biome, milestones). This kills the "different pop-ups cycling" clutter at the
+  // source rather than merging it into one (dishonest) line. Ring feedback = score + flash only.
+  ringPopup(points, perfect, streak = 0) {},
 
   // Flow-run carve chain: a low-noise multiplier line at milestones (the
   // SLIPSTREAM speed is the main feedback; this just names the multiplier).
@@ -1288,39 +1277,22 @@ export const ui = {
 
   // Surge phase-through. Perfect climbs with the streak; assisted = the
   // one-time teaching coach line (rings as a hint).
+  // Per-action skill earns are carried by the score counter + combo multiplier (see ringPopup) —
+  // they no longer each ring the lane. The ONE exception kept: the assisted phase COACH line, a
+  // rare sticky onboarding hint (not a score toast).
   phasePopup(points, perfect, streak = 0, assisted = false) {
-    if (assisted) { this.bell('Like that! — roll to phase', 'hint', { key: 'hint' }); return; }
-    if (perfect) {
-      this.bell(streak > 1 ? `PERFECT PHASE ×${streak} +${points}` : `PERFECT PHASE +${points}`, 'gold', { key: 'earn:phase' });
-    } else {
-      this.bell(`PHASE +${points}`, 'gold', { key: 'earn:phase' });
-    }
+    if (assisted) this.bell('Like that! — roll to phase', 'hint', { key: 'hint' });
   },
 
-  nearMissPopup(points) {
-    this.bell(`NEAR MISS +${points}`, 'cyan', { key: 'earn:near' });
-  },
+  nearMissPopup(points) {},
 
-  rollPopup(points) {
-    this.bell(`BARREL ROLL +${points}`, 'gold', { key: 'earn:roll' });
-  },
+  rollPopup(points) {},
 
-  // Reflect/parry callout. A perfect parry keeps the climbing streak read;
-  // a normal parry is a quieter cyan line.
-  parryPopup(points, perfect, streak) {
-    if (perfect) this.bell(`PERFECT PARRY ×${streak} +${points}`, 'gold', { key: 'earn:parry' });
-    else this.bell(`PARRY +${points}`, 'cyan', { key: 'earn:parry' });
-  },
+  parryPopup(points, perfect, streak) {},
 
-  gatePopup(points) {
-    this.bell(`THREADED +${points}`, 'cyan', { key: 'earn:gate' });
-  },
+  gatePopup(points) {},
 
-  // §5i.B THREAD-THE-GAP: threading a boss WALL's safe gap — same word/colour as the course
-  // gate (it's the same skill), streak-aware like parryPopup. Boss.js owns the scoring.
-  threadPopup(points, streak) {
-    this.bell(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan', { key: 'earn:gate' });
-  },
+  threadPopup(points, streak) {},
 
   milestonePopup(metres) {
     this.bell(`${metres.toLocaleString()} m`, 'gold', { key: 'milestone' });
@@ -1905,7 +1877,7 @@ export const ui = {
         return `<span style="left:${(Math.random() * 100).toFixed(1)}%;` +
           `--d:${(Math.random() * 9).toFixed(2)}s;--dur:${(7 + Math.random() * 8).toFixed(2)}s;` +
           `--sz:${(2 + Math.random() * 4).toFixed(1)}px;--dx:${(Math.random() * 44 - 22).toFixed(0)}px;` +
-          `--c:${gold ? '#ffce6a' : '#7fe6ff'}"></span>`;
+          `--c:${gold ? '#ffce6a' : '#ff9a4a'}"></span>`;   // WELCOME+HUB §4.2 — warm only; cyan (#7fe6ff) evicted (vitals accent, illegal on the calm hub)
       }).join('');
 
       // Top bar (wallet + settings gear) — absent on the cold first screen.
@@ -1955,7 +1927,7 @@ export const ui = {
         <div class="hero-core">
           ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
           ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
-          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
+          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">${title}</button>` : ''}
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
           <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">${ICONS.play}</span>TAKE OFF</button>
           ${sub ? `<p class="hero-sub">${sub}</p>` : ''}
