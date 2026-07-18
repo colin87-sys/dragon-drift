@@ -340,16 +340,17 @@ const fragmentShader = /* glsl */`
     //      (that's where real nacre fires). Banded + angular + soft — never the oil-slick rainbow or the
     //      plastic car-paint sheen. The pow-240 sun-glitter + the cheap sparkle flakes are killed below.
     if (uNacreMix > 0.0001) {
-      float _graze = pow(1.0 - NdotV, 2.2);                 // grazing-view weight — where nacre fires
-      float _crest = smoothstep(-0.02, 0.16, h);            // crest faces; faded to nothing in the troughs
-      // Interference band: t from fresnel + wave height → a repeating rose→lilac→periwinkle sweep (the real
-      // nacre band ORDER). fract() gives the repeat; the two mixes keep the gamut off green + off gold.
-      float _it = fract(fresnel * 2.3 + h * 1.7);
+      float _graze = pow(1.0 - NdotV, 1.7);                 // grazing-view weight — broadened so the mid-field fires too, not only the far horizon
+      float _crest = mix(0.34, 1.0, smoothstep(-0.06, 0.14, h));   // a base luster everywhere, STRONGER on crest faces (still recedes in the deep troughs) — the calm swell has little crest, so a floor keeps the read
+      // Interference bands: t from fresnel + wave height → a repeating rose→lilac→periwinkle sweep (the real
+      // nacre band ORDER). Higher frequency → more, tighter bands (the interference read); the two mixes keep
+      // the gamut off green + off gold. fract() gives the repeat.
+      float _it = fract(fresnel * 3.4 + h * 2.6);
       vec3 _irid = _it < 0.5 ? mix(vec3(0.949, 0.769, 0.863), vec3(0.863, 0.824, 0.941), _it * 2.0)
                              : mix(vec3(0.863, 0.824, 0.941), vec3(0.769, 0.804, 0.957), (_it - 0.5) * 2.0);
-      col = mix(col, _irid, uNacreMix * _graze * _crest * 0.42);   // subtle luster, not an oil slick
+      col = mix(col, _irid, uNacreMix * _graze * _crest * 0.62);   // luster read — banded + angular + soft, never an oil slick
       // Broad SATIN sheen: a wide soft grazing lift, no sun dir — the luster read that replaces the glint.
-      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.20 * uNacreMix;
+      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix;
     }
 
     // Golden sun streak: compress the normal's x so the highlight stretches
