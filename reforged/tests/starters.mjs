@@ -72,26 +72,15 @@ const SPECS = {
     carrier: 'emissive',                        // ember: warm ONLY as emissive; NO warm accent diffuse on the membrane
   },
   jade: {
-    architecture: 'silk fin lobes',
-    wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
-    separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
-    triTargets: [2550, 3680, 5200],              // §5d ~targets. Apex bumped for the GLOW-UP spend (the "Jade Ascendant" pass: moon-tail veiltail + rayed fins + dew gems + pearl-line + triple streamers), still well under the 6000/form ceiling. The koiSerpent body itself stays a lean vertex-wave tube.
-    // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
-    headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
-    // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32
-    // like azure/ember (L147): jade's apex eye is "calm, long, painterly" — a larger
-    // almond that still reads as the keen-but-serene apex, not a shrunken pinhole.
-    eyeHead: [[0.30, 0.40], [0.20, 0.28], [0.14, 0.32]],
-    // span:body — measured against the VISUAL nose→tail body length (the §8 top-planform
-    // read). RECONCILED for the koiSerpent body: jade moved from a loft torso + bolted
-    // sweptTail to a continuous UNDULATING section-chain whose head:body is now pinned to
-    // the §4 growth arc (2.8→8.4×). With the body length pinned by that assert and the silk
-    // fans kept UNCHANGED (the beloved hero), the wingspan:body ratio settles at these values
-    // (the fins unfurl relative to the body across forms → monotonic up). The old bands were
-    // calibrated against the retired loft body; these track the real serpent.
-    spanBody: [[0.24, 0.42], [0.32, 0.54], [0.44, 0.68]],
+    // JADE SERPENT — a FRESH spine-frame koi (dragonJadeSerpent), NOT a wing-lobe dragon
+    // (IMG_7739 rebuild). The koi web-fans + leaf-fork tail are emitted INTO the torso mesh
+    // and mounted by the per-station spine frame; parts.wings is 'none' (no wing lobes, no
+    // chin-pearl motif). So the shared wing-lobe / motif / span / fold / head:eye-band asserts
+    // don't apply — this flag routes jade to its own body-fin assert set below.
+    bodyFinCreature: true,
+    triTargets: [3050, 4330, 4580],              // fresh skeleton (matte faceted tube + body web-fan row + leaf-fork tail); all inside ×[0.8,1.2], well under the 6000/form ceiling
     accentHue: 149,                              // mint-pearl ~149° (green-leaning, ICONIC GREEN)
-    carrier: 'jade',                             // jade [ICONIC GREEN]: body diffuse reads VIVID mid-value jade (NOT near-black moss); accent green
+    carrier: 'jade',                             // ICONIC GREEN: body diffuse reads VIVID mid-value jade; accent green
   },
 };
 
@@ -134,7 +123,7 @@ function measure(key, form) {
   const headLen = parts.headLength;
   // wingspan: widest blade tip (world → de-scaled), doubled.
   let mx = 0;
-  for (const e of parts.wingElements) { e.tipObj.getWorldPosition(V); mx = Math.max(mx, Math.abs(V.x) / scale); }
+  for (const e of (parts.wingElements || [])) { e.tipObj.getWorldPosition(V); mx = Math.max(mx, Math.abs(V.x) / scale); }
   const span = mx * 2;
   // eye diameter from RESOLVED dials (matches dragonDraconicHead.eyeZone geometry).
   const m = def.model;
@@ -146,7 +135,7 @@ function measure(key, form) {
     : 0.32 * (m.eyeScale ?? 1) * (1 + (1 - (m.eyeShape ?? 1)) * 0.55);
   // fold contraction.
   setFlapDebugPose(parts, def.model, 'fold'); group.updateMatrixWorld(true);
-  let fx = 0; for (const e of parts.wingElements) { e.tipObj.getWorldPosition(V); fx = Math.max(fx, Math.abs(V.x) / scale); }
+  let fx = 0; for (const e of (parts.wingElements || [])) { e.tipObj.getWorldPosition(V); fx = Math.max(fx, Math.abs(V.x) / scale); }
   const foldSpan = fx * 2;
   // spine inflection count.
   const ys = parts.spinePoints.map((p) => p.y);
@@ -167,6 +156,16 @@ for (const [key, spec] of Object.entries(SPECS)) {
 
   for (let f = 0; f <= maxT; f++) {
     const M = per[f];
+    // ── fresh spine-frame koi (jade): fins + leaf-fork tail live in the torso, wings:'none',
+    // no chin-pearl motif. The wing-lobe / motif / span / fold / head-eye-band asserts below
+    // don't apply — assert only the build-clean + line-of-action + budget contract it DOES meet.
+    if (spec.bodyFinCreature) {
+      ok(M.tris < 6000, `${key} f${f}: under 6000 ceiling (${M.tris})`);
+      ok(!!M.parts.spinePoints && M.parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+      ok(M.infl >= 1, `${key} f${f}: spine line-of-action has ≥1 inflection (${M.infl})`);
+      ok(M.parts.bodyWave && M.parts.bodyWave.count > 0, `${key} f${f}: bodyWave published (the swim rig)`);
+      continue;
+    }
     // build-clean: every form must produce geometry + the metadata handles.
     // wingElements count: a constant (azure 5 / ember 4) OR a per-form array (jade 3/3/4).
     const wantEls = Array.isArray(spec.wingElements) ? spec.wingElements[f] : spec.wingElements;
@@ -219,24 +218,27 @@ for (const [key, spec] of Object.entries(SPECS)) {
     }
   }
 
-  // ── monotonic dials across forms (catches SAME-DRAGON-BIGGER) ──
-  const hs = per.map((p) => p.m.headScale ?? 1);
-  const es = per.map((p) => p.m.eyeScale ?? 1);
-  const sh = per.map((p) => p.m.eyeShape ?? 1);
-  ok(hs[0] > hs[1] && hs[1] > hs[2], `${key}: headScale monotonic decreasing (${hs.join(' > ')})`);
-  ok(es[0] >= es[1] && es[1] >= es[2], `${key}: eyeScale monotonic non-increasing`);
-  ok(sh[0] <= sh[1] && sh[1] <= sh[2], `${key}: eyeShape round→almond monotonic`);
-  ok(per[0].headBody < per[1].headBody && per[1].headBody < per[2].headBody, `${key}: head:body monotonic (head shrinks rel. to body)`);
-  ok(per[0].eyeHead > per[1].eyeHead && per[1].eyeHead > per[2].eyeHead, `${key}: eye:head monotonic decreasing`);
-  ok(per[0].spanBody < per[1].spanBody && per[1].spanBody < per[2].spanBody, `${key}: span:body monotonic increasing`);
+  // ── monotonic dials across forms (catches SAME-DRAGON-BIGGER) ── (wing-lobe dragons only;
+  // the spine-frame koi grows by fan COUNT + fork + coil, asserted via the tri ladder below)
+  if (!spec.bodyFinCreature) {
+    const hs = per.map((p) => p.m.headScale ?? 1);
+    const es = per.map((p) => p.m.eyeScale ?? 1);
+    const sh = per.map((p) => p.m.eyeShape ?? 1);
+    ok(hs[0] > hs[1] && hs[1] > hs[2], `${key}: headScale monotonic decreasing (${hs.join(' > ')})`);
+    ok(es[0] >= es[1] && es[1] >= es[2], `${key}: eyeScale monotonic non-increasing`);
+    ok(sh[0] <= sh[1] && sh[1] <= sh[2], `${key}: eyeShape round→almond monotonic`);
+    ok(per[0].headBody < per[1].headBody && per[1].headBody < per[2].headBody, `${key}: head:body monotonic (head shrinks rel. to body)`);
+    ok(per[0].eyeHead > per[1].eyeHead && per[1].eyeHead > per[2].eyeHead, `${key}: eye:head monotonic decreasing`);
+    ok(per[0].spanBody < per[1].spanBody && per[1].spanBody < per[2].spanBody, `${key}: span:body monotonic increasing`);
 
-  // ── motif anchor: invariant local position (drift ≤0.15) + bloom radius monotonic ──
-  const anchors = per.map((p) => p.parts.motifAnchor);
-  for (let f = 1; f <= maxT; f++) {
-    const drift = anchors[f].local.distanceTo(anchors[0].local);
-    ok(drift <= 0.15, `${key} f${f}: motif anchor drift ${drift.toFixed(3)} ≤ 0.15`);
+    // ── motif anchor: invariant local position (drift ≤0.15) + bloom radius monotonic ──
+    const anchors = per.map((p) => p.parts.motifAnchor);
+    for (let f = 1; f <= maxT; f++) {
+      const drift = anchors[f].local.distanceTo(anchors[0].local);
+      ok(drift <= 0.15, `${key} f${f}: motif anchor drift ${drift.toFixed(3)} ≤ 0.15`);
+    }
+    ok(anchors[0].radius < anchors[1].radius && anchors[1].radius < anchors[2].radius, `${key}: motif bloom radius monotonic increasing`);
   }
-  ok(anchors[0].radius < anchors[1].radius && anchors[1].radius < anchors[2].radius, `${key}: motif bloom radius monotonic increasing`);
 
   // ── tri budget: monotonic increasing + apex visibly richer + near sheet targets ──
   ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris, `${key}: tris monotonic increasing`);
@@ -320,6 +322,26 @@ for (const [key, spec] of Object.entries(SPECS)) {
     let sH = 0; if (d) { sH = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; sH = ((sH * 60) + 360) % 360; }
     ok(sL >= 0.24 && sL <= 0.55, `${key}: apex body is VIVID mid-value jade, not near-black moss (sRGB L ${sL.toFixed(2)} in [0.24,0.55])`);
     ok(hueDist(sH, 150) <= 25, `${key}: apex body hue is GREEN (${sH.toFixed(0)}° within ±25° of 150°)`);
+  }
+  if (key === 'jade') {
+    // ── fresh spine-frame koi ladder (IMG_7739): the BLOSSOMING verb — each rung a cruise-visible
+    // category add (longer body → more web-fans → grander leaf-fork → brighter ribbon). ──
+    ok(DRAGONS[key].parts.torso === 'jadeSerpent' && DRAGONS[key].parts.wings === 'none',
+      `${key}: fresh jadeSerpent torso, no wing module (fins live in the body)`);
+    const cr = per.map((p) => p.m.crestRibbon ?? 0);
+    ok(cr[0] < cr[1] && cr[1] < cr[2], `${key}: crest ribbon brightens monotonic ↑ (${cr.join('→')})`);
+    const fc = per.map((p) => p.m.bodyFinCount ?? 0);
+    ok(fc[0] < fc[1] && fc[1] < fc[2], `${key}: body web-fan count grows monotonic ↑ (${fc.join('→')})`);
+    const cf = per.map((p) => p.m.caudalFork ?? 0);
+    ok(cf[0] < cf[1] && cf[1] < cf[2], `${key}: leaf-fork tail grows monotonic ↑ (${cf.join('→')})`);
+    const rch = per.map((p) => p.m.bodyReach ?? 11);
+    ok(rch[0] < rch[1] && rch[1] < rch[2], `${key}: body length grows monotonic ↑ (${rch.join('→')})`);
+    const arc = per.map((p) => p.m.bodyArcY ?? 0.14);
+    ok(arc[0] <= arc[1] && arc[1] <= arc[2], `${key}: bodyArcY (vertical swim share) monotonic ↑ (${arc.join('→')})`);
+    // the fans + tail ride the swim wave (emitted into the body mesh) — the whole creature is ONE
+    // single-material mesh, so the tube's bodyWave count covers the fans/tail (no detached drawables).
+    ok(per[2].parts.bodyWave.count > per[2].parts.spinePoints.length * 8,
+      `${key}: fans + tail are welded into the wave-driven body mesh (${per[2].parts.bodyWave.count} wave verts)`);
   }
 }
 

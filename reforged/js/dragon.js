@@ -29,6 +29,7 @@ import { createPulseTimer, mulberry32 } from './pulseTimer.js';
 import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
 import { bondState } from './dragonBond.js';
+import { initRibbonSim, updateRibbonSim, ribbonToLocal, ribbonWhip } from './ribbonSpine.js';
 
 // ── EMBERSIGHT H7 — DRAGON VITALS (the living gauge, HUD-REDESIGN §B.1/§B.2) ──
 // All state for the flag-gated bond channel. THE HARD CONTRACT: while the
@@ -133,12 +134,22 @@ let prevSpeedActive = false;
 let flapPhase = 0;        // INTEGRATED wingbeat clock (advance by dt·flapSpeed, NOT time·freq)
 let scarfPhase = 0;       // integrated rider-scarf sway clock (same reason)
 let vySmooth = 0;         // lagged vertical velocity → vertJerk drives the spine pitch-whip
+let vyPose = 0;           // SLOW-engage / fast-release vertical vel → gates the dive/climb POSES so a rapid up↔down mash can't flip them (only a SUSTAINED dive/climb commits the pose)
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
 let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
+// RIBBON drive temporaries (reused each frame — no per-tick allocation).
+const _ribHeadW = new THREE.Vector3(), _ribAnchor = new THREE.Vector3(), _ribFwd = new THREE.Vector3(), _ribInvQ = new THREE.Quaternion();
+let ribbonCurl = 0;   // slowly-ramped steer signal → the sustained-turn body curl (the "twirl" beat)
+let ribDriveX = 0, ribDriveY = 0;   // smoothed steer/pitch magnitude → the swim swells into your movement
+let ribSteerMag = 0;                 // smoothed |steer| → ducks the idle swim (Lever 1, contrast)
+let ribPrevSx = 0, ribPrevSy = 0, ribWhipCd = 0;   // steer-edge detector → whip pulses (Lever 2)
+let ribWhipCdY = 0, ribLastWhipSignY = 0;          // VERTICAL whip: armed on SIGN REVERSAL (one pulse/flip, not a per-ramp-frame train)
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
 let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
+let jadeChainMats = null; // jade pearl-chain links 1/3/4 (sat/lyre/streamer) — pulsed via userData.baseIntensity (§4.3b)
+let jadeWaveRiders = null;// jade lyre gems — separate meshes riding the bodyWave (§4.5) or they detach
 let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
@@ -357,8 +368,26 @@ export function createDragon(scene, def, riderDef) {
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
   bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
+  // RIBBON (jade): stand up the follow-the-leader sim on the published ribbon record and switch the
+  // re-loft branch on. The head lays a world breadcrumb trail; the body samples it at rest arc-length
+  // offsets → straight input settles to a line, a hard steer whips head→tail, sustained turning coils.
+  if (bodyWave && bodyWave.ribbon) {
+    // Swim tuned for a SILKY 3D travelling S the ribbon always carries: a bold lateral wave + a
+    // phase-shifted vertical wave (soft helix), swelling toward the tail. driveX/driveY (set each
+    // tick from steer/pitch input) swell it into left/right + up/down; the path carries the big turns.
+    initRibbonSim(bodyWave.ribbon, {
+      // headFade 3 (wave ENTERS just behind the head, not a dead front half) + swimGrow 0.45 (neck
+      // carries ~40-55% of the tail's amplitude so the whole torso participates) + swimFreq 0.9
+      // (~1.9 wave periods → two visible humps = a real travelling S, not a single slight bend).
+      swimAmp: 1.2, swimAmpY: 0.95, swimFreq: 0.9, swimSpeed: 2.7, swimPhaseY: 1.5,
+      swimGrow: 0.4, headFade: 3, curlAmp: 3.6,
+    });
+    bodyWave.ribbon.active = true;
+  }
   jadePearlMat = result.parts.pearlMat || null;   // jade river-pearl — breathes with the swim (CP3)
   jadeTipGemMat = result.parts.tipGemMat || null; // jade fin-tip dew gems — shimmer travels here (glow-up)
+  jadeChainMats = result.parts.pearlChainMats || null;   // jade pearl-chain (§4.3b) — sat/lyre/streamer, each its own lag
+  jadeWaveRiders = result.parts.waveRiders || null;      // jade lyre gems ride the bodyWave (§4.5)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -653,6 +682,10 @@ export function disposeDragon() {
   carpalSpireR = null;
   bodySegs = null;
   bodyWave = null;
+  jadePearlMat = null;
+  jadeTipGemMat = null;
+  jadeChainMats = null;
+  jadeWaveRiders = null;
   tailOrbiters = null;
   ponyMeshes = [];
   trailSprites = [];
@@ -1051,8 +1084,15 @@ export function updateDragon(dt, player, time) {
   // so a committed dive ≈ −18): ~0 below DIVE_ON, ramps to 1 by DIVE_FULL. The collision box
   // is a fixed point+radius — this only changes the VISUAL posture, never clearance.
   const ss = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
-  const diveAmount = ss(9, 16, -vy);    // DIVE_ON 9 · DIVE_FULL 16 (raise DIVE_ON for a bigger deadzone)
-  const climbAmount = ss(8, 16, vy);    // CLIMB_ON 8 · CLIMB_FULL 16
+  // The dive/climb POSES are meant for a RAPID SUSTAINED drop/rise (see note above) — but a plain
+  // deadzone has no notion of "sustained", so a fast up↔down mash kept crossing it and FLIPPING the
+  // whole posture (nose + wing tuck/spread + flap gating) every ~0.35s = the "vertical spasm". Gate
+  // them on a SLOW-engage / fast-release smoothed vy: a mash attenuates vyPose below the deadzone so
+  // the poses never engage; a committed dive/climb still fully commits ~0.4-0.6s in, and pulling out
+  // relaxes promptly. Steady-state (a held dive/climb) is byte-identical to before.
+  vyPose = damp(vyPose, vy, Math.abs(vy) > Math.abs(vyPose) ? 3 : 7, dt);   // slow engage · fast release
+  const diveAmount = ss(9, 16, -vyPose);    // DIVE_ON 9 · DIVE_FULL 16 (raise DIVE_ON for a bigger deadzone)
+  const climbAmount = ss(8, 16, vyPose);    // CLIMB_ON 8 · CLIMB_FULL 16
   // Banking DEADZONE: gentle steering = a subtle lean only; the dramatic wing-tuck / tail
   // counter-sweep / head-lead engage only on a HARD bank. (turnBias saturates at 0.28.)
   const bankHard = ss(0.12, 0.26, Math.min(Math.abs(player.velocity.x * 0.018), 0.28));
@@ -1098,7 +1138,10 @@ export function updateDragon(dt, player, time) {
   // Body coupling: the flap lifts the chest at apex / compresses (nose-down) on the downstroke.
   // bodyFlapLift is set by the yoke solver below (1-frame lag = natural inertia, "suspended under
   // the wings"); only applies to yoke dragons (else 0). The damp(…,9) adds the trailing response.
-  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
+  // pitch coupling reads vySmooth (2nd-order smoothed) not raw vy — halves the nose-rock on a rapid
+  // up↔down mash while leaving soft/slow vertical untouched (gain≈1 there). The HEAD + rider below
+  // stay on raw velocity.y, so the head still noses into the input instantly (the input still reads).
+  group.rotation.x = damp(group.rotation.x, vySmooth * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
   // Slight yaw toward lateral movement — unless a cinematic is turning the dragon
   // to face something (ASHTALON's overtake): then blend toward that look yaw.
   const yawTarget = lookYaw != null ? lookYaw : player.velocity.x * 0.008;
@@ -1313,7 +1356,8 @@ export function updateDragon(dt, player, time) {
     // CP3 motion: the silk fan BLOOMS OPEN under power (boost/surge) — the outer lobes fan
     // wider + lift, so a boost reads as the koi flaring its fins. Cheap, high-visibility
     // motion off the EXISTING poser; jade-only (this whole block is gated on the lobe pivots).
-    const flareOpen = (boost01 * 0.55 + surge01 * 0.85) * (activeDef.model.lobeFlareBoost ?? 1);
+    const flareOpen = (boost01 * 0.55 + surge01 * 0.85) * (activeDef.model.lobeFlareBoost ?? 1)
+      + (activeDef.model.lobeBreath ?? 0) * (0.5 + 0.5 * Math.sin((bodyWave ? bodyWave.phase : time * 2) * 0.5));   // §4.6: the fan blooms OPEN on the swim crest in cruise (wave-locked to the pearl-chain), default 0 → every non-jade dragon byte-identical
     for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
       if (!arr) continue;
       const n = Math.max(1, arr.length - 1);
@@ -1505,24 +1549,104 @@ export function updateDragon(dt, player, time) {
     const arr = bodyWave.geo.attributes.position.array;
     const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
     const breathMul = 1 + (bodyWave.breath || 0) * Math.sin(phase * 0.21);   // GLOW-UP: slow breathing meander — the S periodically deepens like a koi coasting
-    for (let v = 0; v < count; v++) {
-      const ph = freq * spineZ[v] + phase;
-      arr[v * 3] = baseX[v] + amp * breathMul * ramp[v] * Math.sin(ph);
-      arr[v * 3 + 1] = baseY[v] + ampY * breathMul * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+    if (bodyWave.ribbon && bodyWave.ribbon.active) {
+      // ── RIBBON re-loft (RIBBON-ANIMATION-PLAN.md) — the follow-the-leader sim fills liveFrames,
+      // then the WHOLE welded mesh is re-lofted from them: vertex = frame.p + offT·T + offB·B + offN·Nn.
+      // (Inc 0 scaffold: `active` is off, so jade stays on the sine below — this branch is proven
+      // headless by tests/ribbonspine.mjs and switched on with the swim/parity gate at Inc 2.)
+      const rib = bodyWave.ribbon;
+      // Drive the follow-the-leader sim: the head world position = group.localToWorld(anchor). Feed
+      // it (with the group's world −z as the seed forward), then fold the world stations/frames back
+      // into group-local (inverse group quaternion) so the re-loft lands in the mesh's own space.
+      if (rib.sim) {
+        const a = rib.sim.anchor;
+        _ribAnchor.set(a.x, a.y, a.z).applyQuaternion(group.quaternion);
+        _ribHeadW.copy(group.position).add(_ribAnchor);
+        _ribFwd.set(0, 0, -1).applyQuaternion(group.quaternion);
+        // ramp the steer-curl SLOWLY (≈1s) toward the normalised steer so a momentary flick barely
+        // curls but a SUSTAINED hard turn hooks the tail — making the coil read distinct from a turn.
+        const steerN = Math.max(-1, Math.min(1, player.velocity.x / CONFIG.lateralSpeed));
+        ribbonCurl = damp(ribbonCurl, steerN, 1.1, dt);
+        rib.sim.curl = ribbonCurl;
+        // swim swells into the axis you're steering: |lateral| feeds the lateral S, |vertical| the
+        // vertical S (smoothed so it flows in, doesn't pop), and it energises with cruise speed.
+        const sxN = player.velocity.x / CONFIG.lateralSpeed;         // signed steer, ~[-1,1]
+        const syN = player.velocity.y / (CONFIG.verticalSpeed || 18);
+        const driveXt = Math.min(1, Math.abs(sxN)) * 0.9;
+        const driveYt = Math.min(1, Math.abs(syN)) * 0.45;   // Fix 3: lower vertical swell so the duck-contrast holds (0.7 out-shouted the duck → busy vertical wave)
+        ribDriveX = damp(ribDriveX, driveXt, 3, dt);
+        ribDriveY = damp(ribDriveY, driveYt, 3, dt);
+        rib.sim.driveX = ribDriveX; rib.sim.driveY = ribDriveY;
+        rib.sim.gain = 1 + speedNorm * 0.45;
+        // Lever 1 — idle DUCK: smoothed |steer| (fast attack so it quiets promptly, slower release).
+        const steerMagT = Math.min(1, Math.max(Math.abs(sxN), Math.abs(syN)));
+        ribSteerMag = damp(ribSteerMag, steerMagT, ribSteerMag < steerMagT ? 8 : 3, dt);
+        rib.sim.steerMag = ribSteerMag;
+        // Lever 2 — WHIP on a steer EDGE. LATERAL keeps its shipped behavior: the edge stays live for
+        // the whole velocity ramp (~15 frames) so a hard steer spawns a short train — reads as the
+        // serpentine flick, signed off. VERTICAL must NOT train: the same ramp was stacking 2-3 pulses
+        // per reversal (+ overlap) into a ~2.2u bump = the "erratic on up/down". So the vertical whip
+        // arms on a SIGN REVERSAL only (one clean pulse per key flip), at lower amplitude, with a
+        // longer backstop cooldown. Lateral and vertical are now independent (own cooldowns).
+        ribWhipCd -= dt; ribWhipCdY -= dt;
+        const dSx = sxN - ribPrevSx, dSy = syN - ribPrevSy;   // per-frame steer change
+        if (ribWhipCd <= 0 && Math.abs(dSx) > 0.045) {
+          ribbonWhip(rib, Math.sign(dSx) * Math.min(1, Math.abs(dSx) * 7) * rib.sim.pulseAmp, 0);
+          ribWhipCd = 0.13;
+        }
+        const sgnY = Math.sign(dSy);
+        if (ribWhipCdY <= 0 && Math.abs(dSy) > 0.05 && sgnY !== 0 && sgnY !== ribLastWhipSignY) {
+          ribbonWhip(rib, 0, sgnY * Math.min(1, Math.abs(dSy) * 7) * (rib.sim.pulseAmp * 0.5));   // Fix 2: 0.7→0.5
+          ribLastWhipSignY = sgnY; ribWhipCdY = 0.30;
+        }
+        ribPrevSx = sxN; ribPrevSy = syN;
+        updateRibbonSim(rib, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z, _ribFwd, dt);
+        _ribInvQ.copy(group.quaternion).invert();
+        ribbonToLocal(rib, _ribInvQ, _ribHeadW.x, _ribHeadW.y, _ribHeadW.z);
+      }
+      const F = rib.liveFrames, ST = rib.station, oT = rib.offT, oB = rib.offB, oN = rib.offN;
+      for (let v = 0; v < rib.count; v++) {
+        const f = F[ST[v]], t = oT[v], b = oB[v], n = oN[v];
+        arr[v * 3] = f.p.x + t * f.T.x + b * f.B.x + n * f.Nn.x;
+        arr[v * 3 + 1] = f.p.y + t * f.T.y + b * f.B.y + n * f.Nn.y;
+        arr[v * 3 + 2] = f.p.z + t * f.T.z + b * f.B.z + n * f.Nn.z;
+      }
+    } else {
+      for (let v = 0; v < count; v++) {
+        const ph = freq * spineZ[v] + phase;
+        arr[v * 3] = baseX[v] + amp * breathMul * ramp[v] * Math.sin(ph);
+        arr[v * 3 + 1] = baseY[v] + ampY * breathMul * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+      }
     }
     bodyWave.geo.attributes.position.needsUpdate = true;
-    // CP3: the river-pearl (the ONE bloom) BREATHES with the swim — a gentle ±14% emissive
-    // pulse keyed to the same wave phase, so the bloom feels alive without a new drawable.
-    // Skipped during Surge (the spineMats flare owns the pearl then). Base + hue from userData.
-    if (jadePearlMat && !player.feverActive) {
-      const pb = jadePearlMat.userData.baseIntensity ?? 0.55;
-      jadePearlMat.emissiveIntensity = pb * (1 + 0.14 * Math.sin(bodyWave.phase * 0.5));
+    // §4.3a: the river-pearl (the ONE bloom) + fin-tip dew gems BREATHE with the swim, written
+    // via userData.baseIntensity — NOT emissiveIntensity, which the flare/reset loop below
+    // clobbers every frame (the gravePulse contract). The shared loop then APPLIES it: cruise
+    // shows the breath, Surge multiplies the breathing base. No fever guard — the pulse rides
+    // through Surge (the gravePulse precedent), and the base is read from userData.pulseBase so
+    // baseIntensity (the pulsing output) never feeds back into itself.
+    if (jadePearlMat) {
+      const pb = jadePearlMat.userData.pulseBase ?? 0.55;
+      jadePearlMat.userData.baseIntensity = pb * (1 + 0.14 * Math.sin(bodyWave.phase * 0.5));
     }
-    // GLOW-UP: pearl-light TRAVELS out to the fin-tip dew gems — same wave phase, LAGGED,
-    // so the shimmer visibly runs pearl → tips (sells the "lit by its own pearl" concept).
-    if (jadeTipGemMat && !player.feverActive) {
-      const gb = jadeTipGemMat.userData.baseIntensity ?? 1.2;
-      jadeTipGemMat.emissiveIntensity = gb * (1 + 0.28 * Math.sin(bodyWave.phase * 0.5 - 0.9));
+    if (jadeTipGemMat) {
+      const gb = jadeTipGemMat.userData.pulseBase ?? 0.85;
+      jadeTipGemMat.userData.baseIntensity = gb * (1 + 0.28 * Math.sin(bodyWave.phase * 0.5 - 0.9));
+    }
+    // §4.3b: the pearl-chain walk — links 1/3/4 (satellite beads → lyre gems → streamer ribbons)
+    // ignite in REARWARD phase sequence off the ONE clock, each with its own lag, so pearl-light
+    // visibly travels the body like river-current. Same clobber-proof write pattern.
+    if (jadeChainMats) for (const m of jadeChainMats) {
+      const b = m.userData.chainBase ?? 0.5;
+      m.userData.baseIntensity = b * (1 + (m.userData.chainPulse ?? 0.3)
+        * Math.sin(bodyWave.phase * 0.5 - (m.userData.chainLag ?? 0)));
+    }
+    // §4.5: the lyre gems are separate meshes over the WHIPPING tail — ride the SAME wave
+    // formula as the tube (the hoisted rampAt) or they detach (the severed-appendage read).
+    if (jadeWaveRiders) for (const r of jadeWaveRiders) {
+      const rp = bodyWave.rampAt(r.spineZ), ph = freq * r.spineZ + phase;
+      r.obj.position.x = r.baseX + amp * breathMul * rp * Math.sin(ph);
+      r.obj.position.y = r.baseY + ampY * breathMul * rp * Math.sin(ph * 0.9 + 0.4);
     }
   }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
