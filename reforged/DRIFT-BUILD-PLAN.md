@@ -152,13 +152,16 @@ untouched** (`player.js:217`).
 
 | Feed | DRIFT | Source event | Notes |
 |---|---|---|---|
-| **F2** parry / riposte | +0.03 / +0.06 | `bossReflect` (`boss.js:2999`) / `bossRiposte` (`boss.js:5490,5501`) | streak already resets on a bullet hit (`collision.js:357-365`) |
+| **F2** parry / riposte | +0.03 / +0.06 | `bossReflect` (`boss.js:3003`) / `bossRiposte` (`boss.js:5490,5501`) | streak resets on a bullet hit (`collision.js:357-365`). **⚠ GOVERNOR (§4a): F2 must NOT pay for Surge reflects** — gate with `!surge` (the latch already used at `boss.js:3010/3031/3050/3066`) + a per-encounter cap ~+0.25. Ungoverned, F2×M2 subsidises the reflect melt. |
 | **F3** CLEAN spell-card | +0.15 | `bossCard` with the ENGINE's own `captured` flag (`boss.js:1074-1078`) | do NOT re-derive a hit-delta; `captured` also requires beating the timer — better anti-gaming for free |
 | **F4** ride-the-mechanic | +0.04 | `slipGraze` / `orbitLap` / `gapThread` / `discPocket` / `beamGraze` (all shipped emits) | the boss's own verbs pay the connective currency |
 
 **TUNE before ship:** **F1 graze-weave is INFLATIONARY as written** — the graze streak caps
 at 30 (`collision.js:391`), so a per-graze Σ0.006·k ≈ +2.8 D pins the cap in one weave.
-Shrink the coefficient **and** add a per-encounter cap ~+0.25.
+Shrink the coefficient **and** add a per-encounter cap ~+0.25. Worse than the plain streak
+math: the shielded phase throws **bait-rings of 15 bullets at r 3.6 < grazeR 4.15 that graze
+WHOLESALE by design** (`boss.js:4762-4775`), so the per-encounter cap is a **before-first-ship**
+requirement, not a tune-later.
 
 **Bleed rules:** bleed **PAUSES** in a boss (the fight amplifies, never confiscates);
 a hit −0.10 (a drop, never zero); defeat +0.20, carried into the grace band
@@ -166,14 +169,60 @@ a hit −0.10 (a drop, never zero); defeat +0.20, carried into the grace band
 
 **DRIFT manifestation at locked speed** (speed can't move, so what does?):
 
-- **SHIP M2:** surge charge `grazeGain 0.34 × (1 + 0.3·D)` (`config.js:545`) — high DRIFT
-  charges Surge faster.
+- **SHIP M2 (only behind a governor):** surge charge `grazeGain 0.34 × (1 + 0.3·D)`
+  (`config.js:545`) — high DRIFT charges Surge faster. ⚠ M2 spends DRIFT on the reflect
+  exploit's one bottleneck (Surge recharge), so ship it ONLY with F2's `!surge` gate **and**
+  the fever refractory (§4a fix d), or clamp effective D≤~0.5 inside a boss. M2 + an ungoverned
+  F2 IS the feedback loop in §4a.
 - **SHIP M4:** FOV push + wind-streaks stay on through the fight (fixed-cost uniforms).
 - **A/B M1:** rider fire `0.5 / (1 + 0.4·D)` (`config.js:566`) = a genuinely SHORTER
   fight — but the chip-DPS ledger is tuned to two decimals (`config.js:475-488`, the
   lockdps margins), so **re-run `tests/lockdps.mjs` + the kill-time sim gates first**.
 - **CUT M3** (graze-band widening at high DRIFT): a positive-feedback loop that
   double-dips M2. Dead.
+
+---
+
+## 4a. ⚠ THE SURGE-REFLECT MELT — an interaction DRIFT must not subsidise
+
+Owner-observed in play; confirmed with numbers by an independent Fable audit.
+
+**The exploit (shipped today, no DRIFT):** a Surge barrel-roll parry is a **volume swat** — every
+boss bullet within 3 m flips back at once (`bossBullets.js:895-943`; the 3 m gate at :901; in
+Surge the reflectable flag is ignored — `boss.js:2361/2965`, `bossBullets.js:898`). So reflected
+damage scales with pattern **density**: a sparse aimed shot pays ~14, but a **tunnel ring (22
+bullets) or iris ring (16) pays 32–57 per roll** (`bulletDamage 13` × 0.35/0.55/×1.3 —
+`config.js:527,550-553`; `boss.js:2965`; `bossBullets.js:927-928`). Against a ~100-HP phase
+segment that is **>half a segment per perfect roll** — the boss's HARDEST attacks become the
+player's biggest gun (an inverted difficulty curve). The per-phase shield bounds it (only a Surge
+unleash breaks it, `boss.js:5555-5575`), but Surge recharges nearly for free (bait-rings, above),
+so a skilled player kills a mid-tier boss **~3–4× the tuned pace**. Most exposed: **MARROWCOIL**
+(iris every phase, no gate), STORMREND, HOLLOWGATE, EMBERTIDE, WEFTWITCH, and **THE UNMASKED** (its
+forms have NO internal floors). Intent read: the codebase excludes Surge reflects from every
+*skill* meter (`boss.js:3010/3031/3050/3066`) **except damage** — the burn window is intended, its
+magnitude was never priced. **Verdict: intended-in-kind, ungoverned-in-degree → needs a cap.**
+
+**Why DRIFT makes it worse (the loop):** F2 pays DRIFT for a parry (and fires for Surge reflects
+too — `boss.js:3003` has no `!surge` gate) → M2 charges Surge faster → more "reflect-anything"
+windows → more F2 pay → D pins at cap → M1 chips ×1.4 on top, and defeat pours D out so the NEXT
+boss starts pre-charged. Convergent (D caps at 1, M2 at ×1.3), not a runaway — but it **pays the
+degenerate line twice** and accelerates it. **F2 and M2 are each safe alone and unsafe together.**
+
+**The reflect-balance fix itself is a SEPARATE, OWNER-GATED decision** — the melt is a live issue
+in the SHIPPED game, independent of DRIFT; the owner may choose to keep it as a skill power
+fantasy. If capped, the audit's rule is **cap the DAMAGE, never the SPECTACLE** (all bullets still
+fly back; less lands):
+- **(a) sub-linear per-roll reflect damage** — scale each bullet by `1/√total`, or clamp a roll at
+  ~2.5× `bulletDamage` (~33). A 3-bullet amber parry keeps ~100% of today; a 22-bullet swat pays
+  ~2× a triple, not ~7×. Compensate the FEEL with uncapped score/FX on `r.total`.
+- **(b, optional)** in Surge, non-amber bullets reflect weaker (~0.15) so ambers stay the payout.
+- **(c) the DRIFT governor** — F2 `!surge` gate + per-encounter cap; ships WITH DRIFT regardless.
+- **(d) a ~2 s fever refractory** before Surge re-arms — kills back-to-back fever chaining for
+  everyone; worth doing independent of DRIFT.
+
+Recommendation: **(a)+(c)+(d)**; add (b) if Surge should stay a *defensive* hyper. Re-run
+`tests/lockdps.mjs` + `tests/boss.mjs` + the kill-time sim after any of them. **(c) is the only
+piece owned by the DRIFT build; (a)/(b)/(d) await the owner's balance call.**
 
 ---
 
@@ -267,8 +316,10 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 **CORE (behind `driftEnabled`, parent §5):**
 4. The DRIFT currency + canyonSlip second factor + governor (§3.6) + freeze-catch-radius
    (§3.2) + time-normalized telegraphs (§3.5).
-5. Boss feeds F2/F3/F4 + bleed-pause + hit/defeat deltas (§4); F1 with shrunk coefficient
-   + per-encounter cap.
+5. Boss feeds F2/F3/F4 + bleed-pause + hit/defeat deltas (§4); **F2 behind the `!surge`
+   governor + per-encounter cap (§4a)**; F1 with shrunk coefficient + per-encounter cap
+   (before first ship, not tune-later). **M2 ships only alongside the §4a fever refractory**
+   (or a D≤~0.5-in-boss clamp) — never on an ungoverned F2.
 6. Gauntlet clean-run capstone (§5).
 7. THE EMBER KEEL (§6) — Keel first, crest fold-in LAST after the §2 ruling + regression
    sign-off.
@@ -278,6 +329,12 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 9. Perfect pay ×1.30 / +0.10 curve.
 10. M1 rider-fire scaling — gated on `tests/lockdps.mjs` + kill-time sim.
 11. F1 graze coefficient + cap values.
+
+**⚖ OWNER-GATED BALANCE (separate track — NOT part of the DRIFT flag; awaits the owner's call):**
+- The Surge-reflect melt cap (§4a): (a) sub-linear per-roll reflect damage, (b) weaker non-amber
+  Surge reflects, (d) ~2 s fever refractory. The melt is a live SHIPPED-game issue; the owner may
+  keep it as a skill power fantasy. Only §4a fix (c) — the F2 `!surge` governor — is owned by the
+  DRIFT build (item 5). Re-run `tests/lockdps.mjs` + `tests/boss.mjs` after any of (a)/(b)/(d).
 
 **CUT (dead, do not revive without new evidence):**
 - Repurposing accidental boss-crystal survivors (§1 Bug B verdict).
