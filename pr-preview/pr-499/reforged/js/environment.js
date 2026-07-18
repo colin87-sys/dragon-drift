@@ -4362,6 +4362,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
+    // THE EMPYREAN nacre (§4b): 0 elsewhere = byte-identical water; kills sun #2 + adds satin/iridescence.
+    nacreMix: env.nacreMix,
   });
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);

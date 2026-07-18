@@ -295,6 +295,10 @@ export const BIOMES = [
     // Sun #3 — the god-ray fan: a sourceless sky has NO shafts. True zero (the Mire metered its rays to
     // 0.075 for its glow-halos; the Empyrean has none to preserve). §3 sun #3.
     godrayMul: 0,
+    // NACRE water gate (§4b, PR-2): mother-of-pearl, not a mirror. Kills sun #2 (the pow-240 glitter lane +
+    // the cheap sparkle flakes) and adds a broad satin sheen + constrained rose↔lilac↔periwinkle iridescence.
+    // 0 in every other biome → byte-identical water (the xMix pattern; consumed by water.js via setWaterTint).
+    nacre: 1.0,
     // NACRE water — PALETTE LANDED in PR-1 (deep = the trough structural-mid; shallow = the nacre body).
     // The NOVEL nacre SHADER (iridescence band term + the pow-240 sun-glitter kill + horizon-dissolve
     // triple-lock, all in sharedUniforms) is PR-2 (§4b); here the tint just pulls the water out of the old
@@ -517,6 +521,9 @@ const env = {
   // Consumed by empyreanSky.js via applyEmpyrean(env) (the sky uniforms) AND mirrored into skyProbe.js's
   // skyColorAt (the 4th touch — a cheap bloom lift for the SH ambient). Crossfades the seam for free.
   empyMix: 0,
+  // NACRE water gate (PR-2, §4b): 0 in every other biome → byte-identical water. Consumed by water.js via
+  // setWaterTint — kills the sun-glitter + adds satin sheen + iridescence.
+  nacreMix: 0,
   // N8 atmosphere channels (OPTIONAL per biome; 0 everywhere by default so the
   // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
   // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
@@ -621,6 +628,8 @@ export function computeEnv(dist) {
   // THE EMPYREAN gate (optional-channel): 0 elsewhere = byte-identical; crossfades the aurora-adjacent seam
   // over the SAME wide window as the rest of the world (ts) so the nebula blooms dawn as the light does.
   env.empyMix = lerp(a.empy || 0, b.empy || 0, ts);
+  // NACRE water gate (PR-2, §4b): rides the same seam ramp; 0 elsewhere = byte-identical water.
+  env.nacreMix = lerp(a.nacre || 0, b.nacre || 0, ts);
   // whaleMix now rides the SAME 400m window the curtain dies in → the "curtain hands off to the whale"
   // handoff PR-4 described finally happens in one window (was 150m while the curtain took 300m).
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, ts);
