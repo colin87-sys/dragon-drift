@@ -344,9 +344,9 @@ function makeMats() {
   // shift; roughness 0.48 = old-bronze sheen (slicker than stone 0.66), metalness 0.18 (NOT higher — chrome is
   // banned). ladderEmissive fold (true) keeps sheltered bronze + the drowned merge genuinely dark.
   mats.verdigrisBronze = addPropDetail(new THREE.MeshStandardMaterial({
-    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.48, metalness: 0.18,
-    emissive: 0xa39b84, emissiveIntensity: 0.22,
-  }), true);
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.55, metalness: 0.05,
+    emissive: 0xc4b697, emissiveIntensity: 0.40,
+  }), true);   // metalness 0.18→0.05 + a strong warm emissive FLOOR @0.40 (Fable re-gate: the hand rendered 1-1.5 stops too dark, its lit faces darker than the water; the fold-emissive lifts the SHADOWED faces off the floor so the value ladder reads — bronze needs a brighter floor than travertine because its vColor is darker).
   // TEMPEST REACH new-kit material (TEMPEST-REACH-BIBLE.md) — a FOURTH ladder, the WIND-SCOUR
   // ladder: cool-dominant storm slate whose carved read comes entirely from the baked vColor
   // stops keyed to the scour axis (wind-facing = pale SCOUR / body = DAMP / waterline belly =
@@ -955,9 +955,13 @@ function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
 // such structure). A POSITION drowned-merge (below waterY) dissolves both toward the slate-teal deep so the
 // patina NEVER glows underwater — the one saturated green stays quarantined in the cool-anchor family. Albedos
 // pre-darkened for verdigrisBronze's ×0.22 emissive fold (patina 0x357F6C → renders ~0x3E8F7A teal).
-const _VRD_PATINA = [0.208, 0.498, 0.424];   // 0x357F6C rain-washed teal patina (up-faces)
-const _VRD_BRONZE = [0.369, 0.271, 0.169];   // 0x5E452B dark old bronze (sheltered) — self-suppresses in the fold
-const _VRD_DROWN = [0.118, 0.247, 0.255];    // 0x1E3F41 drowned slate-teal (below the tilted waterline)
+// Albedos LIFTED one stop (Fable re-gate: the hand rendered 85%+ below 18% luminance — a black monolith; a lit
+// sunset bronze face must sit ~45-60% L). 3-zone: dark bronze reserved for TRUE undersides ONLY, mid bronze on
+// neutral/vertical faces, patina on rain-washed up-faces — so the value ladder is legible, not one crushed value.
+const _VRD_PATINA = [0.400, 0.660, 0.575];   // rain-washed verdigris teal (up-faces) — L≈0.57
+const _VRD_BRONZE = [0.560, 0.410, 0.250];   // mid old bronze (neutral/vertical faces) — L≈0.43, the readable body value
+const _VRD_DARK = [0.255, 0.185, 0.130];     // dark bronze — TRUE undersides only
+const _VRD_DROWN = [0.150, 0.300, 0.310];    // drowned slate-teal (below the tilted waterline)
 function bakeVerdigris(geo, waterY = 0.0) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -970,10 +974,14 @@ function bakeVerdigris(geo, waterY = 0.0) {
     // t = 0 (dark bronze) on clear undersides → ~0.36 (muted teal) on verticals → 1 (full patina) on up-faces, so
     // EVERY component gets the same bronze-with-teal-weather treatment and the thumb snaps back into the hand.
     // Per-FACE (flat facets) → the value ladder lands per facet, not a flat decal.
-    const t = Math.min(1, Math.max(0, (nr.y + 0.20) / 0.55));
-    const base0 = _VRD_BRONZE[0] + (_VRD_PATINA[0] - _VRD_BRONZE[0]) * t;
-    const base1 = _VRD_BRONZE[1] + (_VRD_PATINA[1] - _VRD_BRONZE[1]) * t;
-    const base2 = _VRD_BRONZE[2] + (_VRD_PATINA[2] - _VRD_BRONZE[2]) * t;
+    let base0, base1, base2;
+    if (nr.y < -0.25) { base0 = _VRD_DARK[0]; base1 = _VRD_DARK[1]; base2 = _VRD_DARK[2]; }   // TRUE undersides only → dark bronze
+    else {
+      const t = Math.min(1, Math.max(0, (nr.y + 0.10) / 0.55));   // mid bronze (neutral) → patina (up-face), per facet
+      base0 = _VRD_BRONZE[0] + (_VRD_PATINA[0] - _VRD_BRONZE[0]) * t;
+      base1 = _VRD_BRONZE[1] + (_VRD_PATINA[1] - _VRD_BRONZE[1]) * t;
+      base2 = _VRD_BRONZE[2] + (_VRD_PATINA[2] - _VRD_BRONZE[2]) * t;
+    }
     for (let k = 0; k < 3; k++) {
       const o = (i + k) * 3, wet = Math.min(1, Math.max(0, (waterY + 0.04 - pos.getY(i + k)) / 0.12));   // drowned merge below the waterline
       col[o] = base0 * (1 - wet) + _VRD_DROWN[0] * wet;
@@ -3873,9 +3881,9 @@ const ARCHETYPES = {
       // THUMB — OPPOSED: outboard (+x) at the wrist, OFF the finger plane (~50°), 2 seg, ~0.6× length, curling
       // INWARD toward the index. THE name-test cue. 4-sided (silhouette-critical). Now bronze-with-teal like the
       // hand (the gradient key), so it reads as a thumb, not a teal fin.
-      V(frustumBetween([0.33, 0.16, 0.10], [0.46, 0.36, 0.06], 0.082, 0.070, 4));            // thumb metacarpal (out + up + forward)
-      V(frustumBetween([0.46, 0.36, 0.06], [0.42, 0.54, -0.04], 0.070, 0.042, 4));           // thumb distal (curls inward, tapers)
-      E(xform(new THREE.CircleGeometry(0.05, 4), { x: 0.42, y: 0.54, z: -0.04, rx: -Math.PI / 2 + 0.6 }));   // thumbnail — flush cap
+      V(frustumBetween([0.20, 0.24, 0.05], [0.45, 0.40, 0.02], 0.090, 0.072, 4));            // thumb metacarpal — ROOTS INTO the palm block (base x0.20, inside the 0.31 edge → overlaps ≥15% of palm width, crosses the silhouette) then rises out
+      V(frustumBetween([0.45, 0.40, 0.02], [0.41, 0.58, -0.06], 0.072, 0.044, 4));           // thumb distal (curls inward toward the index)
+      E(xform(new THREE.CircleGeometry(0.05, 4), { x: 0.41, y: 0.58, z: -0.06, rx: -Math.PI / 2 + 0.6 }));   // thumbnail — flush cap
       // WRIST stump (mostly submerged) — an open cylinder plunging into the mirror.
       V(xform(new THREE.CylinderGeometry(0.24, 0.27, 0.34, 4, 1, true), { x: 0, y: -0.10 }));
       // FOREARM SECTION half-buried beside the hand — a HOLLOW broken bronze tube (the bronze-shell tell). Stands
@@ -3884,10 +3892,11 @@ const ARCHETYPES = {
       // torn RIM capping the broken edge. Half-sunk (base drowns).
       V(xform(new THREE.CylinderGeometry(0.185, 0.205, 0.54, 6, 1, true), { x: 0.60, y: -0.02, z: 0.30, rz: 0.34, rx: -0.18 }));   // outer shell
       parts.push({ mat: 0, bake: 'void', geo: xform(new THREE.CircleGeometry(0.17, 6), { x: 0.575, y: 0.10, z: 0.325, rz: 0.34, rx: -Math.PI / 2 - 0.18 }) });   // dark cavity floor recessed down the bore → reads as a hollow, not see-through
-      E(xform(new THREE.CylinderGeometry(0.205, 0.185, 0.05, 6, 1, true), { x: 0.685, y: 0.235, z: 0.253, rz: 0.34, rx: -0.18 }));   // torn RIM at the broken mouth (bronzeEdge)
-      // GILT (mat 1) — recessed crevice slots ONLY (finger-root shadow + under the knuckle), read only at the near
-      // flyby: the withheld reward. NO glow on fingertips/nails.
-      parts.push({ mat: 1, geo: xform(new THREE.PlaneGeometry(0.50, 0.045), { x: 0, y: 0.52, z: 0.02, rx: 1.2 }) });   // finger-root shadow slot
+      E(xform(new THREE.CylinderGeometry(0.205, 0.185, 0.05, 5, 1, true), { x: 0.685, y: 0.235, z: 0.253, rz: 0.34, rx: -0.18 }));   // torn RIM at the broken mouth (bronzeEdge)
+      // GILT (mat 1) — recessed VERTICAL crevice slivers in the gaps BETWEEN the finger roots (Fable re-gate: the
+      // horizontal finger-root arc read as a SMILE; vertical slots in the finger valleys are a real crevice glint,
+      // not a mouth). Read only at the near flyby: the withheld reward. NO glow on fingertips/nails.
+      [0.15, -0.15].forEach((gx) => parts.push({ mat: 1, geo: xform(new THREE.PlaneGeometry(0.025, 0.10), { x: gx, y: 0.56, z: 0.12 }) }));
       const merged = mergeLagoonParts(parts, { verdigris: true, forumWaterY: 0.0 });   // exposure bake + drowned merge at the object waterline
       skewX(merged.geometry, 0.20);   // the toppling LEAN (shear, not offsets — the pharos law): world r·k/h = 0.20 → ~11° off-plumb, inboard
       return merged;
