@@ -778,10 +778,13 @@ function bakeSolid(geo, rgb) {
 // UP to the near-black roof-shadow interior → each opening carries its own core→bloom→dark instead of a
 // uniform decal. Keyed by object Y (0.10→0.62, the bay band); ry rotation is about Y so it survives.
 const _REVEAL_SILL = [0.315, 0.232, 0.156]; // dim warm bounce at the doorway sill
-function bakeReveal(geo) {
+// y0/span PARAMETRIC (default = the small-prop bay band 0.12→0.56). A tall wall's window band sits far higher in
+// object Y (basilica: wy(19)→wy(24.75) ≈ 0.56→0.73), so those openings must pass their OWN band or the whole
+// gradient clamps to _VOID → flat-black "sticker" windows (Fable basilica flatness gate).
+function bakeReveal(geo, y0 = 0.12, span = 0.44) {
   const pos = geo.attributes.position, n = pos.count, col = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    const t = Math.max(0, Math.min(1, (pos.getY(i) - 0.12) / 0.44));   // 0 at the sill → 1 at the lintel
+    const t = Math.max(0, Math.min(1, (pos.getY(i) - y0) / span));   // 0 at the sill → 1 at the lintel
     col[i * 3] = _REVEAL_SILL[0] + (_VOID[0] - _REVEAL_SILL[0]) * t;
     col[i * 3 + 1] = _REVEAL_SILL[1] + (_VOID[1] - _REVEAL_SILL[1]) * t;
     col[i * 3 + 2] = _REVEAL_SILL[2] + (_VOID[2] - _REVEAL_SILL[2]) * t;
@@ -915,7 +918,7 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], forumB = [], frescoB = [], pineB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], frescoB = [], pineB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
@@ -927,6 +930,7 @@ function mergeLagoonParts(parts, opts = {}) {
     else if (p.bake === 'wood') wood.push(g);                            // tagged → dark bark-brown wood (fig trunk/roots, PR-2)
     else if (p.bake === 'void') voidB.push(g);                           // tagged → near-black shadow void (doorway/bay openings, PR-7/8)
     else if (p.bake === 'reveal') revealB.push(g);                       // tagged → doorway with a vertical lit-sill→dark gradient (kills flat-tape, PR-8)
+    else if (p.bake === 'revealHi') revealHiB.push(g);                   // tagged → HIGH-BAND reveal (tall-wall windows): same gradient re-keyed to opts.revealHi.{y0,span}
     else if (p.bake === 'temple') temple.push(g);                        // tagged → temple sandstone ladder (PR-0)
     else if (p.bake === 'bloom') bloom.push(g);                          // tagged → lotus blush bloom (PR-0)
     else if (opts.bake === 'lily' || p.bake === 'lily') foliage.push(g); // tagged → leaf foliage
@@ -941,6 +945,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (bloom.length) { const g = bloom.length > 1 ? mergeGeometries(bloom) : bloom[0]; bakeBloom(g); stone.push(g); }
   if (voidB.length) { const g = voidB.length > 1 ? mergeGeometries(voidB) : voidB[0]; bakeSolid(g, _VOID); stone.push(g); }
   if (revealB.length) { const g = revealB.length > 1 ? mergeGeometries(revealB) : revealB[0]; bakeReveal(g); stone.push(g); }
+  if (revealHiB.length) { const g = revealHiB.length > 1 ? mergeGeometries(revealHiB) : revealHiB[0]; bakeReveal(g, opts.revealHi ? opts.revealHi.y0 : 0.12, opts.revealHi ? opts.revealHi.span : 0.44); stone.push(g); }
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
   if (pineB.length) { const g = pineB.length > 1 ? mergeGeometries(pineB) : pineB[0]; bakePine(g); stone.push(g); }
@@ -3574,12 +3579,17 @@ const ARCHETYPES = {
         for (let k = 0; k < 3; k++) { const p0 = pt(Math.PI * k / 3), p1 = pt(Math.PI * (k + 1) / 3); q(p0, p1, [p1[0], topo, zf], [p0[0], topo, zf]); }
       };
       const jambF = (X, yB, yT) => { const x = wx(X), b = wy(yB), t = wy(yT); q([x, b, zf], [x, t, zf], [x, t, zb], [x, b, zb]); };
+      // DEEP window jamb — the reveal recedes the FULL masonry depth (zf→zTop) not the shallow zb; flatShading gives
+      // the sun-side jamb a warm lit sliver + the interior a shadow falloff → the opening reads as a hole in a THICK
+      // wall, not a black sticker on a sheet (Fable basilica window-reveal gate). Same tri count as jambF.
+      const jambW = (X, yB, yT) => { const x = wx(X), b = wy(yB), t = wy(yT); q([x, b, zf], [x, t, zf], [x, t, zTop], [x, b, zTop]); };
       const capF = (xL, xR, y) => { const l = wx(xL), r = wx(xR), yo = wy(y); q([l, yo, zf], [r, yo, zf], [r, yo, zTop], [l, yo, zTop]); };   // top cap now spans zf→zTop (deep) → cornice/notch read thick
       // VERTICAL SIDE RETURN (the cross-section face that kills the knife edge). dir>0 → faces +x, dir<0 → −x. zf→zTop.
       const sideRet = (X, yB, yT, dir) => { const x = wx(X), b = wy(yB), t = wy(yT);
         if (dir > 0) q([x, b, zf], [x, b, zTop], [x, t, zTop], [x, t, zf]); else q([x, b, zTop], [x, b, zf], [x, t, zf], [x, t, zTop]); };
-      // DARK window backer (bake:'reveal') — a plane at zb behind the opening; the arch spandrel frames it round.
-      const backer = (cx, w, yB, yT) => parts.push({ mat: 0, bake: 'reveal', geo: xform(new THREE.PlaneGeometry(wx(w), wy(yT - yB)), { x: wx(cx), y: wy((yB + yT) / 2), z: zb }) });
+      // DEEP window backer (bake:'revealHi') — the "glass" plane sits at zTop (full masonry depth) so the niche has
+      // real recess behind the deep jambs; the high-band gradient (sill-lit → dark up) gives it interior value.
+      const backer = (cx, w, yB, yT) => parts.push({ mat: 0, bake: 'revealHi', geo: xform(new THREE.PlaneGeometry(wx(w), wy(yT - yB)), { x: wx(cx), y: wy((yB + yT) / 2), z: zTop }) });
 
       const SILL = 19, SPRING = 22.5, RISE = 2.25, CROWN = 24.75, CORN = 27.5;   // window band (top third)
       const MOD = 8.5, PW = 4.0, SPAN = 4.5, X0 = -29.75;   // 7 modules centred; pier≈span → SOLID ≥ void
@@ -3601,7 +3611,7 @@ const ARCHETYPES = {
       for (let i = 0; i < 6; i++) {            // 6 intact windows (the 7th, i=6, is torn open by the shear)
         const wl = X0 + i * MOD + PW, cx = wl + SPAN / 2;
         archF(cx, SPRING, SPAN / 2, RISE, CORN); backer(cx, SPAN, SILL, CROWN);
-        jambF(wl, SILL, SPRING); jambF(wl + SPAN, SILL, SPRING);
+        jambW(wl, SILL, SPRING); jambW(wl + SPAN, SILL, SPRING);
       }
       // CORNICE — one long LEVEL top cap (the civic tell), notched once over window 3. (4)
       capF(-40, X0 + 3 * MOD + PW, CORN); capF(X0 + 3 * MOD + PW + 2.4, 40, CORN);
@@ -3639,7 +3649,9 @@ const ARCHETYPES = {
       wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); wall.computeVertexNormals();
       wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
       parts.push({ mat: 0, bake: 'forum', geo: wall });
-      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.07 });   // tall wall → low object waterline; edge loop keeps the ladder crisp
+      // revealHi re-keys the reveal gradient to the WINDOW band (sill→crown in object Y) so the deep window backers
+      // read sill-lit→dark instead of clamping to flat-black; forumWaterY low for the tall-wall tide ladder.
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.07, revealHi: { y0: wy(SILL), span: wy(CROWN - SILL) } });
     },
     // MID-GROUND framing mass: face band |x|~32–42 (BETWEEN the near-rail and the far aqueduct), inner edge ≥~31
     // (never walls the flight lane). h coupled 0.94·r (round windows). Lane-PARALLEL side-pinned yaw so it FRAMES
