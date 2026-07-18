@@ -20,9 +20,11 @@ const { page, errors, done } = await boot({
 await page.click('#btn-start').catch(() => {});
 await page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 60000 });
 await page.evaluate(() => window.__dd.setQuality?.(0));
-// Halt the flight (speed 0 → no new obstacles/collisions to cancel fever) and arm the cascade.
-await page.evaluate(() => { window.__dd.player.speed = 0; window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; });
-await page.waitForTimeout(200);
+// Arm the cascade, then FREEZE the pose at a fixed distance (speed-regen overrides a one-shot
+// speed=0, so we re-pin player.dist every beat) so all 5 beats are the SAME framing — comparable.
+await page.evaluate(() => { window.__dd.player.speed = 0; window.__dd.clearRings(); window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; });
+await page.waitForTimeout(300);
+const D0 = await page.evaluate(() => window.__dd.player.dist);
 
 // Greyscale luminance of the dragon crop (centre, where the hero flies).
 async function dragonL() {
@@ -39,12 +41,15 @@ async function dragonL() {
   }, b64);
 }
 
-const beats = [['pre', -0.05], ['eyes', 0.10], ['spine', 0.30], ['wings', 0.45], ['full', 0.90]];
+const beats = [['pre', 0.0], ['eyes', 0.10], ['spine', 0.30], ['wings', 0.45], ['full', 0.90]];
 const out = {};
 for (const [name, t] of beats) {
   // Re-assert fever + halt each beat so the world stays suppressed and nothing cancels it.
-  await page.evaluate((t) => { window.__dd.player.speed = 0; window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; window.__dd.surgeCascadePin(t); }, t);
-  await page.waitForTimeout(250);
+  await page.evaluate(({ t, D0 }) => { window.__dd.player.speed = 0; window.__dd.player.dist = D0; window.__dd.player.position.z = -D0; window.__dd.clearRings(); window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; window.__dd.surgeCascadePin(t); }, { t, D0 });
+  await page.waitForTimeout(120);
+  // Re-pin the frozen distance right before the shot (the update loop advances it between calls).
+  await page.evaluate((D0) => { window.__dd.player.dist = D0; window.__dd.player.position.z = -D0; }, D0);
+  await page.waitForTimeout(40);
   out[name] = await dragonL();
   await page.screenshot({ path: `/tmp/cascade-${key}-${name}.png` });
 }

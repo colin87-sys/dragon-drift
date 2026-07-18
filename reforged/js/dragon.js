@@ -227,6 +227,8 @@ function _surgeFlare(t, station) {
 const casLevel = [0, 0, 0, 0];    // live per-station level [eye,spine,wing,rim] (introspection + the emissive gates)
 const casOnAt  = [-1, -1, -1, -1]; // latched 10%-crossing timestamps (the order/gap asserts)
 let casDecayProg = 0;             // 0 (sustain) → 1 (fully decayed) — shared with the release handoff
+let casOverall = 0;               // weighted overall ignition (drives the halo + body glow — dark before, bright after)
+let eyeCorona = 0;                // eye-beat screen-space corona flash (carries the subpixel eye at chase distance)
 const _sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const _casCol = new THREE.Color();   // scratch: staged station tint (base → fever hue by casLevel)
 
@@ -1757,6 +1759,12 @@ export function updateDragon(dt, player, time) {
     casLevel[i] = Math.min(1.6, lvl);
     if (casOnAt[i] < 0 && ig >= 0.1 && surgeCascadeT >= 0) casOnAt[i] = surgeCascadeT;   // latch the 10% crossing (order/gap asserts)
   }
+  // Overall ignition (drives the halo + body glow so the "before" is genuinely DARK — the
+  // resting livery no longer pre-spends the contrast, so each station is a 3×+ step not a nudge)
+  // and the EYE-BEAT corona: a bright head-local flash that carries the eye ignition as a
+  // SCREEN-SPACE event (a 2–3px eye can't read at rear-chase distance — the critic's #1 fix).
+  casOverall = Math.min(casLevel[0], 1) * 0.15 + Math.max(casLevel[1], casLevel[2], casLevel[3]) * 0.85;
+  eyeCorona = surgeCascadeT >= 0 ? Math.min(casLevel[0], 1) * (1 - _sstep(0.14, 0.5, surgeCascadeT)) : 0;
   // WELCOME+HUB §1.2a — the splash ignite beat drives the SAME proven ignition-flare visual as a
   // Surge flourish (wings glow, body emissive spike, scale pulse), so the dragon visibly IGNITES —
   // not just moves. max() → byte-identical when the beat is idle (igniteBeat01===0), and the two
@@ -1896,7 +1904,9 @@ export function updateDragon(dt, player, time) {
     if (swallowT > 0) swallowT = Math.max(0, swallowT - dt);   // H6 §B.7 the swallow tick
     const swallow01 = swallowT / SWALLOW_DUR;
     const cb = (coreGlow.userData.base || 0.3) * stormCoreKick;
-    const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
+    // The violet core RAMPS with the cascade (× casOverall) instead of blazing on frame 1 — dark
+    // before, bright after (reclaims the pre-spent contrast). off-Surge (casOverall 0) → the boost/cruise path.
+    const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm * casOverall) + Math.sin(time * 9) * 0.08 * sgm * casOverall
       : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4   // PR-C: interior ember charges
       + swallow01 * 0.5   // the ember swallow: a brief core flare as it's eaten
       + bondCoreAdd       // H7: the 1-heart heartbeat (exactly 0 with DRAGON VITALS off)
@@ -1914,7 +1924,7 @@ export function updateDragon(dt, player, time) {
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
   // overshooting on the ignition.
-  if (casLevel[1] > 0.002 || ignite > 0.002) {
+  if (casLevel[1] > 0.002 || ignite > 0.002 || surgeCascadeT >= 0) {   // also while Surge is ARMED, so the resting-livery dim applies pre-ignition (not just when lit)
     _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
     // Spine is the SECOND cascade station: its surge flare is gated by casLevel[1] (igS(1) keeps
     // the menu splash). Travel nose→tail: each mat reads casLevel delayed by its position bucket.
@@ -1932,7 +1942,11 @@ export function updateDragon(dt, player, time) {
       // A NEGATIVE flareIntensityWeight lets an already-bloom-bright mat DIM on Surge (so a DENSE field of
       // emissive faces stays saturated fire instead of the bloom summing them to white). Clamp the factor
       // ≥0.28 so a strongly-dimmed mat holds a steady deep glow and never black-blinks on the ignite spike.
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (casLevel[1] * 1.35 + igS(1) * 2.1) * sgm * wi);
+      // Reclaim contrast: while Surge is armed, the strut/spine RESTING emissive is dimmed to ~35%
+      // until the spine station ignites — so the "before" is genuinely dark and ignition is a 3×+
+      // step, not a nudge (the critic's root-cause fix). armedDim=1 off-Surge → byte-identical.
+      const armedDim = surgeCascadeT >= 0 ? 0.35 + 0.65 * Math.min(1, casLevel[1]) : 1;
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * armedDim * Math.max(0.12, 1 + (casLevel[1] * 1.35 + igS(1) * 2.1) * sgm * wi);
     }
   } else {
     for (const m of spineFlareMats) {
@@ -1958,13 +1972,18 @@ export function updateDragon(dt, player, time) {
   }
   // WELCOME+HUB §1.2a layer B — the ignite RIM/key LIFT: a one-shot +~10% rim strength (∈ +8–12%),
   // decaying with the same envelope. ×1 exactly when igniteBeat01===0 → byte-identical rim.
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + casLevel[3] * 0.95 + surgeHump * casLevel[3] * 0.35) * quality * (1 + igniteBeat01 * 0.30);
+  // While Surge is armed the RESTING rim (the cruise edge glow — the bright gold strut spikes) is
+  // dimmed to ~40% until the rim station ignites, so the silhouette is dark before and blazes after.
+  const rimArmed = surgeCascadeT >= 0 ? 0.4 + 0.6 * Math.min(1, casLevel[3]) : 1;
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[3] * 1.35 + surgeHump * casLevel[3] * 0.5) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   // H7 DRAGON VITALS: bondBodyMul steps the emissive floor down per heart lost,
   // clamped ≥0.75 (§B.1); exactly ×1 with the toggle off.
-  bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, (player.feverActive ? 0.35 : 0.12) * bondBodyMul, 4, dt);
+  // Body emissive floor RAMPS with the cascade (× casOverall), not a frame-1 jump on fever — the
+  // body stays dark until the anatomy ignites (reclaims the pre-spent contrast). Off-Surge byte-identical.
+  bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, (0.12 + 0.23 * casOverall) * bondBodyMul, 4, dt);
   // EYE is the FIRST cascade station: hue lerps base→feverEye by casLevel[0], and the eye FLASHES
   // bright as it ignites (the ≤120ms eye-flash — the first tell the transformation has begun; the
   // strongest single greyscale cue for the colorblind read). Off-Surge (casLevel[0]=0) leaves the
@@ -1983,8 +2002,11 @@ export function updateDragon(dt, player, time) {
   if (eyeMat.userData.stormEyeBase != null) eyeMat.emissiveIntensity = eyeMat.userData.stormEyeBase * (1 + 2.0 * stormCrack);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
+  // The fever halo now RAMPS WITH THE CASCADE (× casOverall) instead of blazing on frame 1, so
+  // the un-ignited dragon is dark (contrast reclaimed); the eye-beat corona adds a bright
+  // head-local flash at ignition onset (the screen-space carrier for the subpixel eye).
   const auraTarget = (player.feverActive
-    ? 0.20 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.06   // Fable 75: base 0.30→0.20, amp 0.10→0.06 (the tamed body-glow); feverAuraScale still shrinks it further for fire dragons
+    ? (0.20 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.06) * casOverall + eyeCorona * 0.55 + casLevel[3] * 0.12
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);

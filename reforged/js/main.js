@@ -442,6 +442,7 @@ if (urlParams.has('debug')) {
     surgeFlareAt: (t, s) => surgeFlareSample(t, s), // seeded sustain flare at (t, station)
     surgeDecayAt: (p) => surgeDecaySample(p),       // reverse-decay envelope at progress p (rim→wings→spine→eye-last)
     surgeCascadePin: (t) => { if (t == null) delete globalThis.__ddSurgeCascadePin; else globalThis.__ddSurgeCascadePin = t; },  // pin the cascade clock for capture (undefined in play)
+    clearRings: () => resetRings(),   // capture hook: clear ring pickups so a cascade still isn't polluted by the ring's bright torus
     surgeSeam: (beat) => {
       if (beat == null) delete globalThis.__ddSurgeForce;
       else globalThis.__ddSurgeForce = (typeof beat === 'string') ? { beat } : beat;
