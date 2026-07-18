@@ -508,7 +508,12 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   if (feverActive) {
     _surgeT += rawDt; _surgeLostT = -1; _surgeExpOver = 0;
     // Snap-with-overshoot attack (onset 150ms → dragon leads); damp fast so the snap reads.
-    _surgeGrade = damp(_surgeGrade, _surgeAttackEnv(_surgeT - 0.15), 16, rawDt);
+    let target = _surgeAttackEnv(_surgeT - 0.15);
+    // SUSTAIN breathe (~0.22Hz, ±5%): a RELATIVE tell that resists adaptation — a static −0.4 EV
+    // drop stops carrying info ~10s in ("darker" becomes the new normal), so the suppressed world
+    // gently pulses to keep the Surge STATE present on every dragon (the critic's #1 note). Photosafe.
+    if (_surgeT > 1.1) target += 0.05 * Math.sin((_surgeT - 1.1) * 2 * Math.PI * 0.22);
+    _surgeGrade = damp(_surgeGrade, target, 16, rawDt);
   } else if (_surgeLostT >= 0) {
     // DAMAGE cancel: the world lifts FAST (~300ms easeOutCubic) with a +0.10 EV brighten overshoot
     // peaking ~220ms (the "spell broken" pop), gone by ~500ms.

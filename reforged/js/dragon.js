@@ -2167,11 +2167,12 @@ export function updateDragon(dt, player, time) {
   if (eyeMat.userData.stormEyeBase != null) eyeMat.emissiveIntensity = eyeMat.userData.stormEyeBase * (1 + 2.0 * stormCrack);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
-  // The fever halo now RAMPS WITH THE CASCADE (× casOverall) instead of blazing on frame 1, so
-  // the un-ignited dragon is dark (contrast reclaimed); the eye-beat corona adds a bright
-  // head-local flash at ignition onset (the screen-space carrier for the subpixel eye).
+  // The fever halo RAMPS WITH THE CASCADE (× casOverall) so the un-ignited dragon is dark (contrast
+  // reclaimed); the CROWN CORONA (× eyeCorona) is the back-of-head first-tell + last-held ember — a
+  // screen-space glow the rear-chase camera reads where the eye can't. Boosted +50% so the crown
+  // SPARK clears the bright horizon band sitting behind the head in rear-chase (the critic's #2 note).
   const auraTarget = (player.feverActive
-    ? (0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 0.9 + casLevel[3] * 0.20
+    ? (0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 1.35 + casLevel[3] * 0.20
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
