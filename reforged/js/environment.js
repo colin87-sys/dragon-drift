@@ -3292,8 +3292,13 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // Dragon Surge palette shift: magenta by default, FIERY ember for fire dragons (feverWarm) OR any
         // biome that forces ember Surge (uSurgeWarm — the Mire, so magenta stays exclusive to danger).
         float _fw = max(feverWarm, uSurgeWarm);
-        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), _fw);
-        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), _fw);
+        // SUNBREAK I1: the warm Surge sky is a DARK ember, not a bright one — identity lives
+        // in HUE, not in how much the world darkens, so suppression DEPTH stays roster-invariant
+        // (a gameplay state must read equally strong for every dragon; a colorblind player mustn't
+        // get a weaker Surge signal on a warm dragon). The magenta target (arg 1) is dead code now
+        // (× _fw gates the whole shift to warm dragons) — kept only so the lerp endpoints read.
+        vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(0.46, 0.22, 0.07), _fw);
+        vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.34, 0.15, 0.05), _fw);
         // × (1 - uAuroraMix): the SURGE also shifts the whole sky GRADIENT toward magenta — the second
         // (bigger) half of the aurora-biome "color explosion". Suppress it too so the night sky + curtain
         // stay the spectacle during a boost (0 in every other biome → byte-identical).

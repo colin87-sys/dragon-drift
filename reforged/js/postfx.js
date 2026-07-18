@@ -86,8 +86,8 @@ const GradingShader = {
         // (c) split-tone: pool the dragon's DARK hue in the DEEP shadows with a (1-luma)^2
         // weight, so the colour STATEMENT lives in the darks (premium) not smeared over the
         // whole frame (the flat-filter tell). Stronger mix so it reads at gameplay distance.
-        float sw = 1.0 - smoothstep(0.03, 0.45, lum);
-        float shadowW = sw * sw;                                  // (1-luma)^2 — concentrates hard in the darks
+        float sw = 1.0 - smoothstep(0.03, 0.55, lum);
+        float shadowW = pow(sw, 1.5);                            // (1-luma)^1.5 — deep darks OWN the hue, a whisper reaches the midtones (kills the "dusty" neutral mid-ground read; sat stays ≤~0.10 there)
         float ld = dot(surgeDark, vec3(0.299, 0.587, 0.114));
         vec3 darkTarget = surgeDark * (lum / max(ld, 0.001));     // surgeDark's HUE at THIS pixel's luminance → pure hue shift, no brighten
         col = mix(col, darkTarget, surgeMix * shadowW * worldW * 0.85);
