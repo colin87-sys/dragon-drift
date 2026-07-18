@@ -287,7 +287,10 @@ export function setHudGrade(desat = 0, vig = 0) {
 const KICK_PRESETS = {
   goldenEmber:      { bloom: 0.30, lift: 0.35 },
   perfectMilestone: { flashFrames: 1, bloom: 0.20, lift: 0.20 },
-  surgeStart:       { bloom: 0.24 },
+  // The Surge IGNITION punch (I2.5): a 1-frame flash + bloom + lift pulse so the trigger reads as an
+  // EVENT on EVERY dragon — the universal screen-space cue that carries the moment on silhouette
+  // dragons (Vesper) whose own body barely lights. Photosafe: single frame, capped. Owner-tunable.
+  surgeStart:       { flashFrames: 1, bloom: 0.34, lift: 0.32 },
   // The RED of a combo break comes from the existing #vignette DOM flash —
   // the shader's vignette is colorless darkening.
   comboBreak:       { sat: -0.25, vig: 0.18 },
