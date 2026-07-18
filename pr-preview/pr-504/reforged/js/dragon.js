@@ -2113,12 +2113,19 @@ export function updateDragon(dt, player, time) {
   // strongest single greyscale cue for the colorblind read). Off-Surge (casLevel[0]=0) leaves the
   // eye untouched → byte-identical; storm dragons keep their own thunder-crack eye conductor below.
   eyeMat.emissive.setHex(activeDef.eye);
-  if (casLevel[0] > 0.001) {
-    eyeMat.emissive.lerp(_casCol.setHex(activeDef.feverEye ?? 0xff66ee), Math.min(1, casLevel[0]));
-    if (eyeMat.userData.stormEyeBase == null) {
-      const eyeBase = eyeMat.userData.eyeBaseI ?? (eyeMat.userData.eyeBaseI = eyeMat.emissiveIntensity || 1);
-      eyeMat.emissiveIntensity = eyeBase * (1 + casLevel[0] * 2.6 + surgeHump * casLevel[0] * 1.2);
-    }
+  if (casLevel[0] > 0.001) eyeMat.emissive.lerp(_casCol.setHex(activeDef.feverEye ?? 0xff66ee), Math.min(1, casLevel[0]));
+  // EYE-FLASH intensity — NON-STORM dragons only (`stormArcMats.length===0`); storm dragons keep
+  // their thunder-crack eye conductor below, and overlapping the two would let the conductor snapshot
+  // a flash-inflated `stormEyeBase` (Codex P2-a). The flash always derives from a CLEAN cruise
+  // baseline cached while idle, and the eye is RESTORED to it whenever the cascade is off — so an
+  // abrupt (hit-cancel) release can't strand the eye above baseline (Codex P2-b). eyeBaseI == the
+  // cruise value (the only writers of this field are this block + the storm conductor), so the
+  // restore is byte-identical off-Surge.
+  if (stormArcMats.length === 0) {
+    if (eyeMat.userData.eyeBaseI == null && surgeCascadeT < 0) eyeMat.userData.eyeBaseI = eyeMat.emissiveIntensity || 1;
+    const eb = eyeMat.userData.eyeBaseI ?? 1;
+    if (surgeCascadeT >= 0) eyeMat.emissiveIntensity = eb * (1 + casLevel[0] * 2.6 + surgeHump * casLevel[0] * 1.2);
+    else if (eyeMat.userData.eyeBaseI != null) eyeMat.emissiveIntensity = eb;   // cascade idle → restore the baseline
   }
   // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
   // Surge reads as one giant synchronized event. stormCrack is 0 for every non-storm dragon.
