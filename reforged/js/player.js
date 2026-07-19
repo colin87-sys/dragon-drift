@@ -6,6 +6,7 @@ import { damp, clamp } from './util.js';
 import { saveData } from './save.js';
 import { nextRingAhead } from './rings.js';
 import { nextGateAhead } from './obstacles.js';
+import { driftSpeedFactor, driftOverdriveSlip } from './drift.js';
 
 // Glide Assist (beginner auto-fly): compute the steering axes that intercept
 // the next ring (else gate) before the player reaches its plane. Returns the
@@ -24,7 +25,8 @@ function assistAxes(player) {
   // the assist must divide by canyonSlip too — otherwise inside the spine slipstream the
   // auto-fly velocity is scaled up by the slip factor and oversteers (visible wobble at
   // 1.40). Co-scaling here keeps the intercept exact relative to the faster world.
-  const slip = player.canyonSlip || 1;
+  // DRIFT is a second factor in the same chain, so it divides here for the same reason.
+  const slip = (player.canyonSlip || 1) * (player.driftFactor || 1);
   return {
     x: clamp((tx - player.position.x) / time / (S.lateralSpeed * bonus * slip), -1, 1),
     y: clamp((ty - player.position.y) / time / (S.verticalSpeed * bonus * slip), -1, 1),
@@ -158,11 +160,20 @@ export const player = {
     if (game.inCanyon && !game.inBoss) {
       if (game.canyonRun === 'spine') slipTarget = CONFIG.canyonSpineSlip;
       else if (game.canyonRun === 'flow') {
-        slipTarget = 1 + CONFIG.FLOW.slipPerChain * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
+        // §2 middle path: with DRIFT on, the flow canyon is the OVERDRIVE zone —
+        // the ONE meter drives the slip target (ceiling capCanyon ≈ the old 1.30);
+        // never stacked with the base drift factor (which is 1 inside canyons).
+        const od = driftOverdriveSlip();
+        slipTarget = od !== null ? od
+          : 1 + CONFIG.FLOW.slipPerChain * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
       }
     }
     this.canyonSlip = damp(this.canyonSlip, slipTarget, CONFIG.canyonSlipEase, dt);
-    const steer = steeringBonus * this.canyonSlip;
+    // DRIFT (flag-gated, else 1): the always-on momentum factor — a SECOND factor in
+    // this exact co-scale chain (steer ×, targetSpeed ×, assist ÷), so reachability
+    // ratios hold by construction. Governed: contributes nothing above 130 m/s.
+    this.driftFactor = driftSpeedFactor(this);
+    const steer = steeringBonus * this.canyonSlip * this.driftFactor;
     this.velocity.x = damp(this.velocity.x, axes.x * S.lateralSpeed * steer, CONFIG.moveAccel, dt);
     this.velocity.y = damp(this.velocity.y, axes.y * S.verticalSpeed * steer, CONFIG.moveAccel, dt);
     this.position.x += this.velocity.x * dt;
@@ -212,6 +223,7 @@ export const player = {
     if (this.orbTimer > 0) targetSpeed = Math.max(targetSpeed, S.orbSpeed * ramp);
     targetSpeed *= game.mods.speed; // Daily "High Winds" tailwind
     targetSpeed *= this.canyonSlip; // spine slipstream (E5) — co-scaled with steering above
+    targetSpeed *= this.driftFactor; // DRIFT (flag-gated; 1 in canyons/bosses) — co-scaled too
     // On-rails during the boss: hold a steady cruise so the boss (which matches
     // it and "flies backward") stays framed and bullet timing is predictable.
     if (game.inBoss) targetSpeed = CONFIG.BOSS.cruiseSpeed;

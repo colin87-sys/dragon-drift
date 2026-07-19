@@ -17,6 +17,7 @@ import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt, flowColliderBoxes } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards, debugVentStates } from './hazards.js';
+import { initDrift, updateDrift, driftValue, driftEnabled } from './drift.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
 import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
@@ -250,6 +251,8 @@ applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
 initHazards(scene);
+initDrift();   // DRIFT currency: event-bus subscriber; inert unless CONFIG.DRIFT.enabled / ?drift=1
+if (typeof window !== 'undefined') window.__drift = driftValue;   // hero-preview probe (?drift=1 feel-check)
 initPowerups(scene);
 initParticles(scene);
 initSpeedStreaks(scene);
@@ -1720,6 +1723,7 @@ function tick() {
 
     updateCollision(dt, player);
     updateBoss(dt, player, clock.getElapsedTime(), camera);
+    updateDrift(dt, player);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());
@@ -1967,7 +1971,8 @@ function tick() {
     updateSpeedStreaks(player, fxEnv);
     if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-    updateObstacles(dt, t, player.dist, obstacleSpeedNorm, slipMix);
+    updateObstacles(dt, t, player.dist, obstacleSpeedNorm, slipMix,
+      driftEnabled() ? player.speed : 0);   // §3.5: time-normalized telegraphs, drift-gated
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);

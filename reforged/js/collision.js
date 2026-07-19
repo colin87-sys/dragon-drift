@@ -6,6 +6,7 @@ import { ui } from './ui.js';
 import { sfx, setSlowMo } from './sfx.js';
 import { triggerDeathBurst } from './dragon.js';
 import { burst, gateThreadBurst, nearMissSparks, phaseBurst } from './particles.js';
+import { driftGrazeMult } from './drift.js';
 import { comboTier } from './util.js';
 import { saveData, persist } from './save.js';
 import { emit } from './events.js';
@@ -402,7 +403,9 @@ export function bulletGraze(player) {
   nearMissSparks(player.position);
   sfx.graze(game.grazeStreak);   // soft shimmer, pitch climbs with the streak
   emit('bossGraze');
-  game.grazeCharge += CONFIG.BOSS.grazeGain * (game.adrenGainMult || 1);   // adrenaline R2 "+gain" (unset/1 outside the ladder)
+  // M2: high DRIFT charges Surge faster — with the in-boss D clamp (§4a), and never
+  // stacking on an ungoverned F2 (drift.js gates parry pay behind !feverActive).
+  game.grazeCharge += CONFIG.BOSS.grazeGain * (game.adrenGainMult || 1) * driftGrazeMult();   // adrenaline R2 "+gain" (unset/1 outside the ladder)
   while (game.grazeCharge >= 1) {
     game.grazeCharge -= 1;
     game.consecutiveRings = Math.min(game.consecutiveRings + 1, game.feverThreshold);
