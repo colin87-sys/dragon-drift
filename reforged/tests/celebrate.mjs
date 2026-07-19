@@ -18,7 +18,7 @@ await page.$eval('.hero-thumb[data-hero="ember"]', (el) => el.click());
 await page.waitForFunction(() => !!document.querySelector('#hero-cta button[data-cta="buy"]'), { polling: 120 });
 await page.waitForTimeout(600);   // let wireHeroSelect finish re-rendering the CTA (async preview swap re-wires it)
 await page.$eval('#hero-cta button[data-cta="buy"]', (el) => el.click());
-await page.waitForSelector('.celebrate.visible', { timeout: 5000 });
+await page.waitForFunction(() => document.querySelector('#celebrate')?.classList.contains('visible'), { timeout: 20000, polling: 120 });   // waitForSelector's visibility check starves under swiftshader (uishots gotcha) — poll the class
 check('celebration overlay appears on purchase', true);
 check('purchase landed (owned + equipped)', await page.evaluate(() =>
   window.__dd.save.skins.owned.includes('ember') && window.__dd.save.skins.equipped === 'ember'));
@@ -55,9 +55,12 @@ check('Enter dismissed the overlay instead of launching',
   !(await page.$eval('#celebrate', (el) => el.classList.contains('visible'))));
 
 // Gameover origin: buy from the recap's shop — blank tap must not restart.
-await page.mouse.click(20, 320); // blank-tap back to start
-await page.waitForTimeout(200);
-await page.click('#btn-start');
+// $eval clicks + polled waits throughout: page.click's actionability checks starve
+// under swiftshader (uishots gotcha). Leave the shop via its topbar back button
+// (the hero-select redesign dropped the old blank-tap-back affordance).
+await page.$eval('#btn-back', (el) => el.click());
+await page.waitForFunction(() => !!document.querySelector('#btn-start'), { polling: 120, timeout: 15000 });
+await page.$eval('#btn-start', (el) => el.click());
 await page.waitForFunction(() => window.__dd.game.state === 'playing');
 await page.evaluate(() => {
   window.__dd.save.revives = 0;
@@ -65,13 +68,13 @@ await page.evaluate(() => {
 });
 await page.waitForFunction(() => !!window.__dd.game.runSummary, { timeout: 30000 });
 await page.waitForSelector('#screen .run-stats', { timeout: 30000 });
-await page.click('#btn-shop');
+await page.$eval('#btn-shop', (el) => el.click());
 await page.waitForSelector('.hero-thumb[data-hero="jade"]');
 await page.$eval('.hero-thumb[data-hero="jade"]', (el) => el.click());
 await page.waitForFunction(() => !!document.querySelector('#hero-cta button[data-cta="buy"]'), { polling: 120 });
 await page.waitForTimeout(600);   // CTA re-render settle (see above)
 await page.$eval('#hero-cta button[data-cta="buy"]', (el) => el.click());
-await page.waitForSelector('.celebrate.visible', { timeout: 5000 });
+await page.waitForFunction(() => document.querySelector('#celebrate')?.classList.contains('visible'), { timeout: 20000, polling: 120 });   // waitForSelector's visibility check starves under swiftshader (uishots gotcha) — poll the class
 await page.waitForTimeout(700);
 await page.mouse.click(450, 60); // blank tap: dismiss, NOT restart
 await page.waitForTimeout(300);
