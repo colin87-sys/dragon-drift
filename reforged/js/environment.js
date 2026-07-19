@@ -5112,8 +5112,8 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         if (uEmpyStruct > 0.001) {
           float _az = abs(atan(d.x, -d.z));
           float _flank = smoothstep(0.44, 1.22, _az);
-          float _hband = 1.0 - smoothstep(0.02, 0.30, h);      // Fable PR-A gate: the mush survived at the HORIZON band — deepen the drop there (post-ACES it compresses to ~15-18%)
-          col *= 1.0 - (0.16 + 0.14 * _hband) * _flank * uEmpyStruct;
+          float _hband = 1.0 - smoothstep(0.0, 0.35, h);       // PR-A r3: the r2 drop DECAYED toward the sky-water line (ACES compresses the near-white band) — push harder exactly there
+          col *= 1.0 - (0.16 + 0.24 * _hband) * _flank * uEmpyStruct;
           col = mix(col, col * vec3(0.94, 0.90, 1.06), _flank * 0.6 * uEmpyStruct);
           float _rb = sin(_az * 2.2 + h * 5.0 - time * 0.06);
           float _rbm = smoothstep(0.86, 0.98, _rb) * smoothstep(0.12, 0.45, h) * uEmpyStruct;
