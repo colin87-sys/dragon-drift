@@ -4,8 +4,8 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul, godrayTint, godrayBreak } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug, surgeCascadeDebug, surgeCascadeSample, surgeFlareSample, surgeDecaySample } from './dragon.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, setEmpyreanQuality, godrayMul, godrayTint, godrayBreak } from './environment.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug, surgeCascadeDebug, surgeCascadeSample, surgeFlareSample, surgeDecaySample, surgeGutterSample } from './dragon.js';
 import { setVitals, setSurge } from './dragonBond.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -26,7 +26,7 @@ import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim, surgeExposureDip, surgeGradeMix } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim, surgeExposureDip, surgeGradeMix, surgeGradeEnvAt, surgeLost as surgeLostPostfx } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -404,6 +404,7 @@ if (urlParams.has('debug')) {
     // cycle phase) so a tool can frame the vent-site presentation close up in the biome lighting.
     spawnVent: (ahead = 40, x = 0) => addHazard({ dist: player.dist + ahead, x, warn: BIOMES[3].hazard.warn, radius: BIOMES[3].hazard.radius, type: 'geyser', phase: 0 }),
     clearVents: () => resetHazards(),   // capture hook: drop all live vents so a shot frames exactly one
+    clearObstacles: () => resetObstacles(),   // capture hook: despawn every live obstacle/gate/run so a still frames the biome (sky/props/water) without a flow-gate tunnel or crystal wall crossing the shot — pair with noBoss(true) + timeScale 0
     ventStates: () => debugVentStates(),   // capture hook: read vent phase (the cycle runs on the render clock)
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
@@ -438,9 +439,11 @@ if (urlParams.has('debug')) {
       gradeMix: surgeGradeMix(), exposure: renderer.toneMappingExposure, exposureBase }),
     // I2 anatomical ignition cascade trace (per-station levels + latched onset timestamps).
     surgeCascade: () => surgeCascadeDebug(),
+    surgeGradeEnvAt: (t) => surgeGradeEnvAt(t),     // pure world-suppression attack envelope at t (snap-overshoot asserts)
     surgeCascadeAt: (t) => surgeCascadeSample(t),   // pure forward envelope at cascade-time t (fine-res, frame-clock-independent)
     surgeFlareAt: (t, s) => surgeFlareSample(t, s), // seeded sustain flare at (t, station)
     surgeDecayAt: (p) => surgeDecaySample(p),       // reverse-decay envelope at progress p (rim→wings→spine→eye-last)
+    surgeGutterAt: (t) => surgeGutterSample(t),     // damage-cancel gutter envelope at t (2-stutter "lost it")
     surgeCascadePin: (t) => { if (t == null) delete globalThis.__ddSurgeCascadePin; else globalThis.__ddSurgeCascadePin = t; },  // pin the cascade clock for capture (undefined in play)
     clearRings: () => resetRings(),   // capture hook: clear ring pickups so a cascade still isn't polluted by the ring's bright torus
     surgeSeam: (beat) => {
@@ -594,6 +597,9 @@ initAnalytics();
 // First-ever Dragon Surge: the signature peak. A non-blocking flourish names the
 // moment mid-flight (the run never pauses); the run-1 recap explains it (recap.js).
 on('firstSurge', () => ui.surgeFlourish());
+// I2.5: a DAMAGE hit that kills the Surge arms the world's fast brighten-pop ("spell broken");
+// the dragon self-detects the abrupt edge for its gutter-out. A natural drain fires no event.
+on('surgeLost', () => surgeLostPostfx());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
@@ -1508,6 +1514,7 @@ function applyQuality(tier) {
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
   setAuroraQuality(tier); // Aurora Shallows: tier0 2 layers+rays / tier1 1 layer / tier2 smooth quiet arc
+  setEmpyreanQuality(tier); // THE EMPYREAN: tier2 drops the nebula's 2nd-order domain warp (keeps 4 octaves)
   setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 

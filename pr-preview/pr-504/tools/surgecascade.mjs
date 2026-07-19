@@ -41,7 +41,8 @@ async function dragonL() {
   }, b64);
 }
 
-const beats = [['pre', 0.0], ['eyes', 0.10], ['spine', 0.30], ['wings', 0.45], ['full', 0.90]];
+// Rear-chase stations (Fable replan): crown corona → spine RUSH → wing SPREAD → tail CRACK → full.
+const beats = [['pre', 0.0], ['crown', 0.06], ['spine', 0.22], ['wing', 0.40], ['tail', 0.55], ['full', 0.90]];
 const out = {};
 for (const [name, t] of beats) {
   // Re-assert fever + halt each beat so the world stays suppressed and nothing cancels it.

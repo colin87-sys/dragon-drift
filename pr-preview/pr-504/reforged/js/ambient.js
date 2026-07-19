@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { makeGlowTexture } from './util.js';
 import { bindAtmosphere, chainBeforeCompile } from './atmosphere.js';
 import { ROOF_ALT_LO, ROOF_ALT_HI } from './environment.js';   // Fable A1: SAME altitude window as the canopy roof (used at runtime → cyclic import safe)
@@ -60,11 +61,20 @@ let whale = null;
 let whaleTail = null;
 let whaleFins = [];
 let flyby = null; // foreground single-bird flyby (dusk sanctuary)
+// inkShoal (PR-5b, THE EMPYREAN): a coherent SCHOOL of ink-violet koi that replaces the reskinned
+// circling bird-flock where a biome declares `shoal`. Invisible + zero-cost everywhere else
+// (shoalMix 0 → visible=false → the circling flock renders byte-identical).
+let shoal = null;
+const SHOAL_COUNT = 10;   // Fable PR-5b: fewer + bigger + aligned reads as fauna; many tiny dark points reads as noise
+const shoalData = [];
 
-// Tier gate: birds (per-frame matrix writes) drop out at the lowest tier.
+// Tier gate: per-frame matrix writers (birds, flyby, shoal) drop out at the lowest tier.
+let tierOn = true;
 export function setAmbientQuality(q) {
-  if (birds) birds.visible = q > 0.4;
-  if (flyby) flyby.visible = q > 0.4;
+  tierOn = q > 0.4;
+  if (birds) birds.visible = tierOn;
+  if (flyby) flyby.visible = tierOn;
+  if (shoal) shoal.visible = tierOn;
 }
 
 const m4 = new THREE.Matrix4();
@@ -127,6 +137,49 @@ export function createAmbient(scene) {
     });
   }
   scene.add(birds);
+
+  // inkShoal (PR-5b, THE EMPYREAN): a coherent SCHOOL of ink-violet koi — the biome's bespoke ambient
+  // fauna, replacing the reskinned circling bird-cones. One koi = a fusiform body (faceted spindle) + a
+  // fanned caudal fin, merged into a single ≤14-tri geometry and instanced. Distinct from the bird (no
+  // mid-body wing sweep; a tail fan reads as a FISH), and it moves as one school, not lazy circles.
+  const koiBody = new THREE.OctahedronGeometry(0.5, 0);
+  koiBody.scale(1.4, 0.44, 0.26);                  // 3:1 length:width dash — a single mark reads as a fish, not a fleck (Fable PR-5b)
+  const koiTail = new THREE.ConeGeometry(0.34, 0.5, 3).toNonIndexed();  // match the non-indexed body so mergeGeometries can join them
+  koiTail.rotateZ(-Math.PI / 2);                    // apex → +X (meets body), base fan → -X (the tail edge)
+  koiTail.scale(1.0, 1.4, 0.10);                    // tall + thin = a caudal FAN, never a spike
+  koiTail.translate(-0.92, 0, 0);
+  const koiGeo = mergeGeometries([koiBody, koiTail], false);
+  if (!koiGeo) throw new Error('inkShoal: koi mergeGeometries returned null (attribute mismatch)');
+  shoal = new THREE.InstancedMesh(
+    koiGeo,
+    // Fogged basic material (like the birds/whale) so the dark koi are LIFTED by the opal fog toward the
+    // pale field — a soft dark drift, never a true-dark that rivals the Mote. A hair above the canon ink
+    // colour 0x1a1424 (Fable PR-5b: at render, 0x1a1424 sat near-black and contested the Mote's true black
+    // 0x050308; 0x281f36 keeps koi clearly SUBORDINATE — punctuation, not a second focal dark). Transparent
+    // so the school fades in over the biome seam via shoalMix; depthWrite off (distant fauna must not occlude).
+    bindAtmosphere(new THREE.MeshBasicMaterial({ color: 0x281f36, fog: true, transparent: true, opacity: 0, depthWrite: false })),
+    SHOAL_COUNT
+  );
+  shoal.frustumCulled = false;
+  shoal.layers.set(1);
+  shoal.visible = false;
+  shoal.name = 'inkShoal';
+  for (let i = 0; i < SHOAL_COUNT; i++) {
+    // Each koi: an ellipsoidal rest offset inside the school + its own slow churn orbit (the shoal
+    // never freezes into a grid) + an undulation phase (the whole-body yaw wag = the cheap "swim").
+    shoalData.push({
+      ox: (Math.random() - 0.5) * 13,
+      oy: (Math.random() - 0.5) * 6,
+      oz: (Math.random() - 0.5) * 15,
+      wander: 1.1 + Math.random() * 1.4,
+      orbSpeed: 0.18 + Math.random() * 0.22,
+      orbPhase: Math.random() * Math.PI * 2,
+      swimRate: 2.4 + Math.random() * 1.8,
+      swimPhase: Math.random() * Math.PI * 2,
+      sizeJit: 0.95 + Math.random() * 0.35,   // no tiny strays (a small koi at an odd angle is the residual "scribble" tell)
+    });
+  }
+  scene.add(shoal);
 
   // Foreground flyby: single gull crossing high over the lane (biome 0 only).
   flyby = new THREE.InstancedMesh(
@@ -216,7 +269,9 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
 
   // Sky whale: drifts the far horizon, fading with the biome seam.
   if (whale) {
-    const mix = env.whaleMix;
+    // §8: the whale MESH shows only the non-mote remainder of the landmark mix — a 'mote' landmark biome
+    // (the Empyrean) renders the Mote (a sky-shader term) instead, so its whale portion is subtracted out.
+    const mix = env.whaleMix - (env.moteMix || 0);
     whale.visible = mix > 0.02;
     if (whale.visible) {
       whaleTail.material.opacity = mix * 0.92;
@@ -232,6 +287,51 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       whaleFins[0].rotation.x = Math.sin(time * 0.7) * 0.3;
       whaleFins[1].rotation.x = -Math.sin(time * 0.7) * 0.3;
     }
+  }
+
+  // inkShoal (PR-5b): a coherent SCHOOL of ink-koi drifting high ahead of the lane. Where a biome
+  // declares `shoal` (env.shoalMix>0) the lazy circling flock hands off to the school; shoalMix 0
+  // elsewhere → shoal.visible=false + birds untouched = the circling flock renders byte-identical.
+  if (shoal) {
+    const active = tierOn && env.shoalMix > 0.02;
+    shoal.visible = active;
+    if (active) {
+      shoal.material.opacity = env.shoalMix;
+      // Whole-school drift + a slow shared wheel: every koi carries the SAME heading (a school, not a
+      // scatter), held near BROADSIDE (small swing) so the koi project their full length toward the lens —
+      // a foreshortened koi collapses to a 2px fleck (the "noise/scribble" tell Fable caught). The school
+      // drifts HIGH in the OPEN sky off to one side: dark koi read cleanest against the bright field
+      // (dark-on-light) with no prop clutter, wide of the high-centre Mote (its one true-dark focal point
+      // must own its own space) and ABOVE the sentinel tips (altitude clears the seed-placed props).
+      const st = time * 0.05;
+      const cX = 44 + Math.sin(st) * 10;
+      const cY = 66 + Math.sin(st * 1.3) * 3;   // WELL above the tallest sentinel tips, clear even at the look-up pitch (props are seed-placed; the school is player-relative, so altitude — not X, which risks the colonnades on BOTH flanks — is the robust separator)
+      const cZ = -playerDist - 108 + Math.cos(st * 0.8) * 16;
+      const heading = 0.2 + Math.sin(st * 0.7) * 0.4;
+      const fs = env.faunaScale * 4.8;
+      for (let i = 0; i < SHOAL_COUNT; i++) {
+        const f = shoalData[i];
+        const churn = time * f.orbSpeed + f.orbPhase;
+        pos.set(
+          cX + f.ox + Math.sin(churn) * f.wander,
+          cY + f.oy + Math.sin(churn * 1.3) * f.wander * 0.5,
+          cZ + f.oz + Math.cos(churn) * f.wander
+        );
+        // Face the school heading + a CLAMPED tail-wag yaw sway (±~13°, the cheap "swim") + a faint bank.
+        // The tight clamp keeps every koi near the shared heading → aligned school, not a scatter of angles.
+        const wag = Math.sin(time * f.swimRate + f.swimPhase) * 0.15;
+        eul.set(0, heading + wag, Math.sin(churn * 1.3) * 0.08);
+        quat.setFromEuler(eul);
+        const s = fs * f.sizeJit;
+        scl.set(s, s, s);
+        m4.compose(pos, quat, scl);
+        shoal.setMatrixAt(i, m4);
+      }
+      shoal.instanceMatrix.needsUpdate = true;
+    }
+    // Hand off: the lazy circling flock steps aside once the school owns the frame (byte-identical when
+    // shoalMix 0 → birds.visible follows the tier gate exactly as before).
+    if (tierOn) birds.visible = env.shoalMix <= 0.5;
   }
 
   // Flock: lazy circles above the course — color, size and wingbeat re-skin

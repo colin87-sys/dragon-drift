@@ -19,25 +19,24 @@ const read = (p) => readFileSync(join(DIR, '..', p), 'utf8');
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; } else { fail++; console.error(`FAIL: ${label}`); } };
 
-// PR-4 THE FLIP: Aurora Shallows (6) is slotted between Lumen Mire (4) and Astral Shallows (5) —
-// CYCLE = [0,1,2,3,4,6,5], now 7 long. The shipped PREFIX (blocks 0-4 → biomes 0-4) is preserved;
-// the order changes from block 5 on (was Astral, now Aurora → Astral). gold-determinism is untouched
-// because course gen is biome-blind (a separate test proves the fixtures still match).
-check('CYCLE is [0,1,2,3,4,6,5] (Aurora slotted between Mire and Astral)',
-  Array.isArray(CYCLE) && CYCLE.length === 7 && [0, 1, 2, 3, 4, 6, 5].every((v, i) => CYCLE[i] === v));
-check('BIOMES[6] (Aurora Shallows) is now IN the cycle', BIOMES.length === 8 && CYCLE.includes(6));
-// Tempest Reach (BIOMES[7]) is APPENDED but NOT yet cycled — the coexistence contract: reachable
-// only via ?biome=7 until its CYCLE flip lands (coordinated with the Lost Lagoon arc). Adding it must
-// not change the shipped world, so CYCLE must still exclude 7 and stay length 7.
-check('BIOMES[7] (Tempest Reach) is appended but NOT yet in the cycle',
-  BIOMES.length === 8 && BIOMES[7].name === 'TEMPEST REACH' && !CYCLE.includes(7) && CYCLE.length === 7);
+// THE FLIPS: Aurora Shallows (6) slotted between Mire (4) and Astral (5), then Tempest Reach (7)
+// slotted between Aurora (6) and Astral (5) → CYCLE = [0,1,2,3,4,6,7,5], now 8 long. The shipped PREFIX
+// (blocks 0-4 → biomes 0-4) is preserved; the order changes from block 5 on. gold-determinism is
+// untouched because course gen is biome-blind (a separate test proves the fixtures still match).
+check('CYCLE is [0,1,2,3,4,6,7,5] (Aurora then Tempest slotted before Astral)',
+  Array.isArray(CYCLE) && CYCLE.length === 8 && [0, 1, 2, 3, 4, 6, 7, 5].every((v, i) => CYCLE[i] === v));
+check('BIOMES[6] (Aurora Shallows) is IN the cycle', BIOMES.length === 8 && CYCLE.includes(6));
+// Tempest Reach (BIOMES[7]) — THE TEMPEST FLIP landed: now cycled between Aurora and Astral (the
+// climactic AURORA → TEMPEST → ASTRAL three-beat; tri-budget-forced off the Mire neighbour).
+check('BIOMES[7] (Tempest Reach) is now IN the cycle',
+  BIOMES.length === 8 && BIOMES[7].name === 'TEMPEST REACH' && CYCLE.includes(7) && CYCLE.length === 8);
 check('the shipped prefix survives: blocks 0-4 are still biomes 0,1,2,3,4', [0, 1, 2, 3, 4].every((b, i) => CYCLE[i] === b));
-check('Aurora sits between Mire(4) and Astral(5): ...,4,6,5', CYCLE[4] === 4 && CYCLE[5] === 6 && CYCLE[6] === 5);
+check('Aurora → Tempest → Astral tail: ...,4,6,7,5', CYCLE[4] === 4 && CYCLE[5] === 6 && CYCLE[6] === 7 && CYCLE[7] === 5);
 
 // biomeAt cycles through CYCLE with period CYCLE.length — reproduce CYCLE[block % N] exactly, and
-// biome 6 must now BE reachable via the seam (at block ≡ 5 mod 7).
+// biomes 6 + 7 must now BE reachable via the seam (biome 6 at block ≡ 5, biome 7 at block ≡ 6, mod 8).
 const L = CONFIG.biomeLength, N = CYCLE.length;
-let iaOk = true, ibOk = true, idxOk = true, sixAtRightBlock = true, sixSeen = false;
+let iaOk = true, ibOk = true, idxOk = true, sixAtRightBlock = true, sixSeen = false, sevenAtRightBlock = true, sevenSeen = false;
 for (let dist = 0; dist <= 24 * L; dist += 37) {
   const block = Math.max(0, Math.floor(dist / L));
   const oldIa = CYCLE[block % N], oldIb = CYCLE[(block % N + 1) % N];
@@ -45,6 +44,7 @@ for (let dist = 0; dist <= 24 * L; dist += 37) {
   if (ia !== oldIa) iaOk = false;
   if (ib !== oldIb) ibOk = false;
   if (ia === 6) { sixSeen = true; if (block % N !== 5) sixAtRightBlock = false; }
+  if (ia === 7) { sevenSeen = true; if (block % N !== 6) sevenAtRightBlock = false; }
   const idx = biomeIndexAt(dist);
   if (idx !== (t < 0.5 ? oldIa : oldIb)) idxOk = false;
 }
@@ -52,7 +52,9 @@ check('biomeAt.ia reproduces CYCLE[block % N] over the cycles', iaOk);
 check('biomeAt.ib reproduces CYCLE[(block+1) % N]', ibOk);
 check('biomeIndexAt is unchanged (picks ia/ib by the seam t)', idxOk);
 check('biome 6 IS reachable via biomeAt (the flip took effect)', sixSeen);
-check('biome 6 appears exactly at block ≡ 5 (mod 7)', sixAtRightBlock);
+check('biome 6 appears exactly at block ≡ 5 (mod 8)', sixAtRightBlock);
+check('biome 7 (Tempest) IS reachable via biomeAt (the Tempest flip took effect)', sevenSeen);
+check('biome 7 appears exactly at block ≡ 6 (mod 8)', sevenAtRightBlock);
 
 // The seam consumers must route through CYCLE, not `block % BIOMES.length` / `k % N`.
 const biomesSrc = read('js/biomes.js'), levelSrc = read('js/level.js');

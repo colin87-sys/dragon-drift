@@ -63,7 +63,7 @@ const PHASE_SKINS = [
   { veil: 0x6effc8, edge: 0x4dffd0, core: 0xcfffd8, mote: 0xaaffc0, rise:  0.7 }, // 4 Mire — spore veil
   { veil: 0x8a6aff, edge: 0x9fb8ff, core: 0xd8c8ff, mote: 0xb9a8ff, rise:  0.05 }, // 5 Astral — cosmic violet
   { veil: 0x46e0b8, edge: 0x86ffe0, core: 0xdafff2, mote: 0xa8f0e0, rise: -0.3 }, // 6 Aurora — frost-teal, settles
-  { veil: 0x8fa8ff, edge: 0xd9deff, core: 0xffffff, mote: 0xbcc6e8, rise:  0.3 }, // 7 Tempest — lightning white-core / storm-white edge / violet veil
+  { veil: 0x8fa8ff, edge: 0xd9deff, core: 0xbfc6dd, mote: 0xbcc6e8, rise:  0.3 }, // 7 Tempest — storm-white edge / violet veil; core cooled+dimmed #ffffff→#bfc6dd (Fable focal-rival gate: the pure-white additive locator was the top rival dead-center under the eye-breach — fold the cool tint + ~0.82 intensity into the ADDITIVE color so the fairness approach-ramp is untouched; the veil/edge/frame carry legibility, so the safe route still reads)
 ];
 
 // Fresnel veil: a magical membrane that is MOST transparent viewed head-on (so

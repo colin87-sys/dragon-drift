@@ -49,7 +49,11 @@ for (const a of data) {
   // (drape) measure lane reach from the sub-unitY trunk band (rhoLane) only. OVERHEAD wins
   // over PAIRED when both are set (stormarch is a paired arch WITH an overhead crown span):
   // pairing only governs distance-alignment; the crown clearance is legitimately the trunk.
-  const facing = a.gate ? a.apertureHalf : a.overhead ? a.rhoLane : a.paired ? a.xMax : a.rho;
+  // LANE-PINNED amendment (TEMPEST-COMPOSITION-BUILD-SHEET §4.5): a lane-PARALLEL wall (scarpwall) reaches
+  // toward the lane by its object-space DEPTH (zMax, the thin seaward face), NOT the full random-rotY ρ
+  // (which is ~the half-LENGTH — it never rotates into the lane, the rotY is side-pinned). Without this a
+  // ±1-object-x wall reports ρ≈1 → inner = |x|−ρ·r ≈ negative and biome 7's CI gate hard-fails at merge.
+  const facing = a.gate ? a.apertureHalf : a.overhead ? a.rhoLane : a.paired ? a.xMax : a.lanePinned ? a.zMax : a.rho;
   for (const s of a.samples) {
     const top = s.h * a.yMax;
     // For an overhead roof, the geometry that can invade the flight band is the trunk,

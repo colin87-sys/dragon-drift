@@ -85,36 +85,41 @@ check(`grade releases after the Surge ends (${rel.toFixed(3)} < 0.3)`, rel < 0.3
 // ── I2: anatomical ignition cascade (pure-sampler traces, frame-clock-independent) ──────
 const un = (a, b) => Math.abs(a - b) / Math.min(a, b);
 
-// Forward cascade: order eyes<spine<wings<rim, onset gaps ≥120ms and pairwise UNEVEN ≥15%.
+// REAR-CHASE cascade: 5 stations crown<spine<wing<tail<rim, travelling TOWARD the camera;
+// onset gaps ≥120ms + pairwise UNEVEN ≥15%. (Low threshold so the uneven onset stagger survives.)
 const casOn = await page.evaluate(() => {
-  const th = 0.05, on = [-1, -1, -1, -1];
-  for (let t = 0; t <= 1.0; t += 0.002) { const L = window.__dd.surgeCascadeAt(t); for (let i = 0; i < 4; i++) if (on[i] < 0 && L[i] >= th) on[i] = t; }
+  const th = 0.005, on = [-1, -1, -1, -1, -1];
+  for (let t = 0; t <= 1.2; t += 0.001) { const L = window.__dd.surgeCascadeAt(t); for (let i = 0; i < 5; i++) if (on[i] < 0 && L[i] >= th) on[i] = t; }
   return on;
 });
-const cg = [casOn[1] - casOn[0], casOn[2] - casOn[1], casOn[3] - casOn[2]];
-check(`cascade order eyes<spine<wings<rim (onsets ${casOn.map((o) => Math.round(o * 1000)).join('/')}ms)`,
-  casOn[0] < casOn[1] && casOn[1] < casOn[2] && casOn[2] < casOn[3]);
+const cg = [casOn[1] - casOn[0], casOn[2] - casOn[1], casOn[3] - casOn[2], casOn[4] - casOn[3]];
+check(`cascade order crown<spine<wing<tail<rim (onsets ${casOn.map((o) => Math.round(o * 1000)).join('/')}ms)`,
+  casOn[0] < casOn[1] && casOn[1] < casOn[2] && casOn[2] < casOn[3] && casOn[3] < casOn[4]);
 check(`station gaps ≥120ms (${cg.map((g) => Math.round(g * 1000)).join('/')})`, cg.every((g) => g >= 0.118));
 check('station gaps pairwise UNEVEN ≥15% (no metronome)',
-  un(cg[0], cg[1]) >= 0.15 && un(cg[1], cg[2]) >= 0.15 && un(cg[0], cg[2]) >= 0.15);
+  un(cg[0], cg[1]) >= 0.15 && un(cg[1], cg[2]) >= 0.15 && un(cg[2], cg[3]) >= 0.15);
 
-// Per-station attack sharp enough to read as an EVENT (eye ≤60ms, others ≤120ms; 10→70%).
+// The wave travels TOWARD the camera: the TAIL-crack (nearest) lands well after the CROWN (farthest).
+check(`travels toward the viewer: tail lands ≥350ms after crown (${Math.round((casOn[3] - casOn[0]) * 1000)}ms)`,
+  casOn[3] - casOn[0] >= 0.35);
+
+// Per-station attack sharp enough to read as an EVENT (≤120ms; tail crack the sharpest; 10→70%).
 const atk = await page.evaluate(() => {
-  const out = []; for (let i = 0; i < 4; i++) { let a = -1, b = -1; for (let t = 0; t <= 1; t += 0.001) { const L = window.__dd.surgeCascadeAt(t)[i]; if (a < 0 && L >= 0.1) a = t; if (b < 0 && L >= 0.7) { b = t; break; } } out.push(b - a); } return out;
+  const out = []; for (let i = 0; i < 5; i++) { let a = -1, b = -1; for (let t = 0; t <= 1.2; t += 0.001) { const L = window.__dd.surgeCascadeAt(t)[i]; if (a < 0 && L >= 0.1) a = t; if (b < 0 && L >= 0.7) { b = t; break; } } out.push(b - a); } return out;
 });
-check(`per-station attack (10→70%) eye ≤60ms (${Math.round(atk[0] * 1000)}), rest ≤120ms (${atk.slice(1).map((x) => Math.round(x * 1000)).join('/')})`,
-  atk[0] <= 0.062 && atk.slice(1).every((x) => x <= 0.122));
+check(`per-station attack (10→70%) all ≤130ms (${atk.map((x) => Math.round(x * 1000)).join('/')})`,
+  atk.every((x) => x <= 0.131));
 
-// DECAY reverse order: rim dims FIRST → wings → spine → EYE holds LAST (50%-decay progress).
+// DECAY REWINDS toward the head: rim dims FIRST → tail → wing → spine → CROWN holds LAST.
 const dOn = await page.evaluate(() => {
-  const half = [-1, -1, -1, -1];
-  for (let p = 0; p <= 1.0; p += 0.002) { const R = window.__dd.surgeDecayAt(p); for (let i = 0; i < 4; i++) if (half[i] < 0 && R[i] <= 0.5) half[i] = p; }
-  return half;   // [eye,spine,wing,rim] progress at 50% decayed
+  const half = [-1, -1, -1, -1, -1];
+  for (let p = 0; p <= 1.0; p += 0.002) { const R = window.__dd.surgeDecayAt(p); for (let i = 0; i < 5; i++) if (half[i] < 0 && R[i] <= 0.5) half[i] = p; }
+  return half;   // [crown,spine,wing,tail,rim] progress at 50% decayed
 });
-check(`decay reverse order rim<wings<spine<eye (eye holds last; 50%@ ${dOn.map((p) => p.toFixed(2)).join('/')})`,
-  dOn[3] < dOn[2] && dOn[2] < dOn[1] && dOn[1] < dOn[0]);
-const eyeHold = await page.evaluate(() => window.__dd.surgeDecayAt(0.55)[0]);
-check(`eye still ≥60% lit at 55% through decay (holds last) (${eyeHold.toFixed(2)})`, eyeHold >= 0.6);
+check(`decay rewind rim<tail<wing<spine<crown (crown holds last; 50%@ ${dOn.map((p) => p.toFixed(2)).join('/')})`,
+  dOn[4] < dOn[3] && dOn[3] < dOn[2] && dOn[2] < dOn[1] && dOn[1] < dOn[0]);
+const crownHold = await page.evaluate(() => window.__dd.surgeDecayAt(0.62)[0]);
+check(`crown still ≥60% lit at 62% through decay (holds last) (${crownHold.toFixed(2)})`, crownHold >= 0.6);
 
 // SUSTAIN flares: trigger a fresh surge, read the seeded centres — count 3–4, gaps uneven,
 // travelling ripple (rim crest lags eye crest 250–450ms), deterministic (no Math.random).
@@ -135,6 +140,28 @@ const travel = await page.evaluate((c0) => {
   return rimPk - eyePk;
 }, cas.flares[0]);
 check(`flare travels eye→rim (rim crest lags ${Math.round(travel * 1000)}ms, in 250–450)`, travel >= 0.25 && travel <= 0.45);
+
+// ── I2.5: world-suppression punch-up (snap-with-overshoot) + the two exits ──────────────
+// The world grade SNAPS down (dragon leads by a ~150ms onset), overshoots ~115%, settles to 100%.
+const ge = await page.evaluate(() => {
+  const s = (t) => window.__dd.surgeGradeEnvAt(t);
+  let peak = 0, peakT = 0; for (let t = 0; t <= 1.4; t += 0.005) { const v = s(t); if (v > peak) { peak = v; peakT = t; } }
+  return { at10: s(0.10), at15: s(0.15), at45: s(0.45), peak, peakT, settled: s(1.25) };
+});
+check(`world grade lags the dragon (onset ~150ms: env@100ms=${ge.at10.toFixed(2)} ≈ 0)`, ge.at10 <= 0.05);
+check(`world SNAPS to full by ~450ms (env@450ms=${ge.at45.toFixed(2)} ≥ 0.9)`, ge.at45 >= 0.9);
+check(`overshoot present (~115%: peak ${ge.peak.toFixed(2)} at ${Math.round(ge.peakT * 1000)}ms, in 1.08–1.20)`, ge.peak >= 1.08 && ge.peak <= 1.20);
+check(`settles to ~100% (env@1.25s=${ge.settled.toFixed(2)}, in 0.95–1.05)`, ge.settled >= 0.95 && ge.settled <= 1.05);
+
+// DAMAGE-cancel gutter: a 2-stutter "you lost it" curve (non-monotonic rebound), dead by ~440ms —
+// structurally distinct from the natural drain's smooth eye-last decay.
+const gut = await page.evaluate(() => {
+  const s = (t) => window.__dd.surgeGutterAt(t);
+  return { d60: s(0.06), d140: s(0.14), d240: s(0.24), d440: s(0.44), start: s(0.0) };
+});
+check(`gutter starts full then dips (env@60ms=${gut.d60.toFixed(2)} < start ${gut.start.toFixed(2)})`, gut.d60 < gut.start);
+check(`gutter REBOUNDS (2-stutter: env@140ms=${gut.d140.toFixed(2)} > env@60ms=${gut.d60.toFixed(2)})`, gut.d140 > gut.d60 + 0.05);
+check(`gutter dead by ~440ms (env@440ms=${gut.d440.toFixed(2)} ≤ 0.03)`, gut.d440 <= 0.03);
 
 check('no console errors', errors.length === 0) || console.error(errors.join('\n'));
 await done();

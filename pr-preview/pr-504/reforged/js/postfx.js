@@ -136,10 +136,26 @@ export const postfx = {
 // is real-time elapsed since the Surge rising edge (drives the delayed-onset ramp shape).
 let _surgeGrade = 0;
 let _surgeT = 0;
-// The tone-mapping exposure dip (−0.4 EV at full) is applied in main.js at the single
-// exposure write (§M.1-4) — this getter hands it the current dip fraction.
-export function surgeExposureDip() { return 0.24 * _surgeGrade; }   // exposure *= (1 - dip); 0.24 ≈ −0.4 EV
+let _surgeLostT = -1;     // s since a DAMAGE cancel (-1 = not a damage loss → natural slow lift)
+let _surgeLostFrom = 0;   // grade at the damage cancel (the fast-lift starts from here)
+let _surgeExpOver = 0;    // exposure BRIGHTEN overshoot on the damage lift (the "spell broken" value pop)
+// Pure attack envelope: the world SNAPS down on the trigger edge (dragon leads by a ~150ms onset,
+// then a fast easeOutCubic to 115% depth by ~400ms) and SETTLES to 100% by ~900ms — a felt "the
+// sky just dropped" event, not a slow drift (Fable ruling). Overshoot-and-settle = felt, not late.
+function _surgeAttackEnv(e) {
+  if (e <= 0) return 0;
+  if (e < 0.40) { const x = e / 0.40; return 1.15 * (1 - (1 - x) * (1 - x) * (1 - x)); }   // easeOutCubic → 115%
+  if (e < 0.90) { const x = (e - 0.40) / 0.50; return 1.15 - 0.15 * (0.5 - 0.5 * Math.cos(Math.PI * x)); }  // easeInOutSine settle → 100%
+  return 1.0;
+}
+// A DAMAGE hit KILLS the Surge (not a natural drain): the world lifts FAST (~300ms) and POPS a
+// touch brighter than normal for one beat — a pure-value "spell broken" signature (colorblind-safe).
+export function surgeLost() { _surgeLostT = 0; _surgeLostFrom = _surgeGrade; }
+// The tone-mapping exposure dip is applied in main.js at the single exposure write (§M.1-4). A
+// positive result DIPS (darker); the damage-lift overshoot makes it briefly NEGATIVE (brighter).
+export function surgeExposureDip() { return 0.24 * _surgeGrade - _surgeExpOver; }
 export function surgeGradeMix() { return _surgeGrade; }             // trace seam for the surgefx envelope asserts
+export function surgeGradeEnvAt(t) { return _surgeAttackEnv(t - 0.15); }   // pure sampler (frame-clock-independent asserts)
 
 // Fever-wash hue. RETAINED as the KICK/flash hue (goldenEmber, arenaFlood, the release
 // flash) — the additive fever *wash* term is retired in SUNBREAK I1 (world-suppression
@@ -271,7 +287,10 @@ export function setHudGrade(desat = 0, vig = 0) {
 const KICK_PRESETS = {
   goldenEmber:      { bloom: 0.30, lift: 0.35 },
   perfectMilestone: { flashFrames: 1, bloom: 0.20, lift: 0.20 },
-  surgeStart:       { bloom: 0.24 },
+  // The Surge IGNITION punch (I2.5): a 1-frame flash + bloom + lift pulse so the trigger reads as an
+  // EVENT on EVERY dragon — the universal screen-space cue that carries the moment on silhouette
+  // dragons (Vesper) whose own body barely lights. Photosafe: single frame, capped. Owner-tunable.
+  surgeStart:       { flashFrames: 1, bloom: 0.34, lift: 0.32 },
   // The RED of a combo break comes from the existing #vignette DOM flash —
   // the shader's vignette is colorless darkening.
   comboBreak:       { sat: -0.25, vig: 0.18 },
@@ -480,21 +499,34 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   _hudGrade.desat = damp(_hudGrade.desat, _hudGradeTarget.desat, 4, rawDt);
   _hudGrade.vig = damp(_hudGrade.vig, _hudGradeTarget.vig, 4, rawDt);
 
-  // SUNBREAK world-suppression envelope (unconditional, like the grades above, so a tier
-  // flap mid-Surge never strands a half-applied darkening). DRAGON LEADS, WORLD FOLLOWS:
-  // the grade onset is delayed ~120ms past the Surge edge (after the dragon's eye-flash)
-  // then ramps over ~0.9s (smoothstep → ≤0.15 applied at +250ms while the dragon is
-  // already lit); release eases over ~1.5s. Keyed off feverActive; the remaining-timer
-  // refresh + instant hit-cancel fast-path land with the DECAY cascade in I2 (§M.1-5).
+  // SUNBREAK world-suppression envelope (unconditional, like the grades above, so a tier flap
+  // mid-Surge never strands a half-applied darkening). DRAGON LEADS, WORLD FOLLOWS: the grade
+  // onset is delayed ~150ms past the edge (after the eye-flash), then SNAPS to 115% depth by
+  // ~400ms and settles to 100% by ~900ms (I2.5 punch-up — a felt event, not a slow drift). Two
+  // exits: a NATURAL drain lifts slowly (~1.2s, earned exhale); a DAMAGE cancel lifts fast (~300ms)
+  // with a +0.10 EV brighten pop (the punished "spell broken" beat), armed by surgeLost().
   if (feverActive) {
-    _surgeT += rawDt;
-    const onset = 0.12;
-    const t = clamp((_surgeT - onset) / 0.9, 0, 1);
-    const target = t * t * (3 - 2 * t);              // smoothstep ramp
-    _surgeGrade = damp(_surgeGrade, target, 9, rawDt);
+    _surgeT += rawDt; _surgeLostT = -1; _surgeExpOver = 0;
+    // Snap-with-overshoot attack (onset 150ms → dragon leads); damp fast so the snap reads.
+    let target = _surgeAttackEnv(_surgeT - 0.15);
+    // SUSTAIN breathe (~0.22Hz, ±5%): a RELATIVE tell that resists adaptation — a static −0.4 EV
+    // drop stops carrying info ~10s in ("darker" becomes the new normal), so the suppressed world
+    // gently pulses to keep the Surge STATE present on every dragon (the critic's #1 note). Photosafe.
+    if (_surgeT > 1.1) target += 0.05 * Math.sin((_surgeT - 1.1) * 2 * Math.PI * 0.22);
+    _surgeGrade = damp(_surgeGrade, target, 16, rawDt);
+  } else if (_surgeLostT >= 0) {
+    // DAMAGE cancel: the world lifts FAST (~300ms easeOutCubic) with a +0.10 EV brighten overshoot
+    // peaking ~220ms (the "spell broken" pop), gone by ~500ms.
+    _surgeT = 0; _surgeLostT += rawDt;
+    const x = clamp(_surgeLostT / 0.30, 0, 1);
+    _surgeGrade = _surgeLostFrom * (1 - x) * (1 - x);   // fast easeOut to 0
+    const o = _surgeLostT;                              // brighten bump: 0 → peak ~0.22s → 0 by ~0.5s
+    _surgeExpOver = o < 0.5 ? 0.07 * Math.sin(Math.PI * clamp(o / 0.5, 0, 1)) : 0;
+    if (_surgeLostT > 0.5) { _surgeGrade = 0; _surgeExpOver = 0; _surgeLostT = -1; }
   } else {
-    _surgeT = 0;
-    _surgeGrade = damp(_surgeGrade, 0, 3, rawDt);    // ~1.5s release
+    // NATURAL drain: slow, subtle lift (~1.2s) — the earned exhale, distinct from the punished pop.
+    _surgeT = 0; _surgeExpOver = 0;
+    _surgeGrade = damp(_surgeGrade, 0, 2.5, rawDt);
     if (_surgeGrade < 1e-3) _surgeGrade = 0;
   }
 

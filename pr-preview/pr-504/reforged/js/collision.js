@@ -268,7 +268,14 @@ function threadGate(player) {
     game.markSurgeSeen();
     ui.feverStart();
     sfx.feverStart();
-    burst(player.position, 0xff88ff, { count: 30, speed: 16, size: 1.3 });
+    // I2.5 IGNITION juice — the trigger reads as an EVENT on EVERY dragon, not just ones that light
+    // up: a brief slow-mo HITCH (universal, felt regardless of the dragon's own glow — the answer to
+    // "I don't see it on the silhouette Vesper"), a camera kick, a flash+bloom+lift punch (the
+    // surgeStart kick), and a warm-gold mote eruption (retired off the old magenta). Owner-tunable;
+    // the cruise edge fires often, so depths are moderate (§M.1-6 owner-gated dial).
+    game.slowMoTimer = Math.max(game.slowMoTimer, 0.26); game.slowMoScale = 0.72; setSlowMo(true);
+    cameraCtl.shake?.(0.6);
+    burst(player.position, 0xffe0a0, { count: 32, speed: 18, size: 1.4 });
     juiceEvent('surgeStart');
     emit('surge');
   }
@@ -370,11 +377,14 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     game.parryPerfectStreak = 0;
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   }
-  // Surge died to this hit: name the loss (soft fizzle + gem-row dim) so it
-  // never ends silently under the damage thud.
+  // Surge died to this hit: name the loss (soft fizzle + gem-row dim) so it never ends silently
+  // under the damage thud. `surgeLost` drives the DAMAGE-cancel feel — the world's fast brighten-pop
+  // (postfx) + the dragon's 0.45s gutter-out (dragon.js self-detects the abrupt edge) — distinct
+  // from a natural drain's slow earned exhale (I2.5, Fable ruling).
   if (surgeBefore && !game.feverActive) {
     sfx.surgeFizzle();
     ui.surgeLost();
+    emit('surgeLost');
   }
   if (game.health <= 0) die(player, cause, false);
 }
