@@ -17,8 +17,10 @@ proposal, this doc records the post-audit verdict, not the original. The audit a
   crash/skip lottery reachable at today's speeds) and crystal-wall survivors inside boss
   fights (the owner's reported bug; a one-line fix). DRIFT raises top speed, so both must
   land **before** the cap does.
-- **One design question only the owner can answer blocks all DRIFT code** — does DRIFT
-  *replace* `flowChain` or sit *alongside* it? §2. Do not start the currency until it's ruled.
+- **The blocking design question is RULED (§2, 2026-07-18): the MIDDLE PATH** — one
+  currency everywhere; the flow canyon is DRIFT's overdrive zone (ceiling ~1.30, misses
+  cost a big chunk, never zero); bosses stay the different-expression zone. DRIFT code is
+  unblocked.
 - All DRIFT application is **consumption-side** — seed geometry stays byte-identical; the
   governor's honest invariant is "DRIFT contributes nothing above 130 m/s," **not** "the
   world never exceeds 130" (the shipped spine boost-out already peaks ~143 — slip 1.325,
@@ -79,28 +81,35 @@ everything the accident wasn't.
 
 ---
 
-## 2. ⚠ THE OPEN OWNER DECISION — blocks all DRIFT code
+## 2. ✅ THE OWNER DECISION — RULED 2026-07-18: THE MIDDLE PATH ("replace in structure, keep the spice")
 
-**Does DRIFT REPLACE `flowChain`, or sit ALONGSIDE it?** Only the owner can answer; every
-downstream number (caps, bleed, the Keel's fold-in) shapes itself around it.
+**Ruling (owner, after a plain-language Fable brief of both options):** ONE currency, ONE
+meter — DRIFT everywhere — and the flow canyon becomes **DRIFT's OVERDRIVE ZONE**. Neither
+pure Option A (replace — which would soften the game's best moment: the flow run's
+*zero-on-miss* stake, `rings.js:264-266`, and its **1.30** ceiling, `config.js:162-166`,
+would flatten into the calmer 1.15 bleed) nor pure Option B (alongside — two currencies,
+two meters, seam complexity). Instead:
 
-**Option A — REPLACE (unify combo + flowChain into DRIFT).** One currency, one meter, one
-mental model; the Keel legitimately absorbs the flow crest. **But this smuggles a mechanics
-change:** the flow run's stake today is *zero-on-miss* (`rings.js:264-266`) and its pump
-peaks at slip **1.30** (`config.js:162-166`); DRIFT caps at **1.15** and *bleeds-never-
-zeroes*. Flow runs lose both their hard stake and their higher ceiling — the game's current
-best moment gets *softer and slower* unless the canyon amplification is retuned to
-compensate.
+- **Structurally REPLACE:** `flowChain` folds into DRIFT; one mental model, one meter; the
+  Keel legitimately absorbs the flow crest (§6's fold-in is now unblocked, with the
+  info-loss items resolved below).
+- **The flow canyon = the overdrive zone.** Inside it, the SAME meter runs hot: the ceiling
+  rises to the old **~1.30**, and a missed gate costs a **large chunk** of the meter (a
+  hard sting — but a dent, not the old wipe-to-zero). The stake survives as *severity*,
+  not as a reset.
+- **On exit, the heat pours back:** whatever you built in the canyon converts into your
+  everywhere-level (the §parent P0.3a conversion, now within one currency — no seam).
+- **The boss stays the DIFFERENT-EXPRESSION zone** (§4): same meter, payoff switches from
+  speed to combat tempo. Canyons run HOT; bosses change CURRENCY; the open sky is the base.
+- **Fallback (pre-agreed):** if the overdrive rules turn out fiddly in playtest, drop to
+  full replace and re-add the canyon's bite through tuning — never ship two parallel
+  systems.
 
-**Option B — ALONGSIDE (DRIFT is the connective layer; flow runs keep their own pump).**
-The shipped flow identity is untouched; DRIFT threads the ~80% between. **But** two
-momentum currencies coexist (the exact "slipstream already means three things" naming
-hazard the parent flagged), the canyonSlip chain multiplies **both** factors (1.30 × 1.15
-= 1.50 at stack — the co-scale keeps it fair by construction but the tunneling math and
-telegraph windows must be sized to it), and the HUD needs the Keel *and* the crest.
-
-Present both; **do not decide it here.** The Keel ships either way (§6) — but the crest
-fold-in is **last**, after this ruling (§6, info-loss).
+**Consequences now binding:** the tunneling/telegraph math must be sized to the in-canyon
+ceiling (~1.30 co-scaled — the §3 governor and Bug-A sweep already assume worse); the Keel
+needs an "overdrive" visual state (runs-hot styling in canyons — reuse the crest's
+`data-heat` step grammar, not a second meter); the crest's cyan run-identity and
+knock/shatter verbs port into the Keel's overdrive state rather than being lost.
 
 ---
 
@@ -287,10 +296,12 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
   reduced-motion block. Numeric legibility gates: head ≥2 device px at `--hud-scale` 0.85;
   keel ≥48px at feverThreshold−8 portrait; head-vs-track luminance delta measured over the
   brightest biome.
-- **INFO-LOSS (acknowledge, don't hide):** folding the flow crest loses the best-of-run
-  notch, the knock-vs-shatter drop verbs (`ui.js:1239-1248`), and Sky-Canyon's cyan
-  run-identity. And unifying combo+flowChain smuggles the §2 mechanics change. **Fold the
-  crest in LAST, after the owner signs off the regressions.**
+- **INFO-LOSS (resolved by the §2 ruling):** the crest's best-of-run notch, the
+  knock-vs-shatter drop verbs (`ui.js:1239-1248`), and Sky-Canyon's cyan run-identity are
+  NOT lost — they **port into the Keel's overdrive state** (the canyon's runs-hot styling).
+  The §2 mechanics change is no longer smuggled — it's the ruled design (severity replaces
+  the wipe; the 1.30 ceiling lives in the overdrive zone). **Crest fold-in still lands
+  LAST**, once the overdrive state exists to receive its verbs.
 
 ---
 
@@ -311,7 +322,8 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 1. Bug A — swept fatal gate, all three outcomes (thread/phase/crash) + a headless
    crossing-at-speed test.
 2. Bug B — `clearAhead(Infinity)` (`boss.js:1869`).
-3. ⚖ **Obtain the §2 owner ruling** (REPLACE vs ALONGSIDE). Blocks everything below.
+3. ✅ ~~Obtain the §2 owner ruling~~ — **RULED: the middle path** (§2, 2026-07-18).
+   Nothing below is blocked; the overdrive-zone rules in §2 are part of item 4's spec.
 
 **CORE (behind `driftEnabled`, parent §5):**
 4. The DRIFT currency + canyonSlip second factor + governor (§3.6) + freeze-catch-radius
@@ -321,7 +333,9 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
    (before first ship, not tune-later). **M2 ships only alongside the §4a fever refractory**
    (or a D≤~0.5-in-boss clamp) — never on an ungoverned F2.
 6. Gauntlet clean-run capstone (§5).
-7. THE EMBER KEEL (§6) — Keel first, crest fold-in LAST after the §2 ruling + regression
+7. THE EMBER KEEL (§6) — Keel first; the crest fold-in is UNBLOCKED by the §2 ruling but
+   still lands LAST, porting the crest's cyan run-identity + knock/shatter verbs into the
+   Keel's overdrive state, after regression
    sign-off.
 
 **TUNE-LATER / A-B:**
