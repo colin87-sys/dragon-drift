@@ -300,12 +300,14 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       // Whole-school drift + a slow shared wheel: every koi carries the SAME heading (a school, not a
       // scatter), held near BROADSIDE (small swing) so the koi project their full length toward the lens —
       // a foreshortened koi collapses to a 2px fleck (the "noise/scribble" tell Fable caught). The school
-      // drifts HIGH in the OPEN sky off to one side: dark koi read cleanest against the bright field
-      // (dark-on-light) with no prop clutter, wide of the high-centre Mote (its one true-dark focal point
-      // must own its own space) and ABOVE the sentinel tips (altitude clears the seed-placed props).
+      // SWEEPS slowly across the HIGH open sky, passing well ABOVE the Mote's band: a phone in portrait
+      // only sees ~±24° horizontally (the vertical FOV is the wide axis there), so a school parked off to
+      // one side (the first shipped x≈44, azimuth ~19°) lived on/past the portrait edge and the biome read
+      // as stones-only ("cemetery"). Keeping the sweep inside ~±13° azimuth keeps the life in frame on
+      // every aspect; ALTITUDE (not X) separates it from both the Mote below and the sentinel tips.
       const st = time * 0.05;
-      const cX = 44 + Math.sin(st) * 10;
-      const cY = 66 + Math.sin(st * 1.3) * 3;   // WELL above the tallest sentinel tips, clear even at the look-up pitch (props are seed-placed; the school is player-relative, so altitude — not X, which risks the colonnades on BOTH flanks — is the robust separator)
+      const cX = 12 + Math.sin(st) * 18;        // slow ~2-min crossing sweep, azimuth ~-3°..+13° — always inside the portrait window
+      const cY = 66 + Math.sin(st * 1.3) * 3;   // WELL above the tallest sentinel tips AND ~14° above the Mote's elevation, clear even at the look-up pitch (props are seed-placed; the school is player-relative, so altitude is the robust separator)
       const cZ = -playerDist - 108 + Math.cos(st * 0.8) * 16;
       const heading = 0.2 + Math.sin(st * 0.7) * 0.4;
       const fs = env.faunaScale * 4.8;
