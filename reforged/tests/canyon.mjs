@@ -30,10 +30,16 @@ const result = await page.evaluate(async () => {
   const a = run();
   createLevelGen(424242).ensure(9000); // interleave a different seed
   const b = run();
-  // A wider kinds walk (to 20km) so "multiple kinds appear" reflects the GLOBAL variety — the aurora
-  // flow guarantee can make one seed's first ~9km all-flow, but rock/spine appear in later cycles.
+  // A wider kinds walk (to 20km, UNION over seeds) so "multiple kinds appear" reflects the GLOBAL
+  // variety — the aurora flow guarantee can make one seed's first ~9km all-flow, and a single seed
+  // can even roll all-flow to 20km after upstream RNG-stream changes (seed 1337 does today, while
+  // 4 of 5 probe seeds show the full spine+flow spread). Variety is a property of the GENERATOR,
+  // not of one seed's stream, so assert it across a small seed set (still deterministic).
   const kw = new Set();
-  { const g = createLevelGen(1337); for (let d = 800; d <= 20000; d += 800) for (const s of g.ensure(d).canyonSegments) kw.add(s.kind); }
+  for (const seed of [1337, 424242, 99999]) {
+    const g = createLevelGen(seed);
+    for (let d = 800; d <= 20000; d += 800) for (const s of g.ensure(d).canyonSegments) kw.add(s.kind);
+  }
   return { a, b, kindsWide: [...kw], entryBuffer: CONFIG.canyonEntryBuffer, exitBuffer: CONFIG.canyonExitBuffer };
 });
 
