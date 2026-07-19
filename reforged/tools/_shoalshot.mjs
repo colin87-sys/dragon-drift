@@ -11,9 +11,10 @@ const mkSave = (q = 0) => `localStorage.setItem('dragonDriftSave', JSON.stringif
   settings: { reticle: false, qualityOverride: ${q} },
 }))`;
 
-async function capture(name, { dist = 2400, pitch = 0, diag = false }) {
+async function capture(name, { dist = 2400, pitch = 0, diag = false, view = null }) {
+  const V = view || VIEW;   // pass a portrait view (e.g. 390×780) to judge the phone aspect — its horizontal FOV is ~±24°, the axis that clips a side-parked flock
   const query = `?biome=5&debug&cleanshot&seed=73101`;
-  const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 1, initScript: mkSave(0) });
+  const { page, done } = await boot({ query, viewport: V, deviceScaleFactor: 1, initScript: mkSave(0) });
   await page.waitForFunction(() => !!window.__dd && !!document.getElementById('btn-start'), { timeout: 30000 });
   await page.waitForFunction(() => {
     const b = document.getElementById('btn-start'); if (b) b.click();
@@ -52,10 +53,12 @@ async function capture(name, { dist = 2400, pitch = 0, diag = false }) {
   }
   const buf = await page.screenshot({ timeout: 60000, animations: 'disabled' });
   writeFileSync(`/tmp/shoal-${name}.png`, buf);
-  // 3× zoom crop of the upper-centre band where the school sits, for the silhouette read
-  const zoom = await page.screenshot({ timeout: 60000, animations: 'disabled', clip: { x: 470, y: 0, width: 420, height: 290 } });
-  writeFileSync(`/tmp/shoal-${name}-zoom.png`, zoom);
-  console.log(`  wrote /tmp/shoal-${name}.png (+zoom)`);
+  if (V.width >= 900) {
+    // 3× zoom crop of the upper band the sweep crosses, for the silhouette read (desktop frames only)
+    const zoom = await page.screenshot({ timeout: 60000, animations: 'disabled', clip: { x: 380, y: 0, width: 440, height: 300 } });
+    writeFileSync(`/tmp/shoal-${name}-zoom.png`, zoom);
+  }
+  console.log(`  wrote /tmp/shoal-${name}.png`);
   await done();
 }
 
@@ -64,3 +67,4 @@ const want = (n) => only.length === 0 || only.includes(n);
 console.log('THE EMPYREAN — PR-5b inkShoal captures');
 if (want('cruise')) await capture('cruise', { dist: 2400, pitch: 0, diag: true });
 if (want('up'))     await capture('up',     { dist: 2400, pitch: 0.18, diag: true });
+if (want('mobile')) await capture('mobile', { dist: 2400, pitch: 0, diag: true, view: { width: 390, height: 780 } });  // portrait phone: the narrow-azimuth read
