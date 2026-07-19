@@ -591,6 +591,80 @@ function _bladeInto(body, crown, { seg, zLens, slope, st, amp, sx = 1, sy = 1, r
   for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
 }
 
+// THE EMPYREAN uplift PR-2 — HALO SHARD (EMPYREAN-RINGCOURT-REFERENCE.md, Fable-audited): a broken
+// ring-arc FRAGMENT standing out of the water — the EARLY-band identity. Sweep 75° (the audit's ≥55°
+// floor: at smaller sweeps a standing arc reads as a leaning blade = a sentinel clone). Lens-section
+// tube-lathe along the arc; one end BURIED (bedded), the high end a broken 2-facet fracture. Rose on
+// the LOW fracture lip ONLY (mat 1, mostly at the waterline) so the crown zone stays rose-free — the
+// at-a-glance difference from the rose-tipped sentinels. ~112 tris, 2 mats, deterministic.
+function buildHaloShardParts() {
+  const body = [], crown = [];
+  const N = 7, seg = 8, R = 0.85, zLens = 0.30;
+  const th0 = -0.42, th1 = th0 + 1.31;                       // ~75° sweep, low end dipping below the water
+  const rings = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const th = th0 + (th1 - th0) * t;
+    const cx = Math.cos(th) * R, cy = Math.sin(th) * R + 0.34;   // lift so ~the low end beds under y0
+    // tube radius: flared at the buried foot (1.25×), gentle taper to the broken top (0.85×)
+    const rt = 0.145 * (i === 0 ? 1.25 : 1 - 0.15 * t) * (1 + 0.06 * Math.sin(i * 2.6));
+    const tx = -Math.sin(th), ty = Math.cos(th);             // arc tangent → ring plane normal
+    const ring = [];
+    for (let j = 0; j < seg; j++) {
+      const ph = (j / seg) * Math.PI * 2;
+      const u = Math.cos(ph) * rt * (1 + 0.10 * Math.sin(3 * ph + i)); // soft lens wobble (kills the lathe tell)
+      const w = Math.sin(ph) * rt * zLens;
+      ring.push([cx + u * ty, cy - u * tx, w]);              // lens long-axis in the arc plane, thin in Z
+    }
+    rings.push(ring);
+  }
+  for (let i = 0; i < N - 1; i++) {
+    const tgt = i === 0 ? crown : body;                      // LOW lip band only → rose; everything else bone
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      tgt.push(...A, ...C, ...B, ...A, ...D, ...C);
+    }
+  }
+  const cap = (ring, tgt, flip) => {                          // fracture caps: fan to centroid
+    let mx = 0, my = 0, mz = 0;
+    for (const p of ring) { mx += p[0]; my += p[1]; mz += p[2]; }
+    const c = [mx / seg, my / seg, mz / seg];
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      if (flip) tgt.push(...ring[j2], ...ring[j], ...c); else tgt.push(...ring[j], ...ring[j2], ...c);
+    }
+  };
+  cap(rings[0], crown, true);                                 // buried/low fracture lip — the ONE rose lip
+  cap(rings[N - 1], body, false);                             // high broken end stays bone-nacre
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.70, 1.02)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.90, 1.00, 0.03)) }];
+}
+
+// THE EMPYREAN uplift PR-2 — SHARD SHRINE: a LOW tiered crystalline rosette (gypsum desert-rose /
+// cairn-shrine refs) — the off-lane rest note beside the pearlshoal. 4 canted low blades (the sentinel
+// grammar at ~0.25× height) in a tight rosette, one dominant + three stepped; per the audit's station
+// allocation the 3 stations are skirt + body + crown-lip (mid rings dropped). Rose on the DOMINANT
+// blade's cut lip ONLY (one lip per cluster). ~100 tris, 2 mats, deterministic.
+function buildShardShrineParts() {
+  const body = [], crown = [];
+  const st4 = [ { r: 0.30, cx: 0.02, y: -0.08 },             // buried SKIRT (widest — bedded flare, mandatory)
+    { r: 0.25, cx: 0.05, y: 0.55 },
+    { r: 0.22, cx: 0.07, y: 0.90 },                          // crown-START at y0.90…
+    { r: 0.20, cx: 0.08, y: 1.00 } ];                        // …so the rose band y0.90→1.0 is a thin LIP, never candy-dip
+  const amp4 = [0.10, 0.07, 0.04, 0.02];                      // de-jittered top ring (apex-spike law)
+  const B = [
+    { sy: 1.00, ry: 0.4,  tx: 0.00, tz: 0.00, rose: true },   // the dominant — the cluster's ONE rose lip
+    { sy: 0.72, ry: 2.1,  tx: 0.32, tz: 0.20, rose: false },
+    { sy: 0.60, ry: 4.0,  tx: -0.30, tz: 0.24, rose: false },
+    { sy: 0.66, ry: 5.3,  tx: 0.07, tz: -0.33, rose: false },
+  ];
+  for (const b of B) _bladeInto(body, b.rose ? crown : body,
+    { seg: 5, zLens: 0.26, slope: 0.24, st: st4, amp: amp4, sx: 0.55, sy: b.sy, ry: b.ry, tx: b.tx, tz: b.tz });
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.86, 1.12)) },   // INVERSE low-prop ladder: crest LIFT, capped ≤1.15 (audit fix 4)
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.95, 1.08, 0.03)) }];
+}
+
 // THE EMPYREAN — CHOIRSTONES (§5 "THE MID MASS"; Money-Shot-3's subject): a recurring COURT in one
 // archetype — one greater stele ringed by lesser stelae in an IRREGULAR ellipse, each a DIFFERENT height,
 // lean, and broad-face facing (a congregation, not a picket fence). Same blade grammar as the sentinel at
@@ -2074,6 +2148,23 @@ const ARCHETYPES = {
     // Bigger too (h 3.5–7, r 4.5–7.5) so the back is a real mid-mass note. Exempt-below-lane (crest never
     // reaches the flight band), so it may sit closer than the tall stones.
     place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 3.5 + rnd() * 3.5, r: 4.5 + rnd() * 3, tilt: side * (rnd() * 0.03 - 0.012) }),
+  },
+  // THE EMPYREAN uplift PR-2 — HALO SHARD: the broken ring-arc fragment (the EARLY-band identity per the
+  // audited RINGCOURT reference). Sweep ≥55° so curvature reads against sky (never a sentinel clone);
+  // rose on the LOW waterline lip only, crown bare. Off-lane like the courts; the arc's lateral reach is
+  // in the r footprint (propclearance audits it).
+  haloShard: {
+    step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
+    build: () => mergeParts(buildHaloShardParts(), 5),
+    place: (side, rnd) => ({ x: side * (23 + rnd() * 9), h: 9 + rnd() * 7, r: 6 + rnd() * 3, tilt: side * (rnd() * 0.05 - 0.02) }),
+  },
+  // THE EMPYREAN uplift PR-2 — SHARD SHRINE: the low crystalline rosette (off-lane rest note). WIDE +
+  // LOW (h ≤ 2× width via place); INVERSE ladder crest-lift ≤1.15; parks in the mid-field read range
+  // like the pearlshoal (a low pale prop dies on the fog horizon).
+  shardShrine: {
+    step: 43, biomes: empyNew, matIndex: 5, comp: { floor: 0.22, sMin: 0.85, sMax: 1.1 },
+    build: () => mergeParts(buildShardShrineParts(), 5),
+    place: (side, rnd) => ({ x: side * (20 + rnd() * 8), h: 2.6 + rnd() * 2.2, r: 4.5 + rnd() * 2.5, tilt: side * (rnd() * 0.03 - 0.012) }),
   },
   // Interim retinted astral monolith wearing a rose band (empyOld — ?props=v1 only; replaced by the kit).
   monolith: {
@@ -4501,6 +4592,8 @@ const FOAM_CFG = {
   sentinel: { r: 0.5 },              // THE EMPYREAN hero — a faint pearl waterline shimmer where the bedded blade meets the nacre (not white surf; the biome foam is tuned faint)
   choirstones: { r: 0.42 },          // THE EMPYREAN mid-mass court — a faint pearl collar around the congregation's bedded feet (matches the sentinel's tuned-faint waterline)
   pearlshoal: { r: 0.6 },            // THE EMPYREAN low rest note — a faint pearl waterline seat around the surfacing backs (wide low footprint; keeps the loaf seated, never a wet-dark band)
+  haloShard: { r: 0.45 },            // THE EMPYREAN uplift PR-2 — faint pearl collar where the arc's buried foot beds into the water (the tuned-faint sentinel waterline treatment)
+  shardShrine: { r: 0.5 },           // THE EMPYREAN uplift PR-2 — wide faint seat under the low rosette (keeps it seated like the pearlshoal, never a wet-dark band)
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
   // Lumen Mire PR-2 depth/canopy: reedveil gets a faint warm waterline collar; the mid/far
