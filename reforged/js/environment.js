@@ -3488,7 +3488,7 @@ const ARCHETYPES = {
   // LEFT→RIGHT: the upper tier dies FIRST, then a lower bay breaks, then pier stumps step down into the water
   // (last one drowned below the tide line). Fable pre-assessed. ≤150 tris.
   aqueduct: {
-    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arch', comp: { floor: 0.15, sMin: 0.95, sMax: 1.12 },   // flankAlt:'arch' anti-phases the arcade against the basilica wall (arches on the flank opposite the dark wall). floor 0.45→0.15 (Fable gate: a floor is a promise the BREATH can never open — the breaths must open to the fog line, so the far arcade thins between congregations and swells (sMax 1.12) at the peaks). NOTE: sizeClass dropped — the (r,h,r) scale never moves x (writeMatrix), so a smaller instance reads FARTHER, not nearer; true "nearer" needs a place()-level near-class (parked pending the two-shelf value-contrast decision)
+    step: 97, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arch', suppressForArena: true, comp: { floor: 0.15, sMin: 0.95, sMax: 1.12 },   // flankAlt:'arch' anti-phases the arcade against the basilica wall (arches on the flank opposite the dark wall). floor 0.45→0.15 (Fable gate: a floor is a promise the BREATH can never open — the breaths must open to the fog line, so the far arcade thins between congregations and swells (sMax 1.12) at the peaks). NOTE: sizeClass dropped — the (r,h,r) scale never moves x (writeMatrix), so a smaller instance reads FARTHER, not nearer; true "nearer" needs a place()-level near-class (parked pending the two-shelf value-contrast decision)
     build: () => {
       // WORLD-ASPECT DESIGN (the arcade a1 law): the (r,h,r) placement scale multiplies object-x by r and
       // object-y by h INDEPENDENTLY (r≈100, h≈18.5 → h/r≈0.185), so a WORLD-semicircular arch must be an
@@ -4354,6 +4354,113 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // arena — the AMPHITHEATER RIM (DROWNED-FORUM-BUILD-SHEET §3 #12, PR-7 CROWN). The biome's STACKED-ARCADE
+  // landmark: two superposed ranks of round arches under a LEVEL BLANK ATTIC band — the Colosseum icon, and the
+  // ONE thing in the biome that stacks arcades (the load-bearing "amphitheater not aqueduct" tell — Fable
+  // redirect). Name-test = the DOUBLE REGISTER + the DUAL APERTURE FLIP (ground bays read GOLD — water/fog through
+  // the low arches; upper bays read SKY — pink, at 16-22 world; the aqueduct is one register of sky, so gold-below/
+  // sky-above is unfakeable) + the level attic + a broken curved rank that BENDS away into fog. Built as a broken
+  // ~80° arc (4 bays / 5 stations), CONVEX outer arcade RAKED ~55° so it recedes obliquely into fog (Fable ruled
+  // two sightline blockouts: seen FRONTALLY a curved wall collapses to a croquet-hoop; the low-water-legible read
+  // is the aqueduct's oblique receding rank, CURVED — the bend survives only as an APERTURE-ASPECT GRADIENT along
+  // the raked rank, not as a directly-visible plan-curve). Every pier carries a radial DEPTH RETURN (jamb reveal)
+  // on both tiers so the raked wall reads as MASS, not flat-tape (the stage-flat trap). The aqueduct is SUPPRESSED
+  // in arena congregations so two round-arch ranks never share a frame. MASS not height — level rim ~28 world,
+  // never competing with the pharos. ≤150 tris, forumdark, NO glow.
+  arena: {
+    step: 211, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arcade', arenaGate: true,
+    comp: { floor: 0, sMin: 1.0, sMax: 1.0 },   // full-size-or-absent (the Frozen hero law — a crown never rides the comp scale lottery)
+    build: () => {
+      // WORLD-ASPECT curved wall (the aqueduct arch law wrapped onto an ellipse): object XZ scaled by r, Y by h;
+      // place() couples h=0.9r so round arches stay round under the (r,h,r) scale. Design in WORLD units ÷ nominal.
+      const R_NOM = 40, H_NOM = 36;
+      const wxz = (X) => X / R_NOM, wy = (Y) => Y / H_NOM;
+      const Ax = 47, Az = 39;                                   // ellipse semi-axes (world), 1.21:1 (build-sheet 1.2)
+      const ARC = 80 * Math.PI / 180, N = 4;                    // ~80° broken arc, 4 bays / 5 stations (Fable: 108° forced a mid-span droop — a shorter arc holds a LEVEL top)
+      const TH = (i) => -ARC / 2 + ARC * i / N;                 // station angle (θ=0 = the convex near point)
+      const THM = (i) => -ARC / 2 + ARC * (i + 0.5) / N;        // bay mid-angle (the flat facet each bay is built on)
+      const OUT = 1.5, IN = -1.5;                               // FAT wall (~3-world masonry) — fat piers keep the dark forumdark frame alive one fog-stop longer + carry depth returns
+      const TIDE = 2.4;
+      const v = [];
+      const q = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
+      const norm2 = (x, z) => { const m = Math.hypot(x, z) || 1e-4; return [x / m, z / m]; };
+      // local (tangential u, world y, radial depth d) at ellipse angle th → object vertex. SHIFTED −Ax so the
+      // convex near-point (θ=0) sits at object x≈0 and the bowl RECEDES to −x (away from the lane, into fog). The
+      // lane-visible face is the CONVEX OUTER at d=+OUT.
+      const P = (th, u, y, d) => {
+        const c = Math.cos(th), s = Math.sin(th);
+        const T = norm2(-Ax * s, Az * c);                       // tangent (increasing θ)
+        const nO = norm2(c / Ax, s / Az);                       // true ellipse outward (convex) normal
+        return [wxz(Ax * c + T[0] * u + nO[0] * d - Ax), wy(y), wxz(Az * s + T[1] * u + nO[1] * d)];
+      };
+      // OUTWARD-facing quad on the convex face (d=OUT): order (uR,uL,uL,uR) → normal points +nO (outward → the lane
+      // after the side-based rotY; verified at θ=0 → +x). All lane-visible faces use this winding.
+      const outQ = (th, uL, uR, yB, yT, d = OUT) => q(P(th, uR, yB, d), P(th, uL, yB, d), P(th, uL, yT, d), P(th, uR, yT, d));
+      // JAMB REVEAL / PIER DEPTH RETURN at a pier edge u, from spring/base yB to yT (inner↔outer) → the opening
+      // reads as a hole in THICK masonry AND the pier shows its side-thickness when the wall is raked (the anti-
+      // stage-flat return, Fable mandate A — every pier on BOTH tiers gets these).
+      const jamb = (th, u, yB, yT) => q(P(th, u, yB, IN), P(th, u, yB, OUT), P(th, u, yT, OUT), P(th, u, yT, IN));
+      // LEVEL height envelope: dead level (28) across the intact stations 0-3; the shear lives ONLY at the far
+      // terminus (station 4 → a drowned stump) so the SILHOUETTE is a level-topped mass with one broken end — the
+      // anti-droop/anti-hoop insurance (Fable). No mid-span notch (it pareidesled as a glitched billboard at range).
+      const MAXTOP = [28, 28, 28, 28, 13];
+      const GTOP = 13, GSPRING = 5.0, GPW = 6.5;                // ground tier: arcade y0→13, springs 5.0; FAT piers (span/pier ≈ 0.75+, croquet-hoop-safe)
+      const UBASE = 13, UTOP = 22, USPRING = 16.0, UPW = 5.5;   // upper tier: arcade 13→22, arches ALIGNED over the ground bays, spans CLOSE to ground (not shrunken → no "punched windows")
+      const ATOP = 28;                                          // LEVEL BLANK ATTIC band 22→28 (the amphitheater tell)
+      const bay = (i, pw) => { const A = [Ax * Math.cos(TH(i)), Az * Math.sin(TH(i))], B = [Ax * Math.cos(TH(i + 1)), Az * Math.sin(TH(i + 1))]; const mod = Math.hypot(B[0] - A[0], B[1] - A[1]); return { mod, span: mod - pw }; };
+      // an ARCADE tier: piers (split at tide on the tall ground courses) + ROUND arches + jamb depth returns on
+      // BOTH pier edges of every bay. nseg=5 ODD → the crown falls MID-segment = a true round semicircle (the
+      // aperture SHAPE is nearly the only thing carrying "Roman round arch" on this repoussoir-silhouette prop, so
+      // a 3-seg flat-chord apex read as a trapezoid notch — Fable gate); an EVEN nseg would put a vertex on the
+      // apex → a Gothic point (wrong empire).
+      const tier = (yBase, yTopCap, spring, pw, splitTide, nseg) => {
+        for (let i = 0; i <= N; i++) { const th = TH(i), top = Math.min(yTopCap, MAXTOP[i]); if (top < yBase + 1.5) continue;
+          if (splitTide && top > TIDE) { outQ(th, -pw / 2, pw / 2, yBase, TIDE); outQ(th, -pw / 2, pw / 2, TIDE, top); } else outQ(th, -pw / 2, pw / 2, yBase, top); }
+        for (let i = 0; i < N; i++) { const thm = THM(i), { span } = bay(i, pw), top = Math.min(yTopCap, (MAXTOP[i] + MAXTOP[i + 1]) / 2);
+          if (span < 1 || Math.min(MAXTOP[i], MAXTOP[i + 1]) < yTopCap - 1 || top < spring + span / 2 + 0.4) continue;   // decayed bay → clean broken gap
+          const arch = (a) => P(thm, -(span / 2) * Math.cos(a), spring + (span / 2) * Math.sin(a), OUT);
+          for (let k = 0; k < nseg; k++) { const p0 = arch(Math.PI * k / nseg), p1 = arch(Math.PI * (k + 1) / nseg); q([p0[0], wy(top), p0[2]], [p1[0], wy(top), p1[2]], p1, p0); }   // spandrel (outward wound)
+          jamb(thm, -span / 2, yBase, spring); jamb(thm, span / 2, yBase, spring);   // depth returns both sides
+        }
+      };
+      tier(0, GTOP, GSPRING, GPW, true, 5);       // GROUND — springs low → bays frame GOLD water/fog; 5-seg round heads (most-seen)
+      tier(UBASE, UTOP, USPRING, UPW, false, 5);  // UPPER  — springs high → bays frame SKY (the dual aperture flip)
+      // ── LEVEL BLANK ATTIC band + top cap (up-face → the lit cornice rim via forumdark), on the intact span only.
+      for (let i = 0; i < N; i++) { if (Math.min(MAXTOP[i], MAXTOP[i + 1]) < ATOP - 1) continue; const thm = THM(i), { mod } = bay(i, 0), half = mod / 2;
+        outQ(thm, -half, half, UTOP, ATOP);
+        q(P(thm, -half, ATOP, IN), P(thm, half, ATOP, IN), P(thm, half, ATOP, OUT), P(thm, -half, ATOP, OUT)); }
+      // ── BROKEN-END SECTIONS (anti-knife-edge / ruin cue — the basilica end-cap kit). Radial cross-sections
+      // (inner↔outer, full standing height) at each arc terminus; the tall near end (station 0) split at the tide.
+      { const th = TH(0), top = ATOP, u = -GPW / 2;
+        q(P(th, u, 0, IN), P(th, u, 0, OUT), P(th, u, TIDE, OUT), P(th, u, TIDE, IN));
+        q(P(th, u, TIDE, IN), P(th, u, TIDE, OUT), P(th, u, top, OUT), P(th, u, top, IN)); }
+      { const th = TH(N), top = Math.min(GTOP, MAXTOP[N]), u = GPW / 2; if (top > 0.5) q(P(th, u, 0, OUT), P(th, u, 0, IN), P(th, u, top, IN), P(th, u, top, OUT)); }
+      // ── FLUSH drowned stylobate strip along the arc base (footprint-flush → no hull skirt at the worm's-eye).
+      // The far broken bay's base strip is omitted — the sea took that corner (ruin logic + it keeps the 5-seg
+      // round-arch heads under the 150 cap, the far-bay trim Fable sanctioned).
+      for (let i = 0; i < N - 1; i++) { const thm = THM(i), { mod } = bay(i, 0), half = mod / 2; if (MAXTOP[i] < 0.5 && MAXTOP[i + 1] < 0.5) continue;
+        q(P(thm, -half, 0, IN), P(thm, half, 0, IN), P(thm, half, 0, OUT), P(thm, -half, 0, OUT)); }
+      const wall = new THREE.BufferGeometry();
+      wall.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+      wall.computeVertexNormals();
+      wall.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+      return mergeLagoonParts([{ mat: 0, geo: wall, bake: 'forumdark' }], { forum: true, forumWaterY: TIDE / H_NOM });   // REPOUSSOIR dark frame → the open bays read BRIGHT (gold below / sky above) by contrast
+    },
+    // SUPER-RARE crown on the ARCADE flank (arcade suppressed here → no double round-arch rank). Built −Ax-shifted
+    // so the convex near tip sits at the placement x and the bowl recedes AWAY into fog. RAKED ~55° (side-based, one
+    // sign per flank) so the wall recedes obliquely into fog like the aqueduct — never frontal (the croquet-hoop
+    // angle). Near-tip |x| 52-62 so the raked ~55-world chord clears the central third. h COUPLED 0.9r → round
+    // arches. Bradyseism ground tilt on top.
+    place: (side, rnd) => {
+      const r = 40 + rnd() * 8;
+      const h = 0.9 * r * (0.97 + 0.06 * rnd());
+      const p = { x: side * (52 + rnd() * 10), h, r, tilt: side * (0.014 + rnd() * 0.012) };
+      p.rotY = (side > 0 ? Math.PI : 0) + side * (0.96 + rnd() * 0.14 - 0.07);   // RAKE ~55° (±4°) → the curved rank recedes obliquely into fog (Fable: ±5° was a frontal rounding error)
+      if (HERO_SET.has('arena')) { p.rotY = (side > 0 ? Math.PI : 0) + side * 0.96; p.tilt = 0; }   // debug: SHIPPING rake (never audit the frontal view again)
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -4408,6 +4515,7 @@ const FOAM_CFG = {
   viamarinaM: { rx: 0.30, rz: 1.0 },  // mirrored near-rail — same elliptical collar (footprint is z-mirror-symmetric)
   pharos: { r: 0.78 },   // leaning lighthouse — a round tide collar hugging the square plinth foot where the tower meets the drowned mirror
   colossus: { r: 0.45 },   // drowned bronze hand — one round tide collar at the wrist emergence where it rises from the mirror
+  arena: false,            // amphitheater rim — NO collar: a bright foam ring on a 45+ off-lane curved massif is an artifact (the aqueduct/rampart precedent); the forumdark tide-ladder base carries the waterline weld, and the bowl's calm-water reflection is the compositional completion
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
@@ -5244,6 +5352,20 @@ function heroHash(n) {
 }
 const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
 
+// FORUM ARENA congregation gate (PR-7, Fable pre-assess) — a PURE per-congregation predicate shared by the
+// arena (which spawns) and the aqueduct (which SUPPRESSES so two round-arch ranks never share a frame). Three
+// laws in one place: (1) a super-rare duty hash (⊂ the colossus's `dIdx*17+5` at 0.55 → every arena congregation
+// also carries the biased colossus, the money-shot pairing); (2) pharos-shy — parked whenever the pharos's own
+// duty hash (`P*13+7`) would fill the adjacent breath, so the crown and the tower never share a deep-fog frame;
+// (3) the arena's own comp/flank/arrival gates still apply on top. No rnd → gold-determinism byte-identical.
+function forumArenaAt(dist) {
+  const P = Math.round(dist / (CONFIG.biomeLength / LAGOON_COMP_PERIODS));
+  // base hash SHARED with the colossus (`P*17+5`, threshold 0.55) → every arena congregation also carries the
+  // biased colossus (the money-shot pairing); the pharos-shy factor (`P*13+7`≥0.6) then thins it to ~1 per 4-5
+  // AND clears any congregation whose adjacent breath holds a pharos, so crown and tower never share a frame.
+  return heroHash(P * 17 + 5) < 0.55 && heroHash(P * 13 + 7) >= 0.6;
+}
+
 // THE HERO-CLEARING CORRIDOR resolver (Fable Stage-1 §2 / 60-ruling §2) — around each KEPT Mire hero peak
 // the swamp OPENS so the landmark reads: the PR-2 dark screens (reedveil/boleveil) park inside a corridor.
 // Generalized over (shift, rare) so BOTH heroes reuse it: the glowARCH corridor calls (dist,0,0.5) around
@@ -5547,6 +5669,12 @@ function writeMatrix(band, i, d) {
       const want = band.def.flankAlt === 'wall' ? wallSide : -wallSide;
       if ((d.side > 0 ? 1 : -1) !== want) active = false;
     }
+    // ARENA congregation gate (PR-7): the crown spawns only where forumArenaAt() fires (super-rare + pharos-shy);
+    // the aqueduct SUPPRESSES there so the arena BECOMES the arcade flank's pierced note — two round-arch ranks
+    // never share a frame (Fable pre-assess: the arena's #1 failure risk is aqueduct déjà-vu). Both pure → the
+    // gold-determinism call order is untouched; lagoon/other defs carry neither flag, so they never enter.
+    if (active && band.def.arenaGate && !forumArenaAt(d.dist)) active = false;
+    if (active && band.def.suppressForArena && forumArenaAt(d.dist)) active = false;
     // LANDMARK PUNCTUATION (Fable PR-6): a rare landmark reads because a wall rhythm BREAKS for it — so it stands
     // in the BREATH (the deep open-mirror trough where the wall floor thins to near-empty), NOT at a congregation.
     // Survives only where lagoonComp < breathGate (the ph≈0.52–0.84 deep-breath window), then a duty-cycle hash
