@@ -19,6 +19,20 @@ let glowTex = null;
 let coreMat = null;
 const golds = [];
 
+// THE EMPYREAN uplift PR-1 — per-biome pickup tint. Canary gold is the loudest warmth violation on the
+// pearl field (independent audit), so in biome 5 the comet shifts to a vivid ROSE-GOLD (hue ≥315°):
+// still loud enough to read as treasure, but on the biome's accent hue. 0 everywhere else → the shared
+// material stays exactly the shipped gold (lerp at 0 = identity).
+const _GOLD = { color: new THREE.Color(0xffd040), emissive: new THREE.Color(0xffa010) };
+const _ROSE = { color: new THREE.Color(0xffb8cf), emissive: new THREE.Color(0xf04f8e) };
+let _tint = 0;
+export function setGoldEmberTint(mix) {
+  _tint = mix || 0;
+  if (!coreMat) return;
+  coreMat.color.copy(_GOLD.color).lerp(_ROSE.color, _tint);
+  coreMat.emissive.copy(_GOLD.emissive).lerp(_ROSE.emissive, _tint);
+}
+
 export function initGoldEmbers(s) {
   scene = s;
   geo = new THREE.OctahedronGeometry(0.55, 0);
@@ -55,7 +69,7 @@ export function updateGoldEmbers(dt, player, time) {
       o.spark -= dt;
       if (o.spark <= 0 && o.dist - player.dist < 160) {
         o.spark = 0.22;
-        burst(o.mesh.position, 0xffd870, { count: 1, speed: 2.5, size: 0.5, life: 0.6 });
+        burst(o.mesh.position, _tint > 0.5 ? 0xf6a0c4 : 0xffd870, { count: 1, speed: 2.5, size: 0.5, life: 0.6 });
       }
 
       const dx = player.position.x - o.x;
@@ -71,7 +85,7 @@ export function updateGoldEmbers(dt, player, time) {
         ui.perfectFlash();
         juiceEvent('goldenEmber'); // the treasure moment: hitstop + warm bloom
         sfx.goldEmber();
-        burst(o.mesh.position, 0xffd040, { count: 26, speed: 15, size: 1.2 });
+        burst(o.mesh.position, _tint > 0.5 ? 0xffb8cf : 0xffd040, { count: 26, speed: 15, size: 1.2 });
         emit('goldEmber');
         emit('ember', { n: goldVal, gold: true });
       }

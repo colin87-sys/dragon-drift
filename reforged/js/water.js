@@ -99,6 +99,7 @@ const sharedUniforms = {
   // + a constrained thin-film IRIDESCENCE band (rose↔lilac↔periwinkle, off green+gold) firing on crest
   // faces at grazing angles. MUST live here or it vanishes on the reflective↔cheap/swell tier rebuild.
   uNacreMix: { value: 0 },
+  uWakeMix: { value: 0 },   // THE EMPYREAN uplift PR-1 — player-coupled wake rings (0 = shipped byte-identical)
   // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
   // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
   // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
@@ -195,6 +196,7 @@ const fragmentShader = /* glsl */`
   uniform vec3 uHeroPos, uHeroCol; uniform float uHeroPool; // Fable 75: player light-pool on the mirror (0 = shipped)
   uniform float uReflStretch, uReflGlint, uReflGreenPull;    // Fable 85: reflection craft (0 = shipped)
   uniform float uNacreMix;   // THE EMPYREAN nacre (§4b): 0 = shipped; >0 kills the sun-glitter + adds satin sheen + iridescence
+  uniform float uWakeMix;    // THE EMPYREAN uplift PR-1: player-coupled wake rings (0 = shipped)
   uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
@@ -359,6 +361,17 @@ const fragmentShader = /* glsl */`
       col = mix(col, _irid2, uNacreMix * _graze * _crest * 0.34);
       // Broad SATIN sheen: a wide soft grazing lift, no sun dir — the luster read that replaces the glint.
       col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix;
+    }
+
+    // THE EMPYREAN uplift PR-1 — the player-coupled WAKE (uWakeMix 0 = shipped byte-identical).
+    // Expanding ripple rings radiate from the dragon's position (uHeroPos, fed every frame by
+    // dragon.js's hero-pool call): value-DARK motion — troughs dip toward the deep colour, never a
+    // bright glint (theology: dark-accent motion is the only motion that survives the bright field).
+    // This is the one element that makes the water answer the player instead of looping.
+    if (uWakeMix > 0.0001) {
+      float _wkr = length(vWorldPos.xz - uHeroPos.xz);
+      float _wk = sin(_wkr * 1.9 - time * 4.2) * exp(-_wkr * 0.10) * smoothstep(34.0, 8.0, _wkr);
+      col = mix(col, deepColor, max(_wk, 0.0) * 0.20 * uWakeMix);
     }
 
     // Golden sun streak: compress the normal's x so the highlight stretches
@@ -771,10 +784,11 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull, nacreMix }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull, nacreMix, wakeMix }) {
   if (!water) return;
   const u = water.material.uniforms;
   u.uNacreMix.value = nacreMix || 0;   // THE EMPYREAN nacre (§4b); 0 in every other biome → byte-identical water
+  u.uWakeMix.value = wakeMix || 0;     // THE EMPYREAN uplift PR-1 wake; 0 elsewhere → byte-identical
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical
