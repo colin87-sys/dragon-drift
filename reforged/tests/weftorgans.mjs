@@ -130,19 +130,23 @@ check(`paintables include both palms + loomHeart (${JSON.stringify(paintables)})
 // settles (the seal is transient, not a permanent delisting).
 const cut = await (async () => {
   await page.evaluate(() => window.__dd.bossThreadCut());
-  await page.waitForTimeout(300);   // let cutEase rise past the handsFlung threshold
+  // cutEase rises per-FRAME, so the flung window ENGAGES after a frame-rate-dependent
+  // delay (a fixed 300ms wait + first-sample capture raced it on slow SwiftShader).
+  // POLL until the seal engages (palms leave the paint set), and capture THAT as the
+  // sealed state; track loomHeart comfort across the whole flung window.
   let sealed = null, loomMax = 0, ok2 = true;
-  for (let i = 0; i < 8; i++) {     // ~1.4s — the flung window
+  for (let i = 0; i < 60; i++) {    // up to ~9s for the flung window to engage
     const s = await page.evaluate(() => ({ paint: window.__dd.bossPaintables(), lm: window.__dd.bossPartWorldPos('loomHeart') }));
     if (!Array.isArray(s.paint) || !ok(s.lm)) { ok2 = false; break; }
-    if (sealed === null) sealed = s.paint;
     loomMax = Math.max(loomMax, Math.abs(s.lm.x));
-    await page.waitForTimeout(170);
+    const flung = !s.paint.includes('palmL') && !s.paint.includes('palmR');
+    if (flung) { sealed = s.paint; break; }   // the seal has engaged — record it
+    await page.waitForTimeout(150);
   }
-  // let the recoil fully settle (cutT → 0 at dt·0.4/s ≈ 2.5s) and poll for the palms rejoining —
-  // headless frame pacing varies, so poll up to ~6s rather than assume a fixed settle time.
+  // let the recoil fully settle (cutT → 0 at dt·0.4/s ≈ 2.5s game-time) and poll for the palms
+  // rejoining — headless frame pacing varies, so poll generously rather than assume a settle time.
   let rejoined = [];
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {    // up to ~12s of real time
     rejoined = (await page.evaluate(() => window.__dd.bossPaintables())) || [];
     if (['palmL', 'palmR'].every((p) => rejoined.includes(p))) break;
     await page.waitForTimeout(200);
