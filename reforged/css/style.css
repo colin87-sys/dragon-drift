@@ -179,6 +179,20 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .bell,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
+/* SUNBREAK I4 fix 2 — the RITUAL HUD DUCK: while the boss-ultimate's CALL→RELEASE conductor
+   owns the frame, the score/chain/stamina chrome fades to ~25% so the gather is the only
+   bright thing on screen (the theatre dims its house lights). The boss HP bar (bossBar.js,
+   separate DOM) stays — the beam's payoff lands on it. Restore is an instant snap when the
+   class drops (~300ms after RELEASE, on the conductor's settle) — part of the release edge. */
+#hud.surge-duck .hud-top-left,
+#hud.surge-duck .hud-top-center,
+#hud.surge-duck .hud-top-right,
+#hud.surge-duck .stamina-arc,
+#hud.surge-duck .flow-crest,
+#hud.surge-duck .bell,
+#hud.surge-duck .boss-card,
+#hud.surge-duck .boss-note { opacity: 0.25 !important; transition: opacity 0.25s ease; }
+
 /* LETTERBOX (CP2-A, EMBERTIDE's sky-crush re-entrance beat): two bars that ease in
    from the frame edges and back out. Height 0 at rest so they cost nothing idle. */
 .cinebar {
@@ -1272,6 +1286,8 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 /* PR-B: the reserved lance-CLIMAX flash — jade (lance colour), brighter and
    SNAPPIER than the gold radial so the finale reads as a hit, not a glow. */
 .jade-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(90,255,180,0.26) 0%, rgba(90,255,180,0.05) 40%, transparent 68%); }
+/* SUNBREAK Surge-trigger flash (tier-2 fallback): warm gold, radial, single-event — same envelope family as jade-flash. */
+.surge-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,214,120,0.28) 0%, rgba(255,214,120,0.06) 42%, transparent 70%); }
 .flash-anim{ animation: flash 0.45s ease-out forwards; }
 .flash-fast{ animation: flash 0.16s ease-out forwards; }
 @keyframes flash { 0%{opacity:1} 100%{opacity:0} }

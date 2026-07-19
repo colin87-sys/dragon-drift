@@ -5,7 +5,7 @@ import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, setEmpyreanQuality, godrayMul, godrayTint, godrayBreak } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug, surgeCascadeDebug, surgeCascadeSample, surgeFlareSample, surgeDecaySample, surgeGutterSample } from './dragon.js';
 import { setVitals, setSurge } from './dragonBond.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -27,7 +27,7 @@ import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim, surgeExposureDip, surgeGradeMix, surgeGradeEnvAt, surgeLost as surgeLostPostfx } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -43,7 +43,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint, setSurgeBeamPalette, prewarmSurgeBeam, surgeBeamPrewarmed, surgeBeamExtendAt, surgeBeamCollapseAt, surgeBeamPulseAt, surgeBeamWobbleAt, setBossRawDt, surgeRitualScaleAt, surgeRitualBeats, surgeGatherKAt } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -214,6 +214,14 @@ function applyWispCosmetic() {
   setWispTint(tint);
   setLanceTint(tint);
   setMarkRune(lanceRuneFor(ed, fl));
+  // I3: the Surge beam speaks the equipped dragon's hue — BLOOM = surgeHalo ?? surgeHi
+  // (§H/§M.1-7 fallback chain; never the old hardcoded magenta), DARK wrap = the dragon's
+  // surgeDark band (ties the beam to the world-suppression grade), CORE stays near-white.
+  const dk = ed.surgeDark;
+  const darkHex = Array.isArray(dk)
+    ? ((Math.round(dk[0] * 255) << 16) | (Math.round(dk[1] * 255) << 8) | Math.round(dk[2] * 255))
+    : 0x2a2036;
+  setSurgeBeamPalette(0xfff6e8, ed.surgeHalo ?? ed.surgeHi ?? 0xffe0b0, darkHex);
 }
 createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
@@ -259,6 +267,7 @@ initSpeedStreaks(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
 initBoss(scene);
+prewarmSurgeBeam(renderer, camera);   // I3 §M.1-8: compile the beam ribbon shaders NOW — never a mid-fight hitch on first cast
 initPbMarker(scene);
 applyWispCosmetic();   // seed the equipped dragon's wisp accent + brand rune (PR8)
 
@@ -434,6 +443,36 @@ if (urlParams.has('debug')) {
     bossLockCandidates: () => debugLockCandidates(),
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
+    // SUNBREAK surge capture seams (I0): read the unleash cinematic beat + live
+    // draw-call total; pin the cinematic to a beat for montage stills (apex/beam/
+    // impact) — a normally-undefined global, so byte-identical in play; and cast the
+    // full charge→beam cinematic from a fight for the state-machine test.
+    surgeState: () => ({ ...debugSurgeState(), drawCalls: renderer.info.render.calls,
+      gradeMix: surgeGradeMix(), exposure: renderer.toneMappingExposure, exposureBase,
+      prewarmed: surgeBeamPrewarmed() }),
+    // I2 anatomical ignition cascade trace (per-station levels + latched onset timestamps).
+    surgeCascade: () => surgeCascadeDebug(),
+    surgeGradeEnvAt: (t) => surgeGradeEnvAt(t),     // pure world-suppression attack envelope at t (snap-overshoot asserts)
+    surgeCascadeAt: (t) => surgeCascadeSample(t),   // pure forward envelope at cascade-time t (fine-res, frame-clock-independent)
+    surgeFlareAt: (t, s) => surgeFlareSample(t, s), // seeded sustain flare at (t, station)
+    surgeDecayAt: (p) => surgeDecaySample(p),       // reverse-decay envelope at progress p (rim→wings→spine→eye-last)
+    surgeGutterAt: (t) => surgeGutterSample(t),     // damage-cancel gutter envelope at t (2-stutter "lost it")
+    // I4 ritual pure samplers (the conductor envelope / beat boundaries / stepped gather).
+    surgeRitualScaleAt: (t, r) => surgeRitualScaleAt(t, r),
+    surgeRitualBeats: (r) => surgeRitualBeats(r),
+    surgeGatherKAt: (t, r) => surgeGatherKAt(t, r),
+    // I3 beam-life pure samplers (extension / core-last collapse / travelling pulse / wobble).
+    surgeBeamExtendAt: (t) => surgeBeamExtendAt(t),
+    surgeBeamCollapseAt: (p) => surgeBeamCollapseAt(p),
+    surgeBeamPulseAt: (t) => surgeBeamPulseAt(t),
+    surgeBeamWobbleAt: (t, l) => surgeBeamWobbleAt(t, l),
+    surgeCascadePin: (t) => { if (t == null) delete globalThis.__ddSurgeCascadePin; else globalThis.__ddSurgeCascadePin = t; },  // pin the cascade clock for capture (undefined in play)
+    clearRings: () => resetRings(),   // capture hook: clear ring pickups so a cascade still isn't polluted by the ring's bright torus
+    surgeSeam: (beat) => {
+      if (beat == null) delete globalThis.__ddSurgeForce;
+      else globalThis.__ddSurgeForce = (typeof beat === 'string') ? { beat } : beat;
+    },
+    surgeCast: () => debugSurgeCast(),
     bossRaiseShield: () => debugRaiseShield(),
     setQuality: (t) => applyQuality(t),   // test/dev seam: force a quality tier (the tier-2 graceful-degrade proof)
     // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.
@@ -580,6 +619,13 @@ initAnalytics();
 // First-ever Dragon Surge: the signature peak. A non-blocking flourish names the
 // moment mid-flight (the run never pauses); the run-1 recap explains it (recap.js).
 on('firstSurge', () => ui.surgeFlourish());
+// I2.5: a DAMAGE hit that kills the Surge arms the world's fast brighten-pop ("spell broken");
+// the dragon self-detects the abrupt edge for its gutter-out. A natural drain fires no event.
+on('surgeLost', () => surgeLostPostfx());
+// I2.5 tier-2 flash fallback: the postfx surgeStart kick flash is a true no-op when the composer
+// is off (weak mobile), so the trigger's light component vanished there. The DOM flash carries it
+// ONLY in that case — tier 0/1 keeps the postfx flash (never both → no double-flash, photosafe).
+on('surge', () => { if (!postfx.enabled) ui.surgeFlash?.(); });
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
@@ -1689,7 +1735,11 @@ function tick() {
   // a live run can never inherit a menu grade. Shop + hub keep full exposure.
   if (game.state === 'playing') menuDimW = 0;
   else menuDimW += ((ui.atDimScreen() ? 1 : 0) - menuDimW) * (1 - Math.exp(-10 * rawDt));
-  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW);
+  // SUNBREAK I1: the Surge world-suppression exposure dip (−0.4 EV at full) is composed
+  // into the SINGLE exposure write (§M.1-4) so it survives at tier 2 where the grading
+  // pass is absent — the weak-mobile read depends on it. surgeExposureDip() lags the
+  // dragon's ignition by a frame (grade updates in updatePostFX below), which is fine.
+  renderer.toneMappingExposure = exposureBase * (1 - 0.16 * menuDimW) * (1 - surgeExposureDip());
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
@@ -1700,13 +1750,29 @@ function tick() {
   } else if (game.timeScale < 1) {
     game.timeScale = Math.min(1, game.timeScale + rawDt * 3);
   }
+  // I4 THE CONDUCTOR (§M.1-1, pre-assess P0): while the ultimate ritual runs, its authored
+  // envelope is the ONLY timeScale writer — it overrides slow-mo/cine-slow/lethal-save (they
+  // may have written slowMoTimer above; the ritual wins and clears the channel so hitstop at
+  // RELEASE can't be swallowed by main's slow-mo-wins rule).
+  if (game.surgeRitualScale != null) {
+    game.timeScale = game.surgeRitualScale;
+    if (game.slowMoTimer > 0) { game.slowMoTimer = 0; game.slowMoScale = null; setSlowMo(false); }
+  }
+  // I4 fix 2 — the ritual HUD duck rides the conductor's exact lifetime (CALL→RELEASE+settle):
+  // score/chain/stamina chrome to ~25% so the gather owns the frame. Change-detected inside.
+  ui.surgeDuck?.(game.surgeRitualScale != null);
   let dt = rawDt * (game.state === 'playing' ? game.timeScale : 1);
   // Impact-frame hitstop (juice.js): real-time countdown, near-freeze while
   // active, instant restore — no ramp, distinct from slow-mo's channel.
-  if (game.state === 'playing' && game.hitstopTimer > 0) {
+  const hitstopLive = game.state === 'playing' && game.hitstopTimer > 0;
+  if (hitstopLive) {
     game.hitstopTimer -= rawDt;
     dt *= CONFIG.JUICE.hitstopScale;
   }
+  // I4 selective freeze (pre-assess P2 / §M.1-8): during hitstop the ACTORS freeze (they get
+  // the near-zero dt) but the CONSEQUENCES keep moving — particles + camera run on rawDt, so
+  // the 80ms punch reads as impact, never a dropped frame.
+  const dtFx = hitstopLive ? rawDt : dt;
 
   if (game.state === 'playing') {
     game.time += dt;
@@ -1722,6 +1788,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
+    setBossRawDt(rawDt);   // §M.1-1: the ultimate ritual runs wall-clock under the conductor's floor
     updateBoss(dt, player, clock.getElapsedTime(), camera);
     updateDrift(dt, player);
     updateRings(dt, player, clock.getElapsedTime());
@@ -1943,7 +2010,7 @@ function tick() {
       comboT: Math.max(0, Math.min(1, (game.combo - 1) / 1.4)),
     });
     updateDragon(dt, player, t);
-    updateParticles(dt, camera);
+    updateParticles(dtFx, camera);
     // Normalize the slip envelope by the ACTIVE run's max slip (flow ramps to a different
     // ceiling than spine) so the speed FX read 0..1 in both.
     const slipRef = game.canyonRun === 'flow'
@@ -1975,7 +2042,7 @@ function tick() {
       driftEnabled() ? player.speed : 0);   // §3.5: time-normalized telegraphs, drift-gated
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
-    cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
+    cameraCtl.update(dtFx, player, game.state === 'ready' || atShop, atShop);
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');

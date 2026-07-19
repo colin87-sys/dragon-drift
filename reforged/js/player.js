@@ -235,5 +235,12 @@ export const player = {
     this.dist += this.speed * dt;
     this.position.z = -this.dist;
     this.feverActive = game.feverActive;
+    // SUNBREAK I2: mirror the REMAINING fever time so dragon.js can drive the pre-expiry
+    // ignition DECAY off it (§M.1-5 — the body dims in step with the HUD gauge, never ahead).
+    this.feverTimer = game.feverTimer;
+    this.feverDuration = CONFIG.feverDuration;
+    this.surgeUltimate = game.surgeUltimatePhase || null;   // I3: the boss ultimate's live phase (ducks the ambient cascade)
+    this.surgeApexPin = game.surgeApexPin || 0;             // I4: APEX pose-pin weight (the flap steers to the high-V silhouette)
+    this.surgeGatherK = game.surgeGatherK || 0;             // I4 fix 3: the ritual's charge climbs the BODY (rim/wing lift in dragon.js)
   },
 };

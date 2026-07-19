@@ -669,6 +669,7 @@ export const ui = {
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
       <div class="jade-flash" id="jade-flash"></div>
+      <div class="surge-flash" id="surge-flash"></div>
       <div class="fever-overlay" id="fever-overlay"></div>
       <div class="speedlines" id="speedlines"></div>
       <div class="revive-offer" id="revive-offer">
@@ -718,6 +719,7 @@ export const ui = {
       bcTimer:      root.querySelector('#bc-timer'),
       goldFlash:    root.querySelector('#gold-flash'),
       jadeFlash:    root.querySelector('#jade-flash'),
+      surgeFlashEl: root.querySelector('#surge-flash'),
       surgeWidget:  root.querySelector('#stamina-arc'),   // H3: the gauntlet IS the surge widget
       surgeX:       root.querySelector('#surge-x'),
       surgeGems:    root.querySelector('#surge-gems'),
@@ -1302,6 +1304,15 @@ export const ui = {
     restartAnim(els.jadeFlash, 'flash-fast');
   },
 
+  // SUNBREAK I2.5: the Surge-trigger flash for TIER 2 / no-postfx devices — the postfx kick
+  // flash is a true no-op there (§M.1 §G correction), so weak mobile lost the trigger's light
+  // component entirely. Same single-event, reduceMotion-guarded contract as lanceFlash; warm
+  // gold (SUNBREAK's lane — never saturated red), radial so the centre lane stays readable.
+  surgeFlash() {
+    if (reduceMotion || saveData.settings.reduceFx) return;
+    restartAnim(els.surgeFlashEl, 'flash-fast');
+  },
+
   // Crystal-flash for a perfect phase (reuses the radial flash overlay).
   phaseFlash() {
     restartAnim(els.blueFlash, 'flash-anim');
@@ -1505,6 +1516,16 @@ export const ui = {
   cinematicHold(on) {
     const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
     if (hud) hud.classList.toggle('cine-hold', !!on);
+  },
+  // SUNBREAK I4 fix 2 — the RITUAL HUD DUCK: keyed each frame off the conductor
+  // (game.surgeRitualScale != null spans CALL→RELEASE+settle), change-detected so
+  // the classList write only happens on the two edges. CSS does the ~25% fade.
+  surgeDuck(on) {
+    on = !!on;
+    if (this._surgeDuckOn === on) return;
+    this._surgeDuckOn = on;
+    const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
+    if (hud) hud.classList.toggle('surge-duck', on);
   },
   // LETTERBOX (CP2-A, EMBERTIDE's vertical-squeeze re-entrance beat): two bars ease
   // in from the frame edges and back out — a PULSE, not a mode (boss.js times it).
@@ -2283,6 +2304,7 @@ export const ui = {
           ${swRow('assist', 'reticle', 'TARGET RETICLE', `Off pays +${pct(CONFIG.reticleOffBonus)}% score.`)}
           ${swRow('assist', 'bulletClarity', 'BULLET CLARITY', 'Boss fights: hollow lock reticle, bigger bullets, danger telegraphs.')}
           ${swRow('assist', 'slowMo', 'LAST-CHANCE SLOW-MO', `A heartbeat of slow time before a fatal hit. Off pays +${pct(CONFIG.slowMoOffBonus)}% score.`)}
+          ${swRow('assist', 'reduceFx', 'REDUCE FLASHING & MOTION', 'Softer Surge: no screen flashes, gentler shake and camera punches. Slow-mo beats stay.')}
           ${swRow('assist', 'glideAssist', 'GLIDE ASSIST', `Auto-flies to each ring and collects embers. Scores −${pct(1 - CONFIG.glideAssistScoreMult)}% while on.`)}
 
           <div class="settings-section">HUD readouts</div>

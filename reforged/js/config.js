@@ -621,6 +621,7 @@ export const CONFIG = {
       nearMiss:         { hitstop: 50, kick: null },
       gateThread:       { hitstop: 0,  kick: null },   // camera gateKick instead
       surgeStart:       { hitstop: 0,  kick: 'surgeStart' },
+      surgeRelease:     { hitstop: 0,  kick: 'surgeRelease' },   // I4: the ultimate's RELEASE punch (hitstop comes via hitstopForce, not here)
       phase:            { hitstop: 45, kick: null },          // minor phase: light beat
       phasePerfect:     { hitstop: 95, kick: 'surgeStart' },  // perfect phase: big magenta kick
       comboBreak:       { hitstop: 0,  kick: 'comboBreak' },

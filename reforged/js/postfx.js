@@ -8,6 +8,7 @@ import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTe
 export { setGodRayMaskDuty };   // re-exported so main.js drives the whole god-ray control surface through postfx
 import { damp, clamp } from './util.js';
 import { game } from './gameState.js';
+import { saveData } from './save.js';
 
 // Post pipeline: RenderPass -> UnrealBloom -> OutputPass -> grading.
 // The scene pass renders linear HDR (r160 skips tone mapping into render
@@ -25,8 +26,10 @@ const GradingShader = {
     contrast: { value: 0.24 },     // 0..1 blend toward an S-curve (more punch)
     vignette: { value: 0.30 },
     aberration: { value: 0.0 },    // chromatic aberration strength
-    lift: { value: 0.0 },          // fever warm-glow pulse
-    liftTint: { value: new THREE.Vector3(0.10, 0.03, 0.08) }, // wash hue (magenta default)
+    lift: { value: 0.0 },          // kick/flash warm-glow pulse (fever wash term retired — SUNBREAK I1)
+    liftTint: { value: new THREE.Vector3(0.10, 0.03, 0.08) }, // kick hue (still drives goldenEmber/arenaFlood/the release flash)
+    surgeMix: { value: 0.0 },      // SUNBREAK I1: world-suppression amount (0..1) — the world steps DOWN so the dragon reads as the light source
+    surgeDark: { value: new THREE.Vector3(0.16, 0.13, 0.21) }, // the active dragon's DARK band (L≈0.14): shadows pull toward THIS hue, never neutral grey
     uDither: { value: 1.0 },       // N1: 1 = dither ON (kill with ?dither=0), 0 = shipped
   },
   vertexShader: /* glsl */`
@@ -44,6 +47,8 @@ const GradingShader = {
     uniform float aberration;
     uniform float lift;
     uniform vec3 liftTint;
+    uniform float surgeMix;
+    uniform vec3 surgeDark;
     uniform float uDither;
     varying vec2 vUv;
     void main() {
@@ -63,7 +68,34 @@ const GradingShader = {
       // Gentle S-curve contrast (smoothstep blend avoids hard clipping).
       vec3 curved = col * col * (3.0 - 2.0 * clamp(col, 0.0, 1.0));
       col = mix(col, curved, contrast);
-      // Fever warm lift (hue per equipped dragon — magenta dragons, gold Phoenix)
+      // SUNBREAK world-suppression (I1): on Surge the WORLD steps down one value band so
+      // the dragon becomes the brightest thing — the 3D gacha cut-in (world recedes,
+      // subject dominates). SUBTRACTIVE-ONLY (never brightens a world pixel) and
+      // SPLIT-TONED: (a) desaturate the world toward its own luminance, (b) darken it
+      // (vignette-weighted so the centre lane stays readable), (c) pool the dragon's DARK
+      // hue in the SHADOWS at constant luminance while HIGHLIGHTS stay near-neutral — the
+      // difference between "the sun went behind the dragon" and "someone put a filter on".
+      // worldW spares the dragon's near-white core/bloom; shadowW keeps the tint out of
+      // the highlights. surgeMix is delayed vs the dragon's ignition (dragon leads, world follows).
+      if (surgeMix > 0.0) {
+        // worldW spares the BRIGHT band — the dragon's core/bloom AND the sky's horizon
+        // glow / water hotspots — from desat+darken, so the sky keeps its vertical value
+        // structure (a suppressed sky must still read as a SKY, not a flat filter field).
+        float worldW = 1.0 - smoothstep(0.48, 0.88, lum);
+        col = mix(col, vec3(lum), surgeMix * 0.40 * worldW);      // (a) desaturate ×~0.6 over the world
+        float edge = mix(0.55, 1.0, smoothstep(0.0, 1.0, r2 * 2.2)); // centre/horizon gentler, corners full
+        col *= (1.0 - surgeMix * 0.30 * edge * worldW);           // (b) step the world DOWN
+        // (c) split-tone: pool the dragon's DARK hue in the DEEP shadows with a (1-luma)^2
+        // weight, so the colour STATEMENT lives in the darks (premium) not smeared over the
+        // whole frame (the flat-filter tell). Stronger mix so it reads at gameplay distance.
+        float sw = 1.0 - smoothstep(0.03, 0.55, lum);
+        float shadowW = pow(sw, 1.5);                            // (1-luma)^1.5 — deep darks OWN the hue, a whisper reaches the midtones (kills the "dusty" neutral mid-ground read; sat stays ≤~0.10 there)
+        float ld = dot(surgeDark, vec3(0.299, 0.587, 0.114));
+        vec3 darkTarget = surgeDark * (lum / max(ld, 0.001));     // surgeDark's HUE at THIS pixel's luminance → pure hue shift, no brighten
+        col = mix(col, darkTarget, surgeMix * shadowW * worldW * 0.85);
+      }
+      // Kick/flash warm lift (goldenEmber, arenaFlood, the RELEASE flash — the fever wash
+      // term is retired; this hue channel survives for the kick presets, §M.1-4).
       col += liftTint * lift * (1.0 - r2 * 1.6);
       // Vignette
       col *= 1.0 - vignette * smoothstep(0.18, 0.95, r2 * 2.4);
@@ -95,16 +127,60 @@ export const postfx = {
   _baseBloomThreshold: 1.0,   // UnrealBloom threshold at rest; RAISED on fever so the fire body stops blooming to cream
   _aberrationOn: true,
   _feverMix: 0,
-  _feverTint: [0.10, 0.03, 0.08], // fever wash hue; setFeverTint() swaps per dragon
+  _feverTint: [0.10, 0.03, 0.08], // kick/flash hue; setFeverTint() swaps per dragon
+  _surgeDark: [0.16, 0.13, 0.21], // SUNBREAK I1: per-dragon DARK band the suppression pools in shadows; setSurgeDark() swaps
   _kickScale: 1, // tier 1 halves impulse magnitudes
 };
+// SUNBREAK I1 world-suppression envelope. `_surgeGrade` (0..1) is the applied grade
+// amount; it LAGS the dragon's ignition (delayed onset + ~0.9s ramp) so the dragon leads
+// and the world follows (§I-6), holds through sustain, and releases over ~1.5s. `_surgeT`
+// is real-time elapsed since the Surge rising edge (drives the delayed-onset ramp shape).
+let _surgeGrade = 0;
+let _surgeT = 0;
+let _surgeLostT = -1;     // s since a DAMAGE cancel (-1 = not a damage loss → natural slow lift)
+let _surgeLostFrom = 0;   // grade at the damage cancel (the fast-lift starts from here)
+let _surgeExpOver = 0;    // exposure BRIGHTEN overshoot on the damage lift (the "spell broken" value pop)
+// Pure attack envelope: the world SNAPS down on the trigger edge (dragon leads by a ~150ms onset,
+// then a fast easeOutCubic to 115% depth by ~400ms) and SETTLES to 100% by ~900ms — a felt "the
+// sky just dropped" event, not a slow drift (Fable ruling). Overshoot-and-settle = felt, not late.
+function _surgeAttackEnv(e) {
+  if (e <= 0) return 0;
+  if (e < 0.40) { const x = e / 0.40; return 1.15 * (1 - (1 - x) * (1 - x) * (1 - x)); }   // easeOutCubic → 115%
+  if (e < 0.90) { const x = (e - 0.40) / 0.50; return 1.15 - 0.15 * (0.5 - 0.5 * Math.cos(Math.PI * x)); }  // easeInOutSine settle → 100%
+  return 1.0;
+}
+// A DAMAGE hit KILLS the Surge (not a natural drain): the world lifts FAST (~300ms) and POPS a
+// touch brighter than normal for one beat — a pure-value "spell broken" signature (colorblind-safe).
+export function surgeLost() { _surgeLostT = 0; _surgeLostFrom = _surgeGrade; }
+// The tone-mapping exposure dip is applied in main.js at the single exposure write (§M.1-4). A
+// positive result DIPS (darker); the damage-lift overshoot makes it briefly NEGATIVE (brighter).
+export function surgeExposureDip() { return 0.24 * _surgeGrade - _surgeExpOver; }
+export function surgeGradeMix() { return _surgeGrade; }             // trace seam for the surgefx envelope asserts
+export function surgeGradeEnvAt(t) { return _surgeAttackEnv(t - 0.15); }   // pure sampler (frame-clock-independent asserts)
 
-// Fever-wash hue. Dragons wash magenta (the default); the Phoenix washes warm
-// gold and a touch dimmer so its Rebirth reads celestial, never like Dragon
-// Surge. Called on dragon equip; applied every frame in updatePostFX.
+// Fever-wash hue. RETAINED as the KICK/flash hue (goldenEmber, arenaFlood, the release
+// flash) — the additive fever *wash* term is retired in SUNBREAK I1 (world-suppression
+// replaces it), but liftTint stays alive for the kick presets (§M.1-4). Called on equip.
 const FEVER_TINT_DEFAULT = [0.10, 0.03, 0.08];
 export function setFeverTint(rgb) {
   postfx._feverTint = rgb || FEVER_TINT_DEFAULT;
+}
+// SUNBREAK I1: the active dragon's DARK band — the world-suppression grade pools THIS hue
+// in the shadows (§C.2/§H `surgeDark`). Called on equip alongside setFeverTint. When a
+// dragon supplies no explicit `surgeDark`, derive it from its wash hue crushed to a
+// shadow value (L≈0.14, desaturated toward its own luminance) so the darkness still
+// carries the dragon's identity rather than going neutral grey.
+const SURGE_DARK_DEFAULT = [0.16, 0.13, 0.21];
+export function setSurgeDark(rgb) {
+  let d = rgb;
+  if (!d) {
+    const ft = postfx._feverTint || FEVER_TINT_DEFAULT;
+    const l = 0.299 * ft[0] + 0.587 * ft[1] + 0.114 * ft[2];
+    const s = l > 1e-4 ? 0.14 / l : 1;                 // scale the wash hue up to L≈0.14
+    const g = 0.14;                                    // desaturate ~halfway toward that luminance
+    d = [ft[0] * s * 0.55 + g * 0.45, ft[1] * s * 0.55 + g * 0.45, ft[2] * s * 0.55 + g * 0.45];
+  }
+  postfx._surgeDark = d;
 }
 // FIRSTBORN heaven: the Surge screen-wash reads in the arena's gold, not the magenta default (paired
 // with the sky feverWarm in environment.js). `_arenaWarm` (0→1, driven from the arena mix in main.js)
@@ -188,6 +264,11 @@ const _kickKeys = Object.keys(_kick);   // hoisted: `Object.keys(_kick)` in the 
 const KICK_DECAY = { bloom: 6, lift: 5, sat: 7, vig: 6, ab: 8 };
 const KICK_MAX = { bloom: 0.36, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
 let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
+// §G reduce-motion: the OS preference suppresses the 1-frame kick FLASH at every tier (the DOM
+// fallback already respects it — this closes the tier-0/1 gap the independent critic caught;
+// bloom/lift pulses are not photosensitivity flashes and stay).
+const _reduceMedia = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const _reduceFx = () => _reduceMedia || !!saveData.settings.reduceFx;   // OS pref OR the §G settings toggle (live)
 let _deathOn = false;
 let _deathMix = 0;
 // Boss-time stage-management grade: the world mid-tones itself so bullets own
@@ -212,7 +293,14 @@ export function setHudGrade(desat = 0, vig = 0) {
 const KICK_PRESETS = {
   goldenEmber:      { bloom: 0.30, lift: 0.35 },
   perfectMilestone: { flashFrames: 1, bloom: 0.20, lift: 0.20 },
-  surgeStart:       { bloom: 0.24 },
+  // The Surge IGNITION punch (I2.5): a 1-frame flash + bloom + lift pulse so the trigger reads as an
+  // EVENT on EVERY dragon — the universal screen-space cue that carries the moment on silhouette
+  // dragons (Vesper) whose own body barely lights. Photosafe: single frame, capped. Owner-tunable.
+  surgeStart:       { flashFrames: 1, bloom: 0.34, lift: 0.32 },
+  // I4 RELEASE (§F pulse stack, §G-capped): ONE flash + bloom STRENGTH pulse (threshold never
+  // moves — no-cream law) + CA spike (+0.015 over the 0.013 fever floor, total ≤0.030) + a
+  // vignette squeeze. The FOV punch + trauma spike ride the camera channels, not this kick.
+  surgeRelease:     { flashFrames: 1, bloom: 0.34, lift: 0.30, ab: 0.015, vig: 0.14 },
   // The RED of a combo break comes from the existing #vignette DOM flash —
   // the shader's vignette is colorless darkening.
   comboBreak:       { sat: -0.25, vig: 0.18 },
@@ -237,12 +325,15 @@ export function kick(name) {
   const p = KICK_PRESETS[name];
   if (!p) return;
   const s = postfx._kickScale;
+  const _rfx = _reduceFx();
   for (const c of Object.keys(_kick)) {
     if (p[c]) {
-      _kick[c] = clamp(_kick[c] + p[c] * s, -KICK_MAX[c], KICK_MAX[c]);
+      // §G toggle: CA + vignette pulses halved under reduce-fx (flash killed below; bloom/lift/sat stay)
+      const m = _rfx && (c === 'ab' || c === 'vig') ? 0.5 : 1;
+      _kick[c] = clamp(_kick[c] + p[c] * s * m, -KICK_MAX[c], KICK_MAX[c]);
     }
   }
-  if (p.flashFrames) _flashFrames = Math.max(_flashFrames, p.flashFrames);
+  if (p.flashFrames && !_rfx) _flashFrames = Math.max(_flashFrames, p.flashFrames);
 }
 
 // Sustained death grade: desaturate + crush the edges across the crash
@@ -421,6 +512,37 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   _hudGrade.desat = damp(_hudGrade.desat, _hudGradeTarget.desat, 4, rawDt);
   _hudGrade.vig = damp(_hudGrade.vig, _hudGradeTarget.vig, 4, rawDt);
 
+  // SUNBREAK world-suppression envelope (unconditional, like the grades above, so a tier flap
+  // mid-Surge never strands a half-applied darkening). DRAGON LEADS, WORLD FOLLOWS: the grade
+  // onset is delayed ~150ms past the edge (after the eye-flash), then SNAPS to 115% depth by
+  // ~400ms and settles to 100% by ~900ms (I2.5 punch-up — a felt event, not a slow drift). Two
+  // exits: a NATURAL drain lifts slowly (~1.2s, earned exhale); a DAMAGE cancel lifts fast (~300ms)
+  // with a +0.10 EV brighten pop (the punished "spell broken" beat), armed by surgeLost().
+  if (feverActive) {
+    _surgeT += rawDt; _surgeLostT = -1; _surgeExpOver = 0;
+    // Snap-with-overshoot attack (onset 150ms → dragon leads); damp fast so the snap reads.
+    let target = _surgeAttackEnv(_surgeT - 0.15);
+    // SUSTAIN breathe (~0.22Hz, ±5%): a RELATIVE tell that resists adaptation — a static −0.4 EV
+    // drop stops carrying info ~10s in ("darker" becomes the new normal), so the suppressed world
+    // gently pulses to keep the Surge STATE present on every dragon (the critic's #1 note). Photosafe.
+    if (_surgeT > 1.1) target += 0.05 * Math.sin((_surgeT - 1.1) * 2 * Math.PI * 0.22);
+    _surgeGrade = damp(_surgeGrade, target, 16, rawDt);
+  } else if (_surgeLostT >= 0) {
+    // DAMAGE cancel: the world lifts FAST (~300ms easeOutCubic) with a +0.10 EV brighten overshoot
+    // peaking ~220ms (the "spell broken" pop), gone by ~500ms.
+    _surgeT = 0; _surgeLostT += rawDt;
+    const x = clamp(_surgeLostT / 0.30, 0, 1);
+    _surgeGrade = _surgeLostFrom * (1 - x) * (1 - x);   // fast easeOut to 0
+    const o = _surgeLostT;                              // brighten bump: 0 → peak ~0.22s → 0 by ~0.5s
+    _surgeExpOver = o < 0.5 ? 0.07 * Math.sin(Math.PI * clamp(o / 0.5, 0, 1)) : 0;
+    if (_surgeLostT > 0.5) { _surgeGrade = 0; _surgeExpOver = 0; _surgeLostT = -1; }
+  } else {
+    // NATURAL drain: slow, subtle lift (~1.2s) — the earned exhale, distinct from the punished pop.
+    _surgeT = 0; _surgeExpOver = 0;
+    _surgeGrade = damp(_surgeGrade, 0, 2.5, rawDt);
+    if (_surgeGrade < 1e-3) _surgeGrade = 0;
+  }
+
   if (!postfx.enabled) return;
   const u = postfx.gradingPass.uniforms;
   postfx._feverMix = damp(postfx._feverMix, feverActive ? 1 : 0, 4, dt);
@@ -433,13 +555,15 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
       + clamp(canyonSpeedMix, 0, 1) * clamp(speedNorm, 0, 1) * 0.014 // spine speed-tunnel streak
     : 0;
   u.aberration.value = damp(u.aberration.value, targetAb, 5, dt) + _kick.ab;
-  // Surge wash kept deliberately LOW so rings/hazards/centre lane stay readable —
-  // the dragon itself carries the spectacle (spine/core/wing-edge), not a full
-  // screen-fill wash. Trimmed ~40% again: the white-hot Phoenix Rebirth was
-  // washing out the entire frame and burying the silhouette + hazards.
-  u.lift.value = postfx._feverMix * (0.24 + Math.sin(performance.now() * 0.006) * 0.09)
-    + _kick.lift + flash * 0.26; 
-  const ft = postfx._feverTint;   // heaven lerps the wash hue magenta→ember-gold (the arena palette law)
+  // SUNBREAK I1: the additive Surge WASH term is RETIRED (it raised the world toward the
+  // effect colour, killing the CORE:DARK contrast). world-suppression (u.surgeMix below)
+  // replaces it. `lift` survives ONLY for the kick presets + the release flash (§M.1-4).
+  u.lift.value = _kick.lift + flash * 0.26;
+  // World-suppression grade: the world steps down toward the dragon's DARK band.
+  u.surgeMix.value = _surgeGrade;
+  const sd = postfx._surgeDark;
+  u.surgeDark.value.set(sd[0], sd[1], sd[2]);
+  const ft = postfx._feverTint;   // heaven lerps the kick/flash hue magenta→ember-gold (the arena palette law)
   u.liftTint.value.set(
     ft[0] + (_WARM_LIFT[0] - ft[0]) * _arenaWarm,
     ft[1] + (_WARM_LIFT[1] - ft[1]) * _arenaWarm,
@@ -447,8 +571,12 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // Boss-time stage management: the world mid-tones itself (sat/vig/bloom ease
   // toward this at mix=1) so the bullets are the most vivid thing on screen —
   // scales linearly with _bossMix, zero term at mix=0 (no boss = byte-identical).
-  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat - _bossMix * 0.10 - _hudGrade.desat;
-  let vig = 0.30 + _kick.vig + _bossMix * 0.05 + _hudGrade.vig;
+  // Fever no longer RAISES saturation (that fed the old punchy-wash aesthetic); the
+  // world-suppression grade desaturates the world in-shader (luminance-protected so the
+  // dragon stays vivid). Vignette gets a +0.14 Surge squeeze (§C.2) on top of the shader's
+  // edge-weighted darkening — the vignette-framed darkening is the photosensitivity-preferred shape.
+  let sat = 1.18 + _kick.sat - _bossMix * 0.10 - _hudGrade.desat;
+  let vig = 0.30 + _kick.vig + _bossMix * 0.05 + _hudGrade.vig + _surgeGrade * 0.14;
   // Bloom eases DOWN during Surge (clamped) so the bright scene/sky can't blow
   // out and bury the silhouette — the dragon's own emissive is far brighter and
   // still blooms, keeping the glow ON the dragon, not the whole screen.
