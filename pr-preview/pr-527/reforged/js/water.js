@@ -378,6 +378,25 @@ const fragmentShader = /* glsl */`
       col = mix(col, deepColor, _wk * 0.30 * uWakeMix);
     }
 
+    // THE EMPYREAN uplift PR-A (uStructMix 0 = shipped byte-identical) — the water's half of the
+    // 3-tier value scheme + the disc's WORLD-ANCHORED pulse-ring + its mirror-smudge (all value-DARK,
+    // floors well above the Mote's black; owner-approved theology amendment).
+    if (uStructMix > 0.0001) {
+      float _fl = smoothstep(14.0, 55.0, abs(vWorldPos.x));                 // flank water leaves the sky's value band
+      col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.38 * uStructMix);
+      // the ring is born at a QUANTIZED world point ahead (disc-born, not a wake cousin) and expands
+      // past the player at 34 m/s, one pulse every ~8s
+      float _pfz = (floor((uHeroPos.z - 290.0) / 120.0)) * 120.0;
+      float _pr = length(vWorldPos.xz - vec2(0.0, _pfz));
+      float _pR = mod(time, 8.0) * 34.0;
+      float _pw = smoothstep(_pR - 13.0, _pR, _pr) * (1.0 - smoothstep(_pR, _pR + 13.0, _pr)) * (1.0 - smoothstep(200.0, 300.0, _pr));
+      col = mix(col, deepColor, _pw * 0.32 * uStructMix);
+      // the disc's dark MIRROR-SMUDGE: the 2nd-darkest thing in frame (~L55, above the L50 floor) —
+      // a slim centerline streak far ahead, so the disc stains its own reflection
+      float _sm = (1.0 - smoothstep(2.5, 13.0, abs(vWorldPos.x))) * smoothstep(90.0, 250.0, uHeroPos.z - vWorldPos.z);
+      col = mix(col, deepColor * 0.58, _sm * 0.55 * uStructMix);
+    }
+
     // Golden sun streak: compress the normal's x so the highlight stretches
     // toward the camera (classic low-sun water glitter lane).
     // STORMSEA: the sun is HIDDEN behind the deck — there is no coherent specular PATH to the viewer.
