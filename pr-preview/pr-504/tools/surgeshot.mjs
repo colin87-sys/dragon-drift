@@ -61,8 +61,17 @@ async function seams() {
   }
   if (!ok) console.log('WARN: fight not reached — montage may be empty');
   for (const beat of ['apex', 'beam', 'impact']) {
-    await page.evaluate((b) => window.__dd.surgeSeam(b), beat);
-    await page.waitForTimeout(500);   // let the pinned beat render a few frames
+    // Real ultimates always run WITH fever (activateSurge sets it first) → the world-suppression
+    // grade is live and the additive beam ensemble reads against a DARK world. Boss bullets can
+    // hit-CANCEL fever mid-capture (ultimate i-frames land in I4), so re-assert it while polling
+    // the grade to full — the capture must match the played frame, not a half-ramped one.
+    await page.evaluate((b) => { window.__dd.player.speed = 0; window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; window.__dd.surgeSeam(b); }, beat);
+    for (let i = 0; i < 30; i++) {
+      const g = await page.evaluate(() => { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; return window.__dd.surgeState().gradeMix; });
+      if (g >= 0.9) break;
+      await page.waitForTimeout(400);
+    }
+    await page.waitForTimeout(200);   // let the pinned beat render at full grade
     const st = await page.evaluate(() => window.__dd.surgeState());
     const out = `/tmp/surge-${key}-${beat}.png`;
     await page.screenshot({ path: out });

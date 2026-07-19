@@ -6,7 +6,7 @@ import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll, UNLEAS
 import { nextGridDelay } from './harmony.js';
 import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
-import { burst, gateThreadBurst } from './particles.js';
+import { burst, gateThreadBurst, surgeShockRing } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { bulletGraze } from './collision.js';
@@ -1396,20 +1396,69 @@ export function initBoss(sc) {
   beamCore.frustumCulled = beamGlow.frustumCulled = false;   // vertex shader owns placement — the unit plane's bbox is meaningless
   beamCore.renderOrder = TIERS.surgeFx; beamGlow.renderOrder = TIERS.surgeFx - 1;
   shaft.add(beamGlow, beamCore);
-  const muzzleOrb = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 12, 10),
-    new THREE.MeshBasicMaterial({ color: 0xbdeaff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  muzzleOrb.renderOrder = TIERS.surgeFx;
-  const impactOrb = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 12, 10),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  impactOrb.renderOrder = TIERS.surgeFx;
-  surgeBeam.add(shaft, muzzleOrb, impactOrb);
-  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleOrb, impactOrb };
+  // MUZZLE = a 3-layer radial stack (dark gather-SOCKET → per-dragon hue PETALS → near-white
+  // CORE flash), the rear-chase CLIMAX element (nearest the lens; §I-3 apex 2.2–2.8× shaft
+  // width; hue-dominant during GATHER, the core SNAPS WHITE at the release lock — the MH tell).
+  const mkLayer = (sz, order) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowSpriteTex(), color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.scale.setScalar(sz); s.renderOrder = order; s.layers.set(1); s.visible = false;
+    return s;
+  };
+  const muzzleSocket = mkLayer(3.6, TIERS.surgeFx - 1);
+  const muzzlePetals = mkLayer(2.4, TIERS.surgeFx);
+  const muzzleCore = mkLayer(1.1, TIERS.surgeFx + 1);
+  // IMPACT spark cluster: ONE THREE.Points draw regardless of the particleBatch flag (§M.1-2 —
+  // the shipped per-sprite pool is 1 DC/sprite, so 24-40 pool sparks would be 24-40 DC). This
+  // REPLACES the legacy strikeSurge/breakShield bursts (~88 pool sprites) — never stacks (§M.1-3).
+  const sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SURGE_SPARK_N * 3), 3));
+  sparkGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(SURGE_SPARK_N * 3), 3));
+  const surgeSparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({
+    size: 0.55, map: beamGlowSpriteTex(), vertexColors: true, transparent: true,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+  }));
+  surgeSparks.frustumCulled = false; surgeSparks.visible = false; surgeSparks.renderOrder = TIERS.surgeFx; surgeSparks.layers.set(1);
+  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks);
+  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks };
   surgeBeam.visible = false;
   scene.add(surgeBeam);
+}
+// Shared white radial glow for the muzzle layers + spark points (hue via material/vertex color).
+let _beamSpriteTex = null;
+function beamGlowSpriteTex() { return _beamSpriteTex || (_beamSpriteTex = makeGlowTexture('255,255,255')); }
+const SURGE_SPARK_N = 44;   // 28 impact sparks + up to 16 shield shards, one Points draw
+const _sparkVel = new Float32Array(SURGE_SPARK_N * 3);
+const _sparkLife = new Float32Array(SURGE_SPARK_N);
+const _sparkLife0 = new Float32Array(SURGE_SPARK_N);
+let _sparkActive = 0;
+const _beamPal = { core: new THREE.Color(0xfff6e8), halo: new THREE.Color(0x9a86ff), dark: new THREE.Color(0x2a2036) };
+// Fire the impact ensemble's point cluster (seeded — deterministic per cast): 28 outward sparks
+// 18–30 u/s life 0.3–0.5s; +14 slower, brighter SHARDS on a shield-shatter. Colors span the value
+// law (a few near-white cores, the rest the dragon's halo hue).
+function fireSurgeSparks(center, shatter) {
+  const { surgeSparks } = surgeBeam.userData;
+  const rng = mulberry32((beamCastIndex * 0x85ebca6b + (shatter ? 7 : 0)) >>> 0);
+  const n = shatter ? SURGE_SPARK_N : 28;
+  const pos = surgeSparks.geometry.attributes.position.array;
+  const col = surgeSparks.geometry.attributes.color.array;
+  for (let i = 0; i < SURGE_SPARK_N; i++) {
+    if (i >= n) { _sparkLife[i] = 0; pos[i * 3 + 1] = -9999; continue; }
+    const shard = i >= 28;
+    const th = rng() * Math.PI * 2, ph = Math.acos(rng() * 2 - 1);
+    const sp = shard ? 8 + rng() * 8 : 18 + rng() * 12;
+    _sparkVel[i * 3] = Math.sin(ph) * Math.cos(th) * sp;
+    _sparkVel[i * 3 + 1] = Math.cos(ph) * sp;
+    _sparkVel[i * 3 + 2] = Math.sin(ph) * Math.sin(th) * sp;
+    _sparkLife0[i] = _sparkLife[i] = shard ? 0.5 + rng() * 0.2 : 0.3 + rng() * 0.2;
+    pos[i * 3] = center.x; pos[i * 3 + 1] = center.y; pos[i * 3 + 2] = center.z;
+    const c = (i % 5 === 0 || shard) ? _beamPal.core : _beamPal.halo;   // a few white-hot cores in a hue cluster
+    const b = shard ? 1.35 : 1.0;
+    col[i * 3] = c.r * b; col[i * 3 + 1] = c.g * b; col[i * 3 + 2] = c.b * b;
+  }
+  surgeSparks.geometry.attributes.position.needsUpdate = true;
+  surgeSparks.geometry.attributes.color.needsUpdate = true;
+  surgeSparks.visible = true;
+  _sparkActive = n;
 }
 
 // ── SUNBREAK I3 beam ribbon kit ─────────────────────────────────────────────
@@ -1509,11 +1558,16 @@ function makeBeamRibbonMat(outerOnly) {
 // the world-suppression band; the core stays near-white — value law). Pushed from main.js on equip.
 export function setSurgeBeamPalette(coreHex, haloHex, darkHex) {
   if (!surgeBeam) { _pendingBeamPal = [coreHex, haloHex, darkHex]; return; }
+  _beamPal.core.setHex(coreHex); _beamPal.halo.setHex(haloHex); _beamPal.dark.setHex(darkHex);
   for (const m of [surgeBeam.userData.beamCore.material, surgeBeam.userData.beamGlow.material]) {
     m.uniforms.uCore.value.setHex(coreHex);
     m.uniforms.uBloom.value.setHex(haloHex);
     m.uniforms.uDark.value.setHex(darkHex);
   }
+  // The muzzle stack takes the same value-law roles: dark socket / hue petals / near-white core.
+  surgeBeam.userData.muzzleSocket.material.color.setHex(darkHex);
+  surgeBeam.userData.muzzlePetals.material.color.setHex(haloHex);
+  surgeBeam.userData.muzzleCore.material.color.setHex(coreHex);
 }
 let _pendingBeamPal = null;
 // §M.1-8: compile the ribbon shaders at init (hidden 1-frame visibility + renderer.compile) so the
@@ -1556,29 +1610,59 @@ function surgeForceBeat() {
 // clears `surgeSeq` when the beam finishes.
 function updateSurgeBeam(dt, player, time) {
   if (!surgeBeam) return;
+  // Impact spark cluster integrates INDEPENDENTLY of the sequencer (sparks outlive the beam's
+  // collapse). Zero-alloc: typed arrays in place, colors decay toward 0 (additive → fade).
+  if (_sparkActive > 0) {
+    const { surgeSparks } = surgeBeam.userData;
+    const pos = surgeSparks.geometry.attributes.position.array;
+    const col = surgeSparks.geometry.attributes.color.array;
+    let alive = 0;
+    for (let i = 0; i < SURGE_SPARK_N; i++) {
+      if (_sparkLife[i] <= 0) continue;
+      _sparkLife[i] -= dt;
+      if (_sparkLife[i] <= 0) { pos[i * 3 + 1] = -9999; continue; }
+      alive++;
+      const drag = Math.exp(-dt * 2.2);
+      _sparkVel[i * 3] *= drag; _sparkVel[i * 3 + 1] = _sparkVel[i * 3 + 1] * drag - 9 * dt; _sparkVel[i * 3 + 2] *= drag;
+      pos[i * 3] += _sparkVel[i * 3] * dt; pos[i * 3 + 1] += _sparkVel[i * 3 + 1] * dt; pos[i * 3 + 2] += _sparkVel[i * 3 + 2] * dt;
+      const k = 0.985;   // additive fade: colors decay toward 0 (life-curve-free, alloc-free)
+      col[i * 3] *= k; col[i * 3 + 1] *= k; col[i * 3 + 2] *= k;
+    }
+    surgeSparks.geometry.attributes.position.needsUpdate = true;
+    surgeSparks.geometry.attributes.color.needsUpdate = true;
+    if (!alive) { _sparkActive = 0; surgeSparks.visible = false; }
+  }
   // Capture seam: pin the cinematic to a beat (holds the beat, no auto-transition).
   const pin = surgeForceBeat();
   if (pin) surgeSeq = { phase: pin.phase, t: pin.t };
-  if (!surgeSeq) { if (surgeBeam.visible) surgeBeam.visible = false; return; }
+  if (!surgeSeq) { if (surgeBeam.userData.shaft.visible) hideBeamEnsemble(); if (!_sparkActive) surgeBeam.visible = false; return; }
   if (!pin) surgeSeq.t += dt;
   surgeBeam.visible = true;
-  const { shaft, beamCore, beamGlow, muzzleOrb, impactOrb } = surgeBeam.userData;
+  const { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore } = surgeBeam.userData;
 
   // Mouth ≈ just ahead + slightly above the dragon; boss at its settled pose.
   beamO.set(player.position.x, player.position.y + 0.35, -(player.dist + 1.3));
   beamT.set(pose.x, pose.y, -(player.dist + pose.rel));
 
   if (surgeSeq.phase === 'charge') {
-    // Wind-up: a bright orb of energy gathers + flickers at the mouth, no shaft yet.
+    // GATHER: the 3-layer muzzle stack swells HUE-DOMINANT (dark socket → petals → a small core),
+    // then the core SNAPS toward white at the release lock (k≥0.97 — the MH elder-dragon tell).
     const k = Math.min(surgeSeq.t / CHARGE_TIME, 1);
     shaft.visible = false;
-    impactOrb.visible = false;
-    muzzleOrb.visible = true;
-    muzzleOrb.position.copy(beamO);
-    muzzleOrb.scale.setScalar(0.3 + k * 1.1 + Math.sin(time * 40) * 0.08 * k);
-    muzzleOrb.material.opacity = 0.5 + k * 0.5;
+    muzzleSocket.visible = muzzlePetals.visible = muzzleCore.visible = true;
+    const flick = Math.sin(time * 40) * 0.06 * k;
+    muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
+    muzzleSocket.scale.setScalar(2.4 + k * 1.6 + flick);
+    muzzlePetals.scale.setScalar(1.4 + k * 1.6 + flick);
+    muzzleCore.scale.setScalar(0.5 + k * 1.1);
+    muzzleSocket.material.opacity = 0.35 + k * 0.35;
+    muzzlePetals.material.opacity = 0.30 + k * 0.55;
+    const lock = k >= 0.97;
+    muzzleCore.material.opacity = 0.25 + k * 0.75;
+    muzzleCore.material.color.copy(_beamPal.core);
+    if (!lock) muzzleCore.material.color.lerp(_beamPal.halo, 0.45 * (1 - k));   // hue-lean early → white at the lock
     cameraCtl.shake?.(0.12 * k);
-    if (k >= 1) { surgeSeq.phase = 'beam'; surgeSeq.t = 0; strikeSurge(player); }
+    if (k >= 1) { surgeSeq.phase = 'beam'; surgeSeq.t = 0; beamLandFired = 0; strikeSurge(player); }
     return;
   }
 
@@ -1587,16 +1671,19 @@ function updateSurgeBeam(dt, player, time) {
   // never instant-full-length), a sustain of seeded incommensurate wobbles + the travelling
   // surge-pulse, then a core-LAST collapse (outer→bloom→core pinch-pop) inside the final ~270ms.
   const life = surgeSeq.t / BEAM_TIME;
-  if (life >= 1) { surgeSeq = null; surgeBeam.visible = false; return; }
+  if (life >= 1) { surgeSeq = null; hideBeamEnsemble(); if (!_sparkActive) surgeBeam.visible = false; return; }
   shaft.visible = true;
-  muzzleOrb.visible = true;
-  impactOrb.visible = true;
 
   const bt = surgeSeq.t;
   const ct = Math.max(0, bt - (BEAM_TIME - BEAM_COLLAPSE));   // time into the collapse window
   const ext = surgeBeamExtendAt(bt);
   const col = surgeBeamCollapseAt(ct);
   const pulseP = surgeBeamPulseAt(bt);
+  // MUZZLE RECOIL (the rear-chase anchor — power stays HOME): the shaft origin + muzzle stack
+  // kick BACKWARD ~0.24u over the first ~80ms of the release, then settle. Reuses beamDir.
+  beamDir.copy(beamT).sub(beamO).normalize();
+  const recoil = 0.24 * Math.exp(-bt / 0.055);
+  beamO.addScaledVector(beamDir, -recoil);
   // Zero-alloc hot path: write shared uniforms on both ribbons (reused vectors, no clones).
   for (const mesh of [beamCore, beamGlow]) {
     const u = mesh.material.uniforms;
@@ -1612,15 +1699,38 @@ function updateSurgeBeam(dt, player, time) {
     u.uAlpha.value = 1;
   }
 
-  muzzleOrb.position.copy(beamO);
-  muzzleOrb.scale.setScalar((1.3 + Math.sin(time * 45) * 0.2) * col[1] + 0.2);
-  muzzleOrb.material.opacity = Math.max(col[1], 0.15);
-  impactOrb.position.copy(beamT);
-  // The impact flare arrives WITH the core tip (never before the beam lands), then rides the bloom layer.
-  const landed = ext[2] >= 0.99 ? 1 : 0;
-  impactOrb.scale.setScalar((2.2 + Math.sin(time * 38) * 0.4) * (0.4 + col[1] * 0.6) * landed);
-  impactOrb.material.opacity = col[1] * landed;
+  // Muzzle stack at full RELEASE blaze (white-locked core), riding the bloom layer's collapse.
+  muzzleSocket.visible = muzzlePetals.visible = muzzleCore.visible = true;
+  muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
+  const mz = 1 + Math.sin(time * 45) * 0.06;
+  muzzleSocket.scale.setScalar(4.2 * mz); muzzlePetals.scale.setScalar(3.0 * mz); muzzleCore.scale.setScalar(1.7 * mz);
+  muzzleSocket.material.opacity = 0.55 * col[0];
+  muzzlePetals.material.opacity = 0.80 * col[1];
+  muzzleCore.material.opacity = Math.max(0.95 * col[2], 0.05);
+  muzzleCore.material.color.copy(_beamPal.core);   // white-locked from RELEASE on
+
+  // LAND: the impact ensemble fires when the core tip ARRIVES (never before) — primary shock
+  // ring + the 1-DC spark cluster; the wider secondary ring lags +60ms; a shield-shatter swaps
+  // its own third ring in (via beamShatterPending, set by breakShield) — rings stay ≤2 live.
+  if (ext[2] >= 0.99 && beamLandFired === 0) {
+    beamLandFired = 1; beamLandT = bt;
+    fireSurgeSparks(beamT, beamShatterPending);
+    surgeShockRing(beamT, 0xffffff, { grow: 15, life: 0.55 });
+  } else if (beamLandFired === 1 && bt - beamLandT >= 0.06) {
+    beamLandFired = 2;
+    surgeShockRing(beamT, beamShatterPending ? 0xfff2d0 : _beamPal.halo.getHex(), { grow: 22, life: 0.38 });
+    beamShatterPending = false;
+  }
 }
+// Hide the beam's transient ensemble (shaft + muzzle stack) — sparks decay on their own clock.
+function hideBeamEnsemble() {
+  const u = surgeBeam.userData;
+  u.shaft.visible = false;
+  u.muzzleSocket.visible = u.muzzlePetals.visible = u.muzzleCore.visible = false;
+}
+let beamLandFired = 0;      // 0 in flight · 1 landed (primary fired) · 2 secondary fired
+let beamLandT = 0;
+let beamShatterPending = false;   // breakShield sets it — the shatter ensemble fires AT LAND
 
 // ── I3 beam-life pure samplers (frame-clock-independent asserts, the I2 lesson) ──
 const BEAM_EXTEND_T = 0.11;    // core tip reaches the boss (90–130ms window), easeOut + 5% overshoot
@@ -1679,8 +1789,9 @@ function strikeSurge(player) {
   sfx.surgeBeam?.();
   cameraCtl.shake?.(1.4);
   tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
-  burst(tmp, 0xffffff, { count: 24, speed: 22, size: 1.3, life: 0.6 });
-  burst(tmp, 0xff4fd0, { count: 18, speed: 15, size: 1.0, life: 0.7 });
+  // I3 (§M.1-3): the legacy 24+18-sprite pool bursts are DELETED — the authored impact
+  // ensemble (1-DC spark cluster + shock rings) fires in updateSurgeBeam when the core tip
+  // LANDS, replacing them against the shared 150 cap, never stacking.
   if (shielded) breakShield(player);
   else {
     // AIMED UNLEASH: resolve the beam at the lock candidate nearest the player's
@@ -4170,8 +4281,10 @@ function breakShield(player) {
   sfx.shieldShatter?.();          // the physical "barrier breaks" glass shatter
   cameraCtl.shake?.(1.6);
   tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
-  burst(tmp, 0xffffff, { count: 26, speed: 24, size: 1.4, life: 0.7 });
-  burst(tmp, def.glow, { count: 20, speed: 16, size: 1.1, life: 0.8 });
+  // I3 (§M.1-3): the legacy 26+20-sprite bursts are DELETED — the shield-shatter ensemble
+  // (shard-augmented 1-DC cluster + the swapped third ring) fires AT LAND via beamShatterPending
+  // (model.shatterShield's own shard rig still plays — that's the physical bubble, not the pool).
+  beamShatterPending = true;
   sfx.phase?.(true, 1);
   // PHASE-TRANSITION HOLD: wipe any sustained sub-volleys still streaming in from
   // the pre-burst attack (a tunnel/iris mid-flight would otherwise land right on
@@ -6119,12 +6232,22 @@ export function debugStrikeSurge() {
 // can observe the sequence without banking the Surge meter headlessly). Both are
 // inert with `__ddSurgeForce` undefined → roster byte-identity.
 export function debugSurgeState() {
+  const u = surgeBeam ? surgeBeam.userData : null;
   return {
     active: !!surgeSeq,
     phase: surgeSeq ? surgeSeq.phase : null,
     t: surgeSeq ? surgeSeq.t : 0,
     beamVisible: !!(surgeBeam && surgeBeam.visible),
     forced: !!((typeof globalThis !== 'undefined') && globalThis.__ddSurgeForce),
+    // I3 ensemble introspection (T7/T8 asserts + capture debugging): the muzzle stack's live
+    // state, the spark cluster, and the land/ring choreography flags.
+    muzzle: u ? {
+      vis: u.muzzleCore.visible,
+      op: [u.muzzleSocket.material.opacity, u.muzzlePetals.material.opacity, u.muzzleCore.material.opacity].map((v) => +v.toFixed(3)),
+      scale: [u.muzzleSocket.scale.x, u.muzzlePetals.scale.x, u.muzzleCore.scale.x].map((v) => +v.toFixed(2)),
+      pos: [+u.muzzleCore.position.x.toFixed(1), +u.muzzleCore.position.y.toFixed(1), +u.muzzleCore.position.z.toFixed(1)],
+    } : null,
+    sparks: _sparkActive, landFired: beamLandFired, shatterPending: beamShatterPending,
   };
 }
 export function debugSurgeCast() {
