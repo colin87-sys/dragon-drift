@@ -263,6 +263,10 @@ const _kickKeys = Object.keys(_kick);   // hoisted: `Object.keys(_kick)` in the 
 const KICK_DECAY = { bloom: 6, lift: 5, sat: 7, vig: 6, ab: 8 };
 const KICK_MAX = { bloom: 0.36, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
 let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
+// §G reduce-motion: the OS preference suppresses the 1-frame kick FLASH at every tier (the DOM
+// fallback already respects it — this closes the tier-0/1 gap the independent critic caught;
+// bloom/lift pulses are not photosensitivity flashes and stay).
+const _reduceFlash = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 let _deathOn = false;
 let _deathMix = 0;
 // Boss-time stage-management grade: the world mid-tones itself so bullets own
@@ -320,7 +324,7 @@ export function kick(name) {
       _kick[c] = clamp(_kick[c] + p[c] * s, -KICK_MAX[c], KICK_MAX[c]);
     }
   }
-  if (p.flashFrames) _flashFrames = Math.max(_flashFrames, p.flashFrames);
+  if (p.flashFrames && !_reduceFlash) _flashFrames = Math.max(_flashFrames, p.flashFrames);
 }
 
 // Sustained death grade: desaturate + crush the edges across the crash

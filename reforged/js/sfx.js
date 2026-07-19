@@ -1203,10 +1203,11 @@ export const sfx = {
   },
   feverStart() {
     // SUNBREAK I2.5: the trigger is an EVENT — a felt HIT under the identity arpeggio, synced to
-    // the slow-mo hitch + flash. (1) bed duck −~8dB for ~0.4s (the world goes quiet for one breath
-    // — the strongest colour-independent "it happened" cue), (2) a 2–5ms transient snap, (3) a
-    // sub-bass thump ~52Hz decaying ~350ms (felt, not heard; content <150Hz per the §F audio spec).
-    duckHold(0.5, 0.4);
+    // the slow-mo hitch + flash. (1) bed duck −8.4dB (gain 0.38) for ~0.4s (the world goes quiet
+    // for one breath — the strongest colour-independent "it happened" cue; §F band −8..−12dB;
+    // note drums bypass pumpGain, so percussion rides through — standard sidechain), (2) a hard-
+    // edge transient snap, (3) a sub-bass thump ~52Hz decaying ~350ms (content <150Hz per §F).
+    duckHold(0.62, 0.4);
     tone({ freq: 190, end: 70, dur: 0.03, type: 'square', vol: 0.30 });           // the transient snap
     tone({ freq: 52, end: 38, dur: 0.35, type: 'sine', vol: 0.55 });              // the sub-bass thump
     [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
@@ -2165,11 +2166,15 @@ function duckHold(amt, holdSec = 0.35) {
   const a = getCtx();
   if (!a || !pumpGain || !(amt > 0.001)) return;
   const t = a.currentTime, hold = Math.max(0, holdSec);
-  lanceDuckUntil = t + hold;
+  // Never SHORTEN an in-flight fence: a second caller (e.g. a Surge mid-Wyrm-roll) extends the
+  // hold window rather than truncating it — else kicks resume mid-roll, the exact clobber the
+  // pumpDuck comment warns about (independent-critic hardening).
+  const until = Math.max(lanceDuckUntil, t + hold);
+  lanceDuckUntil = until;
   pumpGain.gain.cancelScheduledValues(t);
   pumpGain.gain.setValueAtTime(1 - amt, t);
-  pumpGain.gain.setValueAtTime(1 - amt, t + hold);   // hold flat across the roll
-  pumpGain.gain.setTargetAtTime(1, t + hold + 0.001, 0.12);
+  pumpGain.gain.setValueAtTime(1 - amt, until);   // hold flat across the roll
+  pumpGain.gain.setTargetAtTime(1, until + 0.001, 0.12);   // release at the (possibly extended) fence, never earlier
 }
 // Release the lance hold early (profile switch mid-roll) so kicks resume + the node
 // breathes back instead of sitting ducked with no roll to cover.
