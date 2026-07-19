@@ -1277,7 +1277,7 @@ export const ui = {
   // component entirely. Same single-event, reduceMotion-guarded contract as lanceFlash; warm
   // gold (SUNBREAK's lane — never saturated red), radial so the centre lane stays readable.
   surgeFlash() {
-    if (reduceMotion) return;
+    if (reduceMotion || saveData.settings.reduceFx) return;
     restartAnim(els.surgeFlashEl, 'flash-fast');
   },
 
@@ -2262,6 +2262,7 @@ export const ui = {
           ${swRow('assist', 'reticle', 'TARGET RETICLE', `Off pays +${pct(CONFIG.reticleOffBonus)}% score.`)}
           ${swRow('assist', 'bulletClarity', 'BULLET CLARITY', 'Boss fights: hollow lock reticle, bigger bullets, danger telegraphs.')}
           ${swRow('assist', 'slowMo', 'LAST-CHANCE SLOW-MO', `A heartbeat of slow time before a fatal hit. Off pays +${pct(CONFIG.slowMoOffBonus)}% score.`)}
+          ${swRow('assist', 'reduceFx', 'REDUCE FLASHING & MOTION', 'Softer Surge: no screen flashes, gentler shake and camera punches. Slow-mo beats stay.')}
           ${swRow('assist', 'glideAssist', 'GLIDE ASSIST', `Auto-flies to each ring and collects embers. Scores −${pct(1 - CONFIG.glideAssistScoreMult)}% while on.`)}
 
           <div class="settings-section">HUD readouts</div>

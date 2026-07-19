@@ -35,6 +35,10 @@ const DEFAULTS = {
     // :root CSS vars (--hud-scale/--hud-alpha, honored by the Phase 3 HUD);
     // colorblind swaps the jade/danger DOM token hues via a root class.
     hudScale: 1, hudAlpha: 1, colorblind: 'off',
+    // SUNBREAK §G: one 'Reduce flashing & motion' toggle (OS prefers-reduced-motion implies it):
+    // kills the 1-frame flashes, clamps shake trauma ≤0.3, softens the FOV punch to ≤+3°, halves
+    // CA/vignette pulses. timeScale/pose beats stay (not photosensitivity risks).
+    reduceFx: false,
     // EMBERSIGHT §F player contract: SCOREKEEPER pins score+distance at full
     // alpha (H2); IMMERSIVE HUD hides all but the safety floor (H3).
     scorekeeper: false, immersiveHud: false,

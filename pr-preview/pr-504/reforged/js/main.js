@@ -454,6 +454,10 @@ if (urlParams.has('debug')) {
     surgeFlareAt: (t, s) => surgeFlareSample(t, s), // seeded sustain flare at (t, station)
     surgeDecayAt: (p) => surgeDecaySample(p),       // reverse-decay envelope at progress p (rim→wings→spine→eye-last)
     surgeGutterAt: (t) => surgeGutterSample(t),     // damage-cancel gutter envelope at t (2-stutter "lost it")
+    // I4 ritual pure samplers (the conductor envelope / beat boundaries / stepped gather).
+    surgeRitualScaleAt: (t, r) => surgeRitualScaleAt(t, r),
+    surgeRitualBeats: (r) => surgeRitualBeats(r),
+    surgeGatherKAt: (t, r) => surgeGatherKAt(t, r),
     // I3 beam-life pure samplers (extension / core-last collapse / travelling pulse / wobble).
     surgeBeamExtendAt: (t) => surgeBeamExtendAt(t),
     surgeBeamCollapseAt: (p) => surgeBeamCollapseAt(p),
