@@ -320,9 +320,13 @@ export const BIOMES = [
     // Caldera's -2.2 ember climb: dust up a sunbeam, not embers). Size/opacity jitter is standard.
     ambient: { color: C(0xf2ecff), fall: -0.15, sway: 1.2, size: 0.4, opacity: 0.5 },
     // INK KOI colour (§6): the star-koi become ink-violet koi (0x1a1424, NOT pure black — punctuation, the
-    // true black 0x050308 stays role-locked to the Mote/wells). The bespoke inkShoal flock is PR-5; PR-1
-    // lands only the colour on the interim flock.
+    // true black 0x050308 stays role-locked to the Mote/wells). PR-5b: the bespoke inkShoal flock lands via
+    // `shoal:1` (below) — a coherent school of ink-koi replaces the reskinned lazy circling bird-cones.
     fauna: { color: C(0x1a1424), scale: 0.7, flap: 0.5 },
+    // inkShoal FLOCK (PR-5b, §6): swap the interim reskinned bird-flock for a coherent school of ink-violet
+    // koi drifting high ahead of the lane — the biome's bespoke ambient fauna. 0 in every other biome
+    // (optional-channel) → the circling flock stays byte-identical there. Consumed by ambient.js.
+    shoal: 1,
     props: ['monolith', 'arcshard'],  // interim legacy Astral kit, pale-retinted via mats.body[5] (PR-4/5 replaces it)
     matIndex: 5, // empyStone bone-nacre (pale-retinted from astral slate)
     // Contrast gate (§3, a REAL gate): a HIGH-KEY field is a NEW contrast regime — every shipped
@@ -575,6 +579,10 @@ const env = {
   ambColor: new THREE.Color(), ambFall: 1, ambSway: 1, ambSize: 0.4, ambOpacity: 0.75,
   faunaColor: new THREE.Color(), faunaScale: 1, faunaFlap: 1,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  // THE EMPYREAN inkShoal flock (PR-5b): 0 in every other biome (optional-channel pattern) → the
+  // reskinned circling bird-flock is left byte-identical everywhere the school is OFF. Where a biome
+  // declares `shoal`, ambient.js swaps the lazy circling flock for a coherent school of ink-koi.
+  shoalMix: 0,
   // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
   moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
@@ -704,6 +712,9 @@ export function computeEnv(dist) {
   const _lm = (x) => (x.landmark === 'mote' ? (x.whale || 0) : 0);
   env.moteMix = lerp(_lm(a), _lm(b), ts);
   env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, ts);
+  // THE EMPYREAN inkShoal flock (PR-5b, optional-channel): 0 elsewhere = the circling bird-flock is
+  // byte-identical; rides the same seam ramp (ts) so the school dawns in as the light does.
+  env.shoalMix = lerp(a.shoal || 0, b.shoal || 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
