@@ -99,6 +99,22 @@ let rearT = 0, rearDur = 0;
 // forward chase as it pulls ahead. null = inactive.
 let overtake = null;
 
+// ── SUNBREAK I4 surge channels ────────────────────────────────────────────────
+// trauma² ROTATIONAL shake (Eiserloh; §M.1-8 NEW work — the legacy shake above is translational
+// Math.random, the glitch-read Lane D forbids for 3D): trauma ∈[0,1], shake = trauma², applied as
+// small camera ROTATIONS (≤~0.9°) after lookAt, driven by seeded incommensurate sine noise
+// (deterministic + non-strobing). setSurgeTrauma = a sustained floor (the GATHER ramp); addSurgeTrauma
+// = an impulse (the RELEASE spike). Decays ~1.2/s. surgeFov/surgePush: the GATHER tighten/push-in
+// and the RELEASE punch ride one offset channel (punch decays fast; tighten follows the setter).
+let surgeTrauma = 0;
+let surgeTraumaFloor = 0;
+let surgeFovOffset = 0;      // applied to targetFov (− tighten / + punch)
+let surgeFovTarget = 0;
+let surgePushK = 0;
+let surgePushTarget = 0;
+let surgeNoiseT = 0;
+const _trN = (t, f1, f2, p1, p2) => 0.6 * Math.sin(2 * Math.PI * f1 * t + p1) + 0.4 * Math.sin(2 * Math.PI * f2 * t + p2);
+
 export const cameraCtl = {
   splash: false,
 
@@ -124,6 +140,14 @@ export const cameraCtl = {
     shakeT = SHAKE_DURATION;
     shakeMag = mag;
   },
+
+  // I4: sustained trauma floor (GATHER ramp 0.15→0.5) — held while the setter keeps calling.
+  setSurgeTrauma(v) { surgeTraumaFloor = Math.max(0, Math.min(1, v)); },
+  // I4: trauma impulse (RELEASE spike 1.0) — decays ~1.2/s on the trauma² curve.
+  addSurgeTrauma(v) { surgeTrauma = Math.min(1, surgeTrauma + v); },
+  // I4: surge FOV offset (deg; − tighten during GATHER, + punch at RELEASE) + camera push-in
+  // (0..1 of ~2.6u toward the dragon). The punch decays inside the channel (fast out, ~300ms back).
+  setSurgeFov(deg, pushK = surgePushTarget) { surgeFovTarget = deg; surgePushTarget = Math.max(0, Math.min(1, pushK)); },
 
   boostKick() {
     boostKickT = BOOST_KICK_DUR;
@@ -384,6 +408,28 @@ export const cameraCtl = {
       camera.rotateZ(rollKickDir * 0.16 * Math.sin(k * Math.PI));
     }
 
+    // I4 trauma² ROTATIONAL shake (after lookAt, like the roll lean): amplitude ≤0.9° at
+    // trauma 1, seeded incommensurate sine noise (no Math.random — deterministic, no strobe).
+    // The floor (GATHER ramp) self-decays so a stopped ritual never strands a hum; the impulse
+    // (RELEASE spike) decays ~1.2/s per the Eiserloh law.
+    surgeNoiseT += dt;
+    surgeTrauma = Math.max(0, surgeTrauma - dt * 1.2);
+    surgeTraumaFloor = Math.max(0, surgeTraumaFloor - dt * 3);
+    const _tr = Math.max(surgeTrauma, surgeTraumaFloor);
+    if (_tr > 0.001) {
+      const sh = _tr * _tr, amp = 0.0157;   // 0.9° max
+      camera.rotateZ(amp * sh * _trN(surgeNoiseT, 11.7, 7.3, 0.9, 3.7));
+      camera.rotateX(amp * 0.5 * sh * _trN(surgeNoiseT, 9.1, 13.9, 2.2, 5.1));
+    }
+    // I4 surge FOV/push channel: negative offsets (the GATHER tighten) track the setter; a
+    // positive offset is the RELEASE PUNCH — fast attack (~30/s → 85% inside 80ms), then the
+    // target self-decays to 0 over ~300ms. Push-in dollies toward the dragon (≤~2.6u).
+    surgeFovOffset = damp(surgeFovOffset, surgeFovTarget, surgeFovTarget > surgeFovOffset ? 30 : 9, dt);
+    if (surgeFovTarget > 0) surgeFovTarget = Math.max(0, surgeFovTarget - dt * 24);
+    surgePushK = damp(surgePushK, surgePushTarget, 6, dt);
+    surgePushTarget = Math.max(0, surgePushTarget - dt * 2);   // self-decays; the ritual re-asserts each frame
+    if (surgePushK > 0.001) camera.position.z -= surgePushK * 2.6;
+
     // Inhale pinch (PR-C): lean in with the drawn breath — a small dolly here
     // (after the chase solve, like the kicks) + the FOV squeeze below.
     if (inhaleLevel > 0.001) camera.position.z -= inhaleLevel * 0.3;
@@ -403,8 +449,9 @@ export const cameraCtl = {
     // — cranking canyonSpineSlip never re-tips it.
     targetFov += Math.max(0, Math.min(1, (player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1))) * 13;
     targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
+    targetFov += surgeFovOffset;  // I4: GATHER tighten (−5°) / RELEASE punch (+7°, self-decaying)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
-      camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);
+      camera.fov = damp(camera.fov, targetFov, surgeFovOffset > 0.5 ? 26 : player.boosting ? 5 : 3, dt);   // I4: the punch attacks fast; tighten/settle keep the cruise rates
       camera.updateProjectionMatrix();
     }
   },

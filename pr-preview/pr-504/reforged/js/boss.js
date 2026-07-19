@@ -253,7 +253,8 @@ let baitLeft = 0;              // rings remaining in the current graze-bait CLUS
 let baitResting = false;       // true during the BREAK between clusters (reposition window)
 let surgeAura = null;          // dramatic pink aura + lightning on the dragon during Surge
 let surgeBeam = null;          // mouth→boss energy beam fired on a Surge unleash
-let surgeSeq = null;           // unleash cinematic state: { phase:'charge'|'beam', t }
+let surgeSeq = null;
+let castsThisFight = 0;   // I4: first cast per fight = full ritual; repeats compress the approach (P4)           // unleash cinematic state: { phase:'charge'|'beam', t }
 let wasReady = false;          // edge-detect Surge-ready → start/stop the enticing hum
 let wasSurge = false;          // edge-detect Surge-active → start/stop the crackle loop
 let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
@@ -1154,8 +1155,39 @@ const start = { x: 0, y: 7, rel: -12 };
 const tmp = new THREE.Vector3();
 
 // Surge-unleash cinematic timing + scratch vectors for the mouth→boss beam.
-const CHARGE_TIME = 0.5;       // wind-up: energy gathers at the dragon's mouth
+const CHARGE_TIME = 0.5;       // legacy constant (the old wind-up; the I4 ritual supersedes it — kept for the capture-seam mapping)
 const BEAM_TIME = 0.55;        // beam live + fade after the strike
+// ── SUNBREAK I4: the ultimate RITUAL (wall-clock, §D.2/§F — Fable pre-assess P0/P4) ──
+// CALL (accept) → GATHER (stepped escalation, convergence) → APEX (the held breath — the
+// signature frame) → RELEASE/beam. ALL clocks run on rawDt (§M.1-1: at timeScale 0.35 a
+// scaled-dt GATHER would silently stretch ~3×). Repeats compress the APPROACH, never the
+// ARRIVAL — APEX + RELEASE numbers are byte-identical on every cast (P4).
+const RIT_CALL = [0.15, 0.10];       // [first cast, repeat] CALL duration (s)
+const RIT_GATHER = [1.15, 0.65];     // GATHER duration
+const RIT_APEX = 0.25;               // APEX held-breath — SACRED, never compressed (230–270ms window)
+const RIT_SWELLS = [3, 2];           // seeded GATHER sub-swells (stepped escalation, uneven gaps)
+// The authored timeScale envelope at ritual-time t (pure — the conductor AND the tests read it):
+// 1.0 → easeInOutCubic down to 0.35 across CALL+GATHER → APEX floor 0.25 (flat plateau with
+// CLIFFS, not a valley) → RELEASE snaps to 1.05 in ≤50ms → decaying spring to 1.0 by ~+300ms.
+export function surgeRitualScaleAt(t, repeat = false) {
+  const call = RIT_CALL[repeat ? 1 : 0], gather = RIT_GATHER[repeat ? 1 : 0];
+  const tApex = call + gather, tRel = tApex + RIT_APEX;
+  if (t < 0) return 1;
+  if (t < tApex) {
+    const x = Math.min(1, t / tApex);
+    const e = x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;   // easeInOutCubic
+    return 1 - e * 0.65;                                                    // 1.0 → 0.35
+  }
+  if (t < tRel) return 0.25;                                                // the plateau (cliff in, cliff out)
+  const r = t - tRel;
+  if (r < 0.05) return 0.25 + (1.05 - 0.25) * (r / 0.05);                    // the snap (slope 16/s)
+  return 1 + 0.05 * Math.exp(-r * 9) * Math.cos(r * 24);                     // decaying spring → 1.0
+}
+// Ritual beat boundaries at cast shape `repeat` — [callEnd, apexStart, releaseAt] (s).
+export function surgeRitualBeats(repeat = false) {
+  const call = RIT_CALL[repeat ? 1 : 0], gather = RIT_GATHER[repeat ? 1 : 0];
+  return { callEnd: call, apexStart: call + gather, releaseAt: call + gather + RIT_APEX };
+}
 const BEAM_UP = new THREE.Vector3(0, 1, 0);
 const beamO = new THREE.Vector3();     // origin (mouth)
 const beamT = new THREE.Vector3();     // target (boss)
@@ -1462,7 +1494,7 @@ function fireSurgeSparks(center, shatter) {
   surgeSparks.geometry.attributes.position.needsUpdate = true;
   surgeSparks.geometry.attributes.color.needsUpdate = true;
   surgeSparks.visible = true;
-  _sparkActive = n;
+  _sparkActive = n; _sparkMode = 'burst';
 }
 
 // ── SUNBREAK I3 beam ribbon kit ─────────────────────────────────────────────
@@ -1605,10 +1637,10 @@ function surgeForceBeat() {
     return { phase: f.phase || 'charge', t: typeof f.t === 'number' ? f.t : 0 };
   }
   switch (typeof f === 'string' ? f : f.beat) {
-    case 'apex':   return { phase: 'charge', t: CHARGE_TIME * 0.98 };  // orb at max, pre-strike
+    case 'apex':   return { phase: 'ritual', t: surgeRitualBeats(false).apexStart + 0.12 };  // the held breath — the signature frame
     case 'beam':   return { phase: 'beam',   t: BEAM_TIME * 0.35 };    // shaft live, mid-life
     case 'impact': return { phase: 'beam',   t: BEAM_TIME * 0.06 };    // just landed
-    default:       return { phase: 'charge', t: CHARGE_TIME * 0.5 };
+    default:       return { phase: 'ritual', t: surgeRitualBeats(false).apexStart * 0.5 };
   }
 }
 
@@ -1624,16 +1656,20 @@ function updateSurgeBeam(dt, player, time) {
     const pos = surgeSparks.geometry.attributes.position.array;
     const col = surgeSparks.geometry.attributes.color.array;
     let alive = 0;
+    const sdt = _bossRawDt > 0 ? _bossRawDt : dt;   // P2: particles are CONSEQUENCES — they move on rawDt (through hitstop + the APEX floor)
     for (let i = 0; i < SURGE_SPARK_N; i++) {
       if (_sparkLife[i] <= 0) continue;
-      _sparkLife[i] -= dt;
+      _sparkLife[i] -= sdt;
       if (_sparkLife[i] <= 0) { pos[i * 3 + 1] = -9999; continue; }
       alive++;
-      const drag = Math.exp(-dt * 2.2);
-      _sparkVel[i * 3] *= drag; _sparkVel[i * 3 + 1] = _sparkVel[i * 3 + 1] * drag - 9 * dt; _sparkVel[i * 3 + 2] *= drag;
-      pos[i * 3] += _sparkVel[i * 3] * dt; pos[i * 3 + 1] += _sparkVel[i * 3 + 1] * dt; pos[i * 3 + 2] += _sparkVel[i * 3 + 2] * dt;
-      const k = 0.985;   // additive fade: colors decay toward 0 (life-curve-free, alloc-free)
-      col[i * 3] *= k; col[i * 3 + 1] *= k; col[i * 3 + 2] *= k;
+      if (_sparkMode === 'burst') {   // impact: drag + gravity arcs
+        const drag = Math.exp(-sdt * 2.2);
+        _sparkVel[i * 3] *= drag; _sparkVel[i * 3 + 1] = _sparkVel[i * 3 + 1] * drag - 9 * sdt; _sparkVel[i * 3 + 2] *= drag;
+        const k = 0.985; col[i * 3] *= k; col[i * 3 + 1] *= k; col[i * 3 + 2] *= k;
+      }
+      // converge: straight inward streams (no gravity/drag — direction IS the read); held: frozen sparkle, gentle fade
+      if (_sparkMode === 'held') { const k = 0.96; col[i * 3] *= k; col[i * 3 + 1] *= k; col[i * 3 + 2] *= k; }
+      pos[i * 3] += _sparkVel[i * 3] * sdt; pos[i * 3 + 1] += _sparkVel[i * 3 + 1] * sdt; pos[i * 3 + 2] += _sparkVel[i * 3 + 2] * sdt;
     }
     surgeSparks.geometry.attributes.position.needsUpdate = true;
     surgeSparks.geometry.attributes.color.needsUpdate = true;
@@ -1646,36 +1682,87 @@ function updateSurgeBeam(dt, player, time) {
   // while the muzzle owns the frame (withheld-glow at ultimate scale — the gather must be the
   // single brightest mass on the dragon at lock, not a decorative diamond).
   game.surgeUltimatePhase = surgeSeq ? surgeSeq.phase : null;
-  if (!surgeSeq) { if (surgeBeam.userData.shaft.visible) hideBeamEnsemble(); if (!_sparkActive) surgeBeam.visible = false; return; }
-  if (!pin) surgeSeq.t += dt;
+  if (!surgeSeq) {
+    game.surgeUltInvuln = false; game.surgeApexPin = 0;
+    if (game.surgeRitualScale != null) game.surgeRitualScale = null;
+    if (surgeBeam.userData.shaft.visible) hideBeamEnsemble();
+    if (!_sparkActive) surgeBeam.visible = false;
+    return;
+  }
+  // §M.1-1: ALL ritual/beam clocks advance on rawDt (wall-clock) — the conductor floors
+  // timeScale to 0.25 at APEX, and a scaled-dt sequencer would stretch every beat ~3-4×.
+  const rdt = _bossRawDt > 0 ? _bossRawDt : dt;
+  if (!pin) surgeSeq.t += rdt;
+  if (surgeSeq.rt != null && !pin) surgeSeq.rt += rdt;
   surgeBeam.visible = !(typeof globalThis !== 'undefined' && globalThis.__ddSurgeHide);   // test seam: DC-delta toggle (undefined in play)
   const { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore } = surgeBeam.userData;
+
+  // THE CONDUCTOR (pre-assess P0): while a ritual clock lives, the authored envelope is the ONLY
+  // timeScale writer — main.js applies game.surgeRitualScale with priority over slow-mo/cine-slow/
+  // lethal-save. Released (null) once the post-release spring has settled.
+  if (surgeSeq.rt != null) {
+    game.surgeRitualScale = surgeRitualScaleAt(surgeSeq.rt, surgeSeq.repeat);
+    const done = surgeSeq.rt > surgeRitualBeats(surgeSeq.repeat).releaseAt + 0.35;
+    if (done) { game.surgeRitualScale = null; surgeSeq.rt = null; }
+  } else if (game.surgeRitualScale != null && !surgeSeq) {
+    game.surgeRitualScale = null;
+  }
 
   // Mouth ≈ just ahead + slightly above the dragon; boss at its settled pose.
   beamO.set(player.position.x, player.position.y + 0.35, -(player.dist + 1.3));
   beamT.set(pose.x, pose.y, -(player.dist + pose.rel));
 
-  if (surgeSeq.phase === 'charge') {
-    // GATHER: the 3-layer muzzle stack swells HUE-DOMINANT (dark socket → petals → a small core),
-    // then the core SNAPS toward white at the release lock (k≥0.97 — the MH elder-dragon tell).
-    const k = Math.min(surgeSeq.t / CHARGE_TIME, 1);
+  if (surgeSeq.phase === 'ritual') {
+    // I4 CALL→GATHER→APEX. gatherK drives the 3-layer muzzle swell through its value stages
+    // (hue-dominant early, WHITE-SNAP at the lock); STEPPED escalation via seeded sub-swells
+    // (a linear ramp is the metronome tell at macro scale — pre-assess P3); the APEX is a
+    // contrast pocket: convergence STOPS, the pose PINS, the plateau holds.
+    const beats = surgeRitualBeats(surgeSeq.repeat);
+    const t = surgeSeq.t;
+    const inApex = t >= beats.apexStart;
+    const gatherK = surgeGatherKAt(t, surgeSeq.repeat);
     shaft.visible = false;
+    // i-frames CALL→RELEASE (§M.1-5): a long authored charge must not be hit-cancellable.
+    game.surgeUltInvuln = true;
+    // APEX pose-pin weight (pre-assess P1 — a STEER, not a snap): eases in over the last
+    // ~300ms of GATHER, holds 1 through APEX; released at RELEASE under the hitstop mask.
+    game.surgeApexPin = inApex ? 1 : Math.max(0, Math.min(1, (t - (beats.apexStart - 0.30)) / 0.30));
+    // GATHER convergence: energy streams INTO the mouth (direction = charge); fired once at
+    // CALL end, velocities ZEROED at APEX entry (a stop, not a taper — the edge-sharpness law).
+    const convProg = Math.max(0, Math.min(1, (t - beats.callEnd) / (beats.apexStart - beats.callEnd)));
+    if (t >= beats.callEnd && !surgeSeq.convFired) { surgeSeq.convFired = true; fireSurgeConverge(beamO, pin ? convProg : 0); }
+    if (inApex && !surgeSeq.convStopped) { surgeSeq.convStopped = true; haltSurgeConverge(); sfx.surgeApexSilence?.(); }   // the stop + the silence land on the SAME edge (P3 co-timing)
     muzzleSocket.visible = muzzlePetals.visible = muzzleCore.visible = true;
-    const flick = Math.sin(time * 40) * 0.06 * k;
+    const flick = Math.sin(time * 40) * 0.06 * gatherK * (inApex ? 0.4 : 1);
     muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
-    muzzleSocket.scale.setScalar(2.4 + k * 1.6 + flick);
-    muzzlePetals.scale.setScalar(1.4 + k * 1.6 + flick);
-    muzzleCore.scale.setScalar(0.5 + k * 1.1);
-    muzzleSocket.material.opacity = 0.35 + k * 0.35;
-    muzzlePetals.material.opacity = 0.30 + k * 0.55;
-    const lock = k >= 0.97;
-    muzzleCore.material.opacity = 0.25 + k * 0.75;
+    muzzleSocket.scale.setScalar(2.4 + gatherK * 1.6 + flick);
+    muzzlePetals.scale.setScalar(1.4 + gatherK * 1.6 + flick);
+    muzzleCore.scale.setScalar(0.5 + gatherK * 1.1);
+    muzzleSocket.material.opacity = 0.35 + gatherK * 0.35;
+    muzzlePetals.material.opacity = 0.30 + gatherK * 0.55;
+    muzzleCore.material.opacity = 0.25 + gatherK * 0.75;
     muzzleCore.material.color.copy(_beamPal.core);
-    if (!lock) muzzleCore.material.color.lerp(_beamPal.halo, 0.45 * (1 - k));   // hue-lean early → white at the lock
-    cameraCtl.shake?.(0.12 * k);
-    if (k >= 1) { surgeSeq.phase = 'beam'; surgeSeq.t = 0; beamLandFired = 0; strikeSurge(player); }
+    if (!inApex) muzzleCore.material.color.lerp(_beamPal.halo, 0.45 * (1 - gatherK));   // hue-lean early → WHITE at the apex lock
+    // camera: trauma ramps through GATHER (0.15→0.5), FOV tightens, push-in — via the surge channels.
+    cameraCtl.setSurgeTrauma?.(inApex ? 0.18 : 0.15 + 0.35 * gatherK);
+    cameraCtl.setSurgeFov?.(-5 * gatherK, 0.14 * gatherK);
+    if (t >= beats.releaseAt) {
+      // ── RELEASE ── the step function (edge-sharpness law): pose un-pins under the hitstop
+      // mask, the conductor snaps 0.25→1.05, ONE capped flash + FOV punch + trauma spike, and
+      // the beam fires. hitstopForce zeroes slow-mo + bypasses the cooldown (§M.1-1).
+      surgeSeq.phase = 'beam'; surgeSeq.t = 0; beamLandFired = 0;
+      game.surgeApexPin = 0;
+      hitstopForce(0.08);
+      juiceEvent('surgeRelease');
+      cameraCtl.addSurgeTrauma?.(1.0);
+      cameraCtl.setSurgeFov?.(7, 0);          // the punch (decays inside the camera channel)
+      sfx.surgeUltRelease?.();
+      strikeSurge(player);
+    }
     return;
   }
+  game.surgeUltInvuln = false;
+  game.surgeApexPin = 0;
 
   // 'beam' phase (I3): the RIBBON shaft lives mouth→boss with an authored LIFE — birth-EXTEND
   // (core tip races out ~110ms with a 5% overshoot, bloom lags ~16ms, outer wrap fills ~150ms —
@@ -1743,6 +1830,67 @@ let beamLandFired = 0;      // 0 in flight · 1 landed (primary fired) · 2 seco
 let beamLandT = 0;
 let beamShatterPending = false;   // breakShield sets it — the shatter ensemble fires AT LAND
 
+// ── I4 ritual plumbing ──────────────────────────────────────────────────────
+// rawDt intake (§M.1-1): main.js pushes the unscaled frame dt each tick so the ritual/beam
+// clocks run wall-clock while the conductor floors game.timeScale under them.
+let _bossRawDt = 0;
+export function setBossRawDt(rdt) { _bossRawDt = rdt; }
+// GATHER escalation at ritual-time t: a base ease STEPPED by seeded sub-swell gaussians
+// (3 first cast / 2 repeat, uneven gaps ≥10% apart by construction — no metronome, no linear
+// ramp). Pure — the sequencer AND the tests read it. Reaches 1.0 at APEX entry, holds 1 after.
+let _swellCenters = [[0.35, 0.62, 0.95], [0.30, 0.55]];   // fractions of GATHER, reseeded per cast
+export function surgeGatherKAt(t, repeat = false) {
+  const beats = surgeRitualBeats(repeat);
+  if (t >= beats.apexStart) return 1;
+  if (t <= beats.callEnd) return 0.06 * (t / beats.callEnd);   // CALL: barely a spark
+  const g = (t - beats.callEnd) / (beats.apexStart - beats.callEnd);   // 0..1 across GATHER
+  let k = 0.06 + 0.78 * g;                                     // the base climb
+  const centers = _swellCenters[repeat ? 1 : 0];
+  for (const c of centers) k += 0.16 / centers.length * Math.exp(-Math.pow((g - c) / 0.07, 2));   // the stepped swells
+  return Math.min(1, k);
+}
+// Reseed the sub-swell centres per cast: gaps drawn from guaranteed-uneven sets (the I2 flare
+// lesson — raw random clusters), shuffled by the cast rng. Deterministic, never Math.random.
+function reseedSwells(rng) {
+  const base3 = [0.30 + rng() * 0.08, 0, 0];
+  const gaps3 = [0.24, 0.33];
+  if (rng() < 0.5) { const s = gaps3[0]; gaps3[0] = gaps3[1]; gaps3[1] = s; }
+  base3[1] = base3[0] + gaps3[0]; base3[2] = Math.min(0.96, base3[1] + gaps3[1]);
+  const base2 = [0.28 + rng() * 0.08, 0];
+  base2[1] = Math.min(0.9, base2[0] + 0.34 + rng() * 0.06);
+  _swellCenters = [base3, base2];
+}
+// GATHER convergence (energy streams INTO the mouth — direction = charge) reuses the 1-DC spark
+// cluster in reverse: seeded shell of 20 points, velocities aimed at the muzzle so the radius
+// shrinks monotonically; APEX entry ZEROES the velocities (a stop, not a taper).
+function fireSurgeConverge(center, prog = 0) {
+  const { surgeSparks } = surgeBeam.userData;
+  const rng = mulberry32((beamCastIndex * 0xc2b2ae35 + 3) >>> 0);
+  const n = 20, R = 5.5 * (1 - 0.92 * Math.min(1, prog));
+  const pos = surgeSparks.geometry.attributes.position.array;
+  const col = surgeSparks.geometry.attributes.color.array;
+  for (let i = 0; i < SURGE_SPARK_N; i++) {
+    if (i >= n) { _sparkLife[i] = 0; pos[i * 3 + 1] = -9999; continue; }
+    const th = rng() * Math.PI * 2, ph = Math.acos(rng() * 2 - 1);
+    const sx = Math.sin(ph) * Math.cos(th), sy = Math.cos(ph), sz = Math.sin(ph) * Math.sin(th);
+    pos[i * 3] = center.x + sx * R; pos[i * 3 + 1] = center.y + sy * R; pos[i * 3 + 2] = center.z + sz * R;
+    const sp = 4.2 + rng() * 1.6;               // arrives ≲ the GATHER window; radius shrinks monotonically
+    _sparkVel[i * 3] = -sx * sp; _sparkVel[i * 3 + 1] = -sy * sp; _sparkVel[i * 3 + 2] = -sz * sp;
+    _sparkLife0[i] = _sparkLife[i] = 9;         // outlives GATHER; halted/culled at APEX
+    const c = (i % 4 === 0) ? _beamPal.core : _beamPal.halo;
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  surgeSparks.geometry.attributes.position.needsUpdate = true;
+  surgeSparks.geometry.attributes.color.needsUpdate = true;
+  surgeSparks.visible = true;
+  _sparkActive = n; _sparkMode = 'converge';
+}
+function haltSurgeConverge() {
+  for (let i = 0; i < SURGE_SPARK_N; i++) { _sparkVel[i * 3] = 0; _sparkVel[i * 3 + 1] = 0; _sparkVel[i * 3 + 2] = 0; _sparkLife[i] = Math.min(_sparkLife[i], 0.45); }
+  _sparkMode = 'held';
+}
+let _sparkMode = 'burst';   // 'burst' (impact, gravity+drag) · 'converge' (inward, no gravity) · 'held' (apex freeze-sparkle)
+
 // ── I3 beam-life pure samplers (frame-clock-independent asserts, the I2 lesson) ──
 const BEAM_EXTEND_T = 0.11;    // core tip reaches the boss (90–130ms window), easeOut + 5% overshoot
 const BEAM_COLLAPSE = 0.27;    // core-LAST death: outer ~120ms → bloom ~80ms → core pinch-pop ~70ms
@@ -1755,6 +1903,7 @@ export function surgeBeamSeed() {
   const rng = mulberry32((beamCastIndex * 0x9e3779b9) >>> 0);
   for (let i = 0; i < 6; i++) beamWobPhase[i] = rng() * Math.PI * 2;
   beamPulsePhase = rng() * 0.4;
+  reseedSwells(rng);   // I4: seeded GATHER sub-swell centres (uneven by construction)
 }
 // Per-layer birth extension [outer, bloom, core] at beam-time t. Core races out with a 5%
 // overshoot then settles; bloom trails ~16ms (lag = depth); the outer wrap fills last (~150ms).
@@ -2442,6 +2591,7 @@ function fireNoWarnBanner() {
 
 function enterFight() {
   phase = 'fight';
+  castsThisFight = 0;   // I4: the full ritual returns on every fresh fight
   fireNoWarnBanner();   // §5j the banner fires WITH the eruption (def.noWarn), never before it
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
@@ -2663,6 +2813,7 @@ export function updateBoss(dt, player, time, camera) {
     hideTether();
     surgeSeq = null;
   game.surgeUltimatePhase = null;   // never leave the cascade duck armed across a reset/death
+  game.surgeRitualScale = null; game.surgeUltInvuln = false; game.surgeApexPin = 0;   // I4: conductor/i-frames/pose-pin never strand either
     // Silence any lingering Surge loops when the fight isn't running (edge-only).
     if (wasSurge) { sfx.surgeCrackleStop?.(); wasSurge = false; }
     sfx.dwellHum?.(0);   // PR7: no dwell whisper outside a live fight
@@ -4274,7 +4425,8 @@ function activateSurge(player) {
   // Kick off the mouth-beam cinematic: a charge wind-up, then the beam strikes and
   // bursts the shield (breakShield fires at the moment of impact, not now).
   surgeBeamSeed();   // I3: seed the wobble/pulse phases (deterministic per cast)
-  surgeSeq = { phase: 'charge', t: 0 };
+  surgeSeq = { phase: 'ritual', t: 0, rt: 0, repeat: castsThisFight > 0 };
+  castsThisFight++;
 }
 
 // A Surge unleash bursts the shield → advance to the next phase (or kill on the
@@ -5952,6 +6104,7 @@ export function resetBoss() {
   sfx.dwellHum?.(0);
   surgeSeq = null;
   game.surgeUltimatePhase = null;   // never leave the cascade duck armed across a reset/death
+  game.surgeRitualScale = null; game.surgeUltInvuln = false; game.surgeApexPin = 0;   // I4: conductor/i-frames/pose-pin never strand either
   sfx.surgeCrackleStop?.();
   sfx.surgeReadyStop?.();
   wasSurge = false; wasReady = false;
@@ -6266,7 +6419,8 @@ export function debugSurgeState() {
 export function debugSurgeCast() {
   if (phase !== 'fight') return false;
   surgeBeamSeed();   // I3: seed the wobble/pulse phases (deterministic per cast)
-  surgeSeq = { phase: 'charge', t: 0 };
+  surgeSeq = { phase: 'ritual', t: 0, rt: 0, repeat: castsThisFight > 0 };
+  castsThisFight++;
   return true;
 }
 // §5i.C rung 13 test seams: arm the beam duel + read its remaining window (so the fork-extend rule

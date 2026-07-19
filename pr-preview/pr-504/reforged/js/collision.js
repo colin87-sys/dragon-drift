@@ -336,6 +336,7 @@ function awardNearMiss(collider, player) {
 // exists (risk #11). Derived from the knockback push (which points AWAY from
 // the impactor) or the cause for the fixed planes; null = all-quadrant pulse.
 function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shard', impact = null) {
+  if (game.surgeUltInvuln) return;   // I4 (§M.1-5): the ultimate ritual is never hit-cancellable (terrain chip included)
   if (invuln > 0) return;
   // Barrel-roll i-frames: damage is dodged, and the near-miss checks above
   // keep firing — rolling through a cluster showers bonuses instead. The lane
@@ -394,6 +395,10 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
 // `impact` (H3 §B.10): the bullet's {x,y} offset from the player at the crossing
 // frame, when the caller has it — bossBullets does, a geyser passes from-below.
 export function hitPlayer(player, damage, cause = 'bullet', impact = null) {
+  // I4 (§M.1-5): i-frames across the ultimate ritual (CALL→RELEASE, ≤1.6s first cast) — a
+  // 1.55s authored charge must not be hit-cancellable (fever already grants reflect/phasing;
+  // the conductor clears the flag at RELEASE/teardown, so this can never outlive the ritual).
+  if (game.surgeUltInvuln) return;
   hit(player, 0, 0, damage, cause, impact);
 }
 
