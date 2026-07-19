@@ -30,8 +30,11 @@ field), check whether a game-state read at listen time (`game.feverActive`) IS t
 zero payload migrations. Also: any "second factor" on speed MUST ride the full co-scale
 chain (steer, target, assist) — a speed-only multiply silently breaks the reach audit.
 
-**→ Leapfrog.** The meter now exists and is provable headless (`tests/drift.mjs`). Next: the
-EMBER KEEL HUD (plan item 7 — the meter is invisible except `window.__drift`), the owner
+**→ Leapfrog.** The meter now exists, is provable headless (`tests/drift.mjs`), and got its
+v1 face in the same PR — the EMBER KEEL lives INSIDE the `.gauntlet-x` slug box
+(replace-not-stack; anchors untouched); `uitokens` rule (d) rejected the first draft's
+`width` transition, forcing compositor-only motion (scaleX fill + translateX head) — the
+test harness enforcing the perf laws is the leapfrog working as designed. Next: the owner
 feel-pass on `?drift=1` against the plan's numeric gates (≥50% connective flight above
 ×1.05, longest dead stretch ≤8s), then the crest fold-in porting its verbs into the Keel's
 overdrive state. The flowChain crest/score still runs in parallel when the flag is on —

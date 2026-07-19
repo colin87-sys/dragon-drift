@@ -3446,3 +3446,47 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
   50% { transform: translateX(calc(-50% + 3px)); }
   80% { transform: translateX(calc(-50% - 2px)); }
 }
+
+/* ============ THE EMBER KEEL v1 (flag-gated: ?drift=1 — DRIFT-BUILD-PLAN §6) ============
+   The DRIFT meter as a piece of the ember line pulled into the HUD: a recessed char
+   track (DARK), a dragonfire fill hottest at the head (BLOOM), a 2px white-hot caret
+   riding the leading edge (CORE). Lives INSIDE .gauntlet-x (replace-not-stack: the
+   multiplier-line px budget and the calc(64% + 54px) anchors never move). Reads by
+   FORM + VALUE (a burning horizontal line vs climbing diamonds), never hue alone —
+   CVD-safe by construction. Tier glow is event-stepped via [data-drift]; the flow
+   canyon's overdrive state via [data-od] — no per-frame filter writes, no fever
+   ceremony (one fever per game: Surge keeps it). Beads are uneven background ticks
+   (no picket fence), lit by the fill passing them. */
+.gauntlet-x .dk-track { display: inline-block; position: relative; width: 54px; height: 3px;
+  margin-right: 7px; vertical-align: 2px; border-radius: 2px; overflow: visible;
+  background:
+    linear-gradient(90deg, rgba(255,214,166,0.30) 0 2px, transparent 2px) 18% 0 / 2px 100% no-repeat,
+    linear-gradient(90deg, rgba(255,214,166,0.30) 0 2px, transparent 2px) 41% 0 / 2px 100% no-repeat,
+    linear-gradient(90deg, rgba(255,214,166,0.30) 0 2px, transparent 2px) 66% 0 / 2px 100% no-repeat,
+    linear-gradient(90deg, rgba(255,214,166,0.30) 0 2px, transparent 2px) 87% 0 / 2px 100% no-repeat,
+    rgba(12,8,6,0.55);
+  box-shadow: inset 0 1px 1px rgba(0,0,0,0.5), 0 0 0 1px var(--rf-stroke); }
+/* Compositor-only motion (uitokens rule d): the fill scales, the head translates —
+   no layout-prop transitions on HUD selectors. */
+.gauntlet-x .dk-fill { display: block; height: 100%; width: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, #ffe6a6, #ffb24d 55%, #ff6a36);
+  transform: scaleX(0); transform-origin: 0 50%;
+  transition: transform 0.25s var(--ease-out, ease-out); }
+.gauntlet-x .dk-head { /* CORE: the white-hot head (own element so scaleX can't squash it) */
+  position: absolute; left: -1px; top: -1px; bottom: -1px; width: 2px;
+  border-radius: 1px; background: #fff4d0;
+  transition: transform 0.25s var(--ease-out, ease-out); }
+.gauntlet-x .dk-x { display: inline-block; }
+/* Tier glow — stepped on tier boundaries only (the crest heat-step grammar). */
+.gauntlet-x[data-drift="2"] .dk-fill { box-shadow: 0 0 4px rgba(255,178,77,0.40); }
+.gauntlet-x[data-drift="3"] .dk-fill { box-shadow: 0 0 6px rgba(255,138,60,0.55); }
+.gauntlet-x[data-drift="4"] .dk-fill { box-shadow: 0 0 8px rgba(255,106,54,0.70); }
+.gauntlet-x[data-drift="4"] .dk-head { box-shadow: 0 0 4px #fff4d0; }
+/* OVERDRIVE (flow canyon, §2): the same meter runs hot — hotter ramp, stronger bloom. */
+.gauntlet-x[data-od="1"] .dk-fill {
+  background: linear-gradient(90deg, #ffd9ac, #ff8a3c 45%, #ff5a2a); }
+.gauntlet-x[data-od="1"][data-drift="3"] .dk-fill,
+.gauntlet-x[data-od="1"][data-drift="4"] .dk-fill { box-shadow: 0 0 9px rgba(255,90,42,0.80); }
+@media (prefers-reduced-motion: reduce) {
+  .gauntlet-x .dk-fill, .gauntlet-x .dk-head { transition: none; }
+}

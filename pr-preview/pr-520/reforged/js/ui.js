@@ -3,6 +3,7 @@ import { on, emit } from './events.js';
 import { game } from './gameState.js';
 import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACKS, trackUnlocked, setMusicVolume, setSfxVolume } from './sfx.js';
 import { comboTier, EMBER_ICON, tweenNum } from './util.js';
+import { driftValue, driftEnabled } from './drift.js';
 import { saveData, persist, persistNow, unfreezeSaves, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { todaysDailyMod } from './daily.js';
@@ -939,7 +940,35 @@ export const ui = {
     els.surgeWidget.classList.toggle('active', game.combo > 1.001 || game.consecutiveRings > 0 || game.feverActive);
     // The multiplier slug appears only when a combo is actually building (§B.3).
     els.surgeWidget.classList.toggle('combo', game.combo > 1.001);
-    els.surgeX.textContent = `×${game.combo.toFixed(2)}`;
+    // THE EMBER KEEL v1 (flag-gated — DRIFT-BUILD-PLAN §6): the DRIFT meter lives
+    // INSIDE the slug's box (replace-not-stack — the px-affine boss-note/spell-card
+    // anchors never move) as a char track + dragonfire fill + white-hot head, the
+    // ×N.NN slug inline at its right end. Writes are change-detected on a 2% quantum;
+    // tier (data-drift 0-4) and overdrive (data-od) are event-stepped attrs, never
+    // per-frame filter writes. Flag OFF = the shipped textContent path, untouched.
+    if (driftEnabled()) {
+      if (!els.dkFill) {
+        els.surgeX.innerHTML =
+          '<span class="dk-track"><span class="dk-fill"></span><span class="dk-head"></span></span><span class="dk-x"></span>';
+        els.dkFill = els.surgeX.querySelector('.dk-fill');
+        els.dkHead = els.surgeX.querySelector('.dk-head');
+        els.dkX = els.surgeX.querySelector('.dk-x');
+        els.dkQ = -1;
+      }
+      els.dkX.textContent = `×${game.combo.toFixed(2)}`;
+      const q = Math.round(driftValue() * 50);
+      if (q !== els.dkQ) {
+        els.dkQ = q;
+        // Compositor-only writes (uitokens rule d): scaleX fill + translateX head.
+        els.dkFill.style.transform = `scaleX(${(q * 2) / 100})`;
+        els.dkHead.style.transform = `translateX(${((q * 2) / 100) * 54}px)`;
+        els.surgeX.dataset.drift = String(Math.min(4, Math.floor(q / 12.5)));
+      }
+      const od = game.inCanyon && game.canyonRun === 'flow' ? '1' : '0';
+      if (els.surgeX.dataset.od !== od) els.surgeX.dataset.od = od;
+    } else {
+      els.surgeX.textContent = `×${game.combo.toFixed(2)}`;
+    }
     // THE IGNITION: fever start — or READY (boss: the meter fills but Surge is
     // unleashed manually) — ignites the whole gauntlet once (--ease-spring
     // 600ms + the U11 ping; the boss-note slot carries SURGE READY as today).
