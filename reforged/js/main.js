@@ -42,7 +42,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint, setSurgeBeamPalette, prewarmSurgeBeam, surgeBeamPrewarmed } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint, setSurgeBeamPalette, prewarmSurgeBeam, surgeBeamPrewarmed, surgeBeamExtendAt, surgeBeamCollapseAt, surgeBeamPulseAt, surgeBeamWobbleAt } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -454,6 +454,11 @@ if (urlParams.has('debug')) {
     surgeFlareAt: (t, s) => surgeFlareSample(t, s), // seeded sustain flare at (t, station)
     surgeDecayAt: (p) => surgeDecaySample(p),       // reverse-decay envelope at progress p (rim→wings→spine→eye-last)
     surgeGutterAt: (t) => surgeGutterSample(t),     // damage-cancel gutter envelope at t (2-stutter "lost it")
+    // I3 beam-life pure samplers (extension / core-last collapse / travelling pulse / wobble).
+    surgeBeamExtendAt: (t) => surgeBeamExtendAt(t),
+    surgeBeamCollapseAt: (p) => surgeBeamCollapseAt(p),
+    surgeBeamPulseAt: (t) => surgeBeamPulseAt(t),
+    surgeBeamWobbleAt: (t, l) => surgeBeamWobbleAt(t, l),
     surgeCascadePin: (t) => { if (t == null) delete globalThis.__ddSurgeCascadePin; else globalThis.__ddSurgeCascadePin = t; },  // pin the cascade clock for capture (undefined in play)
     clearRings: () => resetRings(),   // capture hook: clear ring pickups so a cascade still isn't polluted by the ring's bright torus
     surgeSeam: (beat) => {
