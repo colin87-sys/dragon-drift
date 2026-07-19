@@ -290,6 +290,10 @@ export function wispImpact(pos, ring, tint = 0x50ffaa) {
   if (ring) shockwave(pos, tint, { grow: 10, life: 0.35 });
 }
 
+// SUNBREAK I3: the beam impact's shock-ring choreography is owned by boss.js (it has the beam
+// clock for the +60ms secondary lag) — expose the pool ring directly. Same pool, no new DC class.
+export function surgeShockRing(pos, colorHex, opts) { shockwave(pos, colorHex, opts); }
+
 function shockwave(pos, colorHex, { rect = false, grow = 16, life = 0.5, aspect = 1 } = {}) {
   for (const sp of shocks) {
     if (sp.visible || sp.userData.isRect !== rect) continue;
