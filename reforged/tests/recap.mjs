@@ -34,14 +34,18 @@ check('earn list pre-rendered', !!(await page.$('.earn-list.revealing')));
 check('stats grid rendered', (await page.$$('.run-stats .stat')).length === 8);
 check('share menu present', !!(await page.$('#share-menu')));
 
-// Count-up settles to the final score.
-await page.waitForTimeout(1300);
-const counted = await page.$eval('#score-countup', (el) => el.textContent);
+// Count-up settles to the final score. The count-up is an ANIMATION (rAF-driven),
+// so its duration is frame-rate-dependent under headless GL — poll for it to reach
+// the score instead of a fixed wait.
 const score = await page.evaluate(() => Math.floor(window.__dd.game.score));
+await page.waitForFunction((s) => Number(document.querySelector('#score-countup')?.textContent) === s,
+  score, { timeout: 15000, polling: 100 }).catch(() => {});
+const counted = await page.$eval('#score-countup', (el) => el.textContent);
 check(`count-up settles to score (${counted} = ${score})`, Number(counted) === score);
 
-// Ledger is pre-rendered — ember tally is in the DOM without waiting.
-await page.waitForSelector('.earn-list .ember-tally', { timeout: 3000, state: 'attached' });
+// Ledger reveal is animation-gated; generous timeout + poll (the 3s window flaked
+// under slow SwiftShader even though the row is pre-rendered into the reveal list).
+await page.waitForSelector('.earn-list .ember-tally', { timeout: 15000, state: 'attached' });
 check('earnings ledger revealed ember tally', !!(await page.$('.earn-list .ember-tally')));
 
 // Wallet got exactly the banked haul (no quests/feats fired in this run).
