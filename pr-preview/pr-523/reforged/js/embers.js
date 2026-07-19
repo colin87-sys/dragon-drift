@@ -30,6 +30,18 @@ const posV = new THREE.Vector3();
 const sclV = new THREE.Vector3();
 const HIDDEN = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
 
+// THE EMPYREAN uplift PR-1: the amber ember shards are a warmth violation on the pearl field — in
+// biome 5 the shared material lerps to ROSE (hue ≥315°); 0 elsewhere = exact shipped amber.
+const _EMB_GOLD = { color: new THREE.Color(0xffb030), emissive: new THREE.Color(0xff9010) };
+const _EMB_ROSE = { color: new THREE.Color(0xffaacb), emissive: new THREE.Color(0xef4a90) };
+let _embTint = 0;
+export function setEmberTint(mix) {
+  _embTint = mix || 0;
+  if (!mesh) return;
+  mesh.material.color.copy(_EMB_GOLD.color).lerp(_EMB_ROSE.color, _embTint);
+  mesh.material.emissive.copy(_EMB_GOLD.emissive).lerp(_EMB_ROSE.emissive, _embTint);
+}
+
 export function initEmbers(scene) {
   mesh = new THREE.InstancedMesh(
     new THREE.OctahedronGeometry(0.3, 0),
@@ -95,7 +107,7 @@ export function updateEmbers(dt, player, time) {
       streak = Math.min(streak + 1, 24);
       streakTimer = 1.2;
       sfx.ember(streak);
-      burst(posV, 0xffc050, { count: 4, speed: 6, size: 0.5, life: 0.4 });
+      burst(posV, _embTint > 0.5 ? 0xf6a0c4 : 0xffc050, { count: 4, speed: 6, size: 0.5, life: 0.4 });
     }
   }
   mesh.instanceMatrix.needsUpdate = true;
