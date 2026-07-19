@@ -506,6 +506,7 @@ export const CONFIG = {
             graze: 0.002, grazeCap: 0.20, parryCap: 0.25, defeat: 0.20,
             grazeChargeBoost: 0.30, grazeChargeDClamp: 0.5 },  // M2 + the §4a in-boss clamp
     gauntletClean: 0.12,
+    overdriveScoreStep: 2.0,  // §7 R1: the flow orb mult reborn as 1 + step×D (was chain ×1-×3)
   },
 
   BOSS: {
