@@ -11,8 +11,11 @@ const { page, errors, done } = await boot();
 await page.waitForSelector('#build-stamp', { timeout: 8000 });
 const stamp = (await page.textContent('#build-stamp')).trim();
 
-check('build stamp is shown on screen', /^build [0-9a-f]{6,}$/.test(stamp));
-check('on-screen build id matches the service-worker version', stamp === 'build ' + swVersion);
+// The stamp live-appends a perf readout ("· tier N · swell on/off") 1s after boot
+// (the device-perf surface added with the tempest mobile work) — match the PREFIX,
+// not the whole string, so the assert can't race the interval.
+check('build stamp is shown on screen', /^build [0-9a-f]{6,}( · tier .*)?$/.test(stamp));
+check('on-screen build id matches the service-worker version', stamp.startsWith('build ' + swVersion));
 check('no console errors', errors.length === 0);
 
 console.log(`  (stamp: "${stamp}", sw VERSION: ${swVersion})`);
