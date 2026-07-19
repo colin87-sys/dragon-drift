@@ -30,6 +30,7 @@ import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
   lanceDmgEach, paintFromParry, dropLockPart, grantEchoPip, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
 import { makeGlowTexture } from './util.js';
+import { juiceEvent } from './juice.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -3958,6 +3959,10 @@ function activateSurge(player) {
   sfx.surgeReadyStop?.();      // they answered the "tap me" hum — silence it
   wasReady = false;
   cameraCtl.shake?.(0.5);
+  // Tier parity (independent-critic fix): the boss-tap Surge fires the SAME surgeStart kick as
+  // the cruise edge, so tier 0/1 gets the flash+bloom+lift here too (the tier-2 DOM fallback
+  // rides the 'surge' event below — never both, kick() no-ops when the composer is off).
+  juiceEvent('surgeStart');
   emit('surge');
   // §5f C.2b "surge INTO the dive gap": releasing Surge while RIDING the stoop's
   // slipstream pocket (≥0.8s unbroken) EXPOSES the hunter — an amplified chip window.
