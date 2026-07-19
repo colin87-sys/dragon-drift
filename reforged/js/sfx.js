@@ -1202,6 +1202,13 @@ export const sfx = {
     tone({ freq: 300, end: 210, dur: 0.12, type: 'triangle', vol: 0.05 });
   },
   feverStart() {
+    // SUNBREAK I2.5: the trigger is an EVENT — a felt HIT under the identity arpeggio, synced to
+    // the slow-mo hitch + flash. (1) bed duck −~8dB for ~0.4s (the world goes quiet for one breath
+    // — the strongest colour-independent "it happened" cue), (2) a 2–5ms transient snap, (3) a
+    // sub-bass thump ~52Hz decaying ~350ms (felt, not heard; content <150Hz per the §F audio spec).
+    duckHold(0.5, 0.4);
+    tone({ freq: 190, end: 70, dur: 0.03, type: 'square', vol: 0.30 });           // the transient snap
+    tone({ freq: 52, end: 38, dur: 0.35, type: 'sine', vol: 0.55 });              // the sub-bass thump
     [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
       const k = inKey(f);
       tone({ freq: k, end: k * 1.5, dur: 0.3, type: 'square', vol: 0.1, delay: i * 0.09 });
