@@ -46,7 +46,9 @@ check('main: OFF path restores renderer.info.autoReset = true', /renderer\.info\
 check('main: HUD boots from ?debug=perf OR the perfHud setting', /gfxPref\.perfHud === true\) setPerfHud\(true\)/.test(main));
 check('main: onGraphicsChange routes perfHud → setPerfHud', /kind === 'perfHud'\) setPerfHud\(value\)/.test(main));
 check('save: perfHud default false (shipped identity)', /perfHud: false/.test(src('../js/save.js')));
-check('ui: PERFORMANCE HUD settings toggle present', /gfxToggle\('perfHud'\)/.test(src('../js/ui.js')));
+// U5 redesigned on/off settings rows as switches: the row renders via swRow('gfx', …)
+// (the old gfxToggle helper is gone) — grep the current helper, same intent.
+check('ui: PERFORMANCE HUD settings toggle present', /swRow\('gfx',\s*'perfHud'/.test(src('../js/ui.js')));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
