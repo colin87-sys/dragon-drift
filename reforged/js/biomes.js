@@ -327,6 +327,9 @@ export const BIOMES = [
     // koi drifting high ahead of the lane — the biome's bespoke ambient fauna. 0 in every other biome
     // (optional-channel) → the circling flock stays byte-identical there. Consumed by ambient.js.
     shoal: 1,
+    // Player-coupled WAKE (uplift PR-1): ripple rings radiate from the dragon on the nacre — the water
+    // answers the player ("world that notices you", the audit's #1 add). 0 elsewhere → byte-identical.
+    wake: 1,
     props: ['monolith', 'arcshard'],  // interim legacy Astral kit, pale-retinted via mats.body[5] (PR-4/5 replaces it)
     matIndex: 5, // empyStone bone-nacre (pale-retinted from astral slate)
     // Contrast gate (§3, a REAL gate): a HIGH-KEY field is a NEW contrast regime — every shipped
@@ -583,6 +586,9 @@ const env = {
   // reskinned circling bird-flock is left byte-identical everywhere the school is OFF. Where a biome
   // declares `shoal`, ambient.js swaps the lazy circling flock for a coherent school of ink-koi.
   shoalMix: 0,
+  // THE EMPYREAN uplift PR-1 — player-coupled water WAKE (0 elsewhere → byte-identical water).
+  // Consumed by water.js: expanding ripple rings radiate from the dragon on the nacre.
+  wakeMix: 0,
   // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
   moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
@@ -715,6 +721,8 @@ export function computeEnv(dist) {
   // THE EMPYREAN inkShoal flock (PR-5b, optional-channel): 0 elsewhere = the circling bird-flock is
   // byte-identical; rides the same seam ramp (ts) so the school dawns in as the light does.
   env.shoalMix = lerp(a.shoal || 0, b.shoal || 0, ts);
+  // THE EMPYREAN uplift PR-1 wake (optional-channel): 0 elsewhere = byte-identical water.
+  env.wakeMix = lerp(a.wake || 0, b.wake || 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);

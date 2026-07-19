@@ -67,6 +67,17 @@ let flyby = null; // foreground single-bird flyby (dusk sanctuary)
 let shoal = null;
 const SHOAL_COUNT = 10;   // Fable PR-5b: fewer + bigger + aligned reads as fauna; many tiny dark points reads as noise
 const shoalData = [];
+// Uplift PR-1: a second FAR/HIGH school (depth cue, distinct period) + a sparse layer of LARGER
+// ink-violet rising motes with per-mote bob that PART around the dragon — the dark-accent motion
+// currency that survives the bright field (pale motes vanish there). All gated on the biome env,
+// invisible + zero-cost everywhere else.
+let shoal2 = null;
+const SHOAL2_COUNT = 7;
+const shoal2Data = [];
+let inkMotes = null;
+let inkPos = null;
+const INK_COUNT = 54;
+const INK_BOX = { x: 64, y: 46, z: 130 };
 
 // Tier gate: per-frame matrix writers (birds, flyby, shoal) drop out at the lowest tier.
 let tierOn = true;
@@ -75,6 +86,8 @@ export function setAmbientQuality(q) {
   if (birds) birds.visible = tierOn;
   if (flyby) flyby.visible = tierOn;
   if (shoal) shoal.visible = tierOn;
+  if (shoal2) shoal2.visible = tierOn;
+  if (inkMotes) inkMotes.visible = tierOn;
 }
 
 const m4 = new THREE.Matrix4();
@@ -180,6 +193,53 @@ export function createAmbient(scene) {
     });
   }
   scene.add(shoal);
+
+  // Uplift PR-1: the FAR/HIGH second school — same koi geometry + material, smaller and higher on the
+  // OTHER flank with its own slower period (a depth cue and a second traversal voice, never a clone).
+  shoal2 = new THREE.InstancedMesh(koiGeo, shoal.material, SHOAL2_COUNT);
+  shoal2.frustumCulled = false;
+  shoal2.layers.set(1);
+  shoal2.visible = false;
+  shoal2.name = 'inkShoal2';
+  for (let i = 0; i < SHOAL2_COUNT; i++) {
+    shoal2Data.push({
+      ox: (Math.random() - 0.5) * 12,
+      oy: (Math.random() - 0.5) * 5,
+      oz: (Math.random() - 0.5) * 13,
+      wander: 0.9 + Math.random() * 1.2,
+      orbSpeed: 0.15 + Math.random() * 0.18,
+      orbPhase: Math.random() * Math.PI * 2,
+      swimRate: 2.2 + Math.random() * 1.6,
+      swimPhase: Math.random() * Math.PI * 2,
+      sizeJit: 0.95 + Math.random() * 0.3,
+    });
+  }
+  scene.add(shoal2);
+
+  // Uplift PR-1: ink-drop lumen-motes — the visible mote layer. The shared 1200-mote pool is pale and
+  // vanishes on the bright field; this sparse layer is LARGER and slightly ink-violet (dark-on-bright,
+  // the ink recipe), rises with a per-mote bob, and PARTS around the dragon (player-coupled). Its own
+  // Points object → the shared pool is untouched (byte-identity by construction).
+  inkPos = new Float32Array(INK_COUNT * 3);
+  for (let i = 0; i < INK_COUNT; i++) {
+    inkPos[i * 3] = (Math.random() - 0.5) * INK_BOX.x;
+    inkPos[i * 3 + 1] = Math.random() * INK_BOX.y;
+    inkPos[i * 3 + 2] = -Math.random() * INK_BOX.z + 20;
+  }
+  const inkGeo = new THREE.BufferGeometry();
+  inkGeo.setAttribute('position', new THREE.BufferAttribute(inkPos, 3));
+  inkMotes = new THREE.Points(inkGeo, bindAtmosphere(new THREE.PointsMaterial({
+    size: 1.6,
+    map: makeGlowTexture('44,34,64'),   // DEEP ink-violet drop (Fable gate: '70,58,99' still read pale-white bokeh on the bright field — go darker, bigger)
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    color: 0xffffff,
+  })));
+  inkMotes.frustumCulled = false;
+  inkMotes.visible = false;
+  inkMotes.name = 'inkMotes';
+  scene.add(inkMotes);
 
   // Foreground flyby: single gull crossing high over the lane (biome 0 only).
   flyby = new THREE.InstancedMesh(
@@ -331,9 +391,73 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       }
       shoal.instanceMatrix.needsUpdate = true;
     }
+    // Uplift PR-1: the FAR/HIGH second school — other flank, higher, farther, slower period (0.041 vs
+    // 0.05 → the two traversals never sync). Same portrait-azimuth law: sweep stays within ~±9°.
+    if (shoal2) {
+      shoal2.visible = active;
+      if (active) {
+        const st2 = time * 0.041 + 1.7;
+        const c2X = -10 + Math.sin(st2) * 11;
+        const c2Y = 78 + Math.sin(st2 * 1.2) * 3;
+        const c2Z = -playerDist - 168 + Math.cos(st2 * 0.7) * 14;
+        const h2 = -0.15 + Math.sin(st2 * 0.6) * 0.35;
+        const fs2 = env.faunaScale * 2.9;
+        for (let i = 0; i < SHOAL2_COUNT; i++) {
+          const f = shoal2Data[i];
+          const churn = time * f.orbSpeed + f.orbPhase;
+          pos.set(
+            c2X + f.ox + Math.sin(churn) * f.wander,
+            c2Y + f.oy + Math.sin(churn * 1.3) * f.wander * 0.5,
+            c2Z + f.oz + Math.cos(churn) * f.wander
+          );
+          const wag = Math.sin(time * f.swimRate + f.swimPhase) * 0.15;
+          eul.set(0, h2 + wag, Math.sin(churn * 1.3) * 0.08);
+          quat.setFromEuler(eul);
+          const s = fs2 * f.sizeJit;
+          scl.set(s, s, s);
+          m4.compose(pos, quat, scl);
+          shoal2.setMatrixAt(i, m4);
+        }
+        shoal2.instanceMatrix.needsUpdate = true;
+      }
+    }
     // Hand off: the lazy circling flock steps aside once the school owns the frame (byte-identical when
     // shoalMix 0 → birds.visible follows the tier gate exactly as before).
     if (tierOn) birds.visible = env.shoalMix <= 0.5;
+  }
+
+  // Uplift PR-1: ink-drop lumen-motes — rise with a per-mote bob (a SECOND motion class beside the
+  // schools' traversal) and PART around the dragon (the player-coupled class). Gated on empyMix:
+  // invisible + zero-cost in every other biome; the shared 1200-mote pool above is untouched.
+  if (inkMotes) {
+    const inkOn = tierOn && env.empyMix > 0.02;
+    inkMotes.visible = inkOn;
+    if (inkOn) {
+      inkMotes.material.opacity = 0.85 * env.empyMix;
+      const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+      // the dragon rides ~10 ahead of the chase-cam — the parting centre
+      const px = cx, py = cy - 3, pz = cz - 10;
+      for (let i = 0; i < INK_COUNT; i++) {
+        let x = inkPos[i * 3];
+        let y = inkPos[i * 3 + 1] + (0.55 + (i % 3) * 0.22) * dt;          // everything in the Empyrean RISES
+        let z = inkPos[i * 3 + 2];
+        x += Math.sin(time * 0.6 + i * 1.9) * 0.5 * dt;                     // slow per-mote bob
+        const dx = x - px, dy = y - py, dz = z - pz;
+        const dr = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (dr < 7 && dr > 0.01) {                                          // part around the dragon
+          const push = (7 - dr) * 1.6 * dt / dr;
+          x += dx * push; y += dy * push; z += dz * push;
+        }
+        if (y > cy + 26) y -= INK_BOX.y;
+        if (y < cy - 20) y += INK_BOX.y;
+        while (x < cx - INK_BOX.x / 2) x += INK_BOX.x;
+        while (x > cx + INK_BOX.x / 2) x -= INK_BOX.x;
+        while (z < cz - INK_BOX.z - 6) z += INK_BOX.z;
+        while (z > cz - 6) z -= INK_BOX.z;
+        inkPos[i * 3] = x; inkPos[i * 3 + 1] = y; inkPos[i * 3 + 2] = z;
+      }
+      inkMotes.geometry.attributes.position.needsUpdate = true;
+    }
   }
 
   // Flock: lazy circles above the course — color, size and wingbeat re-skin

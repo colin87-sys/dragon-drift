@@ -5,6 +5,8 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { biomeIndexAt, computeEnv, TEMPEST_WIND } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint, setMireWaterPools } from './water.js';
+import { setGoldEmberTint } from './goldEmbers.js';
+import { setEmberTint } from './embers.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
 import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
@@ -5051,6 +5053,13 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _lw = 0.007;                                         // hairline thickness ~2-3px — the prior ~0.9px band was SUB-PIXEL, so AA flattened the rim to nothing (Fable: "measurably absent"); a 2-3px band renders at full brightness
           float _limb = smoothstep(_l0, _l0 + _lw * 0.4, _md) * (1.0 - smoothstep(_l0 + _lw * 0.4, _l0 + _lw, _md));
           col += vec3(0.88, 0.93, 1.0) * _limb * _limbSide * 0.17 * uMoteMix;   // one-arc eclipse rim: COOL blue-white (the vanishing-point sky is warm-pink, so the rim reads by HUE even when ACES compresses value near white) + brighter so the post-tonemap step clears +50 summed on the bright arc
+          // (3) STAR-DRIFT (uplift PR-1): a sparse interior starfield that slowly STREAMS across the disc
+          // and twinkles — the landmark's heartbeat. Drawn only inside the core (× _core) so it can never
+          // touch the sky; cool pearl speckles, the disc stays the biome's darkest mass by construction.
+          vec2 _mUV = vec2(dot(d, _mT), dot(d, cross(_mDir, _mT))) / _mR;
+          float _dsn = _aHash(floor(_mUV * 13.0 + vec2(time * 0.05, time * 0.021)));
+          float _dstar = step(0.982, _dsn) * (0.55 + 0.45 * sin(time * 1.3 + _dsn * 80.0));
+          col += vec3(0.82, 0.86, 1.0) * _dstar * 0.5 * _core;
         }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
@@ -6048,7 +6057,13 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     fogFarColor: env.fogFarColor,
     // THE EMPYREAN nacre (§4b): 0 elsewhere = byte-identical water; kills sun #2 + adds satin/iridescence.
     nacreMix: env.nacreMix,
+    // THE EMPYREAN uplift PR-1 wake: player-coupled ripple rings; 0 elsewhere = byte-identical.
+    wakeMix: env.wakeMix,
   });
+  // THE EMPYREAN uplift PR-1: rose-gold pickup tint (the canary comet is the loudest warmth violation
+  // on the pearl field). Rides empyMix → 0 elsewhere = the shipped gold, lerp-identity.
+  setGoldEmberTint(env.empyMix);
+  setEmberTint(env.empyMix);   // the ordinary amber shards are a second warm path the first retint missed
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
   // Fable 96 A+B: position the 2 spill lights + feed the mirror pools from the kept hero peaks (analytic;

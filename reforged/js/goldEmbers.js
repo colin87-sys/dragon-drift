@@ -19,6 +19,28 @@ let glowTex = null;
 let coreMat = null;
 const golds = [];
 
+// THE EMPYREAN uplift PR-1 — per-biome pickup tint. Canary gold is the loudest warmth violation on the
+// pearl field (independent audit), so in biome 5 the comet shifts to a vivid ROSE-GOLD (hue ≥315°):
+// still loud enough to read as treasure, but on the biome's accent hue. 0 everywhere else → the shared
+// material stays exactly the shipped gold (lerp at 0 = identity).
+const _GOLD = { color: new THREE.Color(0xffd040), emissive: new THREE.Color(0xffa010) };
+const _ROSE = { color: new THREE.Color(0xffb8cf), emissive: new THREE.Color(0xf04f8e) };
+let _tint = 0;
+const _GLOW_GOLD = new THREE.Color(1, 1, 1);          // sprite tex is already warm '255,200,80' — white = shipped
+const _GLOW_ROSE = new THREE.Color(0.95, 0.42, 0.72); // × warm tex ≈ rose glow (kills the canary ball the gate caught)
+export function setGoldEmberTint(mix) {
+  _tint = mix || 0;
+  if (!coreMat) return;
+  coreMat.color.copy(_GOLD.color).lerp(_ROSE.color, _tint);
+  coreMat.emissive.copy(_GOLD.emissive).lerp(_ROSE.emissive, _tint);
+  // The visible "treasure ball" is the GLOW SPRITE, not the core mesh — the first retint missed it
+  // (Fable gate: "still canary gold"). Tint every live sprite; far golds also FADE their glow in
+  // biome 5 so bloom never occludes the distant Mote (position/spawn untouched → determinism safe).
+  for (const o of golds) {
+    o.glow.material.color.copy(_GLOW_GOLD).lerp(_GLOW_ROSE, _tint);
+  }
+}
+
 export function initGoldEmbers(s) {
   scene = s;
   geo = new THREE.OctahedronGeometry(0.55, 0);
@@ -51,11 +73,16 @@ export function updateGoldEmbers(dt, player, time) {
       o.mesh.rotation.y = time * 2.2;
       const pulse = 5.0 + Math.sin(time * 5 + o.dist) * 1.4;
       o.glow.scale.set(pulse, pulse, 1);
+      // Biome-5 far-glow fade: a distant gold's bloom ball can project INSIDE the Mote disc and occlude
+      // the landmark (Fable gate, portrait frame). Fade the glow beyond ~120m — spawns/positions are
+      // untouched (gold-determinism safe); near treasure still pops. _tint 0 → shipped 0.95 exactly.
+      const far = Math.min(Math.max((o.dist - player.dist - 120) / 60, 0), 1);
+      o.glow.material.opacity = 0.95 * (1 - _tint * far);
       // Lazy spark trail so it reads as treasure from far away
       o.spark -= dt;
       if (o.spark <= 0 && o.dist - player.dist < 160) {
         o.spark = 0.22;
-        burst(o.mesh.position, 0xffd870, { count: 1, speed: 2.5, size: 0.5, life: 0.6 });
+        burst(o.mesh.position, _tint > 0.5 ? 0xf6a0c4 : 0xffd870, { count: 1, speed: 2.5, size: 0.5, life: 0.6 });
       }
 
       const dx = player.position.x - o.x;
@@ -71,7 +98,7 @@ export function updateGoldEmbers(dt, player, time) {
         ui.perfectFlash();
         juiceEvent('goldenEmber'); // the treasure moment: hitstop + warm bloom
         sfx.goldEmber();
-        burst(o.mesh.position, 0xffd040, { count: 26, speed: 15, size: 1.2 });
+        burst(o.mesh.position, _tint > 0.5 ? 0xffb8cf : 0xffd040, { count: 26, speed: 15, size: 1.2 });
         emit('goldEmber');
         emit('ember', { n: goldVal, gold: true });
       }
