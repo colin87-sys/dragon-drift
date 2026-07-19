@@ -34,7 +34,9 @@ import { boot, check } from './browser.mjs';
   });
   check('SHOP badge: 700◆ makes the 600◆ dragon newly affordable', !!(await page.$('#btn-shop .badge')));
   await page.click('#btn-shop');
-  await page.waitForSelector('.shop-grid');
+  // The shop's default tab is the hero character-select (#hero-select) since the
+  // hero-scene redesign; .shop-grid only renders on the other tabs.
+  await page.waitForSelector('#hero-select');
   check('shop open writes the wallet watermark', await page.evaluate(() => window.__dd.save.ui.shopSeenEmbers === 700));
   await page.mouse.click(20, 320);
   await page.waitForTimeout(250);
