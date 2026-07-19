@@ -330,6 +330,11 @@ export const BIOMES = [
     // Player-coupled WAKE (uplift PR-1): ripple rings radiate from the dragon on the nacre — the water
     // answers the player ("world that notices you", the audit's #1 add). 0 elsewhere → byte-identical.
     wake: 1,
+    // AERIAL PERSPECTIVE (uplift PR-2, audit miss #2): far props lighten + drift toward pale violet —
+    // the avenue finally recedes (the 5.8 review's "far monoliths as crisp and dark as near ones" tell)
+    // and it doubles as a depth cue under the early/mid/late staging. Rides the shipped propAerial
+    // lever (Fable 75 pattern); 0 elsewhere → byte-identical.
+    propAerial: 0.5, propAerialColor: C(0xccc2ea),
     props: ['monolith', 'arcshard'],  // interim legacy Astral kit, pale-retinted via mats.body[5] (PR-4/5 replaces it)
     matIndex: 5, // empyStone bone-nacre (pale-retinted from astral slate)
     // Contrast gate (§3, a REAL gate): a HIGH-KEY field is a NEW contrast regime — every shipped
