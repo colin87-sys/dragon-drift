@@ -607,7 +607,7 @@ function buildHaloShardParts() {
     const th = th0 + (th1 - th0) * t;
     const cx = Math.cos(th) * R, cy = Math.sin(th) * R + 0.20;   // lift so BOTH horns bed at/under y0
     // tube radius: flared at the buried foot (1.25×), gentle taper to the broken top (0.85×)
-    const rt = 0.125 * (i === 0 || i === N - 1 ? 1.2 : 1 - 0.12 * Math.sin(t * 3.14159) * 0.5) * (1 + 0.06 * Math.sin(i * 2.6));   // both feet flared (bedded), slight mid-span slim
+    const rt = 0.145 * (i === 0 || i === N - 1 ? 1.2 : 1 - 0.12 * Math.sin(t * 3.14159) * 0.5) * (1 + 0.06 * Math.sin(i * 2.6));   // thicker limbs survive band distance + partial occlusion   // both feet flared (bedded), slight mid-span slim
     const tx = -Math.sin(th), ty = Math.cos(th);             // arc tangent → ring plane normal
     const ring = [];
     for (let j = 0; j < seg; j++) {
@@ -2154,9 +2154,9 @@ const ARCHETYPES = {
   // rose on the LOW waterline lip only, crown bare. Off-lane like the courts; the arc's lateral reach is
   // in the r footprint (propclearance audits it).
   haloShard: {
-    step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'early', comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
+    step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'early', broadside: true, comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
     build: () => mergeParts(buildHaloShardParts(), 5),
-    place: (side, rnd) => ({ x: side * (24 + rnd() * 9), h: 10 + rnd() * 7, r: 6.5 + rnd() * 2.8, tilt: side * (rnd() * 0.04 - 0.015) }),
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 9), h: 13 + rnd() * 7, r: 7.5 + rnd() * 2.8, tilt: side * (rnd() * 0.04 - 0.015) }),
   },
   // THE EMPYREAN uplift PR-2 — SHARD SHRINE: the low crystalline rosette (off-lane rest note). WIDE +
   // LOW (h ≤ 2× width via place); INVERSE ladder crest-lift ≤1.15; parks in the mid-field read range
@@ -5709,7 +5709,11 @@ function writeMatrix(band, i, d) {
   // distance — they re-enter when recycled into a matching stretch.
   const bi = biomeIndexAt(Math.max(d.dist, 0));
   let active = band.def.biomes.includes(bi);
-  eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt); // rnd order MUST stay here (determinism outside Frozen)
+  let _yaw = d.rotY ?? (d.rotY = rnd() * Math.PI); // rnd order MUST stay here (determinism outside Frozen)
+  // Broadside bias (uplift PR-2, haloShard): an ARCH whose identity is its aperture dies edge-on — remap
+  // the stored yaw into ±~37 deg of broadside (pure, AFTER the rnd init → call order untouched).
+  if (band.def.broadside) _yaw = _yaw * 0.5 - 0.25;
+  eul.set(0, _yaw, d.tilt);
   quat.setFromEuler(eul);
   // Composition rhythm — FROZEN only, PURE (no rnd), evaluated AFTER the rotY init
   // so no rnd() call order changes. Parks off-beat instances and scales the rest.
