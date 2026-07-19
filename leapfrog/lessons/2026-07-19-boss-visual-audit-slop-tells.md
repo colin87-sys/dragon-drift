@@ -3,7 +3,9 @@
 **What we did.** First full-roster harsh visual audit of all 14 bosses, judged on real
 captures (studio contact sheets + fight-distance frames via `tools/bossstudio.mjs`, dark +
 sunset backdrops) against one question: *would this frame sell the game in a trailer?*
-Result: roster average ≈ 5.6/10, best BRINEHOLM 7.5, worst EITHERWING 3.5, **nothing ≥ 8.5**.
+Result (CONSENSUS after the blind cross-score below): roster average ≈ 5.4/10, best THE
+UNMASKED / KNELLGRAVE 7.0, worst EITHERWING 3.5, **nothing ≥ 8.5**. (The initial A-pass read
+5.6 with BRINEHOLM 7.5 on top — superseded; see the addendum.)
 Full scoreboard + per-boss uplift directives: [`reforged/BOSS-VISUAL-AUDIT.md`](../../reforged/BOSS-VISUAL-AUDIT.md).
 
 **What we learned (the gotcha).** The roster doesn't have 14 different problems — it has SIX
