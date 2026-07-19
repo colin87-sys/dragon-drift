@@ -453,6 +453,7 @@ export function buildDragonModel(def, opts = {}) {
         // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
         // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.
         pearlMat: wingsResult.parts.pearlMat ?? null,
+      wingCircuitMats: wingsResult.parts.wingCircuitMats ?? null,   // Vesper NIGHTFALL circuit (nullable — every other dragon returns null → byte-identical roster)
         tipGemMat: wingsResult.parts.tipGemMat ?? null,
         pearlChainMats: wingsResult.parts.pearlChainMats ?? null,
         waveRiders: wingsResult.parts.waveRiders ?? null },
@@ -478,6 +479,7 @@ export function buildDragonModel(def, opts = {}) {
       // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
       // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.
       pearlMat: wingsResult.parts.pearlMat ?? null,
+      wingCircuitMats: wingsResult.parts.wingCircuitMats ?? null,   // Vesper NIGHTFALL circuit (nullable — every other dragon returns null → byte-identical roster)
       tipGemMat: wingsResult.parts.tipGemMat ?? null,
       pearlChainMats: wingsResult.parts.pearlChainMats ?? null,
       waveRiders: wingsResult.parts.waveRiders ?? null,

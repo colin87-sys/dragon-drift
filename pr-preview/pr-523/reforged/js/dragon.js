@@ -172,7 +172,8 @@ const _heroPos = new THREE.Vector3();
 let heroPoolK = 0;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
-let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
+let spineFlareMats = [];
+let wingCircuitMats = [];  // Vesper NIGHTFALL wing circuit — finger-bone + underside mats staged INSIDE the wing station (audited I5 plan); empty for every other dragon  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
 let graveMatPulse = [];   // cached grave-light buckets (userData.gravePulseBucket set) — the Revenant gap-pulse tick; empty for every other dragon
 let stormArcMats = [];    // TEMPEST storm circuit — the guarded storm tick is their SINGLE writer (§5d); empty for every other dragon
 let stormTimer = null;    // the tempest's pulseTimer strike clock (null unless a storm dragon is equipped)
@@ -461,6 +462,7 @@ export function createDragon(scene, def, riderDef) {
   // fraction) ramps with the CHARGING ladder via the form's arcDuty (0.06→0.18). Seeded so the
   // schedule is reproducible (determinism is a deliverable); null for every other dragon.
   stormArcMats = result.parts.stormArcMats || [];
+  wingCircuitMats = result.parts.wingCircuitMats || [];   // Vesper NIGHTFALL circuit (empty for every other dragon)
   stormTimer = stormArcMats.length
     // ERRATIC idle crackle — real heat-lightning, not a metronome (owner: "more erratic instead of in
     // beat, just like lightning"). A "flash" is an IRREGULAR cluster of 1–3 quick soft swells (each
@@ -830,6 +832,7 @@ export function surgeCascadeDebug() {
     t: surgeCascadeT, level: casLevel.slice(), onset: casOnAt.slice(),
     decay: casDecayProg, releaseT: surgeReleaseT, index: surgeIndex,
     flares: surgeFlareCenters.slice(), timer: null, ultDuck: ultDuckK, gatherW,
+    circuit: wingCircuitMats.map((m) => ({ i: +m.emissiveIntensity.toFixed(3), d: m.userData.circuitDelay || 0, hex: m.emissive.getHex() })),
   };
 }
 // Pure FORWARD-cascade envelope at cascade-time t (s), decay-free — lets the tests measure the
@@ -2224,6 +2227,25 @@ export function updateDragon(dt, player, time) {
     for (const m of spineFlareMats) {
       m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissiveIntensity = m.userData.baseIntensity ?? 1;
+    }
+  }
+  // VESPER NIGHTFALL CIRCUIT (audited plan): the wing skeleton ignites INSIDE the wing station —
+  // aft-finger→dominant travel (userData.circuitDelay), per-finger taper (circuitWeight). The
+  // level term is min(casLevel[2],1), so the ultimate DUCK, damage GUTTER, decay REWIND, sustain
+  // BREATHE + flare ripple all arrive through the one gated channel (audit #2/#3/#4 — no second
+  // breathe stack, no raw _sstep bypass). Idle (surgeCascadeT<0) → li=0 → base color/intensity
+  // rewritten every frame (self-resetting across dragon swaps). Empty list for the rest of the
+  // roster → zero cost, byte-identical.
+  if (wingCircuitMats.length) {
+    const wLvl = Math.min(casLevel[2], 1);
+    _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8);
+    for (const m of wingCircuitMats) {
+      const d = m.userData.circuitDelay || 0, w = m.userData.circuitWeight ?? 0.5;
+      const li = (surgeCascadeT >= 0 ? _sstep(CAS_ON[2] + d, CAS_ON[2] + d + 0.08, surgeCascadeT) : 0) * wLvl;
+      _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0x2050e8);
+      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, li * 0.85));
+      const cArmed = surgeCascadeT >= 0 ? 0.35 + 0.65 * Math.min(1, li) : 1;
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 0.05) * cArmed * Math.max(0.12, 1 + li * 1.9 * sgm * w);
     }
   }
   // Fresnel rim: a warm edge light in cruise that brightens on boost and flares
