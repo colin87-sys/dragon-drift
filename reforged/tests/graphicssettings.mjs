@@ -27,8 +27,13 @@ check('default fast-particles switch OFF', await page.$eval('.sw[data-gfx="parti
 
 // U5 structure: sticky topbar exit + caps section labels + a fenced danger zone.
 check('settings topbar with BACK renders', !!(await page.$('.screen-topbar #btn-back')));
-check('section micro-labels render (GAME/GRAPHICS/ASSISTS/AUDIO/DATA)',
-  await page.$$eval('.settings-section', (els) => els.map((e) => e.textContent.trim().toUpperCase()).join(',').includes('GAME,GRAPHICS,ASSISTS,AUDIO,DATA')));
+// Each core section is present (a new 'HUD readouts' section now sits between
+// Assists and Audio, so assert membership, not one contiguous ordered run).
+check('section micro-labels render (Game/Graphics/Assists/Audio/Data)',
+  await page.$$eval('.settings-section', (els) => {
+    const labels = els.map((e) => e.textContent.trim().toUpperCase());
+    return ['GAME', 'GRAPHICS', 'ASSISTS', 'AUDIO', 'DATA'].every((l) => labels.includes(l));
+  }));
 check('RESET lives in a danger zone', !!(await page.$('.danger-zone #btn-reset-save')));
 check('DEV MODE row hidden without ?debug/?dev... or visible when the boot query carries ?debug',
   await page.evaluate(() => /[?&](debug|dev)\b/.test(location.search) === !!document.querySelector('.sw[data-dev]')));
@@ -53,10 +58,16 @@ await click('.seg-btn[data-cb="off"]');
 await page.waitForTimeout(60);
 check('colorblind OFF removes the class', await page.evaluate(() => !document.documentElement.classList.contains('cb-deuter')));
 
-// Pick VIVID (neutral) → applies live (exposure 1.0 vs ACES 0.92) + persists.
+// Pick VIVID (neutral) → applies live + persists. Assert the tonemap MODE (Custom
+// = Khronos Neutral), NOT the exact exposure: settings is a dim screen, so the menu
+// mood-dim (main.js) multiplies renderer.toneMappingExposure below its 1.0 base every
+// frame — the mode constant is the dim-invariant proof the grade applied live.
 await click('.seg-btn[data-tm="neutral"]');
 await page.waitForTimeout(120);
-check('VIVID applied live (renderer exposure = 1.0)', Math.abs(await page.evaluate(() => window.__dd.renderer.toneMappingExposure) - 1.0) < 1e-6);
+check('VIVID applied live (renderer tonemap = Neutral/Custom)', await page.evaluate(async () => {
+  const THREE = await import('three');
+  return window.__dd.renderer.toneMapping === THREE.CustomToneMapping;
+}));
 check('grade persisted (saveData.settings.toneMap = neutral)', await page.evaluate(() => window.__dd.save.settings.toneMap) === 'neutral');
 
 // Turn dither OFF → applies live (grading uDither = 0) + persists.
@@ -88,10 +99,13 @@ const iblOff = await page.evaluate(() => {
 });
 check('SKY LIGHTING off restores shipped ambient exactly (probe 0, hemi 0.8)', iblOff.probeI === 0 && Math.abs(iblOff.hemiI - 0.8) < 1e-6);
 
-// Back to CLASSIC restores ACES exposure live.
+// Back to CLASSIC restores the ACES tonemap live (mode is dim-invariant; see above).
 await click('.seg-btn[data-tm="aces"]');
 await page.waitForTimeout(120);
-check('back to CLASSIC restores ACES exposure 0.92', Math.abs(await page.evaluate(() => window.__dd.renderer.toneMappingExposure) - 0.92) < 1e-6);
+check('back to CLASSIC restores ACES tonemap', await page.evaluate(async () => {
+  const THREE = await import('three');
+  return window.__dd.renderer.toneMapping === THREE.ACESFilmicToneMapping;
+}));
 
 // PERFORMANCE HUD: a pure overlay — toggling ON builds the readout div + flips
 // renderer.info.autoReset off (to accumulate draw counts); OFF removes it + restores
