@@ -377,10 +377,10 @@ export const BIOMES = [
     // #464): the shared hue is now warm GOLD, resolved oppositely — Mire is a WARM-dominant NIGHT
     // swamp whose light is SELF-emitted by organisms + a still black-mirror; Tempest is a COOL-
     // dominant DAY storm whose gold is a rationed ≤10% STOLEN-sunlight accent (never self-lit) over
-    // a VIOLENT sea. Field cool + warm rationed = the guard. Appended as
-    // BIOMES[7], NOT yet in CYCLE — reachable only via ?biome=7&debug until the CYCLE flip (a later
-    // no-op PR coordinated with the Lost Lagoon arc). PR-0 = the atmosphere substrate; the storm-carved
-    // prop roster, obstacle skins, and the lightning hazard follow in their own PRs.
+    // a VIOLENT sea. Field cool + warm rationed = the guard. BIOMES[7], now IN the CYCLE (the TEMPEST
+    // FLIP — slotted between Aurora (6) and Astral (5), see the CYCLE note): the atmosphere substrate,
+    // the storm-carved prop roster (scarpwall massif + kit), obstacle skins, and the lightning hazard
+    // all shipped, and the boss (stormrend, the Tempest Herald) is in the ladder.
     name: 'TEMPEST REACH',
     keyShift: -3,
     stars: 0,
@@ -523,12 +523,18 @@ if (PROPS_FORUM) BIOMES[0] = FORUM_BIOME0;
 // PR-4 THE FLIP: Aurora Shallows (6) slotted between Lumen Mire (4) and Astral Shallows (5) — the
 // night crescendo biolume → AURORA → cosmos. Mire→Aurora is the softest seam in the roster (both
 // night, Mire's teal horizon 0x3fd8b0 is the aurora's own hue family); Aurora→Astral hands the dying
-// curtain off to the sky-whale (auroraMix 1→0 as whaleMix 0→1). Cycle is now 7 long; every consumer
-// indexes through CYCLE.length so that is safe. Blocks 0-4 reproduce the shipped order byte-for-byte.
-export const CYCLE = [0, 1, 2, 3, 4, 6, 5];
+// curtain off to the sky-whale (auroraMix 1→0 as whaleMix 0→1). Blocks 0-4 reproduce the shipped order.
+// TEMPEST FLIP: Tempest Reach (7) slotted between Aurora (6) and Astral (5) → the CLIMACTIC three-beat
+// AURORA (settling calm) → TEMPEST (the violent storm-sea, the darkest struggle) → ASTRAL (the cosmos).
+// The keyShift leaps −3 → +3 (a musical ASCENSION out of the storm) and Tempest's torn eye-breach light
+// foreshadows the cosmic sky it opens onto. Placement is also tri-budget-forced: Tempest (46.7k) neighbours
+// Aurora (35.5k → 82k pair) + Astral (16.1k → 63k) but NOT the Mire (49.9k → 96.7k > the 90k adjacent cap).
+// Cycle is now 8 long; every consumer indexes through CYCLE.length so that is safe.
+export const CYCLE = [0, 1, 2, 3, 4, 6, 7, 5];
 
-// Debug seam: ?biome=<i> pins the whole course to one biome (no seam crossfade) so an
-// appended-but-not-yet-cycled biome (Aurora Shallows = 6) is flyable before the CYCLE flip.
+// Debug seam: ?biome=<i> pins the whole course to one biome (no seam crossfade) so any biome is
+// flyable in isolation for a clean preview (e.g. ?biome=7 to inspect Tempest Reach without its seams).
+// Every biome (0-7) is now in the CYCLE, but the pin stays useful for hero shots + gate captures.
 // null in all real play → biomeAt is byte-identical (gold-determinism untouched; course gen
 // is biome-blind regardless).
 let forcedBiome = null;
