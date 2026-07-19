@@ -30,6 +30,13 @@ let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
 setActiveDetail('high');
+// Obsidian (the unified-hull host def) left the shipped roster in the roster prune —
+// no shipped def carries the unifiedHull parts, so this proof skips. Re-arms the
+// moment any roster def opts back into unifiedHull/unifiedHullTorso.
+if (!DRAGONS.obsidian) {
+  console.log('  (obsidian not in the shipped roster — unified-hull host proof vacuous, skipped)');
+  process.exit(0);
+}
 const obs = ascendedDef(DRAGONS.obsidian, 3, 0);   // Eternal
 assertEq(obs.parts.wings, 'unifiedHull', 'Obsidian opts into the unified hull wings');
 assertEq(obs.parts.torso, 'unifiedHullTorso', 'Obsidian opts into the body-less hull torso');

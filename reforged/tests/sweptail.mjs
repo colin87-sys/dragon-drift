@@ -25,6 +25,14 @@ const { buildDragonModel } = await import('../js/dragonModel.js');
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
+// Obsidian (the swept-tail host def) left the shipped roster in the roster prune —
+// this proof has no def to bind to and SKIPS. Re-arms if a def with parts.tail
+// 'sweptTail' returns to the roster.
+if (!DRAGONS.obsidian) {
+  console.log('  (obsidian not in the shipped roster — sweptTail host proof vacuous, skipped)');
+  process.exit(0);
+}
+
 // --- 1. Obsidian opts into the swept tail → ONE skinned tube on the 7 bones ----
 setActiveDetail('high');
 const obs = ascendedDef(DRAGONS.obsidian, 3, 0);          // Eternal

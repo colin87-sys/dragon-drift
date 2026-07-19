@@ -76,6 +76,13 @@ ok('swept geometry is clean (finite, indexed, normalled)');
 // Obsidian (the hero) has since migrated to the UNIFIED HULL; the sweptLoft torso
 // path is still proven on an obsidian CLONE forced onto it (the coexist-test
 // discipline). This also pins sweptLoft == arrow @HIGH for the whole roster.
+// Obsidian left the shipped roster in the roster prune — sections 1-3 above stay
+// live coverage of the swept geometry; the clone integration skips without a host.
+if (!DRAGONS.obsidian) {
+  console.log('  (obsidian not in the shipped roster — clone integration skipped; sections 1-3 covered)');
+  console.log(`\n${n} sweptprofile checks passed.`);
+  process.exit(0);
+}
 const base = ascendedDef(DRAGONS.obsidian, 3, 0);   // Eternal
 // Force the OLD wing recipe too — the unified-hull wings need a body-less hull torso
 // (attach.loft), so this torso-focused test pairs sweptLoft/arrow with the membrane

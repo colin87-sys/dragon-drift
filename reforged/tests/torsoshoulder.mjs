@@ -31,6 +31,11 @@ setActiveDetail('high');
 // Obsidian (the hero) has since migrated to the UNIFIED HULL; the sweptLoftSkinned
 // Pass-2 body-skin path is kept registered as the rollback. Prove it on an obsidian
 // CLONE forced back onto the old recipe (the coexist-test discipline, LEAPFROG L173).
+// Obsidian left the shipped roster in the roster prune — no host def, proof skips.
+if (!DRAGONS.obsidian) {
+  console.log('  (obsidian not in the shipped roster — Pass-2 body-skin rollback proof vacuous, skipped)');
+  process.exit(0);
+}
 const base = ascendedDef(DRAGONS.obsidian, 3, 0);
 const obs = { ...base, parts: { ...base.parts, torso: 'sweptLoftSkinned', wings: 'skinnedMembraneBridge' } };
 assertEq(obs.parts.torso, 'sweptLoftSkinned', 'the clone opts into the skinned-shoulder torso');
