@@ -42,7 +42,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint, setSurgeBeamPalette, prewarmSurgeBeam, surgeBeamPrewarmed } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -213,6 +213,14 @@ function applyWispCosmetic() {
   setWispTint(tint);
   setLanceTint(tint);
   setMarkRune(lanceRuneFor(ed, fl));
+  // I3: the Surge beam speaks the equipped dragon's hue — BLOOM = surgeHalo ?? surgeHi
+  // (§H/§M.1-7 fallback chain; never the old hardcoded magenta), DARK wrap = the dragon's
+  // surgeDark band (ties the beam to the world-suppression grade), CORE stays near-white.
+  const dk = ed.surgeDark;
+  const darkHex = Array.isArray(dk)
+    ? ((Math.round(dk[0] * 255) << 16) | (Math.round(dk[1] * 255) << 8) | Math.round(dk[2] * 255))
+    : 0x2a2036;
+  setSurgeBeamPalette(0xfff6e8, ed.surgeHalo ?? ed.surgeHi ?? 0xffe0b0, darkHex);
 }
 createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
@@ -256,6 +264,7 @@ initSpeedStreaks(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
 initBoss(scene);
+prewarmSurgeBeam(renderer, camera);   // I3 §M.1-8: compile the beam ribbon shaders NOW — never a mid-fight hitch on first cast
 initPbMarker(scene);
 applyWispCosmetic();   // seed the equipped dragon's wisp accent + brand rune (PR8)
 
@@ -436,7 +445,8 @@ if (urlParams.has('debug')) {
     // impact) — a normally-undefined global, so byte-identical in play; and cast the
     // full charge→beam cinematic from a fight for the state-machine test.
     surgeState: () => ({ ...debugSurgeState(), drawCalls: renderer.info.render.calls,
-      gradeMix: surgeGradeMix(), exposure: renderer.toneMappingExposure, exposureBase }),
+      gradeMix: surgeGradeMix(), exposure: renderer.toneMappingExposure, exposureBase,
+      prewarmed: surgeBeamPrewarmed() }),
     // I2 anatomical ignition cascade trace (per-station levels + latched onset timestamps).
     surgeCascade: () => surgeCascadeDebug(),
     surgeGradeEnvAt: (t) => surgeGradeEnvAt(t),     // pure world-suppression attack envelope at t (snap-overshoot asserts)
