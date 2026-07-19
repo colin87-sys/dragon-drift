@@ -229,8 +229,8 @@ export function createAmbient(scene) {
   const inkGeo = new THREE.BufferGeometry();
   inkGeo.setAttribute('position', new THREE.BufferAttribute(inkPos, 3));
   inkMotes = new THREE.Points(inkGeo, bindAtmosphere(new THREE.PointsMaterial({
-    size: 1.35,
-    map: makeGlowTexture('70,58,99'),   // soft ink-violet drop (dark-on-bright reads; pale-on-bright dies)
+    size: 1.6,
+    map: makeGlowTexture('44,34,64'),   // DEEP ink-violet drop (Fable gate: '70,58,99' still read pale-white bokeh on the bright field — go darker, bigger)
     transparent: true,
     opacity: 0,
     depthWrite: false,

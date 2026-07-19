@@ -370,8 +370,10 @@ const fragmentShader = /* glsl */`
     // This is the one element that makes the water answer the player instead of looping.
     if (uWakeMix > 0.0001) {
       float _wkr = length(vWorldPos.xz - uHeroPos.xz);
-      float _wk = sin(_wkr * 1.9 - time * 4.2) * exp(-_wkr * 0.10) * smoothstep(34.0, 8.0, _wkr);
-      col = mix(col, deepColor, max(_wk, 0.0) * 0.20 * uWakeMix);
+      // pow-sharpened crests → 2-3 DISCRETE expanding rings, not a continuous smudge (Fable gate:
+      // "reads as a vignette, not a wake"); still value-dark only.
+      float _wk = pow(max(sin(_wkr * 1.6 - time * 4.6), 0.0), 3.0) * exp(-_wkr * 0.085) * smoothstep(36.0, 7.0, _wkr);
+      col = mix(col, deepColor, _wk * 0.30 * uWakeMix);
     }
 
     // Golden sun streak: compress the normal's x so the highlight stretches

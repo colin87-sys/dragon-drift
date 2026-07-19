@@ -53,3 +53,11 @@ the plan (floor 4.2) — verdict recorded in the PR.
 **What it unlocks.** Motion-class vocabulary for the remaining PRs (traversal / bob / player-coupled),
 the scripted dark budget for PR-4's mirror-smudge, and the burst rig as the standing gate harness.
 Next: PR-2 RING COURT + STONES OF LIGHT.
+
+**Gate record.** R1 3.8 REVISE — the retint missed TWO warm render paths (the goldEmber glow SPRITE is
+the visible "treasure ball", and the ordinary amber embers are a separate system in embers.js); one gold
+bloom sat INSIDE the Mote on portrait; the wake read as a vignette smudge; ink motes read pale. Fixes:
+tint every path + far-glow fade (determinism-safe — positions untouched), pow³-sharpened discrete wake
+rings, deeper ink ('44,34,64', size 1.6). **R2 4.4 PASS** — critic swept every frame for warm pixels:
+none; wake = countable rings; Mote clean + dominant on both aspects. LESSON: a "colour change" is a
+RENDER-PATH AUDIT — mesh, sprite, emissive, burst, and sibling systems each carry the hue independently.

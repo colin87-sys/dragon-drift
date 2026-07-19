@@ -6,6 +6,7 @@ import { biomeIndexAt, computeEnv, TEMPEST_WIND } from './biomes.js';
 import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint, setMireWaterPools } from './water.js';
 import { setGoldEmberTint } from './goldEmbers.js';
+import { setEmberTint } from './embers.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
 import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
@@ -6062,6 +6063,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // THE EMPYREAN uplift PR-1: rose-gold pickup tint (the canary comet is the loudest warmth violation
   // on the pearl field). Rides empyMix → 0 elsewhere = the shipped gold, lerp-identity.
   setGoldEmberTint(env.empyMix);
+  setEmberTint(env.empyMix);   // the ordinary amber shards are a second warm path the first retint missed
   // N10c: foam collars ride the same swell + fade into the same fog band.
   updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
   // Fable 96 A+B: position the 2 spill lights + feed the mirror pools from the kept hero peaks (analytic;
