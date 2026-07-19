@@ -13,7 +13,7 @@
 //   tail    t=0.55  tail CRACK           (station 4 — nearest-element climax)
 //   full    t=0.90  rim SEAL             (fully transformed)
 //   sus-a   t=3.20  sustain breathe/flare (early hold)
-//   sus-b   t=8.10  sustain breathe/flare (late hold — adaptation check)
+//   sus-b   t=5.50  sustain breathe/flare (counter-phase hold — adaptation/breathe check)
 //
 // Outputs: /tmp/burst-<key>-<beat>.png per beat + a labelled contact sheet
 // /tmp/burst-<key>-sheet.png (2 columns × 4 rows, chronological), plus per-beat
@@ -75,14 +75,14 @@ async function lumens(shotB64) {
       // Station acceptance regions (vision re-score): the WING band (wide, mid-height — where the
       // membranes live in rear-chase) and the TAIL band (narrow, low-centre — the crack).
       wings: mean(Math.floor(0.32 * img.width), Math.floor(0.44 * img.height), Math.floor(0.36 * img.width), Math.floor(0.14 * img.height)),
-      tail: mean(Math.floor(0.44 * img.width), Math.floor(0.58 * img.height), Math.floor(0.12 * img.width), Math.floor(0.16 * img.height)),
+      tail: mean(Math.floor(0.42 * img.width), Math.floor(0.62 * img.height), Math.floor(0.16 * img.width), Math.floor(0.20 * img.height)),
     };
   }, shotB64);
 }
 
 const BEATS = [
   ['armed', null], ['crown', 0.06], ['spine', 0.22], ['wing', 0.40],
-  ['tail', 0.55], ['full', 0.90], ['sus-a', 3.20], ['sus-b', 8.10],
+  ['tail', 0.55], ['full', 0.90], ['sus-a', 3.20], ['sus-b', 5.50],   // counter-phase at the 0.22Hz breathe (8.1s sampled ~the same phase as 3.2s)
 ];
 const shots = [];   // { name, b64, lum }
 for (const [name, t] of BEATS) {
