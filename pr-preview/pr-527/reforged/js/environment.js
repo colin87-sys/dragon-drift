@@ -599,15 +599,15 @@ function _bladeInto(body, crown, { seg, zLens, slope, st, amp, sx = 1, sy = 1, r
 // at-a-glance difference from the rose-tipped sentinels. ~112 tris, 2 mats, deterministic.
 function buildHaloShardParts() {
   const body = [], crown = [];
-  const N = 7, seg = 8, R = 0.85, zLens = 0.30;
-  const th0 = -0.30, th1 = th0 + 1.66;   // ~95 deg sweep - the top visibly CURLS inward (Fable gate: at 75 deg low+wide the arc read as a pearlshoal mound)                       // ~75° sweep, low end dipping below the water
+  const N = 9, seg = 8, R = 0.85, zLens = 0.30;
+  const th0 = -0.26, th1 = th0 + 3.67;   // ~210 deg sweep - a broken ARCH whose BOTH horns pierce the waterline (Fable re-gate: a 95 deg arc seen edge-on collapses to a blade - the depth-projection trap; an arch reads as a ring fragment from EVERY yaw)                       // ~75° sweep, low end dipping below the water
   const rings = [];
   for (let i = 0; i < N; i++) {
     const t = i / (N - 1);
     const th = th0 + (th1 - th0) * t;
-    const cx = Math.cos(th) * R, cy = Math.sin(th) * R + 0.34;   // lift so ~the low end beds under y0
+    const cx = Math.cos(th) * R, cy = Math.sin(th) * R + 0.20;   // lift so BOTH horns bed at/under y0
     // tube radius: flared at the buried foot (1.25×), gentle taper to the broken top (0.85×)
-    const rt = 0.125 * (i === 0 ? 1.25 : 1 - 0.15 * t) * (1 + 0.06 * Math.sin(i * 2.6));
+    const rt = 0.125 * (i === 0 || i === N - 1 ? 1.2 : 1 - 0.12 * Math.sin(t * 3.14159) * 0.5) * (1 + 0.06 * Math.sin(i * 2.6));   // both feet flared (bedded), slight mid-span slim
     const tx = -Math.sin(th), ty = Math.cos(th);             // arc tangent → ring plane normal
     const ring = [];
     for (let j = 0; j < seg; j++) {
@@ -2156,7 +2156,7 @@ const ARCHETYPES = {
   haloShard: {
     step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'early', comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
     build: () => mergeParts(buildHaloShardParts(), 5),
-    place: (side, rnd) => ({ x: side * (23 + rnd() * 9), h: 14 + rnd() * 10, r: 5 + rnd() * 2.5, tilt: side * (rnd() * 0.05 - 0.02) }),
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 9), h: 10 + rnd() * 7, r: 6.5 + rnd() * 2.8, tilt: side * (rnd() * 0.04 - 0.015) }),
   },
   // THE EMPYREAN uplift PR-2 — SHARD SHRINE: the low crystalline rosette (off-lane rest note). WIDE +
   // LOW (h ≤ 2× width via place); INVERSE ladder crest-lift ≤1.15; parks in the mid-field read range
