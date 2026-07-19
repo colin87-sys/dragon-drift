@@ -108,17 +108,49 @@ const frameCalls = () => page.evaluate(() => new Promise((res) => {
     });
   });
 }));
-const dcOff = await frameCalls();
-await page.evaluate(() => { window.__dd.player.speed = 0; window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; window.__dd.surgeSeam('beam'); });
+// Isolate the BEAM's own contribution: with the beat pinned, toggle just the beam group's
+// visibility between adjacent frames (bullet volleys spawn/despawn dozens of DC between distant
+// samples — a flying-vs-frozen or even frozen-vs-frozen comparison measures the scene, not the beam).
+await page.evaluate(() => { window.__dd.game.health = 100; window.__dd.player.speed = 0; window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; window.__dd.surgeSeam('beam'); });
 await page.waitForTimeout(400);
-const dcOn = await frameCalls();
 const st = await page.evaluate(() => window.__dd.surgeState());
+// Paired adjacent-frame samples via the __ddSurgeHide seam (updateSurgeBeam re-asserts group
+// visibility every frame, so only a seam can hold it off); take the MIN delta of 3 pairs so a
+// bullet volley spawning inside one pair can't fake a failure.
+let dcOn = 0, dcOff = 0, bestDelta = Infinity;
+for (let k = 0; k < 3; k++) {
+  const on = await frameCalls();
+  await page.evaluate(() => { globalThis.__ddSurgeHide = true; });
+  const off = await frameCalls();
+  await page.evaluate(() => { delete globalThis.__ddSurgeHide; });
+  if (on - off < bestDelta) { bestDelta = on - off; dcOn = on; dcOff = off; }
+}
 check(`beam adds ≤8 draw calls (${dcOff} → ${dcOn}, Δ${dcOn - dcOff})`, dcOn - dcOff <= 8);
-check(`muzzle stack live in the T7 band (socket ${st.muzzle.scale[0]} in 3.3–4.4)`, st.muzzle.vis && st.muzzle.scale[0] >= 3.3 && st.muzzle.scale[0] <= 4.4);
+check(`muzzle stack live in the T7 band (socket ${st.muzzle.scale[0]} in 3.3–4.3)`, st.muzzle.vis && st.muzzle.scale[0] >= 3.3 && st.muzzle.scale[0] <= 4.3);
 check(`impact landed + sparks flying (land=${st.landFired}, sparks=${st.sparks} in 20–44)`, st.landFired >= 1 && st.sparks >= 20 && st.sparks <= 44);
 const pfx = await page.evaluate(() => window.__dd.pfx.stats());
 check(`particle budget ≤150 visible with the beam live (${pfx.visible ?? pfx.count ?? 0})`, (pfx.visible ?? pfx.count ?? 0) <= 150);
+// Critic fix 1 gate: while the ultimate owns the frame, the ambient cascade's whites DUCK to
+// ~55% (withheld-glow at ultimate scale — the muzzle gather must be the brightest dragon mass).
+const duck = await page.evaluate(() => Math.max(...window.__dd.surgeCascade().level));
+check(`ambient cascade ducked during the ultimate (max station ${duck.toFixed(2)} ≤ 0.65)`, duck <= 0.65);
+// Force-FINISH the ultimate (pin to just before BEAM_TIME, release — the next frames end it;
+// headless runs ~5fps so waiting for real-time playout is not viable), then poll the duck's
+// release. Cascade levels stay racy under bullet hit-cancels — assert the MECHANISM.
+await page.evaluate(() => { window.__dd.surgeSeam({ phase: 'beam', t: 0.54 }); });
+await page.waitForTimeout(250);
 await page.evaluate(() => window.__dd.surgeSeam(null));
+let restored = 0;
+for (let i = 0; i < 24; i++) {
+  // keep the player ALIVE during the poll (bullets at speed 0 would kill them → 'gameover'
+  // freezes the player mirror and the duck would read as stuck — a test artifact, not a leak)
+  const r = await page.evaluate(() => { window.__dd.game.health = 100; window.__dd.game.state = 'playing'; return { d: window.__dd.surgeCascade().ultDuck, st: window.__dd.game.state, ult: window.__dd.game.surgeUltimatePhase }; });
+  restored = r.d;
+  if (i === 0) console.log(`  (poll state=${r.st} ult=${r.ult})`);
+  if (restored >= 0.95) break;
+  await page.waitForTimeout(500);
+}
+check(`ultimate duck releases after the beam (${restored.toFixed(2)} ≥ 0.95)`, restored >= 0.95);
 
 check('no console errors', errors.length === 0) || console.error(errors.slice(0, 4).join('\n'));
 await done();

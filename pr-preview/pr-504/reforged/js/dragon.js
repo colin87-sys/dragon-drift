@@ -243,6 +243,7 @@ let casDecayProg = 0;             // 0 (sustain) → 1 (fully decayed) — share
 let casOverall = 0;               // weighted overall ignition (drives the halo + body glow — dark before, bright after)
 let eyeCorona = 0;                // eye-beat screen-space corona flash (carries the subpixel eye at chase distance)
 let surgeGutterT = -1;            // I2.5 DAMAGE-cancel gutter-out clock (-1 = not guttering)
+let ultDuckK = 1;                 // I3 ultimate duck: cascade whites ×~0.55 while the beam cinematic owns the frame
 // The gutter-out (a flame guttering when a hit KILLS the Surge): a seeded 2-stutter stumble to
 // black over ~0.42s — 1 → 0.35 (60ms) → rebound 0.55 (140ms) → 0.15 (240ms) → 0 (420ms). Punchy +
 // authored, never a glitch; distinct from the natural drain's smooth eye-last cascade (Fable ruling).
@@ -793,7 +794,7 @@ export function surgeCascadeDebug() {
   return {
     t: surgeCascadeT, level: casLevel.slice(), onset: casOnAt.slice(),
     decay: casDecayProg, releaseT: surgeReleaseT, index: surgeIndex,
-    flares: surgeFlareCenters.slice(), timer: null,
+    flares: surgeFlareCenters.slice(), timer: null, ultDuck: ultDuckK,
   };
 }
 // Pure FORWARD-cascade envelope at cascade-time t (s), decay-free — lets the tests measure the
@@ -1918,6 +1919,12 @@ export function updateDragon(dt, player, time) {
     // a real step) — weighted to the dorsal body (spine/wing/tail/rim), crown a light touch. And the
     // CROWN CORONA: a screen-space back-of-head glow — the first tell + last-held ember, chase-proof
     // (the eye is invisible from behind, so a subpixel eye-flash can never carry it — Fable replan).
+    // I3 ULTIMATE DUCK (critic fix 1 — withheld-glow at ultimate scale): while the boss-beam
+    // cinematic runs (charge→beam), the ambient cascade's whites step down to ~55% so the MUZZLE
+    // GATHER is the single brightest mass on the dragon at the lock (it measured 65px of near-white
+    // vs a decorative diamond's 237px). Damped both ways; exactly ×1 outside the ultimate.
+    ultDuckK = damp(ultDuckK, player.surgeUltimate ? 0.55 : 1, 8, dt);
+    if (ultDuckK < 0.999) for (let i = 0; i < 5; i++) casLevel[i] *= ultDuckK;
     casOverall = Math.min(casLevel[0], 1) * 0.12 + Math.max(casLevel[1], casLevel[2], casLevel[3], casLevel[4]) * 0.88;
     eyeCorona = Math.min(casLevel[0], 1);   // crown corona tracks the crown station (bright on ignite, last-held on decay)
   }

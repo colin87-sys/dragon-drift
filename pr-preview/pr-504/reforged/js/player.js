@@ -227,5 +227,6 @@ export const player = {
     // ignition DECAY off it (§M.1-5 — the body dims in step with the HUD gauge, never ahead).
     this.feverTimer = game.feverTimer;
     this.feverDuration = CONFIG.feverDuration;
+    this.surgeUltimate = game.surgeUltimatePhase || null;   // I3: the boss ultimate's live phase (ducks the ambient cascade)
   },
 };

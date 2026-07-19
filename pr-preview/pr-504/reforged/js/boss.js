@@ -1390,6 +1390,7 @@ export function initBoss(sc) {
   // muzzle→impact (the "power delivered" read — the rear-chase anchor). A 2nd wider ribbon is
   // the turbulent dark outer wrap (vertex-swayed). Both share one ShaderMaterial family: 2 DC.
   surgeBeam = new THREE.Group();
+  surgeBeam.name = 'surgeBeamFx';   // test seam: DC-delta via visibility toggle
   const shaft = new THREE.Group();
   const beamCore = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 40), makeBeamRibbonMat(false));
   const beamGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 40), makeBeamRibbonMat(true));   // the outer wrap rides the same shader, outer-band-only + sway
@@ -1451,8 +1452,11 @@ function fireSurgeSparks(center, shatter) {
     _sparkVel[i * 3 + 2] = Math.sin(ph) * Math.sin(th) * sp;
     _sparkLife0[i] = _sparkLife[i] = shard ? 0.5 + rng() * 0.2 : 0.3 + rng() * 0.2;
     pos[i * 3] = center.x; pos[i * 3 + 1] = center.y; pos[i * 3 + 2] = center.z;
-    const c = (i % 5 === 0 || shard) ? _beamPal.core : _beamPal.halo;   // a few white-hot cores in a hue cluster
-    const b = shard ? 1.35 : 1.0;
+    // Critic fix 3: sparks must SEPARATE from the boss's 160-180dn rubble in greyscale — every
+    // 3rd spark is white-hot and all peaks ride ≥230dn; hue stays on the rest. The muzzle:impact
+    // dominance guard (≥1.5) holds — brightness up, sizes/counts unchanged.
+    const c = (i % 3 === 0 || shard) ? _beamPal.core : _beamPal.halo;
+    const b = shard ? 1.35 : 1.25;
     col[i * 3] = c.r * b; col[i * 3 + 1] = c.g * b; col[i * 3 + 2] = c.b * b;
   }
   surgeSparks.geometry.attributes.position.needsUpdate = true;
@@ -1565,8 +1569,11 @@ export function setSurgeBeamPalette(coreHex, haloHex, darkHex) {
     m.uniforms.uDark.value.setHex(darkHex);
   }
   // The muzzle stack takes the same value-law roles: dark socket / hue petals / near-white core.
+  // Petals are VALUE-lifted (lerp 0.35 toward white) so the 3-zone radial reads in GREYSCALE
+  // (socket ≤70dn / petals 110–140dn / core ≥230dn — critic fix 2: hue-only petals are invisible
+  // to the colorblind owner; the mid-zone must be a luminance step, hue rides on top).
   surgeBeam.userData.muzzleSocket.material.color.setHex(darkHex);
-  surgeBeam.userData.muzzlePetals.material.color.setHex(haloHex);
+  surgeBeam.userData.muzzlePetals.material.color.setHex(haloHex).lerp(_beamPal.core, 0.35);
   surgeBeam.userData.muzzleCore.material.color.setHex(coreHex);
 }
 let _pendingBeamPal = null;
@@ -1635,9 +1642,13 @@ function updateSurgeBeam(dt, player, time) {
   // Capture seam: pin the cinematic to a beat (holds the beat, no auto-transition).
   const pin = surgeForceBeat();
   if (pin) surgeSeq = { phase: pin.phase, t: pin.t };
+  // I3 critic fix 1: publish the ultimate's phase so the dragon DUCKS its ambient cascade whites
+  // while the muzzle owns the frame (withheld-glow at ultimate scale — the gather must be the
+  // single brightest mass on the dragon at lock, not a decorative diamond).
+  game.surgeUltimatePhase = surgeSeq ? surgeSeq.phase : null;
   if (!surgeSeq) { if (surgeBeam.userData.shaft.visible) hideBeamEnsemble(); if (!_sparkActive) surgeBeam.visible = false; return; }
   if (!pin) surgeSeq.t += dt;
-  surgeBeam.visible = true;
+  surgeBeam.visible = !(typeof globalThis !== 'undefined' && globalThis.__ddSurgeHide);   // test seam: DC-delta toggle (undefined in play)
   const { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore } = surgeBeam.userData;
 
   // Mouth ≈ just ahead + slightly above the dragon; boss at its settled pose.
@@ -1703,7 +1714,7 @@ function updateSurgeBeam(dt, player, time) {
   muzzleSocket.visible = muzzlePetals.visible = muzzleCore.visible = true;
   muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
   const mz = 1 + Math.sin(time * 45) * 0.06;
-  muzzleSocket.scale.setScalar(4.2 * mz); muzzlePetals.scale.setScalar(3.0 * mz); muzzleCore.scale.setScalar(1.7 * mz);
+  muzzleSocket.scale.setScalar(4.0 * mz); muzzlePetals.scale.setScalar(2.9 * mz); muzzleCore.scale.setScalar(1.7 * mz);
   muzzleSocket.material.opacity = 0.55 * col[0];
   muzzlePetals.material.opacity = 0.80 * col[1];
   muzzleCore.material.opacity = Math.max(0.95 * col[2], 0.05);
@@ -1715,7 +1726,7 @@ function updateSurgeBeam(dt, player, time) {
   if (ext[2] >= 0.99 && beamLandFired === 0) {
     beamLandFired = 1; beamLandT = bt;
     fireSurgeSparks(beamT, beamShatterPending);
-    surgeShockRing(beamT, 0xffffff, { grow: 15, life: 0.55 });
+    surgeShockRing(beamT, 0xffffff, { grow: 20, life: 0.55 });   // critic fix 3: faster growth → the ring separates from the boss's crown arc before it fades
   } else if (beamLandFired === 1 && bt - beamLandT >= 0.06) {
     beamLandFired = 2;
     surgeShockRing(beamT, beamShatterPending ? 0xfff2d0 : _beamPal.halo.getHex(), { grow: 22, life: 0.38 });
@@ -2651,6 +2662,7 @@ export function updateBoss(dt, player, time, camera) {
     hideShimmers();
     hideTether();
     surgeSeq = null;
+  game.surgeUltimatePhase = null;   // never leave the cascade duck armed across a reset/death
     // Silence any lingering Surge loops when the fight isn't running (edge-only).
     if (wasSurge) { sfx.surgeCrackleStop?.(); wasSurge = false; }
     sfx.dwellHum?.(0);   // PR7: no dwell whisper outside a live fight
@@ -5939,6 +5951,7 @@ export function resetBoss() {
   hideTether();
   sfx.dwellHum?.(0);
   surgeSeq = null;
+  game.surgeUltimatePhase = null;   // never leave the cascade duck armed across a reset/death
   sfx.surgeCrackleStop?.();
   sfx.surgeReadyStop?.();
   wasSurge = false; wasReady = false;
