@@ -564,11 +564,21 @@ export function buildUnmasked(def, quality = 1) {
   // cool-steel value so the near-black silhouette + feather separation read on a dark sky, WITHOUT
   // a real back-light (which can't rim a flat card facing the camera). Interiors stay near-black →
   // no ominousness lost; the eyes are still the only emissive family. All tracked for dissolve.
-  const LADDER = { upper: 0x484852, uppermid: 0x424250, upmid: 0x424250, middle: 0x3a3a44, lowermid: 0x343440, lower: 0x30303a };
+  // BOSS-VISUAL-AUDIT (dual-judge consensus): the wings still read as flat slate-blue PLANKS at
+  // the fight frame — value a step too light + one flat value per feather. Two coupled fixes:
+  // (1) the ladder is pulled ~15% darker and DE-BLUED toward neutral char (the registry near-black
+  // law — the blue tint read plastic under the night hemisphere light); (2) vertexColors on, so the
+  // angelWing valueBand ramp (root-dark → tip-lit per feather) multiplies in — every feather draws
+  // its own gradient and the fan stops reading as cut card. Ranks stay distinct via the ladder.
+  const LADDER = { upper: 0x3d3c43, uppermid: 0x383740, upmid: 0x383740, middle: 0x312f38, lowermid: 0x2b2a33, lower: 0x27262f };
   const baseMats = {};
-  for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }));
-  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x5b6472, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide }));   // cool moonlit steel — the leading-edge rim
-  const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x474e5a, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
+  for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));
+  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x545b66, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));   // cool moonlit steel — the leading-edge rim
+  const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x40454f, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
+  // The gold RACHIS quill-shafts on the leading primaries (angelWing rachisMaterial): a DRAWN
+  // line, not a light source — plain tone-mapped gold (never blooms, T7-safe), dim enough that
+  // the eyes stay the only emissive family while the shafts etch the fan's structure in the dark.
+  const rachisMat = track(new THREE.MeshBasicMaterial({ color: 0x8a6f34, side: THREE.DoubleSide }));
 
   // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
   // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
@@ -723,7 +733,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate); merge = 13 draws/wing → ~3
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat }).group);   // per-wing value ladder + painted moon-rim + per-feather root→tip band + gold rachis shafts (BOSS-VISUAL-AUDIT); merge = 13 draws/wing → ~3
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),
@@ -811,6 +821,10 @@ export function buildUnmasked(def, quality = 1) {
     const g = new THREE.Group();
     g.name = spec.name;
     g.position.set(...spec.pos);
+    // BOSS-VISUAL-AUDIT (independent-audit correction on the Karnvow trophy law): at rel 30 the
+    // relics were sub-10px clutter — unreadable attribution. Scaled up in place (anchors + count
+    // unchanged — they are RECKONING lockParts; comfort re-check: cluster stays |x|≲2.4 local).
+    g.scale.setScalar(1.4);
     const body = relicBodyMat();
     const glow = relicGlowMat(spec.palette);
     let shape, accent;
@@ -860,6 +874,42 @@ export function buildUnmasked(def, quality = 1) {
   const knot = new THREE.Mesh(new THREE.SphereGeometry(0.92, lowQ ? 8 : 12, lowQ ? 6 : 9), knotMat);
   knot.scale.set(1.05, 1.18, 0.5); knot.position.set(0, 0, -0.28);   // flattened, seated among the wing roots
   knot.name = 'knotBody'; stage2.add(knot);
+
+  // ── THE STAGE-2 NIMBUS (BOSS-VISUAL-AUDIT §14): the reserved gold corona, present as a FAINT
+  // halo ring behind the seraph in its hero stage — the money frame (s2 idle/charge/all-snap)
+  // shipped with no halo at all; the stage-3 nimbus never appears in it. A thin additive ring
+  // STRICTLY behind every wing plane (z −1.05 < deepest wing −0.65; §2 backlight-behind-the-
+  // silhouette is lawful, and a thin ring is ~5% fill — far off the overdraw cliff). Idles at a
+  // whisper, breathes, swells with the wrath charge, FLARES on the all-snap, and yields to the
+  // stage-3 halo as k3 rises (never two nimbi at once). Seated slightly HIGH (crown-side) so it
+  // reads as a saint's nimbus, not a ring-around-the-body. ──
+  // Registry tell #5 guard: a uniform ring is an "onion ring" — the band must be an ALPHA
+  // FALLOFF. Three radial loops (transparent inner edge → bright mid → transparent outer) with
+  // additive blending dissolve both edges to nothing; the material colour scales the whole band
+  // (the tick's dimmer), exactly the corona's proven idiom.
+  const halo2Mat = track(new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  halo2Mat.toneMapped = false;
+  const H2N = lowQ ? 40 : 72, H2Y = 0.42, H2Z = -1.05;
+  const h2Pos = [], h2Col = [], h2Idx = [];
+  const h2Accent = new THREE.Color(accent);
+  for (let i = 0; i <= H2N; i++) {
+    const a = (i / H2N) * TAU, cx = Math.cos(a), cy = Math.sin(a);
+    h2Pos.push(cx * 2.62, cy * 2.62 + H2Y, H2Z, cx * 2.94, cy * 2.94 + H2Y, H2Z, cx * 3.32, cy * 3.32 + H2Y, H2Z);
+    h2Col.push(0, 0, 0, h2Accent.r, h2Accent.g, h2Accent.b, 0, 0, 0);   // soft in → gold mid → soft out
+  }
+  for (let i = 0; i < H2N; i++) {
+    const a = i * 3, b = a + 3;
+    h2Idx.push(a, a + 1, b + 1, a, b + 1, b, a + 1, a + 2, b + 2, a + 1, b + 2, b + 1);
+  }
+  const halo2Geo = new THREE.BufferGeometry();
+  halo2Geo.setAttribute('position', new THREE.Float32BufferAttribute(h2Pos, 3));
+  halo2Geo.setAttribute('color', new THREE.Float32BufferAttribute(h2Col, 3));
+  halo2Geo.setIndex(h2Idx);
+  const halo2 = new THREE.Mesh(halo2Geo, halo2Mat);
+  halo2.name = 'halo2'; stage2.add(halo2);
+  halo2Mat.color.setScalar(0);   // dark until the tick drives it
 
   // ── THE FOCAL EYE — the ORIGINAL great almond (owner: "go back to the original eye for this
   // form"): the L142 real-eye rig at focal scale — pale sclera, gold iris, dark pupil, proud
@@ -1391,6 +1441,11 @@ export function buildUnmasked(def, quality = 1) {
       // the SNAP flares every catchlight hot. Both lerp from the captured base and return to it. ──
       irisMat.color.copy(IRIS_BASE).lerp(DANGER, charge * 0.5);
       catchMat.color.copy(CATCH_BASE).multiplyScalar(1 + snapK * 1.8);
+
+      // ── THE STAGE-2 NIMBUS: a whisper at idle (breathing, never a metronome-bright ring),
+      // swells with the wrath charge, FLARES on the all-snap (the halo ignites exactly when
+      // every eye locks — the screenshot), and hands off to the stage-3 halo as k3 rises. ──
+      halo2Mat.color.setScalar((0.08 + 0.02 * Math.sin(time * 0.45 * TAU) + charge * 0.16 + snapK * 0.28) * (1 - stage3K) * (1 - dyingK));
 
       // The great central eye's pupil tracks the player (the focal); constricts on charge and on
       // the S2→S3 GATHER (it recoils inward as the seraph stops watching you).

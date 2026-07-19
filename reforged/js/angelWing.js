@@ -132,7 +132,26 @@ function collapseWingByMaterial(group) {
   } catch (e) { /* leave the group unmerged — the wing still renders, just at full draw-call cost */ }
 }
 
-export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {}, merge = false } = {}) {
+// Bake a root→tip VALUE RAMP into a geometry's vertex colours (BOSS-VISUAL-AUDIT: the audit +
+// the independent blind pass both read the seraph's feathers as single-value planks — registry
+// tell #12 "flat sails"). The ramp runs along the geometry's LONGEST local axis (feathers: y,
+// root 0 → tip len; covert strips: x along the arm), darkening the root and lifting the tip, so
+// every feather carries its own gradient. Multiplies the material colour via vertexColors —
+// zero draws, zero tris; the winglab path (valueBand 0) bakes nothing and stays byte-identical.
+function bakeValueBand(geo, k) {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox, ex = bb.max.x - bb.min.x, ey = bb.max.y - bb.min.y;
+  const alongY = ey >= ex, min = alongY ? bb.min.y : bb.min.x, range = (alongY ? ey : ex) || 1;
+  const pos = geo.getAttribute('position'), n = pos.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const t = ((alongY ? pos.getY(i) : pos.getX(i)) - min) / range;
+    const v = 1 + k * (-0.38 + 0.56 * Math.pow(t, 0.9));   // root ×0.62 → tip ×1.18 at k=1
+    col[i * 3] = v; col[i * 3 + 1] = v; col[i * 3 + 2] = v;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+
+export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {}, merge = false, valueBand = 0, rachisMaterial = null } = {}) {
   const lowQ = quality < 0.75;
   // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
   // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
@@ -230,6 +249,40 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
     const f = addFeather(i % 2 ? priMatB : priMat, len, p.w * S.primWidth, p.bow * S.primBow, root, angle, 0.02 + i * 0.07);
     // CUP: rake grades across the fan (+ a tiny alternation for edge light).
     f.children[0].rotation.x = 0.06 - i * 0.025 + (i % 2 ? 0.015 : -0.015);
+    // ── RACHIS FILAMENT (optional; BOSS-VISUAL-AUDIT §14): a thin tapered gold quill-shaft
+    // down the LEADING primaries only (the even/outer rank — structured + sparse, never a
+    // full picket of lines). A ribbon along the same quadratic spine the feather shape uses,
+    // widest at the root, dying toward the tip; sits just proud of the feather face. The
+    // material is caller-supplied (dim tone-mapped gold — a drawn line, not a bloom source);
+    // no rachisMaterial → nothing built (winglab byte-identical). ──
+    if (rachisMaterial && i % 2 === 0) {
+      const bw = p.bow * S.primBow * bowMul;
+      const RP1 = { x: -bw, y: len * 0.55 }, RP2 = { x: bw * 0.95, y: len };
+      const rq = (t) => ({
+        x: 2 * (1 - t) * t * RP1.x + t * t * RP2.x,
+        y: 2 * (1 - t) * t * RP1.y + t * t * RP2.y,
+      });
+      const RN = 8, rPos = [], rIdx = [];
+      let pv = rq(0.02);
+      for (let s = 0; s < RN; s++) {
+        const t1 = 0.02 + (0.88 - 0.02) * ((s + 1) / RN);   // stop shy of the tip — the quill vanishes into it
+        const nv = rq(t1);
+        const dx = nv.x - pv.x, dy = nv.y - pv.y, dl = Math.hypot(dx, dy) || 1;
+        const ox = -dy / dl, oy = dx / dl;
+        const w0 = 0.045 * (1 - s / RN) + 0.01, w1 = 0.045 * (1 - (s + 1) / RN) + 0.01;
+        const b = rPos.length / 3;
+        rPos.push(pv.x + ox * w0, pv.y + oy * w0, 0, pv.x - ox * w0, pv.y - oy * w0, 0,
+          nv.x + ox * w1, nv.y + oy * w1, 0, nv.x - ox * w1, nv.y - oy * w1, 0);
+        rIdx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+        pv = nv;
+      }
+      const rg = new THREE.BufferGeometry();
+      rg.setAttribute('position', new THREE.Float32BufferAttribute(rPos, 3));
+      rg.setIndex(rIdx);
+      const rm = new THREE.Mesh(rg, rachisMaterial);
+      rm.position.z = FEX.depth + (FEX.bevelEnabled ? FEX.bevelThickness : 0) + 0.012;   // proud of the feather face
+      f.add(rm);
+    }
   });
 
   // ---- SECONDARIES — the medium broad-blade pair PACKED AT THE WRIST/CROOK.
@@ -320,6 +373,10 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
     group.add(m);
   }
 
+  // Value-band bake runs over EVERY mesh (feathers, coverts, under-lens, rachis) so each
+  // per-material merge bucket has consistent attributes; materials without vertexColors
+  // simply ignore the attribute. valueBand 0 → no bake → winglab byte-identical.
+  if (valueBand > 0) group.traverse((o) => { if (o.isMesh && o.geometry) bakeValueBand(o.geometry, valueBand); });
   if (merge) collapseWingByMaterial(group);   // 13 draws → ~3 (the seraph opts in; winglab stays unmerged/byte-identical)
   return { group };
 }
