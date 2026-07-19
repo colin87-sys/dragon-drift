@@ -10,7 +10,12 @@ an uplift directive, grounded in the boss-visual-design research digest at the b
 
 ```
 cd reforged
+# generic states (all bosses):
 ONLY_STATE=idle,charge,dread ONLY_BG=dark,sunset node tools/bossstudio.mjs <bossId> critique
+# boss-specific money-frame states (exact-match filter — include them or the frames are skipped):
+#   unmasked:   s2idle,s2charge,s2snap,s3idle   thrumswarm: dragon (+ its own idle/dread names)
+#   eitherwing: handoff                          brineholm:  eyeup,rise
+ONLY_STATE=idle,charge,dread,s2idle,s2charge,dragon,handoff ONLY_BG=dark,sunset node tools/bossstudio.mjs <bossId> critique
 # → reforged-captures/<bossId>-studio-*.png + <bossId>-fight-*.png
 ```
 
@@ -92,7 +97,7 @@ socket it broke from).
 Marrowcoil's lure (a ball sitting ON the skull), Karnvow's cowl orb, Eitherwing's shared eye,
 Weftwitch's hood lamp. L157 already ruled it: **an HDR focal needs ANATOMY** — sclera + iris
 ring + pupil + proud catchlight, or a teardrop lantern with an inner core. Brineholm's eye is
-the shipped counter-example and it carries a 7.5 almost alone.
+the shipped counter-example — though see T7: even that anatomy clips at the fight frame.
 
 **T5 — PRESENCE COLLAPSE AT FIGHT DISTANCE.**
 Eitherwing (two thin ovals), Thrumswarm (invisible motes), Karnvow (wire ghost), Ashtalon on
@@ -143,7 +148,7 @@ round blob with stubble spikes.
 - Make the broken horn the dominant silhouette cue (≈3× current stub) with an ember core in
   the break face — it's the lore hook and currently invisible.
 
-### 2 · STORMREND — 6.5/10
+### 2 · STORMREND — 6.0/10 consensus (A 6.5 / B 5.5)
 **Works:** concentric counter-rotating blade rings around a calm eye — real identity, real
 focal discipline, motion built into the body. Closest to its intended read.
 **Fails:** the eye's cog-toothed surround reads MECHANICAL ("arc reactor," anti-read for
@@ -159,7 +164,7 @@ side tori are debris (T3), each blade is one flat teal value (flat-sails tell #1
 - Delete the floating tori; replace with 2–3 authored storm-arc LineSegments crackling
   between rails (already the idiom, currently barely visible).
 
-### 3 · ASHTALON — 5.5/10
+### 3 · ASHTALON — 5.0/10 consensus (A 5.5 / B 4.5)
 **Works:** on the sunset frame the scythe-wing raptor silhouette is the best pure silhouette
 in the roster — one sentence, instantly a hunting bird; molten visor slit + ember scar work.
 **Fails:** on the DARK backdrop the boss is ~95% invisible (T5 — charcoal on near-black with
@@ -211,7 +216,7 @@ recorded L140 failure still live).
   (this is also slot 12's severed-thread lore object — it must be iconic here first).
 - Scale the pair until the DUO spans ≥60% of Ashtalon's on-screen mass at rel 30.
 
-### 6 · HOLLOWGATE — 5.0/10
+### 6 · HOLLOWGATE — 5.5/10 consensus (A 5.0 / B 6.0)
 **Works:** value-inverted near-white claim; the rose window + spike ring; the sky-hole idea.
 **Fails:** the pillars are stacks of CLEAN white boxes — the strongest blockout read in the
 roster (T1: no carving, no ruin, no mortar, corner-perfect); the panes are flat solid color
@@ -298,7 +303,7 @@ hinted at idle.
   shoulder/head, occasionally SHIFTING (2-frequency idle motion). The dread should start
   before the first swing.
 
-### 11 · WEFTWITCH — 5.0/10
+### 11 · WEFTWITCH — 5.5/10 consensus (A 5.0 / B 6.0)
 **Works:** the radiating arena threads (LineSegments — free and striking); gold spike crown;
 the gold-lines-on-grey palette claim is distinct.
 **Fails:** the detached hands are BOX PALMS with rod fingers — the exact recorded CRAGHOLD
@@ -336,7 +341,7 @@ bead-thread (its claimed glow-shape) is not visible at all.
 - Ship the claimed glow-shape: the snapped bead-thread dangling from the chest frame, beads
   going dark along its length — the one broken lit line on the body.
 
-### 13 · EMBERTIDE — 7.0/10
+### 13 · EMBERTIDE — 6.0/10 consensus (A 7.0 / B 5.5)
 **Works:** the only full-frame identity; the overflow is real ("it never fits"); the dark
 face-in-the-light concept lands at first glance; palette owns sunset.
 **Fails:** the face is BLUR-SOUP — soft ovals in soft gradient with zero internal value
@@ -355,7 +360,7 @@ scale cues, so it can read as a lava-lamp closeup rather than a horizon-sized en
 - Scale cues: a few tiny dark cinder silhouettes drifting ACROSS the field (birds-before-
   the-sun grammar) — 20 tris, sells kilometers.
 
-### 14 · THE UNMASKED — 6.5/10
+### 14 · THE UNMASKED — 7.0/10 consensus (A 6.5 / B 7.0)
 **Works:** the six-wing radial fan + eye array composition is instantly a biblically-accurate
 seraph — the concept photograph; the great central eye has proper anatomy; the all-snap gaze
 concept is the game's screenshot.
