@@ -8,10 +8,16 @@ const { page, errors, done } = await boot({
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, embers: 9999 }))`,
 });
 
-// Buy a dragon from the start-screen shop.
+// Buy a dragon from the start-screen shop. The shop is the hero character-select
+// since the hero-scene redesign: pick the thumb on the rail, then the #hero-cta
+// UNLOCK button buys. Direct DOM clicks + interval polling (rAF starves under
+// swiftshader — the tools/uishots.mjs gotcha).
 await page.click('#btn-shop');
-await page.waitForSelector('.skin-card[data-dragon="ember"]');
-await page.click('.skin-card[data-dragon="ember"]');
+await page.waitForSelector('.hero-thumb[data-hero="ember"]');
+await page.$eval('.hero-thumb[data-hero="ember"]', (el) => el.click());
+await page.waitForFunction(() => !!document.querySelector('#hero-cta button[data-cta="buy"]'), { polling: 120 });
+await page.waitForTimeout(600);   // let wireHeroSelect finish re-rendering the CTA (async preview swap re-wires it)
+await page.$eval('#hero-cta button[data-cta="buy"]', (el) => el.click());
 await page.waitForSelector('.celebrate.visible', { timeout: 5000 });
 check('celebration overlay appears on purchase', true);
 check('purchase landed (owned + equipped)', await page.evaluate(() =>
@@ -60,8 +66,11 @@ await page.evaluate(() => {
 await page.waitForFunction(() => !!window.__dd.game.runSummary, { timeout: 30000 });
 await page.waitForSelector('#screen .run-stats', { timeout: 30000 });
 await page.click('#btn-shop');
-await page.waitForSelector('.skin-card[data-dragon="jade"]');
-await page.click('.skin-card[data-dragon="jade"]');
+await page.waitForSelector('.hero-thumb[data-hero="jade"]');
+await page.$eval('.hero-thumb[data-hero="jade"]', (el) => el.click());
+await page.waitForFunction(() => !!document.querySelector('#hero-cta button[data-cta="buy"]'), { polling: 120 });
+await page.waitForTimeout(600);   // CTA re-render settle (see above)
+await page.$eval('#hero-cta button[data-cta="buy"]', (el) => el.click());
 await page.waitForSelector('.celebrate.visible', { timeout: 5000 });
 await page.waitForTimeout(700);
 await page.mouse.click(450, 60); // blank tap: dismiss, NOT restart

@@ -61,7 +61,10 @@ ok(`apex arc ≈ ${runsToApex.toFixed(0)} runs (target 22–40 band, ±)`);
 const featPool = FEAT_DEFS.reduce((a, d) => a + d.reward, 0);
 const milestonePool = MILESTONES.reduce((a, m) => a + m.rungs.reduce((x, [, r]) => x + r, 0), 0);
 console.log(`  one-time pools: feats ◆${featPool}, milestones ◆${milestonePool}`);
-assert(featPool < 2500 && milestonePool < 3500, 'one-time pools bounded');
-ok('one-time pools bounded (feats < ◆2500, milestones < ◆3500)');
+// Caps track shipped content: the feat pool crossed ◆2500 when the boss roster's
+// feats landed (◆2750 today) — the guard's intent is BOUNDED (no infinite faucet),
+// not a frozen number, so the cap steps with deliberate content additions.
+assert(featPool < 3000 && milestonePool < 3500, 'one-time pools bounded');
+ok('one-time pools bounded (feats < ◆3000, milestones < ◆3500)');
 
 console.log(`\n${n} economy checks passed.`);
