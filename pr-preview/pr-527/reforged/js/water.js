@@ -101,6 +101,7 @@ const sharedUniforms = {
   uNacreMix: { value: 0 },
   uWakeMix: { value: 0 },   // THE EMPYREAN uplift PR-1 — player-coupled wake rings (0 = shipped byte-identical)
   uStructMix: { value: 0 }, // THE EMPYREAN uplift PR-A — value tiering + pulse-ring + mirror-smudge (0 = shipped)
+  uPulseFoot: { value: 0 }, // PR-A r3: the pulse-ring's WORLD-LOCKED birth z — latched CPU-side once per 8s pulse (shader state can't persist; a quantized foot re-anchored mid-pulse = the player-centric read)
   // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
   // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
   // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
@@ -199,6 +200,7 @@ const fragmentShader = /* glsl */`
   uniform float uNacreMix;   // THE EMPYREAN nacre (§4b): 0 = shipped; >0 kills the sun-glitter + adds satin sheen + iridescence
   uniform float uWakeMix;    // THE EMPYREAN uplift PR-1: player-coupled wake rings (0 = shipped)
   uniform float uStructMix;  // THE EMPYREAN uplift PR-A: value tiering + pulse + smudge (0 = shipped)
+  uniform float uPulseFoot;  // PR-A r3: world-locked ring-foot z for the current pulse
   uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
@@ -386,8 +388,7 @@ const fragmentShader = /* glsl */`
       col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.38 * uStructMix);
       // the ring is born at a QUANTIZED world point ahead (disc-born, not a wake cousin) and expands
       // past the player at 34 m/s, one pulse every ~8s
-      float _pfz = (floor((uHeroPos.z - 290.0) / 120.0)) * 120.0;
-      float _pr = length(vWorldPos.xz - vec2(0.0, _pfz));
+      float _pr = length(vWorldPos.xz - vec2(0.0, uPulseFoot));
       float _pR = mod(time, 8.0) * 34.0;
       float _pw = smoothstep(_pR - 13.0, _pR, _pr) * (1.0 - smoothstep(_pR, _pR + 13.0, _pr)) * (1.0 - smoothstep(200.0, 300.0, _pr));
       col = mix(col, deepColor, _pw * 0.32 * uStructMix);
@@ -838,10 +839,15 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
 // so writing the template would never reach the drawn water; the atmosphere.js clone-trap lesson).
 // pos = dragon world position; col = the hero light's (warm-neutralised) colour; k = 0.55 idle → 1.0
 // fever. k=0 ⇒ the fragment add is exactly +0 (byte-identical), so any water-identity test still walks.
+let _lastPulseIdx = -1;
 export function setWaterHeroPool(pos, col, k) {
   if (!water) return;
   const u = water.material.uniforms;
   if (pos) u.uHeroPos.value.copy(pos);
+  // PR-A r3: latch the pulse-ring's birth point ONCE per 8s pulse — world-locked for the whole pulse,
+  // so the ring is born ahead and expands PAST the (moving or frozen) player. CPU state, shader-free.
+  const _pIdx = Math.floor(u.time.value / 8);
+  if (_pIdx !== _lastPulseIdx && pos) { _lastPulseIdx = _pIdx; u.uPulseFoot.value = pos.z - 290; }
   if (col) u.uHeroCol.value.copy(col);
   u.uHeroPool.value = k || 0;
 }

@@ -65,7 +65,10 @@ async function session(tag, view, shots) {
       await page.waitForTimeout(400);
     }
     if (s.burst) {
-      // live motion burst: the sim keeps running so koi/motes/water move between frames
+      // WORLD-MOTION burst (PR-A gate): FREEZE the sim (shader clock keeps running) so ring travel /
+      // orbiters / phase drift are separable from camera scroll; the diff metric below PROVES the freeze.
+      if (s.frozen) await page.evaluate(() => { window.__dd.game.timeScale = 0; });
+      let _prevB64 = null;
       for (let k = 0; k < s.burst; k++) {
         await page.evaluate(() => {
           window.__dd.clearObstacles && window.__dd.clearObstacles();
@@ -76,6 +79,22 @@ async function session(tag, view, shots) {
         writeFileSync(`/tmp/empyburst-${tag}-${s.name}${k + 1}.png`, buf);
         console.log(`  wrote /tmp/empyburst-${tag}-${s.name}${k + 1}.png`);
         await darkBudget(page, buf, `${tag}-${s.name}${k + 1}`);
+        if (_prevB64) {   // frozen-triplet instrument: fraction of pixels changed >0.05 — must be small (world-shader motion only)
+          const df = await page.evaluate(async ([a, b]) => {
+            const load = (x) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + x; });
+            const [ia, ib] = await Promise.all([load(a), load(b)]);
+            const c1 = document.createElement('canvas'), c2 = document.createElement('canvas');
+            c1.width = c2.width = ia.width; c1.height = c2.height = ia.height;
+            const x1 = c1.getContext('2d'), x2 = c2.getContext('2d');
+            x1.drawImage(ia, 0, 0); x2.drawImage(ib, 0, 0);
+            const d1 = x1.getImageData(0, 0, c1.width, c1.height).data, d2 = x2.getImageData(0, 0, c2.width, c2.height).data;
+            let n = 0, t = 0;
+            for (let i = 0; i < d1.length; i += 16) { t++; if (Math.abs(d1[i] - d2[i]) > 13 || Math.abs(d1[i + 1] - d2[i + 1]) > 13) n++; }
+            return +(n / t).toFixed(4);
+          }, [_prevB64, buf.toString('base64')]);
+          console.log(`  [motion-diff ${tag}-${s.name}${k + 1}] changed=${df}${s.frozen ? (df < 0.05 ? ' (frozen OK - shader-only motion)' : ' (FREEZE FAILED)') : ''}`);
+        }
+        _prevB64 = buf.toString('base64');
         if (k < s.burst - 1) for (let g = 0; g < 5; g++) {   // sweep DURING the live gap too — a gate respawning mid-burst kills the auto-flying player (a live3 frame once caught the death fade-to-black)
           await page.evaluate(() => { window.__dd.clearObstacles && window.__dd.clearObstacles(); });
           await page.waitForTimeout(400);
@@ -112,7 +131,7 @@ if (!only || only === 'desk') await session('desk', { width: 960, height: 600 },
   { name: 'cruise', dist: 2400 },
   { name: 'sky',    dist: 2400, pitch: 0.35 },
   { name: 'water',  dist: 2400, pitch: -0.25 },
-  { name: 'live',   dist: 2600, burst: 3 },
+  { name: 'live',   dist: 2600, burst: 3, frozen: true },
   { name: 'late',   dist: 3200 },
 ]);
 if (!only || only === 'phone') await session('phone', { width: 390, height: 780 }, [
