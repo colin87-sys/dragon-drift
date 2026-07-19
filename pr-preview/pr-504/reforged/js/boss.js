@@ -29,7 +29,7 @@ import {
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
   lanceDmgEach, paintFromParry, dropLockPart, grantEchoPip, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
-import { makeGlowTexture } from './util.js';
+import { makeGlowTexture, mulberry32 } from './util.js';
 import { juiceEvent } from './juice.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -1383,21 +1383,18 @@ export function initBoss(sc) {
   surgeAura.visible = false;
   scene.add(surgeAura);
 
-  // Dragon Surge BEAM: fired from the dragon's mouth into the boss when a charged
-  // Surge is unleashed. Asset-free — a white-hot core cylinder inside a wide
-  // coloured glow (the shaft, oriented mouth→boss each frame), a muzzle orb that
-  // swells during the wind-up, and an impact flare that blooms at the boss.
+  // SUNBREAK I3 — Dragon Surge BEAM: a camera-facing RIBBON shaft (not nested cylinders — the
+  // onion-ring tell) painting the 3-band value law across its WIDTH: near-white CORE (L≥235,
+  // ≤30% width) → per-dragon BLOOM hue → DARK wrap → α0, a strictly-monotone "witch hat" in
+  // greyscale. Streak noise scrolls along the LENGTH for flow; a discrete surge-pulse traverses
+  // muzzle→impact (the "power delivered" read — the rear-chase anchor). A 2nd wider ribbon is
+  // the turbulent dark outer wrap (vertex-swayed). Both share one ShaderMaterial family: 2 DC.
   surgeBeam = new THREE.Group();
   const shaft = new THREE.Group();
-  const beamCore = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.22, 1, 10, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  const beamGlow = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.75, 0.75, 1, 12, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xff4fd0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
-  );
-  beamCore.renderOrder = beamGlow.renderOrder = TIERS.surgeFx;
+  const beamCore = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 40), makeBeamRibbonMat(false));
+  const beamGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 40), makeBeamRibbonMat(true));   // the outer wrap rides the same shader, outer-band-only + sway
+  beamCore.frustumCulled = beamGlow.frustumCulled = false;   // vertex shader owns placement — the unit plane's bbox is meaningless
+  beamCore.renderOrder = TIERS.surgeFx; beamGlow.renderOrder = TIERS.surgeFx - 1;
   shaft.add(beamGlow, beamCore);
   const muzzleOrb = new THREE.Mesh(
     new THREE.SphereGeometry(1, 12, 10),
@@ -1414,6 +1411,123 @@ export function initBoss(sc) {
   surgeBeam.visible = false;
   scene.add(surgeBeam);
 }
+
+// ── SUNBREAK I3 beam ribbon kit ─────────────────────────────────────────────
+// Streak-noise DataTexture (seeded mulberry32 — deterministic, asset-free): value noise blurred
+// along U so it reads as longitudinal energy STREAKS when scrolled down the ribbon's length.
+let _beamStreakTex = null;
+function beamStreakTex() {
+  if (_beamStreakTex) return _beamStreakTex;
+  const W = 64, H = 128, rng = mulberry32(0x5a17c3);
+  const base = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) base[i] = rng();
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let acc = 0;   // heavy directional blur along Y (the scroll axis) → streaks, not static
+    for (let k = -6; k <= 6; k++) acc += base[((y + k + H) % H) * W + x];
+    const v = Math.max(0, Math.min(255, Math.round((acc / 13) * 170 + base[y * W + x] * 85)));
+    const i4 = (y * W + x) * 4;
+    data[i4] = data[i4 + 1] = data[i4 + 2] = v; data[i4 + 3] = 255;
+  }
+  _beamStreakTex = new THREE.DataTexture(data, W, H);
+  _beamStreakTex.wrapS = _beamStreakTex.wrapT = THREE.RepeatWrapping;
+  _beamStreakTex.magFilter = _beamStreakTex.minFilter = THREE.LinearFilter;
+  _beamStreakTex.needsUpdate = true;
+  return _beamStreakTex;
+}
+// The ribbon ShaderMaterial. Cylindrical billboard: vertices expand perpendicular to BOTH the
+// beam axis and the view ray, so the strip faces the camera at every angle (no tube seam/cap).
+// Fragment paints the witch-hat bands across u; uExt gates per-LAYER birth extension (bloom lags
+// core ~16ms, outer last); uLayer carries the per-layer collapse alphas (core dies LAST); uPinch
+// narrows the core to its death pop. Per-dragon hue via uniforms (set from the equipped dragon).
+function makeBeamRibbonMat(outerOnly) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: {
+      uStart: { value: new THREE.Vector3() }, uEnd: { value: new THREE.Vector3() },
+      uWidth: { value: outerOnly ? 2.4 : 1.5 }, uTime: { value: 0 },
+      uCore: { value: new THREE.Color(0xfff6e8) },   // near-white, faint warm lean (never tinted hard)
+      uBloom: { value: new THREE.Color(0x9a86ff) },  // per-dragon HALO hue (setSurgeBeamPalette)
+      uDark: { value: new THREE.Color(0x2a2036) },   // per-dragon DARK band
+      uExt: { value: new THREE.Vector3(0, 0, 0) },   // per-layer extension 0..~1.05 [outer, bloom, core]
+      uLayer: { value: new THREE.Vector3(1, 1, 1) }, // per-layer collapse alpha [outer, bloom, core]
+      uWob: { value: new THREE.Vector3(1, 1, 1) },   // per-layer wobble mul [outerSway, bloomBreathe, coreFlicker]
+      uPinch: { value: 1 },                          // core width 1 → 0 (the death pinch-pop)
+      uPulseP: { value: -1 },                        // surge-pulse position 0..1 (-1 = off)
+      uFlow: { value: 0 },                           // streak scroll accumulator
+      uAlpha: { value: 1 },
+      uOuterOnly: { value: outerOnly ? 1 : 0 },
+      uTex: { value: beamStreakTex() },
+    },
+    vertexShader: /* glsl */`
+      uniform vec3 uStart, uEnd; uniform float uWidth, uTime, uOuterOnly;
+      uniform vec3 uWob;
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        vec3 axis = uEnd - uStart;
+        vec3 p = uStart + axis * uv.y;
+        vec3 viewDir = normalize(cameraPosition - p);
+        vec3 side = normalize(cross(normalize(axis), viewDir));
+        float w = uWidth * mix(1.0, uWob.x, uOuterOnly);
+        // outer wrap BOILS: vertex sway along the length (turbulent silhouette, never a clean tube edge)
+        float sway = uOuterOnly * 0.14 * sin(uv.y * 17.0 + uTime * 3.7) * sin(uv.y * 7.3 - uTime * 2.1);
+        p += side * ((uv.x - 0.5) * w * (1.0 + sway));
+        gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uCore, uBloom, uDark, uExt, uLayer, uWob;
+      uniform float uPinch, uPulseP, uFlow, uAlpha, uOuterOnly;
+      uniform sampler2D uTex;
+      varying vec2 vUv;
+      void main() {
+        float d = abs(vUv.x - 0.5) * 2.0;                       // 0 centre → 1 edge
+        // Witch-hat bands (strictly monotone per side — a ridge = an onion ring):
+        float coreW = 0.28 * uPinch * uWob.z;
+        float core  = (1.0 - smoothstep(coreW * 0.45, coreW, d)) * (1.0 - uOuterOnly);
+        float bloom = (1.0 - smoothstep(0.24 * uWob.y, 0.68, d)) * (1.0 - uOuterOnly);
+        float outer = 1.0 - smoothstep(0.55, 0.98, d);
+        // Longitudinal streak flow (scrolls muzzle→impact; layers sample offset so they never lock):
+        float s1 = texture2D(uTex, vec2(vUv.x * 0.35, vUv.y * 2.6 - uFlow)).r;
+        float s2 = texture2D(uTex, vec2(vUv.x * 0.35 + 0.5, vUv.y * 1.7 - uFlow * 0.62)).r;
+        // Per-layer birth extension (soft tip): outer=x, bloom=y, core=z
+        float eO = 1.0 - smoothstep(uExt.x - 0.04, uExt.x, vUv.y);
+        float eB = 1.0 - smoothstep(uExt.y - 0.03, uExt.y, vUv.y);
+        float eC = 1.0 - smoothstep(uExt.z - 0.02, uExt.z, vUv.y);
+        // The discrete surge-pulse: a bright front traversing muzzle→impact (the delivered-power read)
+        float pulse = uPulseP >= 0.0 ? 0.22 * exp(-pow((vUv.y - uPulseP) * 9.0, 2.0)) : 0.0;
+        vec3 col = uDark  * (0.40 + 0.45 * s2) * outer * uLayer.x * eO
+                 + uBloom * (0.70 + 0.40 * s1) * bloom * uLayer.y * eB
+                 + uCore  * 1.5                * core  * uLayer.z * eC;
+        col *= 1.0 + pulse;
+        float a = (outer * 0.40 * uLayer.x * eO + bloom * 0.75 * uLayer.y * eB + core * uLayer.z * eC) * uAlpha;
+        gl_FragColor = vec4(col, a);
+      }`,
+  });
+}
+// Per-dragon beam palette (§H: surgeHalo ?? surgeHi carries the hue; surgeDark ties the wrap to
+// the world-suppression band; the core stays near-white — value law). Pushed from main.js on equip.
+export function setSurgeBeamPalette(coreHex, haloHex, darkHex) {
+  if (!surgeBeam) { _pendingBeamPal = [coreHex, haloHex, darkHex]; return; }
+  for (const m of [surgeBeam.userData.beamCore.material, surgeBeam.userData.beamGlow.material]) {
+    m.uniforms.uCore.value.setHex(coreHex);
+    m.uniforms.uBloom.value.setHex(haloHex);
+    m.uniforms.uDark.value.setHex(darkHex);
+  }
+}
+let _pendingBeamPal = null;
+// §M.1-8: compile the ribbon shaders at init (hidden 1-frame visibility + renderer.compile) so the
+// first live cast never pays a mid-fight shader-compile hitch on weak mobile.
+let _beamPrewarmed = false;
+export function prewarmSurgeBeam(renderer, camera) {
+  if (!surgeBeam || _beamPrewarmed) return;
+  if (_pendingBeamPal) { setSurgeBeamPalette(..._pendingBeamPal); _pendingBeamPal = null; }
+  surgeBeam.visible = true; surgeBeam.userData.shaft.visible = true;
+  renderer.compile(scene, camera);
+  surgeBeam.visible = false;
+  _beamPrewarmed = true;
+}
+export function surgeBeamPrewarmed() { return _beamPrewarmed; }
 
 // SUNBREAK I0 capture seam. A NORMALLY-UNDEFINED global (`globalThis.__ddSurgeForce`)
 // pins the unleash cinematic to a fixed beat so headless montage tools + tests can
@@ -1468,31 +1582,92 @@ function updateSurgeBeam(dt, player, time) {
     return;
   }
 
-  // 'beam' phase: the shaft is live mouth→boss, pulsing, then fades over BEAM_TIME.
+  // 'beam' phase (I3): the RIBBON shaft lives mouth→boss with an authored LIFE — birth-EXTEND
+  // (core tip races out ~110ms with a 5% overshoot, bloom lags ~16ms, outer wrap fills ~150ms —
+  // never instant-full-length), a sustain of seeded incommensurate wobbles + the travelling
+  // surge-pulse, then a core-LAST collapse (outer→bloom→core pinch-pop) inside the final ~270ms.
   const life = surgeSeq.t / BEAM_TIME;
   if (life >= 1) { surgeSeq = null; surgeBeam.visible = false; return; }
-  const fade = 1 - life;
   shaft.visible = true;
   muzzleOrb.visible = true;
   impactOrb.visible = true;
 
-  beamDir.copy(beamT).sub(beamO);
-  const len = Math.max(beamDir.length(), 0.001);
-  beamDir.multiplyScalar(1 / len);
-  beamQuat.setFromUnitVectors(BEAM_UP, beamDir);
-  shaft.position.copy(beamO).addScaledVector(beamDir, len / 2);
-  shaft.quaternion.copy(beamQuat);
-  const wob = 1 + Math.sin(time * 50) * 0.14;      // energy pulse across the shaft
-  shaft.scale.set(wob, len, wob);
-  beamCore.material.opacity = 0.95 * fade;
-  beamGlow.material.opacity = (0.5 + Math.sin(time * 30) * 0.15) * fade;
+  const bt = surgeSeq.t;
+  const ct = Math.max(0, bt - (BEAM_TIME - BEAM_COLLAPSE));   // time into the collapse window
+  const ext = surgeBeamExtendAt(bt);
+  const col = surgeBeamCollapseAt(ct);
+  const pulseP = surgeBeamPulseAt(bt);
+  // Zero-alloc hot path: write shared uniforms on both ribbons (reused vectors, no clones).
+  for (const mesh of [beamCore, beamGlow]) {
+    const u = mesh.material.uniforms;
+    u.uStart.value.copy(beamO);
+    u.uEnd.value.copy(beamT);
+    u.uTime.value = time;
+    u.uFlow.value = (u.uFlow.value + dt * 2.6) % 64;           // streak scroll ~2.6 beam-lengths/s (Lane C)
+    u.uExt.value.set(ext[0], ext[1], ext[2]);
+    u.uLayer.value.set(col[0], col[1], col[2]);
+    u.uPinch.value = col[3];
+    u.uPulseP.value = pulseP;
+    u.uWob.value.set(surgeBeamWobbleAt(bt, 0), surgeBeamWobbleAt(bt, 1), surgeBeamWobbleAt(bt, 2));
+    u.uAlpha.value = 1;
+  }
 
   muzzleOrb.position.copy(beamO);
-  muzzleOrb.scale.setScalar((1.3 + Math.sin(time * 45) * 0.2) * fade + 0.2);
-  muzzleOrb.material.opacity = fade;
+  muzzleOrb.scale.setScalar((1.3 + Math.sin(time * 45) * 0.2) * col[1] + 0.2);
+  muzzleOrb.material.opacity = Math.max(col[1], 0.15);
   impactOrb.position.copy(beamT);
-  impactOrb.scale.setScalar((2.2 + Math.sin(time * 38) * 0.4) * (0.5 + fade * 0.5));
-  impactOrb.material.opacity = fade;
+  // The impact flare arrives WITH the core tip (never before the beam lands), then rides the bloom layer.
+  const landed = ext[2] >= 0.99 ? 1 : 0;
+  impactOrb.scale.setScalar((2.2 + Math.sin(time * 38) * 0.4) * (0.4 + col[1] * 0.6) * landed);
+  impactOrb.material.opacity = col[1] * landed;
+}
+
+// ── I3 beam-life pure samplers (frame-clock-independent asserts, the I2 lesson) ──
+const BEAM_EXTEND_T = 0.11;    // core tip reaches the boss (90–130ms window), easeOut + 5% overshoot
+const BEAM_COLLAPSE = 0.27;    // core-LAST death: outer ~120ms → bloom ~80ms → core pinch-pop ~70ms
+const BEAM_FREQS = [[1.83, 2.51], [4.3, 7.1], [11.3, 13.9]];   // per-layer sine pairs — every ratio non-integer (1.37 / 1.65 / 1.23): no metronome, no lock
+let beamWobPhase = [0, 0, 0, 0, 0, 0];   // seeded at cast (mulberry32) — deterministic, never Math.random
+let beamPulsePhase = 0;
+let beamCastIndex = 0;
+export function surgeBeamSeed() {
+  beamCastIndex++;
+  const rng = mulberry32((beamCastIndex * 0x9e3779b9) >>> 0);
+  for (let i = 0; i < 6; i++) beamWobPhase[i] = rng() * Math.PI * 2;
+  beamPulsePhase = rng() * 0.4;
+}
+// Per-layer birth extension [outer, bloom, core] at beam-time t. Core races out with a 5%
+// overshoot then settles; bloom trails ~16ms (lag = depth); the outer wrap fills last (~150ms).
+export function surgeBeamExtendAt(t) {
+  const eo = (x) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+  const coreRaw = eo(t / BEAM_EXTEND_T) * 1.05;
+  const core = t <= BEAM_EXTEND_T ? coreRaw : Math.max(1.0, 1.05 - 0.05 * (t - BEAM_EXTEND_T) / 0.08);
+  const bloom = Math.min(1, eo((t - 0.016) / BEAM_EXTEND_T));
+  const outer = Math.min(1, eo(t / 0.15));
+  return [outer, bloom, core];
+}
+// Collapse [outerA, bloomA, coreA, corePinch] at collapse-time ct: STRICT core-last order —
+// outer 50%-faded at ~60ms, bloom at ~140ms, core at ~225ms (narrowing to a bright pinch-pop).
+export function surgeBeamCollapseAt(ct) {
+  if (ct <= 0) return [1, 1, 1, 1];
+  const outer = Math.max(0, 1 - ct / 0.12);
+  const bloom = ct < 0.10 ? 1 : Math.max(0, 1 - (ct - 0.10) / 0.08);
+  const coreA = ct < 0.19 ? 1 : Math.max(0, 1 - (ct - 0.19) / 0.07);
+  const pinch = ct < 0.16 ? 1 : Math.max(0.05, 1 - (ct - 0.16) / 0.10);
+  return [outer, bloom, coreA, pinch];
+}
+// The travelling surge-pulse position (0..1 muzzle→impact, -1 between pulses): period ~0.4s,
+// traverse ~0.3s, seed-offset so it never phase-locks with any wobble (frequencies incommensurate).
+export function surgeBeamPulseAt(t) {
+  const ph = (t + beamPulsePhase) % 0.4;
+  return ph < 0.3 ? ph / 0.3 : -1;
+}
+// Per-layer wobble multiplier at t: the sum of that layer's two incommensurate seeded sines.
+// Layer 0 outer sway ±8% · 1 bloom breathe ±10% · 2 core flicker ±12%.
+export function surgeBeamWobbleAt(t, layer) {
+  const [f1, f2] = BEAM_FREQS[layer];
+  const amp = layer === 0 ? 0.08 : layer === 1 ? 0.10 : 0.12;
+  return 1 + amp * (0.6 * Math.sin(2 * Math.PI * f1 * t + beamWobPhase[layer * 2])
+                  + 0.4 * Math.sin(2 * Math.PI * f2 * t + beamWobPhase[layer * 2 + 1]));
 }
 
 // The beam lands: shatter the shield (or chip an unshielded boss), impact FX, sfx.
@@ -3975,6 +4150,7 @@ function activateSurge(player) {
   }
   // Kick off the mouth-beam cinematic: a charge wind-up, then the beam strikes and
   // bursts the shield (breakShield fires at the moment of impact, not now).
+  surgeBeamSeed();   // I3: seed the wobble/pulse phases (deterministic per cast)
   surgeSeq = { phase: 'charge', t: 0 };
 }
 
@@ -5953,6 +6129,7 @@ export function debugSurgeState() {
 }
 export function debugSurgeCast() {
   if (phase !== 'fight') return false;
+  surgeBeamSeed();   // I3: seed the wobble/pulse phases (deterministic per cast)
   surgeSeq = { phase: 'charge', t: 0 };
   return true;
 }
