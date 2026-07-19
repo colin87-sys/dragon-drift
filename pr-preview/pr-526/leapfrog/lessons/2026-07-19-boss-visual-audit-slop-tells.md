@@ -1,4 +1,4 @@
-# Boss visual audit — the six roster-wide slop tells (2026-07-19)
+# Boss visual audit — the seven roster-wide slop tells (2026-07-19)
 
 **What we did.** First full-roster harsh visual audit of all 14 bosses, judged on real
 captures (studio contact sheets + fight-distance frames via `tools/bossstudio.mjs`, dark +
@@ -17,6 +17,18 @@ spectacle; Karnvow's Verdict seal accidentally composes an anarchy-"A" glyph —
 anti-read-check COMPOSED line figures, not just bodies). Individually-reviewed bosses keep
 re-shipping already-recorded failures (the Craghold mitten hands returned on Weftwitch) —
 per-boss review does not propagate laws; only a roster-wide sweep catches recurrence.
+
+**The independent-audit addendum (same day).** A second, fresh Fable critic re-scored the
+roster BLIND (captures before doc) and returned *sound-with-corrections*. Three accepted
+corrections now folded into the audit doc: **T7 FOCAL CLIP** — anatomy can exist and still
+tone-map to a textureless white smear at fight distance (Brineholm's flagship eye, Stormrend's
+core, four others); the numeric gate is *hue must survive at the 90th-percentile pixel of the
+focal region in the fight-dark frame*. **Concept subsidy** — a solo judge overpays for ideas
+the pixels don't deliver (Brineholm 7.5→6.5, Embertide 7→6) and underpays frame-filling
+presence (Hollowgate/Weftwitch +0.5); blind cross-scoring catches the bias cheaply. **Two
+priority tracks** — "fix the worst" and "sell the trailer" are different objective functions;
+a trailer shows your best 5–6 frames, so ceiling-raisers (Unmasked, Brineholm eye, Embertide)
+outrank floor rebuilds for marketing even though the floor still must be fixed before ship.
 
 **The reusable pattern.** (1) Judge the fight-dark frame FIRST — most failures are invisible
 in auto-framed contact sheets and obvious at rel 30. (2) A recurring-tell table across the
