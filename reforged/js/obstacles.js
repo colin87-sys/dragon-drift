@@ -2730,7 +2730,10 @@ function buildRockGap(o, e) {
   return group;
 }
 
-export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0) {
+// speedAbs (m/s): >0 time-normalizes the fixed-metre gate telegraphs (§3.5, DRIFT plan) —
+// k = speed/65 stretches the beacon/core wake distances so ~3-4s of warning holds at any
+// speed. Geometry never moves; only the light comes on sooner. 0 (default) = shipped ramps.
+export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0, speedAbs = 0) {
   // Warning pulse on every moving shard (shared material, one write each).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
   if (mats.moverIce) mats.moverIce.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;   // skinned berg-chunk warning
@@ -2813,14 +2816,15 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
       const dz = e.dist - playerDist;
       // Beacon: brightest far out, fades off as you arrive so it never blinds
       // the route up close.
+      const tk = speedAbs > 65 ? speedAbs / 65 : 1;   // §3.5 telegraph time-normalizer
       if (ud.beacon) {
-        const alpha = Math.min(1, Math.max(0, (dz - 120) / 130));
+        const alpha = Math.min(1, Math.max(0, (dz - 120 * tk) / (130 * tk)));
         const pulse = 0.85 + Math.sin(time * 3) * 0.15;
         ud.beacon.material.opacity = alpha * 0.30 * pulse;
       }
       // Approach state: the core-glow locator and motes "wake up" as the gate
       // nears, then ease back so they stay subtle at the threshold.
-      const appr = Math.min(1, Math.max(0, (200 - dz) / 150));
+      const appr = Math.min(1, Math.max(0, (200 * tk - dz) / (150 * tk)));
       if (ud.core) ud.core.material.opacity = appr * 0.13 * (0.9 + 0.1 * Math.sin(time * 2.5));
       if (ud.motes && ud.motes.length) {
         ud.motes[0].material.opacity = appr * 0.5;

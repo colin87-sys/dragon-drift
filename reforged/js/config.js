@@ -488,6 +488,26 @@ export const CONFIG = {
     },
   },
 
+  // DRIFT — the always-on momentum currency (DRIFT-BUILD-PLAN.md; §2 middle-path ruling).
+  // Flag-gated: enabled=false keeps the shipped roster byte-identical; ?drift=1 forces on.
+  // All values consumption-side (never touch generation) — seed geometry is unaffected.
+  DRIFT: {
+    enabled: false,
+    capBase: 0.15,          // open-sky ceiling: world ×1.15 at full meter (co-scaled = fair)
+    capCanyon: 0.30,        // OVERDRIVE ceiling in the flow canyon (the old flowChain 1.30)
+    governorSpeed: 130,     // DRIFT contributes nothing above this (honest invariant §3.6)
+    bleedPerSec: 0.02,      // savings-account drain; PAUSED in a boss
+    perfectEase: 0.6,       // §3.3 perfect-radius half-compensation coefficient (A/B ~0.7)
+    feed: { ring: 0.06, ringPerfect: 0.10, gate: 0.08, orb: 0.05, goldEmber: 0.08,
+            roll: 0.02, nearMiss: 0.04, flowChain: 0.05 },
+    dent: { ringMiss: 0.12, ringMissOverdrive: 0.35,   // §2: severity replaces the wipe
+            flowDrop: 0.15, damage: 0.20, bossHit: 0.10 },
+    boss: { parry: 0.03, riposte: 0.06, card: 0.15, mechanic: 0.04,
+            graze: 0.002, grazeCap: 0.20, parryCap: 0.25, defeat: 0.20,
+            grazeChargeBoost: 0.30, grazeChargeDClamp: 0.5 },  // M2 + the §4a in-boss clamp
+    gauntletClean: 0.12,
+  },
+
   BOSS: {
     firstAt: 2500,          // metres: earliest a boss can appear
     threadScore: 75,        // §5i.B THREAD-THE-GAP base score per cleanly-threaded wall row (×edge/late/chain)

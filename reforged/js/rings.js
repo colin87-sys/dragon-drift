@@ -4,6 +4,7 @@ import { game } from './gameState.js';
 import { ui } from './ui.js';
 import { sfx } from './sfx.js';
 import { burst, ringBurst } from './particles.js';
+import { driftPerfectRadius } from './drift.js';
 import { comboTier } from './util.js';
 import { emit } from './events.js';
 import { juiceEvent } from './juice.js';
@@ -171,7 +172,9 @@ export function updateRings(dt, player, time) {
 function collect(r, centerDist) {
   r.collected = true;
   r.flash = 1;
-  const perfect = centerDist <= CONFIG.ringCenterRadius;
+  // §3.3: at DRIFT/slip speed the perfect bullseye half-compensates (spatial precision
+  // at a deterministic crossing frame — geyser-law-clean). Shipped 1.4 when drift is off.
+  const perfect = centerDist <= driftPerfectRadius();
 
   // Fever extends its own duration when a ring is collected
   if (game.feverActive) {
