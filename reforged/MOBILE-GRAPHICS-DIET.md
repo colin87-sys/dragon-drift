@@ -1,6 +1,7 @@
 # MOBILE GRAPHICS DIET — keep the look, spend the milliseconds where a phone can see them
 
-> Status: PLANNED (Fable-audited). Owner intent (2026-07-18): "for mobile I need to cut
+> Status: PLANNED — Fable-audited (round 1: REVISE 6.5 → all 5 required fixes applied
+> below; see Gate Log at bottom). Owner intent (2026-07-18): "for mobile I need to cut
 > things and only keep things with the most graphical progress per fps — trim things that
 > don't add much but eat a lot of fps." Desktop keeps the full chain.
 >
@@ -29,13 +30,13 @@ Industry verdict-per-technique, mapped to us:
 
 | Technique | Mobile cost class | Value on a 6" screen | We do |
 |---|---|---|---|
-| Extra full-screen passes | bandwidth (worst) | low | 3 ShaderPasses + bloom chain (`postfx.js:288-311`) |
+| Extra full-screen passes | bandwidth (worst) | low | RenderPass + bloom chain + 2 ShaderPasses (godray, grading) + OutputPass (`postfx.js:288-311`) |
 | MSAA on a post RT | bandwidth resolve | ~invisible | 4× on HalfFloat RT (`postfx.js:286`) |
 | Planar reflection (2nd scene pass) | vertex+fill+RT | ~invisible in motion | water mirror 768²/384² (`water.js:539-545`) |
 | Full-res god-ray march | fill | same at half-res | 40 taps full-res (`godrays.js:265`, F2) |
-| Chromatic aberration | needs the pass | reads as blur on small screens | tier0 only already (`postfx.js:395`) |
-| Additive overdraw (geysers/gates/particles) | fill | thins fine | F3 ungated (`obstacles.js:413-532`) |
-| Tonemap+grade+vignette+dither in ONE pass | ~free | high | ✅ already (`GradingShader`) |
+| Chromatic aberration | needs the pass | reads as blur on small screens | tier0 only already (`postfx.js:375,380`) |
+| Additive overdraw (geysers/gates/particles) | fill | thins fine | F3 ungated (`obstacles.js:413-532`, `hazards.js:163-165,188-192`) |
+| Grade+vignette+dither in ONE pass | ~free | high | ✅ (`GradingShader`) — but tonemap is a SEPARATE OutputPass (`postfx.js:303,305`); fusing them is D2's win |
 | Vertex AO, baked lighting, SH sky probe | free at runtime | high | ✅ propAO, skyIbl rung 1 |
 | Fresnel rim / emissive in-material | cheap ALU | high (the "lit hero" read) | ✅ dragon surface |
 | Blob/contact shadow | pennies | grounds the hero | ✅ default blob |
@@ -60,41 +61,67 @@ phone drops frames.
 Each is one PR, Gate 2 Fable-scored, proven on the owner-phone hero probes
 (`?debug=perf`, Tempest boss + Aurora Shallows cruise), tiershots/bandshot for regression.
 
-**D1 — Cruise MSAA 4→0 on mobile tiers (F1). The big one.**
-Arena already proves the lever (`main.js:1414-1439`); extend it: composer RT `samples`
-becomes tier-scoped — tier0-desktop 4, tier0-mobile 2, tier1+ 0. Edge AA loss is masked
-by dynRes scaling + the grading dither; industry answer to "no MSAA budget" is exactly
-this. Expected ~arena-class gain (up to +10fps) in cruise. Keep `?msaa0/?msaa4` A/B.
+**D1 — Cruise MSAA diet on mobile (F1). The big one — shipped carefully.**
+Arena already proves the lever (`main.js:1414-1439`). Composer RT `samples` becomes
+**deviceClass-scoped, set ONCE at boot** — desktop 4, mobile 2 — NOT per-tier: a
+per-tier delta would realloc both composer RTs (`postfx.js:346-352`) on every 0↔1
+oscillation that capable devices are *designed* to make (`main.js:1524-1528`), a
+recurring hitch on exactly the good phones. Mobile 2→0 only via the existing dynRes
+STAGES ladder (a rung before resolution trims), with the arena's `skipQualityFrames=2`
+guard (`main.js:1438`) wired so the realloc frame never feeds the tier signal, and
+never re-raised un-masked. Honest caveats the round-1 audit demanded: the `?msaa0`=60
+measurement is the *heaven arena* (soft additive, no hard edges) — cruise has hard
+silhouettes and is already resolution-trimmed, so **A/B 2× on-device before ever
+shipping 0** (F1 wanted exactly this), expected gain is real but unproven in cruise;
+and mobile STAGE 0 is then **no longer byte-identical to the shipped look** — stated
+here explicitly, and the tiershots/dynRes stage-0 invariant must be re-scoped to
+desktop. Keep `?msaa0/?msaa2/?msaa4` A/B. Edge loss mitigation: dynRes dither + no
+FXAA replacement (that would re-add the pass we're cutting).
 
-**D2 — Half-res god-ray march (F2).** The march is a full-res fullscreen pass
+**D2 — Fold grading into OutputPass (F4). Zero look lost — so it ranks second.**
+Today tonemap (`OutputPass`, `postfx.js:303`) and grade/vignette/dither
+(`GradingShader`, `postfx.js:305`) are TWO full-screen passes. Merging them removes a
+full-frame store+load on every frame on every device with byte-target-identical math.
+By this plan's own metric (ms per look lost) a free pass-merge outranks every cut that
+spends look.
+
+**D3 — Half-res god-ray march (F2).** The march is a full-res fullscreen pass
 (`postfx.js:299-301`); shafts are soft by construction — render at half res (¼ the
 fill, ~75% of the pass free), composite up. Mask already runs at 0.5/0.25 duty 1/3;
 untouched. No visible change at phone size (verify: skyprobe + side-by-side stills).
-
-**D3 — Water mirror: earlier, cheaper exits.** Tier1 already halves rate + 384²; add:
-mobile tier0 mirror 512² (from 768²), and extend the boss-diet mirror freeze
-(`water.js:601-612`) to any sustained res-floor state, not just bosses. Planar
-reflection is the classic first cut industry-wide; we keep it in cruise where it's the
-water's identity, freeze it under load where nobody's looking at water.
+Ship behind `?grhalf` A/B first; applies to desktop too once proven.
 
 **D4 — Additive overdraw diet (F3).** Geyser/gate/hazard additive FX are always-on
-ungated fill in the forward view (`obstacles.js:413-532`, `hazards.js:59-64`). Give them
-a `setFxQuality(QUALITY_SCALARS[tier])` hook like particles already have
-(`particles.js:29`): thin sprite counts, shrink quads (crop transparent borders), skip
-garnish below 0.5. Also add the missing quality hook to the comet-wake trail
-(`dragonCometWake.js` — currently the only per-frame FX with no gate).
+ungated fill in the forward view (`obstacles.js:413-532`; vent flare sprites
+`hazards.js:163-165,188-192`). Give them a quality hook riding
+`QUALITY_SCALARS[tier]` exactly like `setParticleQuality` (`particles.js:29`): thin
+sprite counts, shrink quads (crop transparent borders), skip garnish below 0.5. Also
+add the missing quality hook to the comet-wake trail (`dragonCometWake.js` — currently
+the only per-frame FX with no gate).
 
-**D5 — Fold grading into OutputPass (F4) + boss Rung 2.** One fewer full-screen
-store/load for every frame on every device; zero visual change (same math, one pass).
-Then finish boss-diet Rung 2 (rain/sea/halo levers — wired, `main.js:1583-1596`, never
-applied) so the 20fps boss floor gets its second rung.
+**D5 — Water mirror: cheaper ceiling + a properly-latched cruise freeze.** Tier1
+already halves rate + 384². Add: mobile mirror ceiling 512² (from 768²) — safe, rides
+the construction seam (`water.js:669-675`). The boss-diet freeze
+(`water.js:601-612`) may extend to cruise **only with the same latch discipline the
+07-18 lesson was built on**: engage only under a masking event (biome crossfade /
+tunnel carve) after sustained res-floor `owned:false`, release only under the next
+masking event, never restore un-masked, one-way per stretch — otherwise a
+recovered device snaps a stale mirror RT back to live mid-flight, the exact
+mid-play pop the lesson exists to prevent. If no clean masking seam exists in open
+cruise, ship only the 512² ceiling and drop the freeze extension.
 
-**D6 — Tier-gate the dragon surface shader (deferred until measured).** The Worley
-cellular-scales patch is two 27-tap 3D loops per fragment
-(`dragonSurfaceShader.js:88-128`) — fine at cruise screen coverage, a spike risk when
-the dragon fills the frame (photo/shop/cutscene, boss close-ups). Add a `uSurfTier`
-that swaps Worley→normal-map-free flat scales at tier≥1 **only if** a probe shows it
-matters; rim/SSS/iridescence stay (they're the look).
+**D6 — Boss diet Rung 2.** The rain/sea/halo levers are computed but collapsed at
+`main.js:1602` (`engaged = bossDietRung >= 1`) — actually apply rung 2 so the 20fps
+boss floor gets its second step. Same one-way latch + FELLED-wash release as Rung 1.
+
+**D7 — Tier-gate the dragon surface shader (probe first, build maybe).** The v2
+`cellularScalesNormalPatch` (`dragonSurfaceShader.js:145-190+`) adds derivative
+height-field sampling on top of the 27-tap Worley cell loop (v1 patch,
+`dragonSurfaceShader.js:88-128`, one loop). First PROBE: which patch does the shipped
+roster actually compile, and does full-frame dragon coverage (photo/shop/boss
+close-up) actually spike on-device? The perf plan classed this minor. Only if the
+probe shows a spike: `uSurfTier` swaps to flat scales at tier≥1; rim/SSS/iridescence
+stay (they're the look).
 
 **Explicit non-cuts:** don't touch bloom (measured innocent, 07-13 control ~0); don't
 raise the dpr cap (rejected, `GRAPHICS-OVERHAUL.md:575`); don't gate skyIbl/propAO
@@ -103,21 +130,36 @@ removed, and it blurs the dither).
 
 ## D. Mobile vs desktop: one new axis, not a fork
 
-Add a boot-time `deviceClass` (coarse-pointer/touch + UA-CH heuristic, overridable
-`?device=mobile|desktop`) consumed ONLY where this plan names it (D1 samples, D3 mirror
-res). Everything else stays on the existing measured tier/dynRes ladders — they already
-distinguish real capability better than any UA sniff, and desktop keeps 4× MSAA, 768²
-mirror, full-res march (D2 applies everywhere; it's invisible on desktop too, but ship
-it behind `?grhalf` A/B first). No second render path, no palette fork: tier2's
-palette-breaking look stays the floor of last resort, protected by the capable-floor
-rule (`main.js:1524-1528`).
+The 07-18 lesson's reusable is "no device-class sniffing — hang the cut off the
+resolution-floor `owned:false` handoff." We honor that: everything that CAN ride the
+measured tier/dynRes/floor signals DOES (the MSAA 2→0 rung, the mirror freeze, all
+D3/D4/D6 gates). `deviceClass` (coarse-pointer/touch + UA-CH heuristic, overridable
+`?device=mobile|desktop`) exists ONLY for the two proactive boot-time choices no
+measured signal can make before the first frame: D1's composer `samples` (4 vs 2,
+set once, never touched live) and D5's mirror ceiling (768² vs 512², construction
+seam). Known cosmetic misfire: touch laptops/tablets classify mobile — acceptable,
+override exists. No second render path, no palette fork: tier2's palette-breaking
+look stays the floor of last resort, protected by the capable-floor rule
+(`main.js:1524-1528`).
 
 ## E. Order + gates
 
-D1 → D2 → D5(fold) → D4 → D3 → D5(rung2) → D6(probe first). Each PR: run-all green,
-tricount/tiershots/bandshot unchanged where the feature is off, owner-phone
-`?debug=perf` numbers in the PR body (target: Tempest boss min ≥40, cruise p95 ≤20ms at
-res ≥0.73), Fable Gate 2 ≥8 on stills at phone-scale viewport. Lesson file per landing.
+D2(fold, free) → D1(MSAA, A/B 2× first) → D3(march) → D4(overdraw) → D5(mirror) →
+D6(rung 2) → D7(probe first). Each PR: run-all green; tricount/tiershots/bandshot
+unchanged where the feature is off (identity checks — these ARE machine-gateable).
+The fps targets (Tempest boss min ≥40, cruise p95 ≤20ms at res ≥0.73) are
+**on-device-only**: headless/SwiftShader cannot measure GPU fill
+(`GRAPHICS-PERF-PLAN.md:322-327`), so they're procedural Gate-Log entries from the
+owner phone via `?debug=perf`, never claimed from CI. Known blind spot: tiershots
+run desktop-class and will NOT catch the mobile MSAA/mirror look change — that
+regression is judged on Fable stills at a phone-scale viewport + owner preview.
+Fable Gate 2 ≥8 per PR. Lesson file per landing.
+
+## Gate Log
+
+| Date | Gate | Verdict | Score | Notes |
+|---|---|---|---|---|
+| 2026-07-18 | Plan audit (round 1) | REVISE | 6.5 | 5 required fixes: hazards.js cite, surface-shader v1/v2 cite, tonemap-pass claim, D3 latch discipline, D1 realloc/byte-identical — all applied in this revision; fold promoted to D2, deviceClass shrunk to boot-only |
 
 ## F. What success looks like
 
