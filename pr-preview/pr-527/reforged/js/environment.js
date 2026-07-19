@@ -4885,6 +4885,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // object — an opaque black disc that ZEROES the stars inside it (the hole-vs-object firewall).
       uMoteMix: { value: 0 },
       uMoteGrow: { value: 0 },
+      uEmpyStruct: { value: 0 },   // uplift PR-A: 3-tier value scheme + ribbon + orbiters (0 = byte-identical)
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
       ...empyUniforms, // THE EMPYREAN: uEmpyMix 0 = shipped (biome gate; the nebula blooms + sky-disc sun kill)
@@ -4903,6 +4904,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform float uMoteMix, uMoteGrow;   // THE EMPYREAN Mote (§8): 0 = off → byte-identical
+      uniform float uEmpyStruct;           // uplift PR-A: value tiering + ribbon + orbiters (0 = off)
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -5102,6 +5104,20 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         float _sFade = clamp((0.96 - _sLuma) / 0.16, 0.0, 1.0);
         vec3 _starEmpy = vec3(0.98, 0.982, 1.0) * (star * (0.34 + 0.14 * _sLuma) * _sFade) * starMix;   // a clear pearl sparkle over the local sky (the old relative add died on the bright field); fade only in the brightest band
         col += mix(_starNight, _starEmpy, uEmpyMix);
+        // UPLIFT PR-A (uEmpyStruct 0 = byte-identical) — the 3-TIER VALUE SCHEME (owner-approved
+        // theology amendment): off-corridor sky drops ~15-20% L and drifts dusty-violet; a ~±25°
+        // corridor cone about the Mote bearing keeps the near-white ramp (per-column the zenith still
+        // wins → the inversion survives; contrast-from-below, the occultation-halo family). Plus ONE
+        // slow-drifting ribbon (hue motion, never brightness).
+        if (uEmpyStruct > 0.001) {
+          float _az = abs(atan(d.x, -d.z));
+          float _flank = smoothstep(0.44, 1.22, _az);
+          col *= 1.0 - 0.18 * _flank * uEmpyStruct;
+          col = mix(col, col * vec3(0.94, 0.90, 1.06), _flank * 0.6 * uEmpyStruct);
+          float _rb = sin(_az * 2.2 + h * 5.0 - time * 0.06);
+          float _rbm = smoothstep(0.86, 0.98, _rb) * smoothstep(0.12, 0.45, h) * uEmpyStruct;
+          col = mix(col, col * vec3(1.045, 0.975, 1.03), _rbm * 0.8);
+        }
         // THE EMPYREAN — THE MOTE (§8, uMoteMix 0 = off → byte-identical). The one true-dark object: a
         // perfectly round, perfectly BLACK disc at a FIXED bearing just above the dissolve (inside the
         // reserved easement), fog-exempt, drawn AFTER the stars so it ZEROES them inside its radius (the
@@ -5153,6 +5169,14 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _dsn = _aHash(floor(_mUV * 13.0 + vec2(time * 0.05, time * 0.021)));
           float _dstar = step(0.982, _dsn) * (0.55 + 0.45 * sin(time * 1.3 + _dsn * 80.0));
           col += vec3(0.82, 0.86, 1.0) * _dstar * 0.5 * _core;
+          // (4) ORBITERS (uplift PR-A): 6 small dark motes circling just outside the rim — the disc
+          // holds court; world-visible motion on the landmark itself. Dark accents, tiny dark budget.
+          for (int _oi = 0; _oi < 6; _oi++) {
+            float _oa = float(_oi) * 1.0472 + time * (0.10 + 0.025 * float(_oi));
+            vec2 _op = vec2(cos(_oa), sin(_oa)) * (1.28 + 0.12 * sin(time * 0.31 + float(_oi) * 2.1));
+            float _od = length(_mUV - _op);
+            col = mix(col, vec3(0.16, 0.13, 0.22), smoothstep(0.10, 0.035, _od) * 0.8 * uEmpyStruct * uMoteMix);
+          }
         }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
@@ -6133,6 +6157,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // is biome-LOCAL progress 0→1 (slow + monotonic across the run, resetting each lap — below conscious notice
   // frame-to-frame, unmistakable court-to-court). 0 off-biome → byte-identical sky.
   su.uMoteMix.value = env.moteMix ?? 0;
+  su.uEmpyStruct.value = env.empyStructMix ?? 0;   // uplift PR-A (0 elsewhere = byte-identical)
   { const _L = CONFIG.biomeLength; su.uMoteGrow.value = _L > 0 ? (((playerDist % _L) + _L) % _L) / _L : 0; }
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
@@ -6185,6 +6210,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     nacreMix: env.nacreMix,
     // THE EMPYREAN uplift PR-1 wake: player-coupled ripple rings; 0 elsewhere = byte-identical.
     wakeMix: env.wakeMix,
+    // uplift PR-A: water half of the value scheme + pulse-ring + mirror-smudge; 0 elsewhere = identical.
+    structMix: env.empyStructMix,
   });
   // THE EMPYREAN uplift PR-1: rose-gold pickup tint (the canary comet is the loudest warmth violation
   // on the pearl field). Rides empyMix → 0 elsewhere = the shipped gold, lerp-identity.

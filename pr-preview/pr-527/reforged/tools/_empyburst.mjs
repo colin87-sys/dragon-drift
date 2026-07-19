@@ -76,7 +76,10 @@ async function session(tag, view, shots) {
         writeFileSync(`/tmp/empyburst-${tag}-${s.name}${k + 1}.png`, buf);
         console.log(`  wrote /tmp/empyburst-${tag}-${s.name}${k + 1}.png`);
         await darkBudget(page, buf, `${tag}-${s.name}${k + 1}`);
-        if (k < s.burst - 1) await page.waitForTimeout(2000);
+        if (k < s.burst - 1) for (let g = 0; g < 5; g++) {   // sweep DURING the live gap too — a gate respawning mid-burst kills the auto-flying player (a live3 frame once caught the death fade-to-black)
+          await page.evaluate(() => { window.__dd.clearObstacles && window.__dd.clearObstacles(); });
+          await page.waitForTimeout(400);
+        }
       }
       continue;
     }

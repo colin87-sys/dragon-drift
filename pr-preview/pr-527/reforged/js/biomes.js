@@ -330,6 +330,10 @@ export const BIOMES = [
     // Player-coupled WAKE (uplift PR-1): ripple rings radiate from the dragon on the nacre — the water
     // answers the player ("world that notices you", the audit's #1 add). 0 elsewhere → byte-identical.
     wake: 1,
+    // VALUE STRUCTURE + WORLD PULSE (uplift PR-A, owner-approved theology amendment): the 3-tier value
+    // scheme (darkened dusty-violet flanks framing the bright corridor to the Mote), the disc's 8s
+    // pulse-ring, the mirror-smudge, orbiters and the sky ribbon. 0 elsewhere -> byte-identical.
+    empyStruct: 1,
     // AERIAL PERSPECTIVE (uplift PR-2, audit miss #2): far props lighten + drift toward pale violet —
     // the avenue finally recedes (the 5.8 review's "far monoliths as crisp and dark as near ones" tell)
     // and it doubles as a depth cue under the early/mid/late staging. Rides the shipped propAerial
@@ -594,6 +598,8 @@ const env = {
   // THE EMPYREAN uplift PR-1 — player-coupled water WAKE (0 elsewhere → byte-identical water).
   // Consumed by water.js: expanding ripple rings radiate from the dragon on the nacre.
   wakeMix: 0,
+  // THE EMPYREAN uplift PR-A — value structure + world pulse (0 elsewhere → byte-identical).
+  empyStructMix: 0,
   // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
   moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
@@ -728,6 +734,8 @@ export function computeEnv(dist) {
   env.shoalMix = lerp(a.shoal || 0, b.shoal || 0, ts);
   // THE EMPYREAN uplift PR-1 wake (optional-channel): 0 elsewhere = byte-identical water.
   env.wakeMix = lerp(a.wake || 0, b.wake || 0, ts);
+  // THE EMPYREAN uplift PR-A value-structure gate: 0 elsewhere = byte-identical sky + water.
+  env.empyStructMix = lerp(a.empyStruct || 0, b.empyStruct || 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
