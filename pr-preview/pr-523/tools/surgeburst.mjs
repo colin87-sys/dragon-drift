@@ -72,6 +72,10 @@ async function lumens(shotB64) {
     return {
       dragon: mean(Math.floor(0.40 * img.width), Math.floor(0.38 * img.height), Math.floor(0.20 * img.width), Math.floor(0.26 * img.height)),
       world: mean(Math.floor(0.05 * img.width), Math.floor(0.06 * img.height), Math.floor(0.90 * img.width), Math.floor(0.18 * img.height)),
+      // Station acceptance regions (vision re-score): the WING band (wide, mid-height — where the
+      // membranes live in rear-chase) and the TAIL band (narrow, low-centre — the crack).
+      wings: mean(Math.floor(0.32 * img.width), Math.floor(0.44 * img.height), Math.floor(0.36 * img.width), Math.floor(0.14 * img.height)),
+      tail: mean(Math.floor(0.44 * img.width), Math.floor(0.58 * img.height), Math.floor(0.12 * img.width), Math.floor(0.16 * img.height)),
     };
   }, shotB64);
 }
@@ -129,7 +133,10 @@ const { writeFileSync } = await import('fs');
 writeFileSync(`/tmp/burst-${key}-sheet.png`, Buffer.from(sheetB64, 'base64'));
 
 console.log(`\n== SURGE BURST (${key} t${tier}) — clean field, value story ==`);
-for (const s of shots) console.log(`  ${s.name.padEnd(6)} dragon L ${String(s.lum.dragon.mean).padStart(6)}  p99 ${String(s.lum.dragon.p99).padStart(6)}  lit>180 ${String(s.lum.dragon.lit).padStart(6)}px   sky L ${String(s.lum.world.mean).padStart(6)}`);
+for (const s of shots) console.log(`  ${s.name.padEnd(6)} dragon L ${String(s.lum.dragon.mean).padStart(6)}  p99 ${String(s.lum.dragon.p99).padStart(6)}  lit>180 ${String(s.lum.dragon.lit).padStart(6)}px   wings p95≈p99 ${String(s.lum.wings.p99).padStart(6)}  tail p99 ${String(s.lum.tail.p99).padStart(6)}   sky L ${String(s.lum.world.mean).padStart(6)}`);
+{ const w22 = shots.find((x) => x.name === 'spine'), w40 = shots.find((x) => x.name === 'wing'), t55 = shots.find((x) => x.name === 'tail');
+  if (w22 && w40) console.log(`\n  WING-STATION STEP p99 @0.40 vs @0.22: ${w22.lum.wings.p99} → ${w40.lum.wings.p99} (${(w40.lum.wings.p99 / Math.max(w22.lum.wings.p99, 1)).toFixed(2)}×; acceptance ≥ a clear step)`);
+  if (t55) console.log(`  TAIL-CRACK p99 @0.55: ${t55.lum.tail.p99} (acceptance >230)`); }
 const a = shots[0], f = shots.find((s) => s.name === 'full');
 console.log(`\n  dragon climb full/armed = ${(f.lum.dragon.mean / Math.max(a.lum.dragon.mean, 1)).toFixed(2)}×   sky drop full/armed = ${(f.lum.world.mean / Math.max(a.lum.world.mean, 1)).toFixed(2)}×`);
 console.log(`  frames: /tmp/burst-${key}-{${BEATS.map(([n]) => n).join(',')}}.png`);

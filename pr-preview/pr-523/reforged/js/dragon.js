@@ -160,6 +160,7 @@ let eyeMat = null;
 let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
+let headCorona = null;    // vision re-score #5: head-local crown-corona sprite (the ignition's FIRST light reads at the head)
 // HERO POINT LIGHT (Fable 75) — the player's REAL light: pools specular on the water + kisses
 // the drake's underside (the premium answer to the flat additive halo). A PERSISTENT singleton
 // (created once, re-PARENTED on shop rebuild, never re-created) so NUM_POINT_LIGHTS stays 1 and
@@ -536,6 +537,23 @@ export function createDragon(scene, def, riderDef) {
   if (!heroLight) heroLight = new THREE.PointLight(0xffffff, 12, 34, 2);
   heroLight.position.set(0, -0.7, -0.35);   // under the chest, nosed toward the head
   group.add(heroLight);
+  // Vision re-score #5 — the HEAD CORONA sprite (1 DC, hidden off-Surge): the cascade's first
+  // light must read AT THE HEAD; the shared chest aura made it read at the saddle, leaving the
+  // crown→spine travel direction "a matter of faith". Created once, re-parented per rebuild
+  // (same pattern as heroLight); local offset rides group scale so it lands at the head/nape
+  // across the roster. Reuses the aura's radial glow map — no new texture.
+  if (!headCorona) {
+    headCorona = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: result.auraSprite.material.map, transparent: true, opacity: 0,
+      depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,   // screen-space glow law (the I4 mandala lesson): the head EATS a depth-tested sprite in rear-chase
+    }));
+    headCorona.renderOrder = 30;
+    headCorona.layers.set(1);   // the FX layer — same as auraSprite/coreGlow (layer 0 sprites don't reach the composed pass)
+  }
+  headCorona.position.set(0, 0.4, -1.45);   // forward + up of the saddle: the head/nape band
+  headCorona.scale.setScalar(1.8);
+  headCorona.visible = false;
+  group.add(headCorona);
   // Per-skin hue pulled 45% toward warm-neutral so no skin dyes the water acid (Azure's
   // 142,213,255 → #C1DBDF, a soft ice-warm white — blue identity kept, never a blue lamp).
   heroLight.color.set(`rgb(${def.fx.auraColor})`).lerp(new THREE.Color(0xffe2b8), 0.45);
@@ -1308,10 +1326,12 @@ export function updateDragon(dt, player, time) {
   // I4 pin) — the dragon FLARES its wings as the surge takes them, on every roster motion path.
   // surgeCascadeT < 0 off-Surge → weight 0 → exact identity; the two steers' windows never
   // overlap (the boss APEX pin only fires deep into sustain).
+  // Target = the LEVEL spread (sin≈0, wings flat-out laterally) — NOT the high-V: wings-up is
+  // edge-on from the rear-chase camera (the trap again), level is maximum projected membrane.
   const _spreadW = (surgeCascadeT >= 0.28 && surgeCascadeT <= 0.70)
     ? Math.sin(Math.PI * (surgeCascadeT - 0.28) / 0.42) : 0;
   if (_spreadW > 0.001) {
-    const _dsp = ((Math.PI * 1.5 - flapPhase + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    const _dsp = ((Math.PI - flapPhase + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     flapPhase = (flapPhase + _dsp * Math.min(1, 8 * _spreadW * dt) + Math.PI * 2) % (Math.PI * 2);
   }
   // `?wingDebug`: freeze the whole beat clock at the named cycle point so the wings — AND the
@@ -1980,7 +2000,12 @@ export function updateDragon(dt, player, time) {
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 1.15 + igS(2) * 1.4) * sgm
+  // Vision re-score #1: the WING station must fire AT ITS OWN BEAT — an ignition pulse on the
+  // CASCADE clock (wall-clock humps expire in pinned captures and under-read live) plus a
+  // stronger sustained membrane drive (the wing region was statistically silent at t=0.40).
+  const wingPulse = surgeCascadeT >= 0
+    ? _sstep(CAS_ON[2], CAS_END[2], surgeCascadeT) * (1 - _sstep(CAS_END[2] + 0.10, CAS_END[2] + 0.35, surgeCascadeT)) : 0;
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 1.55 + wingPulse * 1.5 + igS(2) * 1.4) * sgm
     + inhale01 * 0.9    // PR-C: the mantled wings GLOW as the charge draws
     + gatherW * 1.15;   // I4 fix 3: the ultimate's gather lifts the WINGS (the rear-chase read)
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
@@ -2136,7 +2161,13 @@ export function updateDragon(dt, player, time) {
       const sT = surgeCascadeT >= 0 ? surgeCascadeT - frac * SPINE_TRAVEL : -1;   // later mats lag → the front travels
       const spLvl = sT >= 0 ? _sstep(CAS_ON[1], CAS_ON[1] + 0.14, sT) * _dcSpine : 0;
       const tailW = _sstep(0.55, 1.0, frac);                    // only the REAR mats carry the tail crack
-      const lvl = Math.max(spLvl, tailW * casLevel[3]);          // spine front OR tail snap, whichever is brighter
+      // Vision re-score #4: the tail CRACK is a discrete HARD FLASH on the rear mats at the tail
+      // beat (~150ms bell on the CASCADE clock — pins correctly in captures, deterministic live),
+      // not just the sustained tail level — the climax-before-the-seal must read on a silhouette
+      // hero whose tail elements are small. 0 outside the window → identity.
+      const crackP = surgeCascadeT >= 0
+        ? _sstep(CAS_ON[3], CAS_ON[3] + 0.05, surgeCascadeT) * (1 - _sstep(CAS_ON[3] + 0.125, CAS_ON[3] + 0.255, surgeCascadeT)) : 0;
+      const lvl = Math.max(spLvl, tailW * casLevel[3] * (1 + 1.6 * crackP));   // spine front OR tail snap (crack-boosted), whichever is brighter
       const igm = surgeHump * lvl + igniteBeat01;                // per-mat flourish (menu beat ungated)
       // Per-mat flare WEIGHTS: `flareColorWeight` scales the HUE lerp, `flareIntensityWeight` the
       // intensity gain (both fall back to flareWeight→1 ⇒ every other dragon arithmetically identical).
@@ -2214,13 +2245,28 @@ export function updateDragon(dt, player, time) {
   // reclaimed); the CROWN CORONA (× eyeCorona) is the back-of-head first-tell + last-held ember — a
   // screen-space glow the rear-chase camera reads where the eye can't. Boosted +50% so the crown
   // SPARK clears the bright horizon band sitting behind the head in rear-chase (the critic's #2 note).
+  // Vision re-score #5: the corona carrier SPLITS — most of the crown weight moves to the
+  // HEAD-LOCAL sprite (below) so the cascade's origin reads at the head, not the saddle; the
+  // shared chest aura keeps a reduced share (the sum ≈ the gated ×1.35 carrier strength).
   const auraTarget = (player.feverActive
-    ? (0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 1.35 + casLevel[3] * 0.20
+    ? (0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 0.55 + casLevel[3] * 0.20
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
   // Tint the aura to an ember corona on Surge (default white ⇒ every other dragon unchanged).
   if (activeDef.feverAura != null) auraSprite.material.color.setHex(player.feverActive ? activeDef.feverAura : 0xffffff);
+  // The HEAD CORONA: a small forward sprite the crown station drives — the FIRST light of the
+  // ignition, at the anatomy it belongs to. White-leaning (value-first for the colorblind read),
+  // hue borrowed 30% from the dragon's fever eye. Visible only while the crown station lives
+  // (opacity snaps to 0 → off-Surge byte-identical, and the sprite hides so it costs no DC).
+  if (headCorona) {
+    const hcT = player.feverActive || surgeCascadeT >= 0 ? eyeCorona * 0.95 : 0;
+    let hcO = damp(headCorona.material.opacity, hcT, 8, dt);
+    if (hcT < 0.01 && hcO < 0.02) hcO = 0;
+    headCorona.material.opacity = hcO;
+    headCorona.visible = hcO > 0.01;
+    if (headCorona.visible) headCorona.material.color.setHex(0xffffff).lerp(_casCol.setHex(activeDef.feverEye ?? 0xffddaa), 0.30);
+  }
 
   group.updateMatrixWorld(true);
 
@@ -2579,6 +2625,7 @@ export function resetDragon(player) {
   wingMat.emissiveIntensity = 0;
   bodyMat.emissiveIntensity = 0;
   auraSprite.material.opacity = 0;
+  if (headCorona) { headCorona.material.opacity = 0; headCorona.visible = false; }
   for (const p of ponyPoints) p.set(player.position.x, player.position.y + 1.5, player.position.z);
   for (const s of trailSprites) { s.visible = false; s.userData.life = 0; }
   for (const s of boostTrailSprites) { s.visible = false; s.userData.life = 0; }

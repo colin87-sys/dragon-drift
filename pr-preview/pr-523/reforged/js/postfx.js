@@ -93,6 +93,13 @@ const GradingShader = {
         float ld = dot(surgeDark, vec3(0.299, 0.587, 0.114));
         vec3 darkTarget = surgeDark * (lum / max(ld, 0.001));     // surgeDark's HUE at THIS pixel's luminance → pure hue shift, no brighten
         col = mix(col, darkTarget, surgeMix * shadowW * worldW * 0.85);
+        // Vision re-score #2: the SPARED horizon band + sun water-stripe were the frame's
+        // dominant bright MASS during surge (out-shining the hero). SOFT-COMPRESS the
+        // mid-bright band (luma ~0.55–0.88) up to ×0.75 under full surge — the band keeps
+        // its shape and the near-white sun glint / dragon core+bloom whites (≥~0.9) stay
+        // exact, so the sky still reads as a sky; it just stops competing for the eye.
+        float bandW = smoothstep(0.55, 0.78, lum) * (1.0 - smoothstep(0.86, 0.95, lum));
+        col *= (1.0 - surgeMix * 0.25 * bandW);
       }
       // Kick/flash warm lift (goldenEmber, arenaFlood, the RELEASE flash — the fever wash
       // term is retired; this hue channel survives for the kick presets, §M.1-4).
