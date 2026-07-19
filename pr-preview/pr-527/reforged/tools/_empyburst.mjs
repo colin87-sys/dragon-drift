@@ -104,7 +104,7 @@ async function session(tag, view, shots) {
 console.log('THE EMPYREAN — holistic burst captures');
 const only = process.argv[2];
 if (!only || only === 'desk') await session('desk', { width: 960, height: 600 }, [
-  { name: 'early',  dist: 1200 },
+  { name: 'early',  dist: 380 },   // congregation peak (~400) INSIDE the early band - the arch family's home; 1200 looked ahead across the 0.34 band cutoff where arches park
   { name: 'mid',    dist: 2000 },
   { name: 'cruise', dist: 2400 },
   { name: 'sky',    dist: 2400, pitch: 0.35 },
