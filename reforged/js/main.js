@@ -42,7 +42,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint, setSurgeBeamPalette, prewarmSurgeBeam, surgeBeamPrewarmed, surgeBeamExtendAt, surgeBeamCollapseAt, surgeBeamPulseAt, surgeBeamWobbleAt } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugSurgeState, debugSurgeCast, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint, setSurgeBeamPalette, prewarmSurgeBeam, surgeBeamPrewarmed, surgeBeamExtendAt, surgeBeamCollapseAt, surgeBeamPulseAt, surgeBeamWobbleAt, setBossRawDt, surgeRitualScaleAt, surgeRitualBeats, surgeGatherKAt } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -1743,13 +1743,26 @@ function tick() {
   } else if (game.timeScale < 1) {
     game.timeScale = Math.min(1, game.timeScale + rawDt * 3);
   }
+  // I4 THE CONDUCTOR (§M.1-1, pre-assess P0): while the ultimate ritual runs, its authored
+  // envelope is the ONLY timeScale writer — it overrides slow-mo/cine-slow/lethal-save (they
+  // may have written slowMoTimer above; the ritual wins and clears the channel so hitstop at
+  // RELEASE can't be swallowed by main's slow-mo-wins rule).
+  if (game.surgeRitualScale != null) {
+    game.timeScale = game.surgeRitualScale;
+    if (game.slowMoTimer > 0) { game.slowMoTimer = 0; game.slowMoScale = null; setSlowMo(false); }
+  }
   let dt = rawDt * (game.state === 'playing' ? game.timeScale : 1);
   // Impact-frame hitstop (juice.js): real-time countdown, near-freeze while
   // active, instant restore — no ramp, distinct from slow-mo's channel.
-  if (game.state === 'playing' && game.hitstopTimer > 0) {
+  const hitstopLive = game.state === 'playing' && game.hitstopTimer > 0;
+  if (hitstopLive) {
     game.hitstopTimer -= rawDt;
     dt *= CONFIG.JUICE.hitstopScale;
   }
+  // I4 selective freeze (pre-assess P2 / §M.1-8): during hitstop the ACTORS freeze (they get
+  // the near-zero dt) but the CONSEQUENCES keep moving — particles + camera run on rawDt, so
+  // the 80ms punch reads as impact, never a dropped frame.
+  const dtFx = hitstopLive ? rawDt : dt;
 
   if (game.state === 'playing') {
     game.time += dt;
@@ -1765,6 +1778,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
+    setBossRawDt(rawDt);   // §M.1-1: the ultimate ritual runs wall-clock under the conductor's floor
     updateBoss(dt, player, clock.getElapsedTime(), camera);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
@@ -1985,7 +1999,7 @@ function tick() {
       comboT: Math.max(0, Math.min(1, (game.combo - 1) / 1.4)),
     });
     updateDragon(dt, player, t);
-    updateParticles(dt, camera);
+    updateParticles(dtFx, camera);
     // Normalize the slip envelope by the ACTIVE run's max slip (flow ramps to a different
     // ceiling than spine) so the speed FX read 0..1 in both.
     const slipRef = game.canyonRun === 'flow'
@@ -2016,7 +2030,7 @@ function tick() {
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm, slipMix);
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
-    cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
+    cameraCtl.update(dtFx, player, game.state === 'ready' || atShop, atShop);
     syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');

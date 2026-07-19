@@ -295,6 +295,10 @@ const KICK_PRESETS = {
   // EVENT on EVERY dragon — the universal screen-space cue that carries the moment on silhouette
   // dragons (Vesper) whose own body barely lights. Photosafe: single frame, capped. Owner-tunable.
   surgeStart:       { flashFrames: 1, bloom: 0.34, lift: 0.32 },
+  // I4 RELEASE (§F pulse stack, §G-capped): ONE flash + bloom STRENGTH pulse (threshold never
+  // moves — no-cream law) + CA spike (+0.015 over the 0.013 fever floor, total ≤0.030) + a
+  // vignette squeeze. The FOV punch + trauma spike ride the camera channels, not this kick.
+  surgeRelease:     { flashFrames: 1, bloom: 0.34, lift: 0.30, ab: 0.015, vig: 0.14 },
   // The RED of a combo break comes from the existing #vignette DOM flash —
   // the shader's vignette is colorless darkening.
   comboBreak:       { sat: -0.25, vig: 0.18 },

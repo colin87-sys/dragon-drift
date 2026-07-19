@@ -29,6 +29,18 @@ export function hitstop(ms) {
   game.hitstopTimer = Math.max(game.hitstopTimer, ms / 1000);
 }
 
+// I4 RELEASE hitstop (§M.1-1): the ritual's punctuation BYPASSES the two guards that would
+// swallow it — slow-mo precedence (the conductor owns timeScale; any stale slowMoTimer is
+// zeroed here) and the 180ms cooldown (the release beat is authored, not machine-gun spam).
+// ONLY the surge conductor calls this; every other caller keeps the guarded hitstop() above.
+export function hitstopForce(sec) {
+  if (sec <= 0 || game.state !== 'playing') return;
+  game.slowMoTimer = 0;
+  game.slowMoScale = null;
+  lastHitstopAt = performance.now();
+  game.hitstopTimer = Math.max(game.hitstopTimer, sec);
+}
+
 // Fire everything the budget allots to a named event.
 export function juiceEvent(name) {
   const ev = CONFIG.JUICE.events[name];

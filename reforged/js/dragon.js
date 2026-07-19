@@ -1291,6 +1291,15 @@ export function updateDragon(dt, player, time) {
   // would spasm. Accumulating dt·flapSpeed keeps the phase continuous: changing the frequency
   // only changes the RATE. Wrapped mod 2π for float precision over long sessions.
   flapPhase = (flapPhase + dt * flapSpeed) % (Math.PI * 2);
+  // I4 APEX pose-pin (pre-assess P1 — a STEER, not a snap): ease the wingbeat clock toward the
+  // wings-HIGH silhouette (sin=−1, the high-V) along the shortest angular path as the pin weight
+  // ramps over the last ~300ms of GATHER, hold through APEX; RELEASE un-pins under the hitstop
+  // mask. pin=0 outside the ultimate → the line is exact identity (byte-identical roster).
+  const _pinW = player.surgeApexPin || 0;
+  if (_pinW > 0.001) {
+    const _dph = ((Math.PI * 1.5 - flapPhase + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    flapPhase = (flapPhase + _dph * Math.min(1, 10 * _pinW * dt) + Math.PI * 2) % (Math.PI * 2);
+  }
   // `?wingDebug`: freeze the whole beat clock at the named cycle point so the wings — AND the
   // phase-coupled head wobble / secondary wings below — hold ONE reproducible pose.
   if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap).phase;

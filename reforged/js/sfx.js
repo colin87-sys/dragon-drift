@@ -1201,6 +1201,17 @@ export const sfx = {
   deny() {
     tone({ freq: 300, end: 210, dur: 0.12, type: 'triangle', vol: 0.05 });
   },
+  // I4: APEX near-silence (the held breath — bed drops to a real GAP for ~180ms, the strongest
+  // pre-release cue) and the RELEASE impact (transient + deep sub under the beam fire).
+  surgeApexSilence() {
+    duckHold(0.94, 0.18);
+  },
+  surgeUltRelease() {
+    duckHold(0.7, 0.45);
+    tone({ freq: 210, end: 60, dur: 0.03, type: 'square', vol: 0.34 });
+    tone({ freq: 48, end: 34, dur: 0.42, type: 'sine', vol: 0.6 });
+  },
+
   feverStart() {
     // SUNBREAK I2.5: the trigger is an EVENT — a felt HIT under the identity arpeggio, synced to
     // the slow-mo hitch + flash. (1) bed duck −8.4dB (gain 0.38) for ~0.4s (the world goes quiet

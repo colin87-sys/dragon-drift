@@ -228,5 +228,6 @@ export const player = {
     this.feverTimer = game.feverTimer;
     this.feverDuration = CONFIG.feverDuration;
     this.surgeUltimate = game.surgeUltimatePhase || null;   // I3: the boss ultimate's live phase (ducks the ambient cascade)
+    this.surgeApexPin = game.surgeApexPin || 0;             // I4: APEX pose-pin weight (the flap steers to the high-V silhouette)
   },
 };
