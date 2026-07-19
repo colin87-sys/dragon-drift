@@ -600,14 +600,14 @@ function _bladeInto(body, crown, { seg, zLens, slope, st, amp, sx = 1, sy = 1, r
 function buildHaloShardParts() {
   const body = [], crown = [];
   const N = 7, seg = 8, R = 0.85, zLens = 0.30;
-  const th0 = -0.42, th1 = th0 + 1.31;                       // ~75° sweep, low end dipping below the water
+  const th0 = -0.30, th1 = th0 + 1.66;   // ~95 deg sweep - the top visibly CURLS inward (Fable gate: at 75 deg low+wide the arc read as a pearlshoal mound)                       // ~75° sweep, low end dipping below the water
   const rings = [];
   for (let i = 0; i < N; i++) {
     const t = i / (N - 1);
     const th = th0 + (th1 - th0) * t;
     const cx = Math.cos(th) * R, cy = Math.sin(th) * R + 0.34;   // lift so ~the low end beds under y0
     // tube radius: flared at the buried foot (1.25×), gentle taper to the broken top (0.85×)
-    const rt = 0.145 * (i === 0 ? 1.25 : 1 - 0.15 * t) * (1 + 0.06 * Math.sin(i * 2.6));
+    const rt = 0.125 * (i === 0 ? 1.25 : 1 - 0.15 * t) * (1 + 0.06 * Math.sin(i * 2.6));
     const tx = -Math.sin(th), ty = Math.cos(th);             // arc tangent → ring plane normal
     const ring = [];
     for (let j = 0; j < seg; j++) {
@@ -655,9 +655,9 @@ function buildShardShrineParts() {
   const amp4 = [0.10, 0.07, 0.04, 0.02];                      // de-jittered top ring (apex-spike law)
   const B = [
     { sy: 1.00, ry: 0.4,  tx: 0.00, tz: 0.00, rose: true },   // the dominant — the cluster's ONE rose lip
-    { sy: 0.72, ry: 2.1,  tx: 0.32, tz: 0.20, rose: false },
-    { sy: 0.60, ry: 4.0,  tx: -0.30, tz: 0.24, rose: false },
-    { sy: 0.66, ry: 5.3,  tx: 0.07, tz: -0.33, rose: false },
+    { sy: 0.52, ry: 2.1,  tx: 0.32, tz: 0.20, rose: false },
+    { sy: 0.42, ry: 4.0,  tx: -0.30, tz: 0.24, rose: false },
+    { sy: 0.48, ry: 5.3,  tx: 0.07, tz: -0.33, rose: false },
   ];
   for (const b of B) _bladeInto(body, b.rose ? crown : body,
     { seg: 5, zLens: 0.26, slope: 0.24, st: st4, amp: amp4, sx: 0.55, sy: b.sy, ry: b.ry, tx: b.tx, tz: b.tz });
@@ -2156,7 +2156,7 @@ const ARCHETYPES = {
   haloShard: {
     step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'early', comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
     build: () => mergeParts(buildHaloShardParts(), 5),
-    place: (side, rnd) => ({ x: side * (23 + rnd() * 9), h: 9 + rnd() * 7, r: 6 + rnd() * 3, tilt: side * (rnd() * 0.05 - 0.02) }),
+    place: (side, rnd) => ({ x: side * (23 + rnd() * 9), h: 14 + rnd() * 10, r: 5 + rnd() * 2.5, tilt: side * (rnd() * 0.05 - 0.02) }),
   },
   // THE EMPYREAN uplift PR-2 — SHARD SHRINE: the low crystalline rosette (off-lane rest note). WIDE +
   // LOW (h ≤ 2× width via place); INVERSE ladder crest-lift ≤1.15; parks in the mid-field read range
@@ -5769,7 +5769,8 @@ function writeMatrix(band, i, d) {
     if (active && band.def.comp) {
       const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
       const t = local / CONFIG.biomeLength;                     // biome-local progress 0→1
-      const g = 0.5 - 0.5 * Math.cos(d.dist * 0.00785);         // ~800m raised-cosine congregation
+      const g0 = 0.5 - 0.5 * Math.cos(d.dist * 0.00785);        // ~800m raised-cosine congregation
+      const g = g0 * g0;                                        // squared - deeper breaths, tighter knots (Fable gate: even flanking picket in the mid band)
       let bandW = 1;
       if (band.def.laneBand === 'early') bandW = t < 0.34 ? 1 : 0.25;
       else if (band.def.laneBand === 'mid') bandW = t < 0.20 ? 0.55 : t > 0.72 ? 0.5 : 1;
