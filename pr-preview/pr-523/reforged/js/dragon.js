@@ -247,6 +247,7 @@ let eyeCorona = 0;                // eye-beat screen-space corona flash (carries
 let surgeGutterT = -1;            // I2.5 DAMAGE-cancel gutter-out clock (-1 = not guttering)
 let ultDuckK = 1;                 // I3 ultimate duck: cascade whites ×~0.55 while the beam cinematic owns the frame
 let gatherW = 0;                  // I4 fix 3: damped mirror of the boss-ultimate GATHER (the charge climbs the BODY, not just the muzzle)
+let breatheK = 1;                 // sustain breathe carried to the clipped bright carriers (corona/aura/pool) — 1 outside sustain
 // The gutter-out (a flame guttering when a hit KILLS the Surge): a seeded 2-stutter stumble to
 // black over ~0.42s — 1 → 0.35 (60ms) → rebound 0.55 (140ms) → 0.15 (240ms) → 0 (420ms). Punchy +
 // authored, never a glitch; distinct from the natural drain's smooth eye-last cascade (Fable ruling).
@@ -560,7 +561,7 @@ export function createDragon(scene, def, riderDef) {
   // core-white, on every roster tail including flare-mat-free silhouette heroes.
   if (!tailCrackSpr) {
     tailCrackSpr = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: result.auraSprite.material.map, transparent: true, opacity: 0,
+      map: makeGlowTexture('255,255,255'), transparent: true, opacity: 0,   // NEUTRAL WHITE map — the dragon-tinted aura map capped the core at blue luminance (a blue core can never reach L200)
       depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
     }));
     tailCrackSpr.renderOrder = 30;
@@ -1970,7 +1971,7 @@ export function updateDragon(dt, player, time) {
       if (inSustain && lvl > 0.5) {
         // breathing: ±~8% below the peak; flare: a ripple whose crest arrives crown→tail over ~350ms
         const flare = _surgeFlare(casElapsed, i);
-        lvl *= 0.88 + 0.12 * (breatheS * 0.5 + 0.5) + flare;   // burst critic #5: ±12% breathe (was ±8% — too shallow to resist adaptation in a random still pair)
+        lvl *= 0.76 + 0.24 * (breatheS * 0.5 + 0.5) + flare;   // gate-critic final: ±24% EMISSIVE ≈ ±8-12% in PIXELS (the tonemap knee ate the ±12% — amplitude is authored in captured-pixel space now)
       }
       casLevel[i] = Math.min(1.6, lvl);
       if (casOnAt[i] < 0 && ig >= 0.1 && surgeCascadeT >= 0) casOnAt[i] = surgeCascadeT;   // latch the 10% crossing (order/gap asserts)
@@ -1987,6 +1988,10 @@ export function updateDragon(dt, player, time) {
     if (ultDuckK < 0.999) for (let i = 0; i < 5; i++) casLevel[i] *= ultDuckK;
     casOverall = Math.min(casLevel[0], 1) * 0.12 + Math.max(casLevel[1], casLevel[2], casLevel[3], casLevel[4]) * 0.88;
     eyeCorona = Math.min(casLevel[0], 1);   // crown corona tracks the crown station (bright on ignite, last-held on decay)
+    // Gate-critic final (breathe in PIXELS): the min(...,1) clips above eat the casLevel breathe on
+    // exactly the brightest carriers (corona/aura/pool), so the sustain read barely moved on screen.
+    // breatheK carries the swing to those channels directly — linear-ish on screen via opacity.
+    breatheK = inSustain ? 0.86 + 0.14 * (breatheS * 0.5 + 0.5) : 1;
   }
   // I4 fix 3 — the GATHER CLIMBS THE DRAGON: in rear-chase the muzzle mandala sits mostly occluded
   // ahead of the head, so the ritual's charge must read on the anatomy the camera actually sees —
@@ -2168,7 +2173,9 @@ export function updateDragon(dt, player, time) {
   // crack measured ZERO on the dragon the owner flies — the sprite reads on every tail).
   const crackP = surgeCascadeT >= 0
     ? _sstep(CAS_ON[3], CAS_ON[3] + 0.05, surgeCascadeT) * (1 - _sstep(CAS_ON[3] + 0.125, CAS_ON[3] + 0.255, surgeCascadeT)) : 0;
-  const tailSettle = surgeCascadeT >= 0 ? 1 - 0.22 * _sstep(0.95, 1.45, surgeCascadeT) : 1;
+  // Settle depth is set in CAPTURED-PIXEL space (gate-critic root cause): 0.78 emissive above
+  // the tonemap knee clipped to the SAME pixels — 0.55 is where the sustain visibly steps down.
+  const tailSettle = surgeCascadeT >= 0 ? 1 - 0.45 * _sstep(0.95, 1.45, surgeCascadeT) : 1;
   if (tailCrackSpr) {
     const tcT = crackP * 0.95;
     let tcO = damp(tailCrackSpr.material.opacity, tcT, 16, dt);
@@ -2177,7 +2184,10 @@ export function updateDragon(dt, player, time) {
     tailCrackSpr.visible = tcO > 0.01 && tailSegs.length > 0;
     if (tailCrackSpr.visible) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tailCrackSpr.position);
-      tailCrackSpr.material.color.setHex(0xffffff).lerp(_casCol.setHex(activeDef.surgeHi || 0xfff8e8), 0.25);
+      // Gate-critic final: amplitude must survive the TONEMAP KNEE — a 0..1 white sprite lands
+      // ~L164 post-tonemap while the head corona rides material bloom to 238. HDR color (×2.2,
+      // legal on an additive sprite) pushes the crack's core through the knee to true white.
+      tailCrackSpr.material.color.setHex(0xffffff).lerp(_casCol.setHex(activeDef.surgeHi || 0xfff8e8), 0.25).multiplyScalar(2.2);
     }
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
@@ -2282,7 +2292,7 @@ export function updateDragon(dt, player, time) {
   // HEAD-LOCAL sprite (below) so the cascade's origin reads at the head, not the saddle; the
   // shared chest aura keeps a reduced share (the sum ≈ the gated ×1.35 carrier strength).
   const auraTarget = (player.feverActive
-    ? (0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 0.55 + casLevel[3] * 0.20
+    ? ((0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 0.55 + casLevel[3] * 0.20) * breatheK
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
@@ -2311,7 +2321,7 @@ export function updateDragon(dt, player, time) {
     // light + water pool blaze is STATIONED by the cascade (× casOverall), not a frame-1 fever
     // jump — the world receives the dragon's light as the anatomy ignites, and the decay rewind
     // pulls the pool back down with the body. Off-Surge fevK=0 → byte-identical.
-    const fevK = player.feverActive ? Math.min(1, casOverall) : 0;
+    const fevK = player.feverActive ? Math.min(1, casOverall) * breatheK : 0;
     const heroI = 12 * (0.85 + 0.15 * Math.sin(time * 2.1)) * (1 + 0.7 * fevK);
     heroLight.intensity = damp(heroLight.intensity, heroI, 4, dt);
     group.getWorldPosition(_heroPos);

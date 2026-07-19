@@ -64,10 +64,10 @@ async function lumens(shotB64) {
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d'); g.drawImage(img, 0, 0);
     const mean = (x, y, w, h) => {
-      const d = g.getImageData(x, y, w, h).data; const Ls = []; let s = 0, lit = 0;
-      for (let i = 0; i < d.length; i += 4) { const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += L; Ls.push(L); if (L > 180) lit++; }
+      const d = g.getImageData(x, y, w, h).data; const Ls = []; let s = 0, lit = 0, lit200 = 0;
+      for (let i = 0; i < d.length; i += 4) { const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += L; Ls.push(L); if (L > 180) lit++; if (L > 200) lit200++; }
       Ls.sort((a, b) => a - b);
-      return { mean: +(s / Ls.length).toFixed(1), max: +Ls[Ls.length - 1].toFixed(1), p99: +Ls[Math.floor(Ls.length * 0.99)].toFixed(1), lit };
+      return { mean: +(s / Ls.length).toFixed(1), max: +Ls[Ls.length - 1].toFixed(1), p99: +Ls[Math.floor(Ls.length * 0.99)].toFixed(1), lit, lit200 };
     };
     return {
       dragon: mean(Math.floor(0.40 * img.width), Math.floor(0.38 * img.height), Math.floor(0.20 * img.width), Math.floor(0.26 * img.height)),
@@ -136,7 +136,11 @@ console.log(`\n== SURGE BURST (${key} t${tier}) — clean field, value story ==`
 for (const s of shots) console.log(`  ${s.name.padEnd(6)} dragon L ${String(s.lum.dragon.mean).padStart(6)}  p99 ${String(s.lum.dragon.p99).padStart(6)}  lit>180 ${String(s.lum.dragon.lit).padStart(6)}px   wings p95≈p99 ${String(s.lum.wings.p99).padStart(6)}  tail p99 ${String(s.lum.tail.p99).padStart(6)}   sky L ${String(s.lum.world.mean).padStart(6)}`);
 { const w22 = shots.find((x) => x.name === 'spine'), w40 = shots.find((x) => x.name === 'wing'), t55 = shots.find((x) => x.name === 'tail');
   if (w22 && w40) console.log(`\n  WING-STATION STEP p99 @0.40 vs @0.22: ${w22.lum.wings.p99} → ${w40.lum.wings.p99} (${(w40.lum.wings.p99 / Math.max(w22.lum.wings.p99, 1)).toFixed(2)}×; acceptance ≥ a clear step)`);
-  if (t55) console.log(`  TAIL-CRACK p99 @0.55: ${t55.lum.tail.p99} (acceptance >230)`); }
+  if (t55) console.log(`  TAIL-CRACK @0.55: p99 ${t55.lum.tail.p99}, px>200 ${t55.lum.tail.lit200} (pixel-space acceptance ≥300)`);
+  const f90 = shots.find((x) => x.name === 'full');
+  if (f90) console.log(`  TAIL @full: px>200 ${f90.lum.tail.lit200} (crack must DECAY: <50 for a discrete slam, unless the model's own tail crystal holds)`);
+  const sa = shots.find((x) => x.name === 'sus-a'), sb = shots.find((x) => x.name === 'sus-b');
+  if (sa && sb) { const d = Math.abs(sa.lum.dragon.lit - sb.lum.dragon.lit) / Math.max(sa.lum.dragon.lit, sb.lum.dragon.lit, 1); console.log(`  BREATHE lit-delta sus-a vs sus-b: ${(d * 100).toFixed(1)}% (acceptance ≥8%)`); } }
 const a = shots[0], f = shots.find((s) => s.name === 'full');
 console.log(`\n  dragon climb full/armed = ${(f.lum.dragon.mean / Math.max(a.lum.dragon.mean, 1)).toFixed(2)}×   sky drop full/armed = ${(f.lum.world.mean / Math.max(a.lum.world.mean, 1)).toFixed(2)}×`);
 console.log(`  frames: /tmp/burst-${key}-{${BEATS.map(([n]) => n).join(',')}}.png`);
