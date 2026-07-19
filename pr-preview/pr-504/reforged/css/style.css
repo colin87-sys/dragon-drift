@@ -1272,6 +1272,8 @@ body.hud-boss .bell { top: max(24%, calc(122px + env(safe-area-inset-top, 0px)))
 /* PR-B: the reserved lance-CLIMAX flash — jade (lance colour), brighter and
    SNAPPIER than the gold radial so the finale reads as a hit, not a glow. */
 .jade-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(90,255,180,0.26) 0%, rgba(90,255,180,0.05) 40%, transparent 68%); }
+/* SUNBREAK Surge-trigger flash (tier-2 fallback): warm gold, radial, single-event — same envelope family as jade-flash. */
+.surge-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,214,120,0.28) 0%, rgba(255,214,120,0.06) 42%, transparent 70%); }
 .flash-anim{ animation: flash 0.45s ease-out forwards; }
 .flash-fast{ animation: flash 0.16s ease-out forwards; }
 @keyframes flash { 0%{opacity:1} 100%{opacity:0} }

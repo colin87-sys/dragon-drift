@@ -600,6 +600,10 @@ on('firstSurge', () => ui.surgeFlourish());
 // I2.5: a DAMAGE hit that kills the Surge arms the world's fast brighten-pop ("spell broken");
 // the dragon self-detects the abrupt edge for its gutter-out. A natural drain fires no event.
 on('surgeLost', () => surgeLostPostfx());
+// I2.5 tier-2 flash fallback: the postfx surgeStart kick flash is a true no-op when the composer
+// is off (weak mobile), so the trigger's light component vanished there. The DOM flash carries it
+// ONLY in that case — tier 0/1 keeps the postfx flash (never both → no double-flash, photosafe).
+on('surge', () => { if (!postfx.enabled) ui.surgeFlash?.(); });
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });

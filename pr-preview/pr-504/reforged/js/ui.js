@@ -668,6 +668,7 @@ export const ui = {
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
       <div class="jade-flash" id="jade-flash"></div>
+      <div class="surge-flash" id="surge-flash"></div>
       <div class="fever-overlay" id="fever-overlay"></div>
       <div class="speedlines" id="speedlines"></div>
       <div class="revive-offer" id="revive-offer">
@@ -717,6 +718,7 @@ export const ui = {
       bcTimer:      root.querySelector('#bc-timer'),
       goldFlash:    root.querySelector('#gold-flash'),
       jadeFlash:    root.querySelector('#jade-flash'),
+      surgeFlashEl: root.querySelector('#surge-flash'),
       surgeWidget:  root.querySelector('#stamina-arc'),   // H3: the gauntlet IS the surge widget
       surgeX:       root.querySelector('#surge-x'),
       surgeGems:    root.querySelector('#surge-gems'),
@@ -1268,6 +1270,15 @@ export const ui = {
   lanceFlash() {
     if (reduceMotion) return;
     restartAnim(els.jadeFlash, 'flash-fast');
+  },
+
+  // SUNBREAK I2.5: the Surge-trigger flash for TIER 2 / no-postfx devices — the postfx kick
+  // flash is a true no-op there (§M.1 §G correction), so weak mobile lost the trigger's light
+  // component entirely. Same single-event, reduceMotion-guarded contract as lanceFlash; warm
+  // gold (SUNBREAK's lane — never saturated red), radial so the centre lane stays readable.
+  surgeFlash() {
+    if (reduceMotion) return;
+    restartAnim(els.surgeFlashEl, 'flash-fast');
   },
 
   // Crystal-flash for a perfect phase (reuses the radial flash overlay).
