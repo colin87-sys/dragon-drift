@@ -161,6 +161,7 @@ let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
 let headCorona = null;    // vision re-score #5: head-local crown-corona sprite (the ignition's FIRST light reads at the head)
+let tailCrackSpr = null;  // gate-critic #1: screen-space tail-tip CRACK flash (silhouette heroes carry no tail flare mats)
 // HERO POINT LIGHT (Fable 75) — the player's REAL light: pools specular on the water + kisses
 // the drake's underside (the premium answer to the flat additive halo). A PERSISTENT singleton
 // (created once, re-PARENTED on shop rebuild, never re-created) so NUM_POINT_LIGHTS stays 1 and
@@ -551,9 +552,23 @@ export function createDragon(scene, def, riderDef) {
     headCorona.layers.set(1);   // the FX layer — same as auraSprite/coreGlow (layer 0 sprites don't reach the composed pass)
   }
   headCorona.position.set(0, 0.4, -1.45);   // forward + up of the saddle: the head/nape band
-  headCorona.scale.setScalar(1.8);
+  headCorona.scale.setScalar(2.4);          // gate-critic #5: the FIRST light must win its frame outright
   headCorona.visible = false;
   group.add(headCorona);
+  // Gate-critic #1 — the TAIL-CRACK flash sprite: scene-level (follows the tail tip's world
+  // position like the ponytail chain), white-core, ~150ms bell — the ONE moment the tail goes
+  // core-white, on every roster tail including flare-mat-free silhouette heroes.
+  if (!tailCrackSpr) {
+    tailCrackSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: result.auraSprite.material.map, transparent: true, opacity: 0,
+      depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    }));
+    tailCrackSpr.renderOrder = 30;
+    tailCrackSpr.layers.set(1);
+    tailCrackSpr.scale.setScalar(3.0);
+  }
+  tailCrackSpr.visible = false;
+  scene.add(tailCrackSpr);
   // Per-skin hue pulled 45% toward warm-neutral so no skin dyes the water acid (Azure's
   // 142,213,255 → #C1DBDF, a soft ice-warm white — blue identity kept, never a blue lamp).
   heroLight.color.set(`rgb(${def.fx.auraColor})`).lerp(new THREE.Color(0xffe2b8), 0.45);
@@ -2146,6 +2161,25 @@ export function updateDragon(dt, player, time) {
     const amp = m.userData.gravePulseAmp || 0;
     m.userData.baseIntensity = amp * (0.7 + 0.3 * Math.sin(time * 2.2 - m.userData.gravePulseBucket * 1.7));
   }
+  // Vision re-score #4: the tail CRACK — a discrete HARD FLASH (~150ms bell on the CASCADE
+  // clock, pins correctly in captures, deterministic live), the climax-before-the-seal.
+  // Shared by the rear flare mats below AND the screen-space tail-tip flash sprite (the
+  // silhouette-hero guarantee: Vesper's tail tines carry no flare mats, so a mat-driven
+  // crack measured ZERO on the dragon the owner flies — the sprite reads on every tail).
+  const crackP = surgeCascadeT >= 0
+    ? _sstep(CAS_ON[3], CAS_ON[3] + 0.05, surgeCascadeT) * (1 - _sstep(CAS_ON[3] + 0.125, CAS_ON[3] + 0.255, surgeCascadeT)) : 0;
+  const tailSettle = surgeCascadeT >= 0 ? 1 - 0.22 * _sstep(0.95, 1.45, surgeCascadeT) : 1;
+  if (tailCrackSpr) {
+    const tcT = crackP * 0.95;
+    let tcO = damp(tailCrackSpr.material.opacity, tcT, 16, dt);
+    if (tcT < 0.01 && tcO < 0.02) tcO = 0;
+    tailCrackSpr.material.opacity = tcO;
+    tailCrackSpr.visible = tcO > 0.01 && tailSegs.length > 0;
+    if (tailCrackSpr.visible) {
+      tailSegs[tailSegs.length - 1].getWorldPosition(tailCrackSpr.position);
+      tailCrackSpr.material.color.setHex(0xffffff).lerp(_casCol.setHex(activeDef.surgeHi || 0xfff8e8), 0.25);
+    }
+  }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
   // overshooting on the ignition.
   if (casLevel[1] > 0.002 || casLevel[3] > 0.002 || ignite > 0.002 || surgeCascadeT >= 0) {   // spine RUSH + tail CRACK; also ARMED so the resting-livery dim applies pre-ignition
@@ -2161,13 +2195,9 @@ export function updateDragon(dt, player, time) {
       const sT = surgeCascadeT >= 0 ? surgeCascadeT - frac * SPINE_TRAVEL : -1;   // later mats lag → the front travels
       const spLvl = sT >= 0 ? _sstep(CAS_ON[1], CAS_ON[1] + 0.14, sT) * _dcSpine : 0;
       const tailW = _sstep(0.55, 1.0, frac);                    // only the REAR mats carry the tail crack
-      // Vision re-score #4: the tail CRACK is a discrete HARD FLASH on the rear mats at the tail
-      // beat (~150ms bell on the CASCADE clock — pins correctly in captures, deterministic live),
-      // not just the sustained tail level — the climax-before-the-seal must read on a silhouette
-      // hero whose tail elements are small. 0 outside the window → identity.
-      const crackP = surgeCascadeT >= 0
-        ? _sstep(CAS_ON[3], CAS_ON[3] + 0.05, surgeCascadeT) * (1 - _sstep(CAS_ON[3] + 0.125, CAS_ON[3] + 0.255, surgeCascadeT)) : 0;
-      const lvl = Math.max(spLvl, tailW * casLevel[3] * (1 + 1.6 * crackP));   // spine front OR tail snap (crack-boosted), whichever is brighter
+      // Gate-critic #3 (Solar): the crack must DECAY — after the seal the tail settles to ~78%
+      // so the climax is a moment, not a permanent lantern stealing the sustain's eye.
+      const lvl = Math.max(spLvl, tailW * casLevel[3] * (1 + 1.6 * crackP) * tailSettle);   // spine front OR tail snap (crack-boosted), whichever is brighter
       const igm = surgeHump * lvl + igniteBeat01;                // per-mat flourish (menu beat ungated)
       // Per-mat flare WEIGHTS: `flareColorWeight` scales the HUE lerp, `flareIntensityWeight` the
       // intensity gain (both fall back to flareWeight→1 ⇒ every other dragon arithmetically identical).
@@ -2207,7 +2237,10 @@ export function updateDragon(dt, player, time) {
   // While Surge is armed the RESTING rim (the cruise edge glow — the bright gold strut spikes) is
   // dimmed to ~40% until the rim station ignites, so the silhouette is dark before and blazes after.
   const rimArmed = surgeCascadeT >= 0 ? 0.4 + 0.6 * Math.min(1, casLevel[4]) : 1;
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[4] * 2.0 + surgeHump * casLevel[4] * 0.7 + gatherW * 1.6) * quality * (1 + igniteBeat01 * 0.30);
+  // Gate-critic #2: the WING beat also fires a one-beat RIM pulse — hero wing kits (Vesper's
+  // fingered membranes) carry their own materials that ignore wingMat, so the membrane pulse
+  // measured near-black at its own beat; the rim registry reaches EVERY mat's silhouette edge.
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[4] * 2.0 + wingPulse * 2.2 + surgeHump * casLevel[4] * 0.7 + gatherW * 1.6) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
@@ -2626,6 +2659,7 @@ export function resetDragon(player) {
   bodyMat.emissiveIntensity = 0;
   auraSprite.material.opacity = 0;
   if (headCorona) { headCorona.material.opacity = 0; headCorona.visible = false; }
+  if (tailCrackSpr) { tailCrackSpr.material.opacity = 0; tailCrackSpr.visible = false; }
   for (const p of ponyPoints) p.set(player.position.x, player.position.y + 1.5, player.position.z);
   for (const s of trailSprites) { s.visible = false; s.userData.life = 0; }
   for (const s of boostTrailSprites) { s.visible = false; s.userData.life = 0; }
