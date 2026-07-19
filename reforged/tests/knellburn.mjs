@@ -60,8 +60,15 @@ check(`a PERFECT on-toll release schedules a burn (active ${perfect.burns.active
 // that decrements (§CP2 SHOULD-FIX-3: `pending` draining alone would stay green even if
 // damageBoss('lockburn') were a no-op).
 const pendA = perfect.burns.pending, hpA = perfect.hp;
-await page.waitForTimeout(1400);
-const afterDrain = await page.evaluate(() => ({ pending: window.__dd.bossBurns().pending, hp: window.__dd.bossState().hp }));
+// Burn ticks fire every tickInterval (0.3s) of GAME time; headless software-GL caps
+// dt and runs at a few fps, so a fixed 1.4s wall window can elapse LESS than one tick
+// interval of game-time (the burn then reads unchanged — not a no-op, just un-ticked).
+// POLL until at least one tick lands (pending drops) — it always does given real time.
+let afterDrain = { pending: pendA, hp: hpA };
+for (let i = 0; i < 40 && afterDrain.pending >= pendA; i++) {   // up to ~10s of real time
+  await page.waitForTimeout(250);
+  afterDrain = await page.evaluate(() => ({ pending: window.__dd.bossBurns().pending, hp: window.__dd.bossState().hp }));
+}
 check(`the burn drains its counter over time (${pendA.toFixed(2)} → ${afterDrain.pending.toFixed(2)})`, afterDrain.pending < pendA);
 check(`the burn actually reduces boss hp (${hpA.toFixed(1)} → ${afterDrain.hp.toFixed(1)})`, afterDrain.hp < hpA);
 
