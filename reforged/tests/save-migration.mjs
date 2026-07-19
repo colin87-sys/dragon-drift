@@ -68,7 +68,10 @@ const V1_BLOB = {
   const s = await page.evaluate(() => window.__dd.save);
   check('gambit refund: embers credited (500 + 120 = 620)', s.embers === 620);
   check('gambit refund: gambitPending not in save schema', !('gambitPending' in s));
-  check('gambit refund: start notice set', await page.$eval('.start-notice', el => el.textContent).then(t => t.includes('120')).catch(() => false));
+  // WELCOME+HUB §2: refunds render on the idle-reward POP-IN card (#reward-card),
+  // not the old flat .start-notice line.
+  await page.waitForFunction(() => !!document.querySelector('#reward-card'), { polling: 120, timeout: 8000 }).catch(() => {});
+  check('gambit refund: reward card shows the stake', await page.$eval('#reward-card', el => el.textContent).then(t => t.includes('120')).catch(() => false));
   check('gambit refund: boots clean', errors.length === 0) || console.error(errors.join('\n'));
   await done();
 }

@@ -20,8 +20,10 @@ import { boot, check } from './browser.mjs';
     initScript: `localStorage.setItem('dragonDriftSave', ${JSON.stringify(SEED)})`,
   });
   await page.click('#btn-shop');
-  await page.waitForSelector('.shop-grid');
-  await page.click('.seg-btn[data-shoptab="music"]');
+  // The shop's default tab is the hero character-select (no .shop-grid there since
+  // the hero-scene redesign) — wait for the TAB BAR, switch to MUSIC, then the grid.
+  await page.waitForSelector('.seg-btn[data-shoptab="music"]');
+  await page.$eval('.seg-btn[data-shoptab="music"]', (el) => el.click());
   await page.waitForSelector('.skin-card[data-track-i]');
   const idx = await page.evaluate(() =>
     [...document.querySelectorAll('.skin-card[data-track-i].locked')].slice(-1)[0]?.dataset.trackI);

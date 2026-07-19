@@ -28,6 +28,16 @@ const { buildDragonModel } = await import('../js/dragonModel.js');
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
+// The shoulder-bridge is obsidian's ROLLBACK path — proven on an obsidian clone.
+// Obsidian left the shipped roster in the roster prune, so the rollback has no
+// host def to clone and this proof SKIPS (the 'skinnedMembraneBridge' recipe
+// registration is still exercised by skinnedwing.mjs). Re-arms if obsidian —
+// or any def carrying the bridge parts — returns.
+if (!DRAGONS.obsidian) {
+  console.log('  (obsidian not in the shipped roster — shoulder-bridge rollback proof vacuous, skipped)');
+  process.exit(0);
+}
+
 setActiveDetail('high');
 // Obsidian (the hero) has since migrated to the UNIFIED HULL; the shoulder-bridge
 // path is kept registered as the rollback. Prove it on an obsidian CLONE FORCED back
