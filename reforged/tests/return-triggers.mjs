@@ -55,7 +55,10 @@ import { boot, check } from './browser.mjs';
     }))`,
   });
   check('tailwind gift credited (+100)', await page.evaluate(() => window.__dd.save.embers === 150));
-  check('welcome-back notice on start screen', !!(await page.$('.start-notice')));
+  // WELCOME+HUB §2: the gift renders as the choreographed idle-reward POP-IN card
+  // (#reward-card, ~620ms after boot) — not the old flat .start-notice line (§2.5).
+  await page.waitForFunction(() => !!document.querySelector('#reward-card'), { polling: 120, timeout: 8000 });
+  check('welcome-back reward card pops over the hub', true);
   check('lastSeen restamped', await page.evaluate(() =>
     window.__dd.save.lastSeen === new Date().toISOString().slice(0, 10)));
   check('no errors', errors.length === 0) || console.error(errors.join('\n'));
