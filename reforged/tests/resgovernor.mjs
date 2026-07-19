@@ -89,7 +89,8 @@ check('main: setPerfSaver flips the mirror + god-ray levers (no realloc)', /func
 check('water: setWaterPerfSaver present; cruise mirror ½→¼ only under the saver (identity off)', /export function setWaterPerfSaver/.test(src('../js/water.js')) && /_perfSaver \? 3 : 1/.test(src('../js/water.js')));
 check('postfx: setGodRaySamplesSaver present; tier0 march 40→24 only under the saver (identity off)', /export function setGodRaySamplesSaver/.test(src('../js/postfx.js')) && /_grSaver \? 24 : 40/.test(src('../js/postfx.js')));
 check('save: dynRes default TRUE (ships default-on; a no-op on devices with headroom)', /dynRes: true/.test(src('../js/save.js')));
-check('ui: ADAPTIVE RESOLUTION settings toggle present', /gfxToggle\('dynRes'\)/.test(src('../js/ui.js')));
+// U5 redesigned on/off settings rows as switches (swRow) — grep the live helper.
+check('ui: ADAPTIVE RESOLUTION settings toggle present', /swRow\('gfx',\s*'dynRes'/.test(src('../js/ui.js')));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
