@@ -65,9 +65,10 @@ async function lumens(shotB64) {
     const g = c.getContext('2d'); g.drawImage(img, 0, 0);
     const mean = (x, y, w, h) => {
       const d = g.getImageData(x, y, w, h).data; const Ls = []; let s = 0, lit = 0, lit200 = 0;
-      for (let i = 0; i < d.length; i += 4) { const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += L; Ls.push(L); if (L > 180) lit++; if (L > 200) lit200++; }
+      let mid = 0;
+      for (let i = 0; i < d.length; i += 4) { const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += L; Ls.push(L); if (L > 180) lit++; if (L > 200) lit200++; if (L > 110 && L < 200) mid++; }
       Ls.sort((a, b) => a - b);
-      return { mean: +(s / Ls.length).toFixed(1), max: +Ls[Ls.length - 1].toFixed(1), p99: +Ls[Math.floor(Ls.length * 0.99)].toFixed(1), lit, lit200 };
+      return { mean: +(s / Ls.length).toFixed(1), max: +Ls[Ls.length - 1].toFixed(1), p99: +Ls[Math.floor(Ls.length * 0.99)].toFixed(1), lit, lit200, mid };
     };
     return {
       dragon: mean(Math.floor(0.40 * img.width), Math.floor(0.38 * img.height), Math.floor(0.20 * img.width), Math.floor(0.26 * img.height)),
@@ -140,7 +141,11 @@ for (const s of shots) console.log(`  ${s.name.padEnd(6)} dragon L ${String(s.lu
   const f90 = shots.find((x) => x.name === 'full');
   if (f90) console.log(`  TAIL @full: px>200 ${f90.lum.tail.lit200} (crack must DECAY: <50 for a discrete slam, unless the model's own tail crystal holds)`);
   const sa = shots.find((x) => x.name === 'sus-a'), sb = shots.find((x) => x.name === 'sus-b');
-  if (sa && sb) { const d = Math.abs(sa.lum.dragon.lit - sb.lum.dragon.lit) / Math.max(sa.lum.dragon.lit, sb.lum.dragon.lit, 1); console.log(`  BREATHE lit-delta sus-a vs sus-b: ${(d * 100).toFixed(1)}% (acceptance ≥8%)`); } }
+  if (sa && sb) { const d = Math.abs(sa.lum.dragon.lit - sb.lum.dragon.lit) / Math.max(sa.lum.dragon.lit, sb.lum.dragon.lit, 1); console.log(`  BREATHE lit-delta sus-a vs sus-b: ${(d * 100).toFixed(1)}% (acceptance ≥8%)`); }
+  // NIGHTFALL circuit acceptance (audited): sustain wing-zone MID-BAND (L110–200 — ion-blue tops
+  // out ~L129 unclipped, so lit>180 is an ignition-overshoot stat only) + wing-beat step.
+  if (sa) console.log(`  WING mid-band L110-200 @sustain: ${sa.lum.wings.mid}px (acceptance ≥1200 on circuit forms)`);
+  if (w22 && w40) console.log(`  WING mid-band step @0.40 vs @0.22: ${w22.lum.wings.mid} → ${w40.lum.wings.mid}px`); }
 const a = shots[0], f = shots.find((s) => s.name === 'full');
 console.log(`\n  dragon climb full/armed = ${(f.lum.dragon.mean / Math.max(a.lum.dragon.mean, 1)).toFixed(2)}×   sky drop full/armed = ${(f.lum.world.mean / Math.max(a.lum.world.mean, 1)).toFixed(2)}×`);
 console.log(`  frames: /tmp/burst-${key}-{${BEATS.map(([n]) => n).join(',')}}.png`);

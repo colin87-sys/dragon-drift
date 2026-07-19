@@ -430,8 +430,9 @@ function buildOneScallopWing(M, dials) {
     const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]);
     const sag = 0.11 * L * (0.7 + 0.5 * (i / Math.max(1, tips.length - 1)));
     const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
-    ridge(hand, K, Bm, wB, wM, M.dorsalFacet, i < 2 ? M.speckle : null);
-    ridge(hand, Bm, tp, wM, 0.006, M.dorsalFacet, null);
+    const cmat = M.circuit[i] || M.dorsalFacet;   // NIGHTFALL: circuit fingers glow on Surge; rest state is pixel-identical (same color/surface)
+    ridge(hand, K, Bm, wB, wM, cmat, i < 2 ? M.speckle : null);
+    ridge(hand, Bm, tp, wM, 0.006, cmat, null);
   }
 
   // ── MEMBRANE BAYS — between consecutive fingers the trailing edge is a SMOOTH concave
@@ -609,9 +610,43 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   M.memGlow = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x2050e8, emissiveIntensity: 0.05, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
   M.memGlow.userData.baseEmissive = 0x2050e8; M.memGlow.userData.baseIntensity = 0.05;
 
+  // NIGHTFALL CIRCUIT (owner-directed law revision, audited plan): the Starlit Seam climbs the
+  // wing SKELETON on Surge — per-finger circuit mats on the EXISTING bone ridges (zero new
+  // geometry), ion-blue withheld base 0.05 (the shipped seam math), ignited root→tip INSIDE the
+  // wing station by dragon.js's wingCircuitMats drive. Dominant finger brightest
+  // ([0.75..0.41] × seam wi), shortest AFT finger FIRST (delay 0.030s·rank, dominant i=0 LAST —
+  // onsets 0.300→0.420, last ramp lands ≈ the tail beat: a clean hand-off) — a taper and a
+  // travel, never a picket fence (the CP1 finger law applied to light). Created ONCE at M level
+  // so both wing sides share them (mirror-safe by construction). Ladder: model.wingCircuit
+  // 0 (f0/f1) | 0.6 → 3 fingers (f2) | 1 → all 5 (f3/apex).
+  const circN = Math.max(0, Math.min(5, Math.round((model.wingCircuit ?? 0) * 5)));
+  const circW = [0.75, 0.66, 0.57, 0.49, 0.41];
+  M.circuit = [];
+  for (let ci = 0; ci < circN; ci++) {
+    const cm = new THREE.MeshStandardMaterial({
+      color: M.dorsalFacet.color.clone(), emissive: 0x2050e8, emissiveIntensity: 0.05,
+      flatShading: true, roughness: 0.7, metalness: 0.02, side: THREE.DoubleSide,
+    });
+    cm.userData.baseEmissive = 0x2050e8; cm.userData.baseIntensity = 0.05;
+    cm.userData.circuitDelay = 0.030 * (circN - 1 - ci);
+    cm.userData.circuitWeight = circW[ci];
+    M.circuit.push(cm);
+  }
+
   const rootSpark = (model.seamRootSpark ?? 0) > 0;   // f3: one short inset seam streak per wing root
   const wingSpineMats = [];
-  wingSpineMats.push(M.memGlow);   // the membrane UNDERSIDE glows ion-blue on Surge (withheld in cruise)
+  const wingCircuitMats = [];
+  if (circN > 0) {
+    // memGlow RE-STAGED (audit ruling C): on circuit forms the underside joins wingCircuitMats
+    // (delay 0, weight 0.5× dominant) so it floods FIRST at the WING station — its old
+    // wingSpineMats ride gave it spine-index timing + the tail-crack boost (wrong station).
+    // (The rootSpark keeps its seam-list ride: it shares the DORSAL seam's mat instance, so
+    // re-staging it would re-time the whole seam — documented deviation from the audit.)
+    M.memGlow.userData.circuitDelay = 0; M.memGlow.userData.circuitWeight = 0.375;
+    wingCircuitMats.push(M.memGlow, ...M.circuit);
+  } else {
+    wingSpineMats.push(M.memGlow);   // f0/f1: the previous underside ride, unchanged
+  }
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
@@ -660,7 +695,7 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     pivots['tipMarker' + s] = marker;
     wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + tipZ], length: halfSpan, tipObj: marker });
   }
-  return { group, spineMats: wingSpineMats, wingMat: M.wingMat, parts: { ...pivots, wingElements } };
+  return { group, spineMats: wingSpineMats, wingMat: M.wingMat, parts: { ...pivots, wingElements, wingCircuitMats: wingCircuitMats.length ? wingCircuitMats : null } };
 }
 registerWings('scallopCrescentWings', buildScallopCrescentWings);
 
