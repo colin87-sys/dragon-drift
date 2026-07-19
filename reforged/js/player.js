@@ -229,5 +229,6 @@ export const player = {
     this.feverDuration = CONFIG.feverDuration;
     this.surgeUltimate = game.surgeUltimatePhase || null;   // I3: the boss ultimate's live phase (ducks the ambient cascade)
     this.surgeApexPin = game.surgeApexPin || 0;             // I4: APEX pose-pin weight (the flap steers to the high-V silhouette)
+    this.surgeGatherK = game.surgeGatherK || 0;             // I4 fix 3: the ritual's charge climbs the BODY (rim/wing lift in dragon.js)
   },
 };

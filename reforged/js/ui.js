@@ -1485,6 +1485,16 @@ export const ui = {
     const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
     if (hud) hud.classList.toggle('cine-hold', !!on);
   },
+  // SUNBREAK I4 fix 2 — the RITUAL HUD DUCK: keyed each frame off the conductor
+  // (game.surgeRitualScale != null spans CALL→RELEASE+settle), change-detected so
+  // the classList write only happens on the two edges. CSS does the ~25% fade.
+  surgeDuck(on) {
+    on = !!on;
+    if (this._surgeDuckOn === on) return;
+    this._surgeDuckOn = on;
+    const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
+    if (hud) hud.classList.toggle('surge-duck', on);
+  },
   // LETTERBOX (CP2-A, EMBERTIDE's vertical-squeeze re-entrance beat): two bars ease
   // in from the frame edges and back out — a PULSE, not a mode (boss.js times it).
   // Elements are created on first use so the shell HTML stays untouched.

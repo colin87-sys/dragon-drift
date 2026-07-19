@@ -113,6 +113,8 @@ let surgeFovOffset = 0;      // applied to targetFov (− tighten / + punch)
 let surgeFovTarget = 0;
 let surgePushK = 0;
 let surgePushTarget = 0;
+let surgeLiftK = 0;
+let surgeLiftTarget = 0;
 let surgeNoiseT = 0;
 const _trN = (t, f1, f2, p1, p2) => 0.6 * Math.sin(2 * Math.PI * f1 * t + p1) + 0.4 * Math.sin(2 * Math.PI * f2 * t + p2);
 
@@ -149,6 +151,9 @@ export const cameraCtl = {
   // I4: surge FOV offset (deg; − tighten during GATHER, + punch at RELEASE) + camera push-in
   // (0..1 of ~2.6u toward the dragon). The punch decays inside the channel (fast out, ~300ms back).
   setSurgeFov(deg, pushK = surgePushTarget) { surgeFovTarget = deg > 0 && saveData.settings.reduceFx ? Math.min(deg, 3) : deg; surgePushTarget = Math.max(0, Math.min(1, pushK)); },
+  // I4 fix 4: APEX camera lift (0..1 of ~1.5u rise, no re-aim) — boss.js re-asserts it each
+  // ritual frame with the pose-pin weight; the self-decaying target never strands a cancelled ritual.
+  setSurgeApexLift(k) { surgeLiftTarget = Math.max(0, Math.min(1, k)); },
 
   boostKick() {
     boostKickT = BOOST_KICK_DUR;
@@ -430,6 +435,12 @@ export const cameraCtl = {
     surgePushK = damp(surgePushK, surgePushTarget, 6, dt);
     surgePushTarget = Math.max(0, surgePushTarget - dt * 2);   // self-decays; the ritual re-asserts each frame
     if (surgePushK > 0.001) camera.position.z -= surgePushK * 2.6;
+    // I4 fix 4 — the APEX camera LIFT: rise ~1.5u WITHOUT re-aiming (post-lookAt, like the push),
+    // so the near dragon drops in frame faster than the far boss — the two silhouettes SEPARATE
+    // at the lock instead of merging into one stacked mass (the rear-chase apex's failure read).
+    surgeLiftK = damp(surgeLiftK, surgeLiftTarget, 10, dt);
+    surgeLiftTarget = Math.max(0, surgeLiftTarget - dt * 3);   // self-decays; boss.js re-asserts each ritual frame
+    if (surgeLiftK > 0.001) camera.position.y += surgeLiftK * 1.5;
 
     // Inhale pinch (PR-C): lean in with the drawn breath — a small dolly here
     // (after the chase solve, like the kicks) + the FOV squeeze below.
