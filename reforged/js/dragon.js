@@ -1301,6 +1301,19 @@ export function updateDragon(dt, player, time) {
     const _dph = ((Math.PI * 1.5 - flapPhase + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     flapPhase = (flapPhase + _dph * Math.min(1, 10 * _pinW * dt) + Math.PI * 2) % (Math.PI * 2);
   }
+  // Cascade wing-SPREAD (burst critic #2 — the wing station must read AT ITS OWN BEAT): the
+  // FLAP-DESIGN depth-projection trap means an edge-on stroke hides the wing glow exactly when
+  // the station ignites. During the wing→tail window of the ignition cascade (t 0.28–0.70, bell
+  // weight) the beat clock is steered toward the spread high-V (same shortest-path steer as the
+  // I4 pin) — the dragon FLARES its wings as the surge takes them, on every roster motion path.
+  // surgeCascadeT < 0 off-Surge → weight 0 → exact identity; the two steers' windows never
+  // overlap (the boss APEX pin only fires deep into sustain).
+  const _spreadW = (surgeCascadeT >= 0.28 && surgeCascadeT <= 0.70)
+    ? Math.sin(Math.PI * (surgeCascadeT - 0.28) / 0.42) : 0;
+  if (_spreadW > 0.001) {
+    const _dsp = ((Math.PI * 1.5 - flapPhase + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    flapPhase = (flapPhase + _dsp * Math.min(1, 8 * _spreadW * dt) + Math.PI * 2) % (Math.PI * 2);
+  }
   // `?wingDebug`: freeze the whole beat clock at the named cycle point so the wings — AND the
   // phase-coupled head wobble / secondary wings below — hold ONE reproducible pose.
   if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap).phase;
@@ -1922,7 +1935,7 @@ export function updateDragon(dt, player, time) {
       if (inSustain && lvl > 0.5) {
         // breathing: ±~8% below the peak; flare: a ripple whose crest arrives crown→tail over ~350ms
         const flare = _surgeFlare(casElapsed, i);
-        lvl *= 0.92 + 0.08 * (breatheS * 0.5 + 0.5) + flare;
+        lvl *= 0.88 + 0.12 * (breatheS * 0.5 + 0.5) + flare;   // burst critic #5: ±12% breathe (was ±8% — too shallow to resist adaptation in a random still pair)
       }
       casLevel[i] = Math.min(1.6, lvl);
       if (casOnAt[i] < 0 && ig >= 0.1 && surgeCascadeT >= 0) casOnAt[i] = surgeCascadeT;   // latch the 10% crossing (order/gap asserts)
@@ -2215,28 +2228,38 @@ export function updateDragon(dt, player, time) {
   // and blazes on fever; the custom water shader ignores scene lights, so the mirror is fed
   // the light positionally (a reflection STREAK that moves with the player, never a disc).
   if (heroLight) {
-    const heroI = 12 * (0.85 + 0.15 * Math.sin(time * 2.1)) * (player.feverActive ? 1.7 : 1.0);
+    // Vision-fidelity fix (burst critic #1 — the ignition must TRAVEL, not switch on): the hero
+    // light + water pool blaze is STATIONED by the cascade (× casOverall), not a frame-1 fever
+    // jump — the world receives the dragon's light as the anatomy ignites, and the decay rewind
+    // pulls the pool back down with the body. Off-Surge fevK=0 → byte-identical.
+    const fevK = player.feverActive ? Math.min(1, casOverall) : 0;
+    const heroI = 12 * (0.85 + 0.15 * Math.sin(time * 2.1)) * (1 + 0.7 * fevK);
     heroLight.intensity = damp(heroLight.intensity, heroI, 4, dt);
     group.getWorldPosition(_heroPos);
-    heroPoolK = damp(heroPoolK, player.feverActive ? 1.0 : 0.55, 4, dt);
+    heroPoolK = damp(heroPoolK, 0.55 + 0.45 * fevK, 4, dt);
     setWaterHeroPool(_heroPos, heroLight.color, heroPoolK);
   }
 
   // Wing-tip contrails — the SECONDARY boost accent, only on the elite forms
   // (spineGlow ≥ 0.5) and only while boosting, so it stays restrained. Violet
   // wisps during Surge (the apex's amethyst energy at the wing edge).
+  // Vision-fidelity fix (burst critic #1): trail "fever-ness" waits for the WING station — the
+  // energy the dragon streams is a wing/motion tell, so it ignites when the wings do (casOverall
+  // crosses ~0.45 as the wing station lights), never on frame 1 of fever. Decay rewinds it early
+  // (the stream gutters before the body) — correct for "the dignity drains outward-in".
+  const trailFever = player.feverActive && casOverall > 0.45;
   const wingFx = (activeDef.model.spineGlow || 0) >= 0.5;
   if (player.boosting && wingFx) {
     contrailTimer -= dt;
     if (contrailTimer <= 0) {
-      contrailTimer = (player.feverActive ? 0.02 : 0.03) / quality;
+      contrailTimer = (trailFever ? 0.02 : 0.03) / quality;
       for (const marker of [tipMarkerL, tipMarkerR]) {
         const s = trailSprites.find(s => !s.visible);
         if (!s) break;
         marker.getWorldPosition(tmpV);
         s.visible = true;
-        s.userData.life = player.feverActive ? 0.75 : 0.6; // shorter than body trail = crisp ribbon
-        s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xc998ff : pickTrailHex(activeDef.trail));
+        s.userData.life = trailFever ? 0.75 : 0.6; // shorter than body trail = crisp ribbon
+        s.material.color.setHex(trailFever && !activeDef.hasStyle ? 0xc998ff : pickTrailHex(activeDef.trail));
         s.position.copy(tmpV);
       }
     }
@@ -2263,13 +2286,13 @@ export function updateDragon(dt, player, time) {
   // Speed trail (orb/fast), tinted per dragon; shifts pink during fever. Also emits
   // during Surge even WITHOUT boost, so a surging dragon always streams energy.
   trailTimer -= dt;
-  if ((player.speedActive || player.feverActive) && trailTimer <= 0) {
-    trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.03 : 0.015) / quality;
+  if ((player.speedActive || trailFever) && trailTimer <= 0) {
+    trailTimer = (trailFever ? 0.009 : player.boosting ? 0.03 : 0.015) / quality;
     const s = trailSprites.find(s => !s.visible);
     if (s) {
       s.visible = true;
       s.userData.life = 1;
-      s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xff9ad6 : pickTrailHex(activeDef.trail));
+      s.material.color.setHex(trailFever && !activeDef.hasStyle ? 0xff9ad6 : pickTrailHex(activeDef.trail));
       // Fire dragons: spawn the body speed-trail well BEHIND the dragon (not ON it) so its additive haze
       // stops fogging the silhouette; tighter spread too.
       s.position.set(
@@ -2293,26 +2316,30 @@ export function updateDragon(dt, player, time) {
   // Boost exhaust — the TAIL is the primary boost source: emit from the tail
   // TIP, denser the more evolved the form (spineGlow proxies the tier), and a
   // white-gold core during Surge.
+  // Vision-fidelity fix (burst critic #1): the tail exhaust's fever-ness waits for the TAIL
+  // station (casLevel[3] — the t≈0.55 CRACK): the exhaust ignites when the tail does, the
+  // anatomical read, not on frame 1 of fever.
+  const tailFever = player.feverActive && casLevel[3] > 0.5;
   boostTrailTimer -= dt;
-  if ((player.boosting || player.feverActive) && boostTrailTimer <= 0) {
+  if ((player.boosting || tailFever) && boostTrailTimer <= 0) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
     const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
     // Light tail trail while boosting; the current heavier rate stays for Surge.
-    boostTrailTimer = (player.feverActive ? (activeDef.fireTrails ? 0.03 : 0.012) : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
+    boostTrailTimer = (tailFever ? (activeDef.fireTrails ? 0.03 : 0.012) : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
     const s = boostTrailSprites.find(s => !s.visible);
     if (s && tailSegs.length) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);
       s.visible = true;
-      s.userData.life = player.feverActive ? 1.2 : 1;
+      s.userData.life = tailFever ? 1.2 : 1;
       // Fire dragons: cycle an EMBER ramp across the exhaust sprites so the additive stack reads as
       // FIRE, not a single-hue fog that sums to cream. (Per-sprite index → stable, deterministic-ish.)
       const emberExh = [0xffc46a, 0xff8a20, 0xf25410];
       s.material.color.setHex(activeDef.fireTrails ? emberExh[boostTrailSprites.indexOf(s) % emberExh.length]
-        : player.feverActive && !activeDef.hasStyle ? 0xfff0c0 : pickTrailHex(activeDef.boostTrail));
+        : tailFever && !activeDef.hasStyle ? 0xfff0c0 : pickTrailHex(activeDef.boostTrail));
       s.position.set(
         tmpV.x + (Math.random() - 0.5) * 0.8,
         tmpV.y + (Math.random() - 0.5) * 0.6,
-        tmpV.z + Math.random() * (player.feverActive ? 3 : 2)
+        tmpV.z + Math.random() * (tailFever ? 3 : 2)
       );
     }
   }

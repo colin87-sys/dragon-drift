@@ -48,6 +48,10 @@ await page.waitForTimeout(1500);
 await page.evaluate(() => {
   window.__dd.player.speed = 0;
   window.__dd.clearObstacles(); window.__dd.clearVents(); window.__dd.clearRings();
+  window.__dd.clearCollectibles?.();
+  // The HUD is not the dragon: the stamina arc reads as a "cyan collar" and chrome pollutes
+  // the luminance metrics — hide the DOM layer entirely for the burst (page-side only).
+  const hud = document.getElementById('hud'); if (hud) hud.style.opacity = '0';
 });
 await page.waitForTimeout(200);
 const D0 = await page.evaluate(() => window.__dd.player.dist);
@@ -60,9 +64,10 @@ async function lumens(shotB64) {
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d'); g.drawImage(img, 0, 0);
     const mean = (x, y, w, h) => {
-      const d = g.getImageData(x, y, w, h).data; let s = 0, n = 0, mx = 0;
-      for (let i = 0; i < d.length; i += 4) { const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += L; if (L > mx) mx = L; n++; }
-      return { mean: +(s / n).toFixed(1), max: +mx.toFixed(1) };
+      const d = g.getImageData(x, y, w, h).data; const Ls = []; let s = 0, lit = 0;
+      for (let i = 0; i < d.length; i += 4) { const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += L; Ls.push(L); if (L > 180) lit++; }
+      Ls.sort((a, b) => a - b);
+      return { mean: +(s / Ls.length).toFixed(1), max: +Ls[Ls.length - 1].toFixed(1), p99: +Ls[Math.floor(Ls.length * 0.99)].toFixed(1), lit };
     };
     return {
       dragon: mean(Math.floor(0.40 * img.width), Math.floor(0.38 * img.height), Math.floor(0.20 * img.width), Math.floor(0.26 * img.height)),
@@ -80,6 +85,7 @@ for (const [name, t] of BEATS) {
   await page.evaluate(({ t, D0 }) => {
     window.__dd.player.speed = 0; window.__dd.player.dist = D0; window.__dd.player.position.z = -D0;
     window.__dd.clearObstacles(); window.__dd.clearVents(); window.__dd.clearRings();
+    window.__dd.clearCollectibles?.();
     if (t == null) { window.__dd.game.feverActive = false; window.__dd.game.feverTimer = 0; window.__dd.surgeCascadePin(null); }
     else { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 999; window.__dd.surgeCascadePin(t); }
   }, { t, D0 });
@@ -123,7 +129,7 @@ const { writeFileSync } = await import('fs');
 writeFileSync(`/tmp/burst-${key}-sheet.png`, Buffer.from(sheetB64, 'base64'));
 
 console.log(`\n== SURGE BURST (${key} t${tier}) — clean field, value story ==`);
-for (const s of shots) console.log(`  ${s.name.padEnd(6)} dragon L ${String(s.lum.dragon.mean).padStart(6)} (max ${String(s.lum.dragon.max).padStart(5)})   sky L ${String(s.lum.world.mean).padStart(6)}`);
+for (const s of shots) console.log(`  ${s.name.padEnd(6)} dragon L ${String(s.lum.dragon.mean).padStart(6)}  p99 ${String(s.lum.dragon.p99).padStart(6)}  lit>180 ${String(s.lum.dragon.lit).padStart(6)}px   sky L ${String(s.lum.world.mean).padStart(6)}`);
 const a = shots[0], f = shots.find((s) => s.name === 'full');
 console.log(`\n  dragon climb full/armed = ${(f.lum.dragon.mean / Math.max(a.lum.dragon.mean, 1)).toFixed(2)}×   sky drop full/armed = ${(f.lum.world.mean / Math.max(a.lum.world.mean, 1)).toFixed(2)}×`);
 console.log(`  frames: /tmp/burst-${key}-{${BEATS.map(([n]) => n).join(',')}}.png`);
