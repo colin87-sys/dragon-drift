@@ -221,7 +221,10 @@ applyAurora({ auroraMix: 0 }, 5, 5); // leave shipped state
 
 // --- 6. PR-4 THE FLIP: the aurora block (CYCLE index 5 = biome 6) NOW lights the curtain, over a
 // wide pre-ramp, with ZERO leak into the upstream biomes. Block layout at L=1500: blocks 0-4 =
-// biomes 0-4 (Mire is block 4, [6000,7500)); block 5 = AURORA ([7500,9000)); block 6 = Astral.
+// biomes 0-4 (Mire is block 4, [6000,7500)); block 5 = AURORA ([7500,9000)); block 6 = TEMPEST
+// ([9000,10500)); block 7 = THE EMPYREAN ([10500,12000), the sky-whale biome) — post-TEMPEST-FLIP,
+// CYCLE = [0,1,2,3,4,6,7,5]. The aurora block itself is UNMOVED (still block 5), so §6's ramp-in and
+// interior checks are all unchanged; only the EXIT handoff (below) is now a two-step sequence.
 const L = CONFIG.biomeLength;
 let maxMix = 0;
 for (let dist = 0; dist <= 9 * L; dist += 25) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
@@ -247,10 +250,17 @@ check('background rides the wide ramp: skyHorizon is pure Mire at 6850m (ramp no
   computeEnv(6850).skyHorizon.getHex() === mireHorizon);
 check('background rides the wide ramp: skyHorizon has moved off Mire by 7200m (no 150m snap)',
   computeEnv(7200).skyHorizon.getHex() !== mireHorizon && computeEnv(7200).starMix > BIOMES[4].stars);
-// EXIT handoff: auroraMix (dying) and whaleMix (rising) now cross in the SAME 400m window.
-const eA = computeEnv(8800).auroraMix, eW = computeEnv(8800).whaleMix;
-check('exit handoff: curtain dying while whale rising in one window (both mid-transition at 8800m)',
-  eA > 0 && eA < 1 && eW > 0 && eW < 1);
+// EXIT handoff (post-TEMPEST-FLIP): Tempest Reach now sits between Aurora and the whale biome, so the
+// single curtain→whale crossfade became a two-step SEQUENCE. (a) The curtain still dies at the
+// Aurora→Tempest seam (block 5→6, wide AUR_RAMP_OUT window); the whale stays dormant there (neither
+// Aurora nor Tempest declares whale). (b) The landmark (whaleMix) rises one block later at the
+// Tempest→Empyrean seam (block 6→7, ~10500m, ordinary 150m window) — the storm hands off to the whale.
+const eA = computeEnv(8850).auroraMix, eW = computeEnv(8850).whaleMix;
+check('curtain dies at the Aurora→Tempest seam, whale still dormant (no whale in the storm block)',
+  eA > 0 && eA < 1 && eW === 0);
+const wA = computeEnv(10450).auroraMix, wW = computeEnv(10450).whaleMix;
+check('the landmark rises one block later at the Tempest→Empyrean seam (curtain long gone)',
+  wW > 0 && wW < 1 && wA === 0);
 // A NON-AURORA seam stays byte-identical (the wide ramp is gated): Wastes(1)→Frozen(2) at dist 2925
 // (block 1 [1500,3000), seam at 2925) must equal the inline 150m smoothstep computation.
 const dN = 2925, localN = dN - 1500, tN = THREE.MathUtils.smoothstep(localN, 1500 - 150, 1500);

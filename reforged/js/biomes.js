@@ -267,21 +267,78 @@ export const BIOMES = [
     bullets: { dark: 0xaf4f73 },
   },
   {
-    // Cosmos — star-koi shoal + existing whale; star-koi share whale drift pattern
-    name: 'ASTRAL SHALLOWS',
+    // THE EMPYREAN (EMPYREAN-BIBLE.md) — the cosmos FINALE that BREAKS the dark run: after Mire's
+    // biolume night and Aurora's aurora night, you breach the ceiling of the night into a BRIGHT
+    // luminous pearl-violet void — no sun, no gold, no horizon; soft pastel nebula blooms, nacre water,
+    // rising pearl motes, ink-black koi, and the only dark thing in all that light is one small black
+    // point (the Mote, PR-3). THE INVERSION LAW: "light is the field; darkness is the only threat" —
+    // the value ramp points UP (brightest at the zenith) and the accent colour is BLACK. PR-1 substrate:
+    // the inverted sky ramp + two nebula blooms (empyMix), R7 bright-field stars, opal fog, the three
+    // engine suns killed (sky disc via empyMix, godrayMul:0; the water glitter is a pale shimmer via the
+    // canon sky.sun stop until the PR-2 nacreMix kill), a shadowless light rig, rising pearl motes, and a
+    // pale-retinted legacy prop kit (mats.body[5]) holding the value band until the PR-4/5 roster.
+    name: 'THE EMPYREAN',
     keyShift: 3,
-    stars: 1,
+    stars: 1,     // R7 bright-field treatment (§4a): the empyMix branch reshapes this to 20–60 sparse, luma-faded stars
+    // THE LANDMARK slot, generalized (§8, PR-3): the sky-whale machinery now declares WHICH landmark it
+    // draws. `whale: 1` drives the landmark MIX (it rides whaleMix → fades in over the 400m Aurora seam so
+    // the Mote arrives as the light does), and `landmark: 'mote'` selects the black MOTE instead of the
+    // gold whale mesh (the whale is suppressed for mote biomes in ambient.js; the Mote is a sky-shader term).
     whale: 1,
-    sky: { top: C(0x05081e), mid: C(0x1a1450), horizon: C(0x6a3ab0), sun: C(0xcfe8ff) },
-    fog: { color: C(0x241a4a), near: 80, far: 420 },
-    light: { sun: C(0xbfd8ff), sunI: 1.3, hemiSky: C(0x4a4a8a), hemiGround: C(0x101030) },
-    water: { deep: C(0x060a24), shallow: C(0x2a3a8a), waveAmp: 0.4 },
-    ambient: { color: C(0xcfe0ff), fall: 0.1, sway: 0.8, size: 0.3, opacity: 0.9 },
-    fauna: { color: C(0xa8d8ff), scale: 0.7, flap: 0.5 }, // star-koi: small, gentle drift
-    props: ['monolith', 'arcshard'],
-    matIndex: 5, // astral slate
-    // Contrast gate: dark band vs this biome's near-black fog (L≈0.12) — lifted.
-    bullets: { dark: 0xa84167 },
+    landmark: 'mote',
+    empy: 1.0,    // EMPYREAN gate (a new xMix): the inverted-sky nebula blooms + the sky-disc sun kill. 0 in every other biome → byte-identical (the three-touch rule; skyProbe is the 4th touch).
+    bright: true, // EMBERSIGHT H6 skyLuma: the brightest field in the game → HUD keylines swap to the ember-core variant
+    // INVERTED ramp (§3/§4a): value INCREASES upward — horizon → mid → ZENITH is the frame's bright pole.
+    // sky.sun is the CANON pale stop (= sky-mid): the empyMix shader kill zeroes the disc, but authoring the
+    // slot stops the seam-lerp dragging a hot neighbour sun across the crossfade (the shipped 0xcfe8ff was a
+    // cool bright sun that survived any retune skipping this row). §3 sun #1.
+    sky: { top: C(0xe3d8ff), mid: C(0xcabff0), horizon: C(0xc9c9f2), sun: C(0xdcd7f4) },   // pearl-VIOLET, not overcast grey (Fable-model gate: base rendered S was ~0.03 → "concrete"; stops pushed to S~0.15-0.20 @ ~255° so the rendered void reads violet). Keep the V64→92 upward inversion + the bright horizon dissolve. Probe (skyColorAt) reads these same stops → ambient stays in sync.
+    // Opal fog — the Empyrean's air is bright (fog COLOUR above the scene mean = fog that glows, not
+    // obscures); OPEN (far planes than the night biomes). fogFarColor lifts the far field TOWARD light
+    // (inverted aerial perspective — the horizon-dissolve, §4c). heightK thin+even (no ground pooling).
+    fog: { color: C(0xd8d4ee), near: 60, far: 340 },
+    fogFarColor: C(0xe6e1f6),
+    atmos: { heightK: 0.02 },
+    // The NO-SOURCE light rig (§3): sunI → ~0 (shadowless omnidirectional skylight); high pale ambient via
+    // hemiSky white-violet, hemiGround pale-violet up-bounce off the nacre so undersides stay LIGHT (a dark
+    // belly is a broken asset here). Directional shadows read as a source → killed.
+    light: { sun: C(0xf2eeff), sunI: 0.05, hemiSky: C(0xf2eeff), hemiGround: C(0xbfb2d8) },
+    // Sun #3 — the god-ray fan: a sourceless sky has NO shafts. True zero (the Mire metered its rays to
+    // 0.075 for its glow-halos; the Empyrean has none to preserve). §3 sun #3.
+    godrayMul: 0,
+    // NACRE water gate (§4b, PR-2): mother-of-pearl, not a mirror. Kills sun #2 (the pow-240 glitter lane +
+    // the cheap sparkle flakes) and adds a broad satin sheen + constrained rose↔lilac↔periwinkle iridescence.
+    // 0 in every other biome → byte-identical water (the xMix pattern; consumed by water.js via setWaterTint).
+    nacre: 1.0,
+    // NACRE water — PALETTE LANDED in PR-1 (deep = the trough structural-mid; shallow = the nacre body).
+    // The NOVEL nacre SHADER (iridescence band term + the pow-240 sun-glitter kill + horizon-dissolve
+    // triple-lock, all in sharedUniforms) is PR-2 (§4b); here the tint just pulls the water out of the old
+    // near-black astral blue so the biome blind-tests bright. waveAmp 0.4 (visible sculpted swell — nacre
+    // scatters, it does not mirror).
+    water: { deep: C(0x6a6490), shallow: C(0xc6bede), waveAmp: 0.4 },
+    // RISING pearl motes (§6): everything in the Empyrean drifts UP — fall < 0 = RISE (a fraction of
+    // Caldera's -2.2 ember climb: dust up a sunbeam, not embers). Size/opacity jitter is standard.
+    ambient: { color: C(0xf2ecff), fall: -0.15, sway: 1.2, size: 0.4, opacity: 0.5 },
+    // INK KOI colour (§6): the star-koi become ink-violet koi (0x1a1424, NOT pure black — punctuation, the
+    // true black 0x050308 stays role-locked to the Mote/wells). PR-5b: the bespoke inkShoal flock lands via
+    // `shoal:1` (below) — a coherent school of ink-koi replaces the reskinned lazy circling bird-cones.
+    fauna: { color: C(0x1a1424), scale: 0.7, flap: 0.5 },
+    // inkShoal FLOCK (PR-5b, §6): swap the interim reskinned bird-flock for a coherent school of ink-violet
+    // koi drifting high ahead of the lane — the biome's bespoke ambient fauna. 0 in every other biome
+    // (optional-channel) → the circling flock stays byte-identical there. Consumed by ambient.js.
+    shoal: 1,
+    props: ['monolith', 'arcshard'],  // interim legacy Astral kit, pale-retinted via mats.body[5] (PR-4/5 replaces it)
+    matIndex: 5, // empyStone bone-nacre (pale-retinted from astral slate)
+    // Contrast gate (§3, a REAL gate): a HIGH-KEY field is a NEW contrast regime — every shipped
+    // bullets band was tuned on a DARK biome. On the pale ≥0.75 field the layered read (dark outline +
+    // white core) can't cover a bright band, so the band FLIPS DARK: the default light 0xffc6dc (L≈0.83)
+    // vanished into the sky and is dropped to a dusty dark-rose (L≈0.57) that clears both fog (L≈0.84) and
+    // horizon (L≈0.83) directly by ≥0.15; mid/dark already clear (danger magenta is the core). The two
+    // FIXED reflect role-colours (amber/cyan — no per-biome lever) can't clear a ≥0.75 field and are the
+    // Amber-Wastes-class accepted exception in bulletcontrast.mjs (the Empyrean ships a BREATHER, so boss
+    // reflect bullets render against THE UNMASKED's DARK arena skin, not this bright sky). Re-run on every
+    // palette touch (again after the PR-2 nacre water).
+    bullets: { light: 0xd47ba0, dark: 0xa84167 },
   },
   {
     // Aurora Shallows: a moonlit NIGHT biome — the dark, still MIRROR canvas the aurora
@@ -324,10 +381,10 @@ export const BIOMES = [
     // #464): the shared hue is now warm GOLD, resolved oppositely — Mire is a WARM-dominant NIGHT
     // swamp whose light is SELF-emitted by organisms + a still black-mirror; Tempest is a COOL-
     // dominant DAY storm whose gold is a rationed ≤10% STOLEN-sunlight accent (never self-lit) over
-    // a VIOLENT sea. Field cool + warm rationed = the guard. Appended as
-    // BIOMES[7], NOT yet in CYCLE — reachable only via ?biome=7&debug until the CYCLE flip (a later
-    // no-op PR coordinated with the Lost Lagoon arc). PR-0 = the atmosphere substrate; the storm-carved
-    // prop roster, obstacle skins, and the lightning hazard follow in their own PRs.
+    // a VIOLENT sea. Field cool + warm rationed = the guard. BIOMES[7], now IN the CYCLE (the TEMPEST
+    // FLIP — slotted between Aurora (6) and Astral (5), see the CYCLE note): the atmosphere substrate,
+    // the storm-carved prop roster (scarpwall massif + kit), obstacle skins, and the lightning hazard
+    // all shipped, and the boss (stormrend, the Tempest Herald) is in the ladder.
     name: 'TEMPEST REACH',
     keyShift: -3,
     stars: 0,
@@ -407,7 +464,7 @@ export const BIOMES = [
     // LineSegments streak layer (rainMix-gated). Small, dim, low-falling froth over the sea.
     ambient: { color: C(0x9fb0b4), fall: 1.5, sway: 2.0, size: 0.18, opacity: 0.35 },
     fauna: { color: C(0x9fb0b8), scale: 0.7, flap: 0.6 }, // storm-petrels: small, fast, wind-tossed
-    props: ['stormprow'], // the storm-carved roster (stormprow shipped; stackgrave/tafonihold/stormstack/arcuswall/rainshaft in later PRs). NOTE: doc-only — the archetype's `biomes: tempestNew` whitelist is the actual spawn gate
+    props: ['stormprow', 'scarpwall'], // the storm-carved roster (scarpwall = the mid-ground headland massif). NOTE: doc-only — the archetype's `biomes: tempestNew` whitelist is the actual spawn gate
     matIndex: 7, // storm slate
     // No bullets override needed: with the fog held at L≈0.31 and the horizon under the 0.75 read
     // ceiling, all six role colours (danger + band + reflects) clear both fog and horizon on the
@@ -470,12 +527,18 @@ if (PROPS_FORUM) BIOMES[0] = FORUM_BIOME0;
 // PR-4 THE FLIP: Aurora Shallows (6) slotted between Lumen Mire (4) and Astral Shallows (5) — the
 // night crescendo biolume → AURORA → cosmos. Mire→Aurora is the softest seam in the roster (both
 // night, Mire's teal horizon 0x3fd8b0 is the aurora's own hue family); Aurora→Astral hands the dying
-// curtain off to the sky-whale (auroraMix 1→0 as whaleMix 0→1). Cycle is now 7 long; every consumer
-// indexes through CYCLE.length so that is safe. Blocks 0-4 reproduce the shipped order byte-for-byte.
-export const CYCLE = [0, 1, 2, 3, 4, 6, 5];
+// curtain off to the sky-whale (auroraMix 1→0 as whaleMix 0→1). Blocks 0-4 reproduce the shipped order.
+// TEMPEST FLIP: Tempest Reach (7) slotted between Aurora (6) and Astral (5) → the CLIMACTIC three-beat
+// AURORA (settling calm) → TEMPEST (the violent storm-sea, the darkest struggle) → ASTRAL (the cosmos).
+// The keyShift leaps −3 → +3 (a musical ASCENSION out of the storm) and Tempest's torn eye-breach light
+// foreshadows the cosmic sky it opens onto. Placement is also tri-budget-forced: Tempest (46.7k) neighbours
+// Aurora (35.5k → 82k pair) + Astral (16.1k → 63k) but NOT the Mire (49.9k → 96.7k > the 90k adjacent cap).
+// Cycle is now 8 long; every consumer indexes through CYCLE.length so that is safe.
+export const CYCLE = [0, 1, 2, 3, 4, 6, 7, 5];
 
-// Debug seam: ?biome=<i> pins the whole course to one biome (no seam crossfade) so an
-// appended-but-not-yet-cycled biome (Aurora Shallows = 6) is flyable before the CYCLE flip.
+// Debug seam: ?biome=<i> pins the whole course to one biome (no seam crossfade) so any biome is
+// flyable in isolation for a clean preview (e.g. ?biome=7 to inspect Tempest Reach without its seams).
+// Every biome (0-7) is now in the CYCLE, but the pin stays useful for hero shots + gate captures.
 // null in all real play → biomeAt is byte-identical (gold-determinism untouched; course gen
 // is biome-blind regardless).
 let forcedBiome = null;
@@ -516,10 +579,24 @@ const env = {
   ambColor: new THREE.Color(), ambFall: 1, ambSway: 1, ambSize: 0.4, ambOpacity: 0.75,
   faunaColor: new THREE.Color(), faunaScale: 1, faunaFlap: 1,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  // THE EMPYREAN inkShoal flock (PR-5b): 0 in every other biome (optional-channel pattern) → the
+  // reskinned circling bird-flock is left byte-identical everywhere the school is OFF. Where a biome
+  // declares `shoal`, ambient.js swaps the lazy circling flock for a coherent school of ink-koi.
+  shoalMix: 0,
+  // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
+  moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
   // pattern) → the aurora sky-splice is a byte-identical no-op until a biome
   // declares `aurora`. Consumed by auroraSky.js via applyAurora(env).
   auroraMix: 0,
+  // THE EMPYREAN (EMPYREAN-BIBLE.md): 0 in every other biome (optional-channel pattern) → the inverted-sky
+  // nebula blooms + the sky-shader sun-disc kill are a byte-identical no-op until a biome declares `empy`.
+  // Consumed by empyreanSky.js via applyEmpyrean(env) (the sky uniforms) AND mirrored into skyProbe.js's
+  // skyColorAt (the 4th touch — a cheap bloom lift for the SH ambient). Crossfades the seam for free.
+  empyMix: 0,
+  // NACRE water gate (PR-2, §4b): 0 in every other biome → byte-identical water. Consumed by water.js via
+  // setWaterTint — kills the sun-glitter + adds satin sheen + iridescence.
+  nacreMix: 0,
   // N8 atmosphere channels (OPTIONAL per biome; 0 everywhere by default so the
   // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
   // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
@@ -621,10 +698,23 @@ export function computeEnv(dist) {
   env.faunaFlap = lerp(a.fauna.flap, b.fauna.flap, ts);
   env.starMix = lerp(a.stars || 0, b.stars || 0, ts);
   env.auroraMix = lerp(a.aurora || 0, b.aurora || 0, ts);
+  // THE EMPYREAN gate (optional-channel): 0 elsewhere = byte-identical; crossfades the aurora-adjacent seam
+  // over the SAME wide window as the rest of the world (ts) so the nebula blooms dawn as the light does.
+  env.empyMix = lerp(a.empy || 0, b.empy || 0, ts);
+  // NACRE water gate (PR-2, §4b): rides the same seam ramp; 0 elsewhere = byte-identical water.
+  env.nacreMix = lerp(a.nacre || 0, b.nacre || 0, ts);
   // whaleMix now rides the SAME 400m window the curtain dies in → the "curtain hands off to the whale"
   // handoff PR-4 described finally happens in one window (was 150m while the curtain took 300m).
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, ts);
+  // THE MOTE (§8, PR-3): the portion of the landmark mix that belongs to a 'mote' landmark biome — drives
+  // the sky-shader Mote term. The whale MESH (ambient.js) shows only the NON-mote remainder (whaleMix −
+  // moteMix), so a mote biome renders the Mote, not the whale. 0 elsewhere → byte-identical.
+  const _lm = (x) => (x.landmark === 'mote' ? (x.whale || 0) : 0);
+  env.moteMix = lerp(_lm(a), _lm(b), ts);
   env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, ts);
+  // THE EMPYREAN inkShoal flock (PR-5b, optional-channel): 0 elsewhere = the circling bird-flock is
+  // byte-identical; rides the same seam ramp (ts) so the school dawns in as the light does.
+  env.shoalMix = lerp(a.shoal || 0, b.shoal || 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
