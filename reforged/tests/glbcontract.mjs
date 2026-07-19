@@ -43,9 +43,16 @@ const { buildDragonModel } = await import('../js/dragonModel.js');
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; console.log(`  ✓ ${msg}`); } else { fail++; console.error(`  ✗ ${msg}`); } };
 
-// The asset-backed dragon(s) in the roster.
+// The asset-backed dragon(s) in the roster. The shipped roster went back to
+// 100% procedural when aurumToro was rebuilt on svj* parts, so the GLB coexist
+// path currently has NO shipped consumer — this contract test then has nothing
+// to bind to and SKIPS (glb.mjs + glbrig.mjs still cover the machinery). It
+// re-arms automatically the moment any def carries a meshUrl again.
 const assetKeys = Object.keys(DRAGONS).filter((k) => DRAGONS[k].meshUrl);
-ok(assetKeys.length > 0, `roster has at least one asset-backed dragon (${assetKeys.join(', ') || 'none'})`);
+if (assetKeys.length === 0) {
+  console.log('  (no asset-backed dragons in the shipped roster — GLB contract vacuous, skipped)');
+  process.exit(0);
+}
 
 for (const key of assetKeys) {
   const def = DRAGONS[key];
