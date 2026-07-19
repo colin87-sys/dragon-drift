@@ -20,21 +20,23 @@ for (let a = 0; a < 12; a++) {
   await page.waitForTimeout(320);
 }
 await page.evaluate(() => {
-  const dd = window.__dd; dd.noBoss && dd.noBoss(true); dd.clearVents && dd.clearVents();
+  const dd = window.__dd; dd.noBoss && dd.noBoss(true); dd.clearVents && dd.clearVents(); dd.clearObstacles && dd.clearObstacles();
   window.__pin = setInterval(() => {
-    dd.game.health = 100; dd.clearVents && dd.clearVents();
+    dd.game.health = 100; dd.clearVents && dd.clearVents(); dd.clearObstacles && dd.clearObstacles();   // drop the phase-gate crystal wall too, so a scenery shot isn't jammed against a gate veil (owner note)
     if (dd.game.state && dd.game.state !== 'playing') dd.game.state = 'playing';
     if (dd.game.dmgFlash != null) dd.game.dmgFlash = 0;
     if (dd.game.hitFlash != null) dd.game.hitFlash = 0;
   }, 16);
 });
-// Natural chase camera (do NOT override cameraCtl) — sample a few distances and keep the frames.
+// Natural chase camera (do NOT override cameraCtl) — sweep several distances (the owner's "multiple shots over ~5s")
+// so the composition reads across a congregation-and-breath range, not one gate-jammed frame. Start dist via arg.
+const d0 = +(process.argv[3] || 380), step = +(process.argv[4] || 60);
 let shot = 0;
-for (let i = 0; i < 5 && shot < 4; i++) {
-  await page.evaluate((o) => { window.__dd.player.dist = o.d; window.__dd.player.speed = 0; }, { d: 380 + i * 90 });
-  await page.waitForTimeout(400);
+for (let i = 0; i < 6 && shot < 6; i++) {
+  await page.evaluate((o) => { window.__dd.player.dist = o.d; window.__dd.player.speed = 0; }, { d: d0 + i * step });
+  await page.waitForTimeout(450);
   writeFileSync(`reforged-captures/forumscene-${tag}-${String(shot).padStart(2, '0')}.png`, await page.screenshot());
-  console.log('frame' + shot + ' @ dist', 380 + i * 90);
+  console.log('frame' + shot + ' @ dist', d0 + i * step);
   shot++;
 }
 await page.evaluate(() => clearInterval(window.__pin));

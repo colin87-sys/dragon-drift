@@ -983,7 +983,10 @@ export const ui = {
     }
     wasFever = game.feverActive;
     wasSurgeReady = surgeReadyNow;
-    if (game.combo > lastCombo + 0.001) restartAnim(els.surgeX, 'combo-pop');
+    // GAUNTLET-FOLLOW GUARD class (owner bug 2026-07-19): with the Keel, .gauntlet-x is
+    // wide and centered by translateX(-50%) — a bare-scale animation on it overrides that
+    // transform and lurches the whole meter sideways per ring. Pop the CHILD slug instead.
+    if (game.combo > lastCombo + 0.001) restartAnim(els.dkX || els.surgeX, 'combo-pop');
     lastCombo = game.combo;
 
     // Chain counter: consecutive rings/windows without a miss. Appears from
