@@ -34,10 +34,17 @@ await page.keyboard.press('Escape');
 await page.waitForSelector('#pm-quit');
 check('pause overlay has EXIT TO MENU', !!(await page.$('#pm-quit')));
 await page.click('#pm-quit');                       // first tap = arm, does NOT quit
-await page.waitForFunction(() => document.querySelector('#pm-quit')?.dataset.armed === '1');
+// Interval polling, NOT the default rAF polling: rAF starves under swiftshader load
+// (the tools/uishots.mjs gotcha) — if arm-detection outlasts the 4s confirm window the
+// "second tap" would re-ARM instead of quitting, and the start screen never returns.
+await page.waitForFunction(() => document.querySelector('#pm-quit')?.dataset.armed === '1', { polling: 120 });
 check('first tap arms the confirm (still paused)', await page.evaluate(() => window.__dd.game.state === 'paused'));
-await page.evaluate(() => document.querySelector('#pm-quit').click());   // second tap = quit (dispatched deterministically)
-await page.waitForSelector('#btn-start');
+// Second tap = quit. Re-arm-and-confirm ATOMICALLY in one task: a swiftshader stall
+// between the arm-detect above and this tap can outlast the 4s confirm window, in
+// which case a lone click would re-ARM instead of quitting (30s flake). Same-task
+// double-click can't be split by the disarm timer.
+await page.evaluate(() => { const b = document.querySelector('#pm-quit'); if (b.dataset.armed !== '1') b.click(); b.click(); });
+await page.waitForFunction(() => !!document.querySelector('#btn-start'), { polling: 120 });
 check('second tap returns to the start screen', await page.evaluate(() => window.__dd.game.state === 'ready'));
 check('rail reachable again after exit (BOSS RUSH still there)', !!(await page.$('#btn-rush')));
 check('no console errors through the flow', errors.length === 0) || console.error(errors.join('\n'));
@@ -55,11 +62,12 @@ await cold.page.waitForTimeout(900);
 check('cold save + ?dev still shows BOSS RUSH', !!(await cold.page.$('#btn-rush')));
 
 // The DEV stage-jump selector: open the roster, arm a later stage, launch the multi-stage
-// boss pinned to it. Only THE UNMASKED is multi-stage (2 sub-rigs built), so the selector
-// shows S1/S2 in dev.
+// boss pinned to it. THE UNMASKED is the multi-stage boss; the selector shows S1..Smax for
+// however many sub-rigs are BUILT (2 when this test was written, 3 since the unveiling
+// became its own stage) — assert ≥2 so a new built stage can't silently break the suite.
 await cold.page.click('#btn-rush');
 await cold.page.waitForSelector('.rush-stage-btn');
-check('dev roster shows the stage-jump selector (multi-stage boss unlocked)', (await cold.page.$$('.rush-stage-btn')).length === 2);
+check('dev roster shows the stage-jump selector (multi-stage boss unlocked)', (await cold.page.$$('.rush-stage-btn')).length >= 2);
 // Arm stage 2 → the button becomes active (the pick persists for the launch).
 await cold.page.click('.rush-stage-btn[data-stage="2"]');
 check('arming a stage marks its button active', await cold.page.$eval('.rush-stage-btn[data-stage="2"]', (el) => el.classList.contains('active')));
