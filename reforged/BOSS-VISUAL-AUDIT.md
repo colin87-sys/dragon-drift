@@ -17,6 +17,15 @@ ONLY_STATE=idle,charge,dread ONLY_BG=dark,sunset node tools/bossstudio.mjs <boss
 The **fight-distance frame** (FOV 72, rel 30, no auto-framing) is the primary verdict — it is
 what a player/trailer actually sees. Contact sheets diagnose *why*.
 
+**Independently audited.** A second, fresh Fable critic re-scored the whole roster BLIND
+(captures first, this doc only afterwards) per the AAA-PIPELINE "builder never judges its own
+output" law. Verdict: **sound-with-corrections** — component findings corroborated
+independently (including Karnvow's anarchy-"A"), all directives perf-legal, but three
+corrections were accepted and are folded in below: the **T7 FOCAL CLIP** tell (the audit's
+biggest miss), a **score recalibration** (concept was being overpaid vs. delivered pixels),
+and a **trailer-first priority track**. Where the two judges disagreed by >0.5, the CONSENSUS
+column shows the reconciled score.
+
 **The perf frame.** Every directive below is 60fps-mobile-safe by construction: geometry,
 palette, baked vertex-color ramps, LineSegments, and per-event lights only. Nothing adds a
 large additive/fresnel shell (the §2 overdraw cliff). Triangles and draws are effectively
@@ -26,29 +35,35 @@ free at our scales; that is the budget these fixes spend.
 
 ## THE SCOREBOARD
 
-| # | Boss | /10 | One-line verdict |
-|---|------|-----|------------------|
-| 8 | BRINEHOLM | **7.5** | The bar. Colossal head + anatomized eye genuinely reads premium; teeth/fins finish cheap. |
-| 10 | KNELLGRAVE | **7.0** | Real dread mood (chain + candle crack); bell profile mushy, clapper never teased. |
-| 13 | EMBERTIDE | **7.0** | Arresting full-frame concept; the face is blur-soup — no internal value structure. |
-| 2 | STORMREND | **6.5** | True identity + focal discipline; center reads "arc reactor," rings too wiry at rel 30. |
-| 14 | THE UNMASKED | **6.5** | Seraph composition lands instantly; feathers are flat navy planks, relics/halo invisible. |
-| 3 | ASHTALON | **5.5** | Killer silhouette on a light sky; near-invisible on its dark home value. Boxy cowl. |
-| 4 | MARROWCOIL | **5.5** | Right value claim (bone on void); skull face is mush + headlamp lure, ribs tangle front-on. |
-| 12 | ONEWING | **5.5** | Dramatic asymmetric silhouette; pastel mauve kills the grief, head is a dandelion lamp. |
-| 6 | HOLLOWGATE | **5.0** | Rose window okay; pillars are clean cardboard boxes — reads as an unfinished blockout. |
-| 11 | WEFTWITCH | **5.0** | Web lines + gold-on-grey work; block-mitten hands, pretzel buttons, nose-lamp face. |
-| 1 | VOIDMAW | **4.5** | Great eyes on a flat mid-purple blob with confetti rectangles and pool-noodle halo arcs. |
-| 7 | THRUMSWARM | **4.5** | Identity IS the formation and the formation is invisible — dark motes on dark sky. |
-| 9 | KARNVOW | **4.0** | Wireframe-blockout body, trophy chain reads as juggling balls, Verdict sigil reads as graffiti scribble. |
-| 5 | EITHERWING | **3.5** | Twins read as tadpoles/sperm cells with a chrome-outline rim. Needs a shape rebuild. |
+Columns: **A** = original audit score · **B** = independent blind Fable score ·
+**CONSENSUS** = reconciled (used everywhere below). The blind pass found the original audit
+**overpaid for concept** (Stormrend, Embertide, Brineholm — ideas the pixels don't deliver
+yet) and **underpaid frame-filling presence** (Hollowgate, Weftwitch).
 
-Roster average ≈ **5.6/10**. The good news: the failures are heavily REPEATED — six recurring
-cheap tells account for most of the lost points, and none of the fixes threaten 60fps.
+| # | Boss | A | B | CONSENSUS | One-line verdict |
+|---|------|---|---|-----------|------------------|
+| 14 | THE UNMASKED | 6.5 | 7.0 | **7.0** | Roster's best composition (s2 seraph); feathers are flat navy planks, relics/halo invisible. |
+| 10 | KNELLGRAVE | 7.0 | 7.0 | **7.0** | Real dread mood (chain + candle crack); bell profile mushy, clapper never teased. |
+| 8 | BRINEHOLM | 7.5 | 6.0 | **6.5** | Scale genuinely lands — but the hero eye CLIPS to a blown white crescent at the fight frame (T7). |
+| 2 | STORMREND | 6.5 | 5.5 | **6.0** | A mandala, not yet a monster: cog-core anti-read, wiry mass, clipped white core. |
+| 13 | EMBERTIDE | 7.0 | 5.5 | **6.0** | Arresting concept; blur-soup with zero crisp edges, and the round hollows read startled-emoji, not dread. |
+| 6 | HOLLOWGATE | 5.0 | 6.0 | **5.5** | Real presence + legible focal; pillars are still clean cardboard boxes (blockout read). |
+| 11 | WEFTWITCH | 5.0 | 6.0 | **5.5** | Frame-filling web drama is above-median; mitten hands, pretzel buttons, nose-lamp face drag it down. |
+| 4 | MARROWCOIL | 5.5 | 5.5 | **5.5** | Right value claim (bone on void); skull face is mush + headlamp lure, ribs tangle front-on. |
+| 12 | ONEWING | 5.5 | 5.5 | **5.5** | Dramatic asymmetric silhouette; pastel mauve kills the grief, head is a dandelion lamp. |
+| 3 | ASHTALON | 5.5 | 4.5 | **5.0** | Killer silhouette on a light sky; ~95% invisible on its own home value — a broken frame, not a quirk. |
+| 1 | VOIDMAW | 4.5 | 4.0 | **4.5** | Great eyes on a flat mid-purple blob with confetti rectangles and pool-noodle halo arcs. |
+| 7 | THRUMSWARM | 4.5 | 4.0 | **4.5** | Identity IS the formation and the formation is invisible — dark motes on dark sky. |
+| 9 | KARNVOW | 4.0 | 3.5 | **4.0** | Wireframe-blockout body, juggling-ball trophies, Verdict sigil reads as a scribbled anarchy-"A". |
+| 5 | EITHERWING | 3.5 | 3.5 | **3.5** | Both judges independently: tadpoles/sperm cells with a chrome-outline rim. Shape rebuild. |
+
+Consensus average ≈ **5.4/10**. The good news: the failures are heavily REPEATED — seven
+recurring cheap tells account for most of the lost points, and none of the fixes threaten
+60fps.
 
 ---
 
-## THE SIX ROSTER-WIDE SLOP TELLS (fix these patterns, lift half the roster at once)
+## THE SEVEN ROSTER-WIDE SLOP TELLS (fix these patterns, lift half the roster at once)
 
 These extend the AAA-PIPELINE §2 registry with boss-specific instances. The external research
 (digest below) names the same failure modes independently — this is what "AI slop" reads as.
@@ -88,9 +103,21 @@ fight-dark frame first; if <~8% of the frame carries lit boss pixels, add lit-ed
 
 **T6 — SCRIBBLE FX: hatch-line spectacle instead of drawn ribbons.**
 Karnvow's Voidmaw's-Verdict seal renders as pencil scribbles (and accidentally draws an
-anarchy-"A" — a catastrophic anti-read for the roster's lore-payoff moment). Registry tell
-#10: a line read needs ONE continuous ribbon threaded through authored nodes, blooms riding
-its peaks — never independent hatch marks.
+anarchy-"A" — a catastrophic anti-read for the roster's lore-payoff moment; the independent
+blind pass read the same letterform). Registry tell #10: a line read needs ONE continuous
+ribbon threaded through authored nodes, blooms riding its peaks — never independent hatch
+marks. Same family: Eitherwing's dotted handoff polyline reads as a DEBUG GIZMO / editor
+annotation, not an organ.
+
+**T7 — FOCAL CLIP: emissive that tone-maps to textureless white at fight distance.**
+*(Added by the independent audit — the original pass's biggest miss.)* Distinct from T4:
+anatomy can EXIST and still clip. Brineholm's celebrated eye is a blown white crescent at
+the rel-26 fight frame — the sclera/iris/pupil work is not survivable through bloom+ACES at
+that intensity; the same clipping kills Stormrend's core, Eitherwing's pearl, Onewing's head
+lamp, Karnvow's cowl orb. *Law:* cap focal emissive so the IRIS RING keeps visible hue at
+fight distance — numeric gate: hue must survive at the 90th-percentile pixel of the focal
+region in the fight-dark capture. The core carries brightness, the halo carries hue
+(registry tell #6) — but only if the core is capped below full clip.
 
 ---
 
@@ -216,15 +243,19 @@ rocket.
 - Queen: scale the amber eye ~1.5×, add two swept wing-nub blades so she reads as the
   swarm's mother-shape, not a gem.
 
-### 8 · BRINEHOLM — 7.5/10 (the roster bar)
+### 8 · BRINEHOLM — 6.5/10 consensus (was "the bar" at 7.5 — the independent audit demoted it)
 **Works:** the only boss that already sells scale — the head fills and exceeds the frame;
-the eye is the L157 anatomy lesson shipped (sclera + iris + hot core + lid); bioluminescent
-motes; shackle hardware tells the story; gullet glow under the teeth.
-**Fails:** the teeth/baleen are a picket fence (registry tell #2: equal flat solid-green
-triangles, plastic-flat, no rank decay); the side fins are flat purple/mint paddle-pops
-(tell #12: single-value membrane bays); the crown rock blob above frame reads as floating
-debris (T3); hull panels on the head read faintly man-made.
-**Uplift (one polish sweep, no redesign):**
+bioluminescent motes; shackle hardware tells the story; gullet glow under the teeth.
+**Fails:** **the hero eye CLIPS (T7)** — at the rel-26 fight frame the L157 anatomy
+(sclera/iris/pupil/catchlight) tone-maps to a blown white crescent; the roster's flagship
+focal is a textureless smear in exactly the frames a trailer would use. Plus: teeth/baleen
+picket fence (registry tell #2: equal flat solid-green triangles, no rank decay); side fins
+are flat purple/mint paddle-pops (tell #12); the crown rock blob reads as floating debris
+(T3); head panels faintly man-made.
+**Uplift (exposure FIRST, then the polish sweep):**
+- **Eye exposure pass before anything else:** cap the core's HDR multiplier until the iris
+  ring holds visible teal hue at the fight frame (the T7 numeric gate); let the HALO carry
+  the brightness read. Without this, every other polish polishes around a broken hero.
 - Teeth: dominant + steep-decay rank ladder, per-tooth width/height jitter (index-hash),
   root-dark→tip-light vertex band, slight translucency step at tips.
 - Fins: value-band by depth (taut root lit → cup shadow) + 2 fold ridges each.
@@ -242,10 +273,12 @@ anarchy-"A" glyph (T6) — the single worst frame in the audit.
 **Uplift:**
 - Solidify the robe: near-black opaque planes, lit edge-seams only at the hems + shoulder
   blades (structured, sparse); keep the reaper-thin silhouette.
-- Trophies = miniature silhouettes of their owners' HOOKS, not spheres: Voidmaw's snapped
-  horn (violet break-glint), Ashtalon's feather-blade (ember slit), a bell shard, a thread
-  spool — each with its owner's accent as a single glint. This is the whole point of the boss
-  and currently absent.
+- Trophies = miniature silhouettes of their owners' HOOKS, not spheres — but MAX 3, each
+  ~2× the current sphere size, staggered heights, ONE accent glint each (independent-audit
+  correction: a full charm-bracelet of sub-10px trinkets at rel 30 just becomes new T3
+  confetti). Pick the three most iconic: Voidmaw's snapped horn (violet break-glint),
+  Ashtalon's feather-blade (ember slit), a bell shard. Gate on a fight-distance readability
+  check, same as the seal's anti-letterform test.
 - Redraw the Verdict as ONE continuous ribbon tracing an authored rune-ring (arc + horn
   glyph nodes, bloom riding the pen tip) per registry tell #10. No hatching. Verify the final
   composed shape against anti-read glyphs (it must never letterform).
@@ -278,7 +311,10 @@ closed kite/shield shape (front-on reads as a beetle).
   fix.
 - Move the knots ONTO the threads (motifs traveling the web, thread-dew glints at
   intersections); strip the robe to matte moth-grey with ONE embroidered seam line.
-- Empty the hood: true occluded void (no lamp); her two pale hands supply the light.
+- Empty the hood of the LAMP — but not to a total void (independent-audit correction: hands
+  20+ units apart can't carry a headless kite at fight distance). Leave one residual read at
+  ~1/10 the old intensity: two faint thread-glint slits or a stitched-seam "closed eye";
+  the hands remain the primary face.
 - Fray the robe hem into 5–7 woven strands that visibly BECOME arena threads — body merges
   into web, the L141 field-is-the-body read.
 
@@ -305,13 +341,16 @@ bead-thread (its claimed glow-shape) is not visible at all.
 face-in-the-light concept lands at first glance; palette owns sunset.
 **Fails:** the face is BLUR-SOUP — soft ovals in soft gradient with zero internal value
 structure (the L219 directive — BOLD structured bands bending around the head — has not
-landed); the mouth hollow has a hard sticker edge against an otherwise fully soft field; no
+landed); **the EXPRESSION anti-reads (independent-audit find): two round hollows + a round
+"oh" mouth compose a STARTLED EMOJI, not dread** — texture fixes alone won't cure a goofy
+face; the mouth hollow has a hard sticker edge against an otherwise fully soft field; no
 scale cues, so it can read as a lava-lamp closeup rather than a horizon-sized entity.
 **Uplift:**
 - Structure the field into 4–6 distinct banded strata with definite value steps; make the
   bands visibly BEND around the skull volume and BREAK at the jaw (jaw dissolves into tide —
   L219 verbatim).
-- Angular-ize the eye hollows (hexagonal-ish negative cuts, asymmetric) and let the mouth
+- Angular-ize the eye hollows (hexagonal-ish negative cuts, asymmetric) and cant them
+  DOWNWARD with a brow-shadow band above — this kills the startled-emoji read; let the mouth
   edge fray into the band flow — kill the sticker edge.
 - Scale cues: a few tiny dark cinder silhouettes drifting ACROSS the field (birds-before-
   the-sun grammar) — 20 tris, sells kilometers.
@@ -381,27 +420,35 @@ tooling investment for selling the game.
 
 ---
 
-## PRIORITY ORDER (impact ÷ effort, trailer-first)
+## PRIORITY ORDER — two tracks (independent-audit correction)
 
-1. **EITHERWING shape rebuild** (3.5 → the floor is embarrassing for a Tier-2 peak; blade
-   kit inheritance makes it tractable).
-2. **KARNVOW trophy + seal + robe pass** (4.0; it's boss 9, the lore payoff, and its dread
-   card is the worst frame in the roster).
-3. **THRUMSWARM star-point pass** (4.5; tiny change — emissive points + ghost lines — flips
-   the entire identity on).
-4. **VOIDMAW value + halo pass** (4.5; it's boss 1 — the first impression of the game's
-   boss game).
-5. **ASHTALON dark-sky ember veins** (5.5; one filament system fixes its only real failure;
-   its silhouette is already trailer-grade on light skies).
-6. **HOLLOWGATE carving + leaded panes** (5.0).
-7. **WEFTWITCH hands + hood** (5.0; kit exists).
-8. **MARROWCOIL skull emblem + lure hang** (5.5).
-9. **ONEWING value crush + head** (5.5).
-10. **UNMASKED feather banding + halo + relics** (6.5 but it's the Apex — it must end ≥9;
-    shares the relic kit with Karnvow, build once).
-11. **STORMREND eye anatomy + ring dominance** (6.5).
-12. **Polish sweeps:** BRINEHOLM teeth/fins (7.5), KNELLGRAVE profile edge + clapper tease
-    (7.0), EMBERTIDE band structure (7.0, the L219 redo).
+The original single queue optimized *worst-frame removal*. The independent audit's point,
+accepted: **a trailer shows your best 5–6 frames**, so ceiling-raising near-trailer bosses
+sells the game before floor-raising bosses you'd cut from the montage. Run the TRAILER track
+first if the goal is the trailer; the FLOOR track is still mandatory before ship (players
+stream everything).
 
-Every item above is palette/vertex-color/geometry/LineSegments work — zero new additive
-volumes, zero post-FX, 60fps-safe by the §2 budget rules.
+**TRACK A — TRAILER (ceiling-raisers, cheapest first):**
+1. **UNMASKED feather banding + halo + relics** — already the roster's best composition at
+   7.0; this is the Apex money frame and the highest trailer-ROI item in the doc.
+2. **BRINEHOLM eye-exposure fix (T7) + teeth/fins sweep** — every trailer cut will feature
+   this head; right now its hero focal is a blown white smear in all of them.
+3. **EMBERTIDE band structure + de-emoji the face** — horizon-scale face is exactly trailer
+   grammar; cheap fix, top-3 concept.
+4. **VOIDMAW value + halo pass** — boss 1, the demo/first-trailer boss.
+5. **ASHTALON ember veins** + **THRUMSWARM star-point pass** — tiny, transformative; both
+   frames become trailer-usable overnight.
+6. **KNELLGRAVE profile edge + clapper tease** — near-done atmosphere piece.
+
+**TRACK B — FLOOR (no embarrassing frame ships):**
+7. **EITHERWING shape rebuild** (3.5; Tier-2 peak; blade-kit inheritance makes it tractable).
+8. **KARNVOW trophy + seal + robe pass** (4.0; the lore payoff; its dread card is the worst
+   frame in the roster).
+9. **HOLLOWGATE carving + leaded panes** (5.5).
+10. **WEFTWITCH hands + hood** (5.5; finger-chain kit exists).
+11. **MARROWCOIL skull emblem + lure hang** (5.5).
+12. **ONEWING value crush + head** (5.5).
+13. **STORMREND eye anatomy + ring dominance + core exposure cap** (6.0).
+
+Every item on both tracks is palette/vertex-color/geometry/LineSegments work — zero new
+additive volumes, zero post-FX, 60fps-safe by the §2 budget rules.
