@@ -2025,7 +2025,7 @@ export function updateDragon(dt, player, time) {
   // stronger sustained membrane drive (the wing region was statistically silent at t=0.40).
   const wingPulse = surgeCascadeT >= 0
     ? _sstep(CAS_ON[2], CAS_END[2], surgeCascadeT) * (1 - _sstep(CAS_END[2] + 0.10, CAS_END[2] + 0.35, surgeCascadeT)) : 0;
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 1.55 + wingPulse * 1.5 + igS(2) * 1.4) * sgm
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 1.55 * breatheK + wingPulse * 1.5 + igS(2) * 1.4) * sgm
     + inhale01 * 0.9    // PR-C: the mantled wings GLOW as the charge draws
     + gatherW * 1.15;   // I4 fix 3: the ultimate's gather lifts the WINGS (the rear-chase read)
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
@@ -2218,7 +2218,7 @@ export function updateDragon(dt, player, time) {
       // Reclaim contrast: while Surge is armed the resting emissive is dimmed to ~35% until this
       // mat's station ignites — the "before" is genuinely dark (armedDim=1 off-Surge → byte-identical).
       const armedDim = surgeCascadeT >= 0 ? 0.35 + 0.65 * Math.min(1, lvl) : 1;
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * armedDim * Math.max(0.12, 1 + (lvl * 1.9 + igm * 2.8) * sgm * wi);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * armedDim * Math.max(0.12, 1 + (lvl * 1.9 * breatheK + igm * 2.8) * sgm * wi);
     }
   } else {
     for (const m of spineFlareMats) {
@@ -2250,7 +2250,7 @@ export function updateDragon(dt, player, time) {
   // Gate-critic #2: the WING beat also fires a one-beat RIM pulse — hero wing kits (Vesper's
   // fingered membranes) carry their own materials that ignore wingMat, so the membrane pulse
   // measured near-black at its own beat; the rim registry reaches EVERY mat's silhouette edge.
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[4] * 2.0 + wingPulse * 2.2 + surgeHump * casLevel[4] * 0.7 + gatherW * 1.6) * quality * (1 + igniteBeat01 * 0.30);
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[4] * 2.4 * breatheK + wingPulse * 2.2 + surgeHump * casLevel[4] * 0.7 + gatherW * 1.6) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
@@ -2291,8 +2291,10 @@ export function updateDragon(dt, player, time) {
   // Vision re-score #5: the corona carrier SPLITS — most of the crown weight moves to the
   // HEAD-LOCAL sprite (below) so the cascade's origin reads at the head, not the saddle; the
   // shared chest aura keeps a reduced share (the sum ≈ the gated ×1.35 carrier strength).
+  // OWNER LAW (#9): the fever aura was reading as THE surge change — a cheap round bloom over
+  // the body. Cut to a whisper (the components carry the state); the ignition beats still flare it.
   const auraTarget = (player.feverActive
-    ? ((0.32 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.08) * casOverall + eyeCorona * 0.55 + casLevel[3] * 0.20) * breatheK
+    ? ((0.14 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.04) * casOverall + eyeCorona * 0.20 * (surgeCascadeT >= 0 ? 1 - _sstep(0.6, 1.4, surgeCascadeT) : 1) + casLevel[3] * 0.08) * breatheK
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.14;   // PR-C: the halo swells with the drawn breath (Fable 75: 0.22→0.14)
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
@@ -2303,7 +2305,11 @@ export function updateDragon(dt, player, time) {
   // hue borrowed 30% from the dragon's fever eye. Visible only while the crown station lives
   // (opacity snaps to 0 → off-Surge byte-identical, and the sprite hides so it costs no DC).
   if (headCorona) {
-    const hcT = player.feverActive || surgeCascadeT >= 0 ? eyeCorona * 0.95 : 0;
+    // OWNER LAW (DRAGON-DESIGN failure mode #9 — the round bloom blob, rejected twice): the
+    // corona is an ignition TELL, not a lamp. Full for the crown beat, GONE by ~1.4s — the
+    // sustained transformation lives on COMPONENTS (rim/spine/membranes), never a billboard.
+    const hcSus = surgeCascadeT >= 0 ? 1 - _sstep(0.6, 1.4, surgeCascadeT) : 1;
+    const hcT = player.feverActive || surgeCascadeT >= 0 ? eyeCorona * 0.95 * hcSus : 0;
     let hcO = damp(headCorona.material.opacity, hcT, 8, dt);
     if (hcT < 0.01 && hcO < 0.02) hcO = 0;
     headCorona.material.opacity = hcO;
