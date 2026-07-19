@@ -7,7 +7,7 @@ register('../tools/three-resolver.mjs', import.meta.url);
 
 const THREE = await import('three');
 const { computeEnv } = await import('../js/biomes.js');
-const { applyArenaSkin, VOID_HEX, FLOOD_HEX, HEAVEN_HEX, GOLD_FLOOD_HEX, ARENA_ENV_KEYS } = await import('../js/arenaSkin.js');
+const { applyArenaSkin, VOID_HEX, FLOOD_HEX, HEAVEN_HEX, GOLD_FLOOD_HEX, ARENA_ENV_KEYS, ARENA_SILENCED_KEYS, ARENA_PASSTHROUGH_KEYS } = await import('../js/arenaSkin.js');
 const { decodePNG } = await import('../tools/silhouetteCore.mjs');
 import { readFileSync } from 'node:fs';
 
@@ -22,14 +22,19 @@ const snap = (env) => {
   return o;
 };
 
-// --- Schema completeness (audit F3.4): the arena must set EXACTLY the env's fields, so a graphics-
-// stream env addition fails LOUDLY here instead of leaking a biome value into the void.
+// --- Schema completeness (audit F3.4): the arena must CLASSIFY EXACTLY the env's fields — every field is
+// either palette-LERPED to the void/heaven (ARENA_ENV_KEYS), SILENCED as the arena floods (a biome-effect
+// gate, ARENA_SILENCED_KEYS), or a documented harmless PASS-THROUGH (ARENA_PASSTHROUGH_KEYS). A graphics-
+// stream env addition that isn't classified fails LOUDLY here instead of leaking a biome value into the void.
 const envKeys = new Set(Object.keys(computeEnv(0)));
-const arenaKeys = new Set(ARENA_ENV_KEYS);
-const missing = [...envKeys].filter((k) => !arenaKeys.has(k));
-const extra = [...arenaKeys].filter((k) => !envKeys.has(k));
+const handled = new Set([...ARENA_ENV_KEYS, ...ARENA_SILENCED_KEYS, ...ARENA_PASSTHROUGH_KEYS]);
+const missing = [...envKeys].filter((k) => !handled.has(k));
+const extra = [...handled].filter((k) => !envKeys.has(k));
 check(missing.length === 0 && extra.length === 0,
-  `ARENA_ENV_KEYS is schema-complete vs computeEnv (missing ${JSON.stringify(missing)}, extra ${JSON.stringify(extra)})`);
+  `every computeEnv key is arena-classified (lerped/silenced/passthrough) (missing ${JSON.stringify(missing)}, extra ${JSON.stringify(extra)})`);
+// The three sets must stay DISJOINT (a key silenced AND lerped would be ambiguous) — a second tripwire.
+const allKeys = [...ARENA_ENV_KEYS, ...ARENA_SILENCED_KEYS, ...ARENA_PASSTHROUGH_KEYS];
+check(allKeys.length === handled.size, `arena key sets are disjoint (no key both lerped and silenced/passthrough)`);
 
 // --- Byte-identity at mix 0 (the coexistence proof): applyArenaSkin(env, 0) changes NOTHING.
 for (const dist of [0, 1500, 4200, 9001]) {
@@ -53,11 +58,23 @@ for (const dist of [0, 4200]) {
   check(wrong.length === 0, `mix 1 is the VOID table exactly from dist ${dist} (wrong: ${JSON.stringify(wrong)})`);
 }
 
+// --- The leak is CLOSED (not just classified): force EVERY silenced gate ON in a scratch env, flood to
+// the full void, and prove each is driven to 0 — no aurora/rain/storm/shoal/mote/aerial effect can hang
+// over the hollow. (This is the assertion the schema-only test was missing when 26 gates leaked through.)
+{
+  const env = computeEnv(0);
+  for (const k of ARENA_SILENCED_KEYS) env[k] = 1;   // pretend a storm/aurora biome had them all lit
+  applyArenaSkin(env, 1);                             // full void
+  const leaked = ARENA_SILENCED_KEYS.filter((k) => Math.abs(env[k]) > 1e-6);
+  check(leaked.length === 0, `every biome-effect gate is silenced to 0 in the void (leaked: ${JSON.stringify(leaked)})`);
+}
+
 // --- PR-B: HEAVEN schema-completeness (all four tables must set exactly ARENA_ENV_KEYS — a missing
 // heaven field silently inherits the biome).
+const arenaKeySet = new Set(ARENA_ENV_KEYS);
 for (const [tbl, name] of [[FLOOD_HEX, 'FLOOD'], [HEAVEN_HEX, 'HEAVEN'], [GOLD_FLOOD_HEX, 'GOLD_FLOOD']]) {
   const keys = new Set(Object.keys(tbl));
-  const miss = ARENA_ENV_KEYS.filter((k) => !keys.has(k)), ext = Object.keys(tbl).filter((k) => !arenaKeys.has(k));
+  const miss = ARENA_ENV_KEYS.filter((k) => !keys.has(k)), ext = Object.keys(tbl).filter((k) => !arenaKeySet.has(k));
   check(miss.length === 0 && ext.length === 0, `${name}_HEX is schema-complete (missing ${JSON.stringify(miss)}, extra ${JSON.stringify(ext)})`);
 }
 // --- PR-B: mix 2 ⇒ HEAVEN exact from any biome; fade 0 ⇒ zero writes; the S2→S3 seam is continuous.

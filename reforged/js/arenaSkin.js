@@ -27,6 +27,26 @@ const SCALAR_KEYS = [
 ];
 export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 
+// Graphics-stream BIOME-EFFECT gates (xMix-style enables) added by later biome/storm/reflection work.
+// The arena does NOT palette-lerp these toward a void/heaven value — it SILENCES them (→0) as it floods,
+// exactly like the original empy/nacre/mote handling, so no biome effect (aurora curtains, storm rain,
+// the Empyrean bloom, shoal shimmer, aerial props, water-reflection stretch…) can draw OVER the authored
+// void/heaven. Byte-identical off-arena (mix 0 returns before applyMix) and in THE UNMASKED's anchor
+// biome where these are already 0. Adding one to computeEnv without classifying it trips the schema test.
+export const ARENA_SILENCED_KEYS = [
+  'shoalMix', 'moteMix', 'auroraMix', 'empyMix', 'nacreMix', 'moteDepthFade',
+  'propAerial', 'reflStretch', 'reflGlint', 'reflGreenPull', 'surgeWarm',
+  'canopyRoof', 'horizonShaft', 'heroRim', 'cloudForce', 'deckBias',
+  'stormSea', 'windX', 'windZ', 'rainMix', 'breachMix',
+];
+// Consciously PASSED THROUGH (not overridden): the god-ray shaft params (the void SUPPRESSES shafts via
+// voidSky; the heaven SWELLS them boss-side via setGodRayBoost — either way the arena leaves the tint/mul/
+// break as-is, byte-identical to the shipped anchor-biome fight) and the two now-silenced effects' colors
+// (moot — propAerial/heroRim are silenced to 0, so their colours never render).
+export const ARENA_PASSTHROUGH_KEYS = [
+  'godrayMul', 'godrayBreak', 'godrayTint', 'propAerialColor', 'heroRimColor',
+];
+
 // THE VOID — "The Hollow Behind the Sky, Where It Made the Masks." The maskwright's workshop: the sun
 // GONE (sunGlow 0 → the water sun-streak dies with it), the world fog-swallowed to a ~200m pocket, a
 // bruise-violet horizon band at wing height, mask-dust falling UP (ambFall negative), the stars
@@ -167,13 +187,13 @@ function applyMix(env, mix) {
     if (m < T0) { copyInto(env, VOID); blend(env, GOLDFLOOD, sstep(m / T0)); }
     else { copyInto(env, GOLDFLOOD); blend(env, HEAVEN, sstep((m - T0) / (1 - T0))); }
   }
-  // THE EMPYREAN is THE UNMASKED's anchor biome, so its arena WILL start in biome 5. The empy/nacre gates
-  // are graphics-stream fields the arena palette does NOT lerp (like auroraMix/breachMix/deckBias — 24 such
-  // gates, by design), so silence them explicitly as the arena floods the sky/water, or the Empyrean bloom +
-  // sun-kill + nacre would draw OVER the void/heaven. Fade with the flood; 0 at full void/heaven. (mix===0
-  // returns before applyMix → byte-identical off-arena; non-Empyrean biomes have empy/nacre 0 already.)
+  // THE EMPYREAN is THE UNMASKED's anchor biome, so its arena WILL start in biome 5. The biome-effect
+  // gates (empyMix/nacreMix/moteMix/auroraMix/rainMix/stormSea/… — see ARENA_SILENCED_KEYS) are graphics-
+  // stream fields the arena palette does NOT lerp, so silence them explicitly as the arena floods the
+  // sky/water, or the Empyrean bloom + sun-kill + nacre (or, in a boss-rush from another biome, the aurora
+  // curtains / storm rain / shoal shimmer) would draw OVER the authored void/heaven. Fade with the flood;
+  // 0 at full void/heaven. (mix===0 returns before applyMix → byte-identical off-arena; the anchor biome
+  // has most of these 0 already.)
   const _k = 1.0 - Math.min(1, mix);
-  env.empyMix *= _k;
-  env.nacreMix *= _k;
-  env.moteMix *= _k;   // the Mote must not hang over the void/heaven either (THE UNMASKED IS the Mote when the coupling lands — boss-side work)
+  for (const key of ARENA_SILENCED_KEYS) env[key] *= _k;
 }
