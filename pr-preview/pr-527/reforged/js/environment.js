@@ -2129,7 +2129,7 @@ const ARCHETYPES = {
   // 0.1 → present in more breaths than the sentinel (it's the connective mid-mass, not a rare elder);
   // sMax 1.15 → gentle swell, never rivals the sentinel; rotY random so each court presents fresh.
   choirstones: {
-    step: 47, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0.1, sMin: 0.85, sMax: 1.15 },
+    step: 47, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'mid', comp: { floor: 0.1, sMin: 0.85, sMax: 1.15 },
     build: () => mergeParts(buildChoirstonesParts(), 5),
     // Pushed further off-lane than the sentinel (x 25–34) because the COURT footprint spreads ±1 in object
     // space — the extra reach must still clear the ±16 gate veil (propclearance audits it). h 8–14 keeps the
@@ -2154,7 +2154,7 @@ const ARCHETYPES = {
   // rose on the LOW waterline lip only, crown bare. Off-lane like the courts; the arc's lateral reach is
   // in the r footprint (propclearance audits it).
   haloShard: {
-    step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
+    step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'early', comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
     build: () => mergeParts(buildHaloShardParts(), 5),
     place: (side, rnd) => ({ x: side * (23 + rnd() * 9), h: 9 + rnd() * 7, r: 6 + rnd() * 3, tilt: side * (rnd() * 0.05 - 0.02) }),
   },
@@ -2162,7 +2162,7 @@ const ARCHETYPES = {
   // LOW (h ≤ 2× width via place); INVERSE ladder crest-lift ≤1.15; parks in the mid-field read range
   // like the pearlshoal (a low pale prop dies on the fog horizon).
   shardShrine: {
-    step: 43, biomes: empyNew, matIndex: 5, comp: { floor: 0.22, sMin: 0.85, sMax: 1.1 },
+    step: 43, biomes: empyNew, matIndex: 5, laneBand: 'late', comp: { floor: 0.22, sMin: 0.85, sMax: 1.1 },
     build: () => mergeParts(buildShardShrineParts(), 5),
     place: (side, rnd) => ({ x: side * (20 + rnd() * 8), h: 2.6 + rnd() * 2.2, r: 4.5 + rnd() * 2.5, tilt: side * (rnd() * 0.03 - 0.012) }),
   },
@@ -5748,6 +5748,34 @@ function writeMatrix(band, i, d) {
       const g = calderaComp(d.dist);
       const c = band.def.comp;
       const density = c.floor + (1 - c.floor) * g;
+      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
+      else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
+  } else if (active && bi === 5) {
+    // THE EMPYREAN composition (uplift PR-2, RINGCOURT reference §staged identity) — the FIRST real
+    // bi===5 branch: until now the empy defs' comp was INERT (no branch consumed it → uniform density =
+    // the 5.8 review's "early/mid/late nearly interchangeable"). (a) The arrival beat opens the
+    // Aurora→Empyrean seam on clear water (The Breach). (b) A raised-cosine congregation rhythm (the
+    // caldera grammar, ~800m period) parks off-beat instances into courts + open nacre breaths.
+    // (c) A LANE-BAND weight stages the biome's identity: halo shards own the EARLY third, stone courts
+    // the MID, shard shrines the LATE approach (sentinel + pearlshoal carry no laneBand — the constants).
+    // ALL pure functions of dist/side/slot (position-hashed, never band-conditional rejection on the
+    // shared rnd stream) → gold-determinism byte-identical.
+    if (band.def.arrivalPark) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+      if (seamDelta < 220) active = false;
+    }
+    if (active && band.def.comp) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const t = local / CONFIG.biomeLength;                     // biome-local progress 0→1
+      const g = 0.5 - 0.5 * Math.cos(d.dist * 0.00785);         // ~800m raised-cosine congregation
+      let bandW = 1;
+      if (band.def.laneBand === 'early') bandW = t < 0.34 ? 1 : 0.25;
+      else if (band.def.laneBand === 'mid') bandW = t < 0.20 ? 0.55 : t > 0.72 ? 0.5 : 1;
+      else if (band.def.laneBand === 'late') bandW = t > 0.60 ? 1 : 0.30;
+      const c = band.def.comp;
+      const density = Math.min(1, (c.floor + (1 - c.floor) * g) * bandW);
       if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
       else k = c.sMin + (c.sMax - c.sMin) * g;
     }
