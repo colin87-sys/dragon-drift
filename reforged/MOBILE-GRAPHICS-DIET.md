@@ -78,12 +78,20 @@ here explicitly, and the tiershots/dynRes stage-0 invariant must be re-scoped to
 desktop. Keep `?msaa0/?msaa2/?msaa4` A/B. Edge loss mitigation: dynRes dither + no
 FXAA replacement (that would re-add the pass we're cutting).
 
-**D2 — Fold grading into OutputPass (F4). Zero look lost — so it ranks second.**
-Today tonemap (`OutputPass`, `postfx.js:303`) and grade/vignette/dither
-(`GradingShader`, `postfx.js:305`) are TWO full-screen passes. Merging them removes a
-full-frame store+load on every frame on every device with byte-target-identical math.
-By this plan's own metric (ms per look lost) a free pass-merge outranks every cut that
-spends look.
+**D2 — Fold grading into OutputPass (F4). Zero look lost — so it ranks second.
+✓ LANDED 2026-07-19 (first rung shipped — see Gate Log).**
+Tonemap (`OutputPass`) and grade/vignette/dither (`GradingShader`) were TWO
+full-screen passes; they are now ONE fused `OutputGradePass` (default) — removing a
+full-frame store+load of the multisampled HalfFloat RT (an MSAA store+resolve+reload,
+since the old `OutputPass` hop wrote into the 4× RT) on every frame on every device
+with byte-target-identical math. `?gradefold=0` restores the shipped two-pass chain
+(the A/B / refutation control); both shapes are assembled from the SAME grade GLSL
+strings so they cannot drift; each chromatic-aberration tap is tonemapped+encoded
+individually for exact parity with sampling the old intermediate RT.
+`tests/gradefold.mjs` guards structure + pixel identity (frozen-frame in-page A/B:
+maxΔ = 1/255, ~94% of pixels byte-identical — the residual is the *removed*
+half-float quantize, a sub-LSB precision improvement). By this plan's own metric
+(ms per look lost) a free pass-merge outranks every cut that spends look.
 
 **D3 — Half-res god-ray march (F2).** The march is a full-res fullscreen pass
 (`postfx.js:299-301`); shafts are soft by construction — render at half res (¼ the

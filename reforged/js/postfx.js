@@ -4,39 +4,40 @@ import { RenderPass } from '../lib/postprocessing/RenderPass.js';
 import { ShaderPass } from '../lib/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/postprocessing/OutputPass.js';
+import { Pass, FullScreenQuad } from '../lib/postprocessing/Pass.js';
 import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays, setGodRayMaskScale, setGodRayMaskDuty } from './godrays.js';
 export { setGodRayMaskDuty };   // re-exported so main.js drives the whole god-ray control surface through postfx
 import { damp, clamp } from './util.js';
 import { game } from './gameState.js';
 
-// Post pipeline: RenderPass -> UnrealBloom -> OutputPass -> grading.
+// Post pipeline: RenderPass -> UnrealBloom -> god-rays -> output+grade.
 // The scene pass renders linear HDR (r160 skips tone mapping into render
-// targets), bloom thresholds in linear light, OutputPass applies the
-// renderer's ACES + sRGB encode, and grading runs last on display-referred
-// color so the saturation/vignette lift behaves predictably.
+// targets), bloom thresholds in linear light, then ONE fused pass applies the
+// renderer's ACES + sRGB encode AND the display-referred grade (D2,
+// MOBILE-GRAPHICS-DIET: tonemap + grade used to be two full-screen passes —
+// OutputPass then GradingShader — which cost a full-frame store+reload of the
+// multisampled HalfFloat RT every frame on tile GPUs for zero look).
+// ?gradefold=0 restores the shipped two-pass chain for the A/B / refutation
+// control; the grade math is shared VERBATIM between both paths (below), so
+// the fold is a pass-count change, never a math change.
 // Tier 2 (or missing float-RT support) falls back to a raw renderer.render,
 // which keeps ACES via renderer.toneMapping — tonally consistent.
 
-const GradingShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    saturation: { value: 1.18 },
-    vibrance: { value: 0.30 },
-    contrast: { value: 0.24 },     // 0..1 blend toward an S-curve (more punch)
-    vignette: { value: 0.30 },
-    aberration: { value: 0.0 },    // chromatic aberration strength
-    lift: { value: 0.0 },          // fever warm-glow pulse
-    liftTint: { value: new THREE.Vector3(0.10, 0.03, 0.08) }, // wash hue (magenta default)
-    uDither: { value: 1.0 },       // N1: 1 = dither ON (kill with ?dither=0), 0 = shipped
-  },
-  vertexShader: /* glsl */`
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }`,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
+// ── The grade, single source of truth for BOTH pass shapes ──────────────────
+// Uniforms + GLSL strings are shared by the shipped two-pass GradingShader
+// (?gradefold=0) and the default fused OutputGradePass, so the two paths
+// cannot drift.
+const gradingUniforms = () => ({
+  saturation: { value: 1.18 },
+  vibrance: { value: 0.30 },
+  contrast: { value: 0.24 },     // 0..1 blend toward an S-curve (more punch)
+  vignette: { value: 0.30 },
+  aberration: { value: 0.0 },    // chromatic aberration strength
+  lift: { value: 0.0 },          // fever warm-glow pulse
+  liftTint: { value: new THREE.Vector3(0.10, 0.03, 0.08) }, // wash hue (magenta default)
+  uDither: { value: 1.0 },       // N1: 1 = dither ON (kill with ?dither=0), 0 = shipped
+});
+const GRADING_PARS_GLSL = /* glsl */`
     uniform float saturation;
     uniform float vibrance;
     uniform float contrast;
@@ -44,16 +45,15 @@ const GradingShader = {
     uniform float aberration;
     uniform float lift;
     uniform vec3 liftTint;
-    uniform float uDither;
-    varying vec2 vUv;
-    void main() {
+    uniform float uDither;`;
+// Chromatic-aberration head: the radial offset for the 3-tap channel split.
+const GRADING_CA_GLSL = /* glsl */`
       vec2 d = vUv - 0.5;
       float r2 = dot(d, d);
       vec2 off = d * r2 * aberration;
-      vec3 col;
-      col.r = texture2D(tDiffuse, vUv + off).r;
-      col.g = texture2D(tDiffuse, vUv).g;
-      col.b = texture2D(tDiffuse, vUv - off).b;
+      vec3 col;`;
+// The grade body — operates on display-referred (tonemapped + sRGB) color.
+const GRADING_MATH_GLSL = /* glsl */`
       // Vibrance: pushes saturation harder on muted pixels, protects skin-of-
       // the-scene already-saturated areas from clipping into neon mush.
       float lum = dot(col, vec3(0.299, 0.587, 0.114));
@@ -72,10 +72,155 @@ const GradingShader = {
       // gradients. Cheap (~4 ALU); covers tier0/1 (the composed path). ?dither=0
       // zeroes uDither for a clean A/B.
       float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-      col += (ign - 0.5) * (1.0 / 255.0) * uDither;
+      col += (ign - 0.5) * (1.0 / 255.0) * uDither;`;
+
+// The shipped two-pass grade (?gradefold=0): runs AFTER OutputPass on
+// display-referred color. Kept byte-identical as the fold's refutation control.
+export const GradingShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    ...gradingUniforms(),
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+${GRADING_PARS_GLSL}
+    varying vec2 vUv;
+    void main() {
+${GRADING_CA_GLSL}
+      col.r = texture2D(tDiffuse, vUv + off).r;
+      col.g = texture2D(tDiffuse, vUv).g;
+      col.b = texture2D(tDiffuse, vUv - off).b;
+${GRADING_MATH_GLSL}
       gl_FragColor = vec4(col, 1.0);
     }`,
 };
+
+// ── D2: OutputGradePass — tonemap + sRGB + grade in ONE full-screen pass ─────
+// Structurally the vendored OutputPass (same RawShaderMaterial shape, same
+// tonemapping/colorspace chunk includes, same define-cache rebuild keyed off
+// renderer.toneMapping/outputColorSpace — INCLUDING the repo's
+// CUSTOM_TONE_MAPPING branch, the N3 trap: omit it and ?tm=neutral silently
+// ships untonemapped) with the grade body appended after the encode.
+// Byte-target-identical math to the two-pass chain: each of the 3 chromatic-
+// aberration taps is tonemapped + encoded INDIVIDUALLY (exactly what sampling
+// OutputPass's intermediate RT gave the split grading pass), then the shared
+// grade body runs on the same display-referred values. The only difference is
+// the removed intermediate HalfFloat RT round-trip (a full-frame multisampled
+// store+resolve+reload — the D2 win; it also skips that RT's half-float
+// quantize, a sub-LSB precision IMPROVEMENT, never a look change).
+const OutputGradeShader = {
+  name: 'OutputGradeShader',
+  uniforms: {
+    tDiffuse: { value: null },
+    toneMappingExposure: { value: 1 },
+    ...gradingUniforms(),
+  },
+  vertexShader: /* glsl */`
+    precision highp float;
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    attribute vec3 position;
+    attribute vec2 uv;
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */`
+    precision highp float;
+    uniform sampler2D tDiffuse;
+    #include <tonemapping_pars_fragment>
+    #include <colorspace_pars_fragment>
+${GRADING_PARS_GLSL}
+    varying vec2 vUv;
+    // OutputShader's tonemap + colorspace tail, factored so each CA tap gets the
+    // full encode (identical to sampling the old intermediate output RT).
+    vec3 outputEncode( vec3 c ) {
+      #ifdef LINEAR_TONE_MAPPING
+        c = LinearToneMapping( c );
+      #elif defined( REINHARD_TONE_MAPPING )
+        c = ReinhardToneMapping( c );
+      #elif defined( CINEON_TONE_MAPPING )
+        c = OptimizedCineonToneMapping( c );
+      #elif defined( ACES_FILMIC_TONE_MAPPING )
+        c = ACESFilmicToneMapping( c );
+      #elif defined( AGX_TONE_MAPPING )
+        c = AgXToneMapping( c );
+      #elif defined( CUSTOM_TONE_MAPPING )
+        c = CustomToneMapping( c );
+      #endif
+      #ifdef SRGB_TRANSFER
+        c = sRGBTransferOETF( vec4( c, 1.0 ) ).rgb;
+      #endif
+      return c;
+    }
+    void main() {
+${GRADING_CA_GLSL}
+      col.r = outputEncode( texture2D( tDiffuse, vUv + off ).rgb ).r;
+      col.g = outputEncode( texture2D( tDiffuse, vUv ).rgb ).g;
+      col.b = outputEncode( texture2D( tDiffuse, vUv - off ).rgb ).b;
+${GRADING_MATH_GLSL}
+      gl_FragColor = vec4( col, 1.0 );
+    }`,
+};
+
+export class OutputGradePass extends Pass {
+  constructor() {
+    super();
+    this.uniforms = THREE.UniformsUtils.clone(OutputGradeShader.uniforms);
+    this.material = new THREE.RawShaderMaterial({
+      name: OutputGradeShader.name,
+      uniforms: this.uniforms,
+      vertexShader: OutputGradeShader.vertexShader,
+      fragmentShader: OutputGradeShader.fragmentShader,
+    });
+    this.fsQuad = new FullScreenQuad(this.material);
+    // define cache — vendored-OutputPass idiom: rebuild only when the renderer's
+    // tonemap/colorspace actually changes (?tm= flips live via Settings).
+    this._outputColorSpace = null;
+    this._toneMapping = null;
+  }
+
+  render(renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */) {
+    this.uniforms.tDiffuse.value = readBuffer.texture;
+    this.uniforms.toneMappingExposure.value = renderer.toneMappingExposure;
+
+    if (this._outputColorSpace !== renderer.outputColorSpace || this._toneMapping !== renderer.toneMapping) {
+      this._outputColorSpace = renderer.outputColorSpace;
+      this._toneMapping = renderer.toneMapping;
+
+      this.material.defines = {};
+      if (THREE.ColorManagement.getTransfer(this._outputColorSpace) === THREE.SRGBTransfer) this.material.defines.SRGB_TRANSFER = '';
+      if (this._toneMapping === THREE.LinearToneMapping) this.material.defines.LINEAR_TONE_MAPPING = '';
+      else if (this._toneMapping === THREE.ReinhardToneMapping) this.material.defines.REINHARD_TONE_MAPPING = '';
+      else if (this._toneMapping === THREE.CineonToneMapping) this.material.defines.CINEON_TONE_MAPPING = '';
+      else if (this._toneMapping === THREE.ACESFilmicToneMapping) this.material.defines.ACES_FILMIC_TONE_MAPPING = '';
+      else if (this._toneMapping === THREE.AgXToneMapping) this.material.defines.AGX_TONE_MAPPING = '';
+      else if (this._toneMapping === THREE.CustomToneMapping) this.material.defines.CUSTOM_TONE_MAPPING = '';
+      this.material.needsUpdate = true;
+    }
+
+    if (this.renderToScreen === true) {
+      renderer.setRenderTarget(null);
+      this.fsQuad.render(renderer);
+    } else {
+      renderer.setRenderTarget(writeBuffer);
+      if (this.clear) renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
+      this.fsQuad.render(renderer);
+    }
+  }
+
+  dispose() {
+    this.material.dispose();
+    this.fsQuad.dispose();
+  }
+}
 
 export const postfx = {
   enabled: false,
@@ -83,7 +228,8 @@ export const postfx = {
   composer: null,
   bloomPass: null,
   godRayPass: null,
-  gradingPass: null,
+  gradingPass: null,   // the pass that OWNS the grade uniforms (fused OutputGradePass by default; split ShaderPass under ?gradefold=0)
+  gradeFolded: true,   // D2 — tonemap+grade fused into one pass (?gradefold=0 = shipped two-pass chain)
   _renderer: null,
   _scene: null,
   _camera: null,
@@ -293,17 +439,28 @@ export function initPostFX(renderer, scene, camera) {
   );
   composer.addPass(bloomPass);
 
-  // God-rays: AFTER bloom (so the bloomed sky reads bright) and BEFORE OutputPass
-  // (linear add → tonemapped with the rest of the frame). Off until setupGodRays
-  // wires the mask and a tier-0 sun turns it on.
+  // God-rays: AFTER bloom (so the bloomed sky reads bright) and BEFORE the output
+  // encode (linear add → tonemapped with the rest of the frame). Off until
+  // setupGodRays wires the mask and a tier-0 sun turns it on.
   const godRayPass = new ShaderPass(GodRaysShader);
   godRayPass.enabled = false;
   composer.addPass(godRayPass);
 
-  composer.addPass(new OutputPass());
-
-  const gradingPass = new ShaderPass(GradingShader);
-  composer.addPass(gradingPass);
+  // D2 (MOBILE-GRAPHICS-DIET): tonemap + grade FUSED into one full-screen pass
+  // (default). ?gradefold=0 restores the shipped OutputPass → GradingShader
+  // two-pass chain — the A/B seam / refutation control. Both paths run the
+  // shared grade GLSL above; either way postfx.gradingPass owns the grade
+  // uniforms, so setDither/updatePostFX drive one object regardless of shape.
+  postfx.gradeFolded = !(typeof location !== 'undefined' && new URLSearchParams(location.search).get('gradefold') === '0');
+  let gradingPass;
+  if (postfx.gradeFolded) {
+    gradingPass = new OutputGradePass();
+    composer.addPass(gradingPass);
+  } else {
+    composer.addPass(new OutputPass());
+    gradingPass = new ShaderPass(GradingShader);
+    composer.addPass(gradingPass);
+  }
 
   postfx.composer = composer;
   postfx.bloomPass = bloomPass;
