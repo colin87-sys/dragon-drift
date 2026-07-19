@@ -8,6 +8,7 @@ import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTe
 export { setGodRayMaskDuty };   // re-exported so main.js drives the whole god-ray control surface through postfx
 import { damp, clamp } from './util.js';
 import { game } from './gameState.js';
+import { saveData } from './save.js';
 
 // Post pipeline: RenderPass -> UnrealBloom -> OutputPass -> grading.
 // The scene pass renders linear HDR (r160 skips tone mapping into render
@@ -266,7 +267,8 @@ let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
 // §G reduce-motion: the OS preference suppresses the 1-frame kick FLASH at every tier (the DOM
 // fallback already respects it — this closes the tier-0/1 gap the independent critic caught;
 // bloom/lift pulses are not photosensitivity flashes and stay).
-const _reduceFlash = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const _reduceMedia = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const _reduceFx = () => _reduceMedia || !!saveData.settings.reduceFx;   // OS pref OR the §G settings toggle (live)
 let _deathOn = false;
 let _deathMix = 0;
 // Boss-time stage-management grade: the world mid-tones itself so bullets own
@@ -323,12 +325,15 @@ export function kick(name) {
   const p = KICK_PRESETS[name];
   if (!p) return;
   const s = postfx._kickScale;
+  const _rfx = _reduceFx();
   for (const c of Object.keys(_kick)) {
     if (p[c]) {
-      _kick[c] = clamp(_kick[c] + p[c] * s, -KICK_MAX[c], KICK_MAX[c]);
+      // §G toggle: CA + vignette pulses halved under reduce-fx (flash killed below; bloom/lift/sat stay)
+      const m = _rfx && (c === 'ab' || c === 'vig') ? 0.5 : 1;
+      _kick[c] = clamp(_kick[c] + p[c] * s * m, -KICK_MAX[c], KICK_MAX[c]);
     }
   }
-  if (p.flashFrames && !_reduceFlash) _flashFrames = Math.max(_flashFrames, p.flashFrames);
+  if (p.flashFrames && !_rfx) _flashFrames = Math.max(_flashFrames, p.flashFrames);
 }
 
 // Sustained death grade: desaturate + crush the edges across the crash

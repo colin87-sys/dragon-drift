@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { saveData } from './save.js';
 import { damp } from './util.js';
 import { CONFIG } from './config.js';
 import { getDragonFitSpan } from './dragon.js';
@@ -142,12 +143,12 @@ export const cameraCtl = {
   },
 
   // I4: sustained trauma floor (GATHER ramp 0.15→0.5) — held while the setter keeps calling.
-  setSurgeTrauma(v) { surgeTraumaFloor = Math.max(0, Math.min(1, v)); },
+  setSurgeTrauma(v) { surgeTraumaFloor = Math.max(0, Math.min(saveData.settings.reduceFx ? 0.3 : 1, v)); },
   // I4: trauma impulse (RELEASE spike 1.0) — decays ~1.2/s on the trauma² curve.
-  addSurgeTrauma(v) { surgeTrauma = Math.min(1, surgeTrauma + v); },
+  addSurgeTrauma(v) { surgeTrauma = Math.min(saveData.settings.reduceFx ? 0.3 : 1, surgeTrauma + v); },
   // I4: surge FOV offset (deg; − tighten during GATHER, + punch at RELEASE) + camera push-in
   // (0..1 of ~2.6u toward the dragon). The punch decays inside the channel (fast out, ~300ms back).
-  setSurgeFov(deg, pushK = surgePushTarget) { surgeFovTarget = deg; surgePushTarget = Math.max(0, Math.min(1, pushK)); },
+  setSurgeFov(deg, pushK = surgePushTarget) { surgeFovTarget = deg > 0 && saveData.settings.reduceFx ? Math.min(deg, 3) : deg; surgePushTarget = Math.max(0, Math.min(1, pushK)); },
 
   boostKick() {
     boostKickT = BOOST_KICK_DUR;
