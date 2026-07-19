@@ -1433,7 +1433,10 @@ export function initBoss(sc) {
   // CORE flash), the rear-chase CLIMAX element (nearest the lens; §I-3 apex 2.2–2.8× shaft
   // width; hue-dominant during GATHER, the core SNAPS WHITE at the release lock — the MH tell).
   const mkLayer = (sz, order) => {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowSpriteTex(), color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    // depthTest OFF (rear-chase law, the I2.5 corona lesson): the mouth faces AWAY from the
+    // camera, so the gather is physically occluded by the dragon's own body in most poses —
+    // the mandala must read as a screen-space GLOW over the silhouette, pose-proof.
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowSpriteTex(), color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     s.scale.setScalar(sz); s.renderOrder = order; s.layers.set(1); s.visible = false;
     return s;
   };
