@@ -244,6 +244,7 @@ let casOverall = 0;               // weighted overall ignition (drives the halo 
 let eyeCorona = 0;                // eye-beat screen-space corona flash (carries the subpixel eye at chase distance)
 let surgeGutterT = -1;            // I2.5 DAMAGE-cancel gutter-out clock (-1 = not guttering)
 let ultDuckK = 1;                 // I3 ultimate duck: cascade whites ×~0.55 while the beam cinematic owns the frame
+let gatherW = 0;                  // I4 fix 3: damped mirror of the boss-ultimate GATHER (the charge climbs the BODY, not just the muzzle)
 // The gutter-out (a flame guttering when a hit KILLS the Surge): a seeded 2-stutter stumble to
 // black over ~0.42s — 1 → 0.35 (60ms) → rebound 0.55 (140ms) → 0.15 (240ms) → 0 (420ms). Punchy +
 // authored, never a glitch; distinct from the natural drain's smooth eye-last cascade (Fable ruling).
@@ -794,7 +795,7 @@ export function surgeCascadeDebug() {
   return {
     t: surgeCascadeT, level: casLevel.slice(), onset: casOnAt.slice(),
     decay: casDecayProg, releaseT: surgeReleaseT, index: surgeIndex,
-    flares: surgeFlareCenters.slice(), timer: null, ultDuck: ultDuckK,
+    flares: surgeFlareCenters.slice(), timer: null, ultDuck: ultDuckK, gatherW,
   };
 }
 // Pure FORWARD-cascade envelope at cascade-time t (s), decay-free — lets the tests measure the
@@ -1309,7 +1310,9 @@ export function updateDragon(dt, player, time) {
   // WELCOME+HUB §1.2a layer A — the ignite DOWNSTROKE: a one-shot positive impulse drives the
   // wings DOWN then back (positive rootFlap = down, per the apex convention). Depth ≈ idle-peak
   // ×1.4–1.8. Reaches every classic path (wingParts/direct/lobe) that reads rootFlap; 0 when idle.
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55 + igniteBeat01 * 0.85;
+  // I4 fix 7 (owner-taste dial): the APEX pin also lifts the whole stroke a touch HIGHER than the
+  // steered sin=−1 pose alone — the held high-V reads prouder in rear-chase. 0 off-ultimate.
+  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55 - _pinW * 0.30 + igniteBeat01 * 0.85;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
   if (WING_DEBUG) {
@@ -1937,6 +1940,16 @@ export function updateDragon(dt, player, time) {
     casOverall = Math.min(casLevel[0], 1) * 0.12 + Math.max(casLevel[1], casLevel[2], casLevel[3], casLevel[4]) * 0.88;
     eyeCorona = Math.min(casLevel[0], 1);   // crown corona tracks the crown station (bright on ignite, last-held on decay)
   }
+  // I4 fix 3 — the GATHER CLIMBS THE DRAGON: in rear-chase the muzzle mandala sits mostly occluded
+  // ahead of the head, so the ritual's charge must read on the anatomy the camera actually sees —
+  // rim (silhouette), wings, body floor all lift with the conductor's gatherK (max at APEX lock).
+  // This is DIRECTED charge glow, not the ambient fever whites the ultimate duck steps down — the
+  // two coexist: ambient cascade ducks to 55% while this rises to peak, so the brightening the
+  // player reads is unambiguously "the ritual", timed to the sound + slow-mo. Fast damp (14/s)
+  // → RELEASE (gatherK snaps 1→0) decays to zero well inside the settle window. Off-ultimate
+  // gatherK is 0 → gatherW damps to 0 → every term below is byte-identical.
+  gatherW = damp(gatherW, player.surgeGatherK || 0, 14, dt);
+  if (gatherW < 0.004) gatherW = 0;
   // WELCOME+HUB §1.2a — the splash ignite beat drives the SAME proven ignition-flare visual as a
   // Surge flourish (wings glow, body emissive spike, scale pulse), so the dragon visibly IGNITES —
   // not just moves. max() → byte-identical when the beat is idle (igniteBeat01===0), and the two
@@ -1955,7 +1968,8 @@ export function updateDragon(dt, player, time) {
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
   const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (casLevel[2] * 1.15 + igS(2) * 1.4) * sgm
-    + inhale01 * 0.9;   // PR-C: the mantled wings GLOW as the charge draws
+    + inhale01 * 0.9    // PR-C: the mantled wings GLOW as the charge draws
+    + gatherW * 1.15;   // I4 fix 3: the ultimate's gather lifts the WINGS (the rear-chase read)
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
@@ -2149,7 +2163,7 @@ export function updateDragon(dt, player, time) {
   // While Surge is armed the RESTING rim (the cruise edge glow — the bright gold strut spikes) is
   // dimmed to ~40% until the rim station ignites, so the silhouette is dark before and blazes after.
   const rimArmed = surgeCascadeT >= 0 ? 0.4 + 0.6 * Math.min(1, casLevel[4]) : 1;
-  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[4] * 2.0 + surgeHump * casLevel[4] * 0.7) * quality * (1 + igniteBeat01 * 0.30);
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) * rimArmed + (player.boosting ? 0.2 : 0) + casLevel[4] * 2.0 + surgeHump * casLevel[4] * 0.7 + gatherW * 1.6) * quality * (1 + igniteBeat01 * 0.30);
   updateRim(_rimCol, rimStrength, lever.k * quality);   // lever.k>0 only in the Mire → boost=0 elsewhere = byte-identical rim
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
@@ -2157,7 +2171,7 @@ export function updateDragon(dt, player, time) {
   // clamped ≥0.75 (§B.1); exactly ×1 with the toggle off.
   // Body emissive floor RAMPS with the cascade (× casOverall), not a frame-1 jump on fever — the
   // body stays dark until the anatomy ignites (reclaims the pre-spent contrast). Off-Surge byte-identical.
-  bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, (0.12 + 0.23 * casOverall) * bondBodyMul, 4, dt);
+  bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, (0.12 + 0.23 * casOverall + 0.20 * gatherW) * bondBodyMul, 4, dt);
   // EYE is the FIRST cascade station: hue lerps base→feverEye by casLevel[0], and the eye FLASHES
   // bright as it ignites (the ≤120ms eye-flash — the first tell the transformation has begun; the
   // strongest single greyscale cue for the colorblind read). Off-Surge (casLevel[0]=0) leaves the

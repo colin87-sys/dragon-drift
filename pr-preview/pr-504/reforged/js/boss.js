@@ -1432,17 +1432,20 @@ export function initBoss(sc) {
   // MUZZLE = a 3-layer radial stack (dark gather-SOCKET → per-dragon hue PETALS → near-white
   // CORE flash), the rear-chase CLIMAX element (nearest the lens; §I-3 apex 2.2–2.8× shaft
   // width; hue-dominant during GATHER, the core SNAPS WHITE at the release lock — the MH tell).
-  const mkLayer = (sz, order) => {
+  const mkLayer = (sz, order, tex, blending) => {
     // depthTest OFF (rear-chase law, the I2.5 corona lesson): the mouth faces AWAY from the
     // camera, so the gather is physically occluded by the dragon's own body in most poses —
     // the mandala must read as a screen-space GLOW over the silhouette, pose-proof.
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowSpriteTex(), color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xffffff, transparent: true, opacity: 0, blending, depthWrite: false, depthTest: false }));
     s.scale.setScalar(sz); s.renderOrder = order; s.layers.set(1); s.visible = false;
     return s;
   };
-  const muzzleSocket = mkLayer(3.6, TIERS.surgeFx - 1);
-  const muzzlePetals = mkLayer(2.4, TIERS.surgeFx);
-  const muzzleCore = mkLayer(1.1, TIERS.surgeFx + 1);
+  // Fix 1: socket = a NORMAL-blend dark ring (paints real darkness — the separator between the
+  // mandala and the dragon's chest/crest); petals = a 6-wedge additive rosette (geometry legible
+  // in greyscale, not a blob); core = the white glow.
+  const muzzleSocket = mkLayer(3.6, TIERS.surgeFx - 1, socketTex(), THREE.NormalBlending);
+  const muzzlePetals = mkLayer(2.4, TIERS.surgeFx, petalTex(), THREE.AdditiveBlending);
+  const muzzleCore = mkLayer(1.1, TIERS.surgeFx + 1, beamGlowSpriteTex(), THREE.AdditiveBlending);
   // IMPACT spark cluster: ONE THREE.Points draw regardless of the particleBatch flag (§M.1-2 —
   // the shipped per-sprite pool is 1 DC/sprite, so 24-40 pool sparks would be 24-40 DC). This
   // REPLACES the legacy strikeSurge/breakShield bursts (~88 pool sprites) — never stacks (§M.1-3).
@@ -1454,15 +1457,56 @@ export function initBoss(sc) {
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
   }));
   surgeSparks.frustumCulled = false; surgeSparks.visible = false; surgeSparks.renderOrder = TIERS.surgeFx; surgeSparks.layers.set(1);
-  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks);
-  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks };
+  // Fix 5: GATHER convergence as LineSegments — 20 elongated streaks whose long axis AIMS AT
+  // THE MOUTH with the head-end brighter (vertex colors), so ANY single frame reads INWARD
+  // (motes have no direction in a still — the pass-bar's charge-vs-vent test failed on them).
+  const convGeo = new THREE.BufferGeometry();
+  convGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SURGE_CONV_N * 6), 3));
+  convGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(SURGE_CONV_N * 6), 3));
+  const convLines = new THREE.LineSegments(convGeo, new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
+  }));
+  convLines.frustumCulled = false; convLines.visible = false; convLines.renderOrder = TIERS.surgeFx; convLines.layers.set(1);
+  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines);
+  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines };
   surgeBeam.visible = false;
   scene.add(surgeBeam);
 }
 // Shared white radial glow for the muzzle layers + spark points (hue via material/vertex color).
 let _beamSpriteTex = null;
 function beamGlowSpriteTex() { return _beamSpriteTex || (_beamSpriteTex = makeGlowTexture('255,255,255')); }
+// I4 critic fix 1 — the mandala needs ANATOMY at rear-chase distance, not three stacked blobs:
+// a 6-wedge PETAL rosette (bright wedges, dark gaps, living mid-radius so the core owns the
+// centre) and a dark SOCKET RING (normal-blend — additive can't paint darkness — so the ring
+// visibly separates the mandala from the dragon's chest and its yellow crest spikes).
+let _petalTex = null, _socketTex = null;
+function makeMandalaTex(kind) {
+  const S = 128, data = new Uint8Array(S * S * 4);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (x - S / 2) / (S / 2), dy = (y - S / 2) / (S / 2);
+    const r = Math.hypot(dx, dy), th = Math.atan2(dy, dx);
+    let v = 0;
+    if (r <= 1) {
+      if (kind === 'petal') {
+        const wedge = Math.pow(Math.abs(Math.cos(th * 3)), 1.5);           // 6 petals
+        const band = Math.max(0, 1 - Math.abs(r - 0.52) / 0.34);           // petals live mid-radius
+        v = wedge * band * band;
+      } else {                                                              // socket: a soft dark ring
+        v = Math.max(0, 1 - Math.abs(r - 0.78) / 0.22);
+        v = v * v;
+      }
+    }
+    const i4 = (y * S + x) * 4, b = Math.round(v * 255);
+    data[i4] = data[i4 + 1] = data[i4 + 2] = 255; data[i4 + 3] = b;         // alpha carries the shape
+  }
+  const t = new THREE.DataTexture(data, S, S);
+  t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+  return t;
+}
+function petalTex() { return _petalTex || (_petalTex = makeMandalaTex('petal')); }
+function socketTex() { return _socketTex || (_socketTex = makeMandalaTex('socket')); }
 const SURGE_SPARK_N = 44;   // 28 impact sparks + up to 16 shield shards, one Points draw
+const SURGE_CONV_N = 20;    // GATHER convergence streaks (LineSegments, 1 DC, gather-only)
 const _sparkVel = new Float32Array(SURGE_SPARK_N * 3);
 const _sparkLife = new Float32Array(SURGE_SPARK_N);
 const _sparkLife0 = new Float32Array(SURGE_SPARK_N);
@@ -1607,7 +1651,7 @@ export function setSurgeBeamPalette(coreHex, haloHex, darkHex) {
   // Petals are VALUE-lifted (lerp 0.35 toward white) so the 3-zone radial reads in GREYSCALE
   // (socket ≤70dn / petals 110–140dn / core ≥230dn — critic fix 2: hue-only petals are invisible
   // to the colorblind owner; the mid-zone must be a luminance step, hue rides on top).
-  surgeBeam.userData.muzzleSocket.material.color.setHex(darkHex);
+  surgeBeam.userData.muzzleSocket.material.color.setHex(darkHex).multiplyScalar(0.35);   // fix 1: the socket ring paints real darkness under the rosette
   surgeBeam.userData.muzzlePetals.material.color.setHex(haloHex).lerp(_beamPal.core, 0.35);
   surgeBeam.userData.muzzleCore.material.color.setHex(coreHex);
 }
@@ -1642,7 +1686,7 @@ function surgeForceBeat() {
   switch (typeof f === 'string' ? f : f.beat) {
     case 'apex':   return { phase: 'ritual', t: surgeRitualBeats(false).apexStart + 0.12 };  // the held breath — the signature frame
     case 'beam':   return { phase: 'beam',   t: BEAM_TIME * 0.35 };    // shaft live, mid-life
-    case 'impact': return { phase: 'beam',   t: BEAM_TIME * 0.06 };    // just landed
+    case 'impact': return { phase: 'beam',   t: 0.16 };                // just landed — AFTER the ~0.11s extend (fix 6: 0.033s pinned a beam still in flight)
     default:       return { phase: 'ritual', t: surgeRitualBeats(false).apexStart * 0.5 };
   }
 }
@@ -1678,6 +1722,27 @@ function updateSurgeBeam(dt, player, time) {
     surgeSparks.geometry.attributes.color.needsUpdate = true;
     if (!alive) { _sparkActive = 0; surgeSparks.visible = false; }
   }
+  // Fix 5: the convergence line-streaks integrate like the sparks (rawDt — consequences move
+  // through the APEX floor). Both vertices ride the same velocity so the streak stays rigid and
+  // its long axis keeps AIMING at the mouth; APEX halt = frozen in place, fading over _convFade.
+  if (_convActive) {
+    const { convLines } = surgeBeam.userData;
+    const sdt = _bossRawDt > 0 ? _bossRawDt : dt;
+    if (!_convHeld) {
+      const pos = convLines.geometry.attributes.position.array;
+      for (let i = 0; i < SURGE_CONV_N; i++) {
+        const dx = _convVel[i * 3] * sdt, dy = _convVel[i * 3 + 1] * sdt, dz = _convVel[i * 3 + 2] * sdt;
+        pos[i * 6] += dx; pos[i * 6 + 1] += dy; pos[i * 6 + 2] += dz;
+        pos[i * 6 + 3] += dx; pos[i * 6 + 4] += dy; pos[i * 6 + 5] += dz;
+      }
+      convLines.geometry.attributes.position.needsUpdate = true;
+      convLines.material.opacity = 1;
+    } else {
+      _convFade -= sdt;
+      convLines.material.opacity = Math.max(0, _convFade / 0.5);
+      if (_convFade <= 0) { _convActive = false; convLines.visible = false; }
+    }
+  }
   // Capture seam: pin the cinematic to a beat (holds the beat, no auto-transition).
   const pin = surgeForceBeat();
   if (pin) surgeSeq = { phase: pin.phase, t: pin.t };
@@ -1686,7 +1751,7 @@ function updateSurgeBeam(dt, player, time) {
   // single brightest mass on the dragon at lock, not a decorative diamond).
   game.surgeUltimatePhase = surgeSeq ? surgeSeq.phase : null;
   if (!surgeSeq) {
-    game.surgeUltInvuln = false; game.surgeApexPin = 0;
+    game.surgeUltInvuln = false; game.surgeApexPin = 0; game.surgeGatherK = 0;
     if (game.surgeRitualScale != null) game.surgeRitualScale = null;
     if (surgeBeam.userData.shaft.visible) hideBeamEnsemble();
     if (!_sparkActive) surgeBeam.visible = false;
@@ -1724,6 +1789,9 @@ function updateSurgeBeam(dt, player, time) {
     const t = surgeSeq.t;
     const inApex = t >= beats.apexStart;
     const gatherK = surgeGatherKAt(t, surgeSeq.repeat);
+    // Fix 3: publish the gather to the DRAGON — in rear-chase the body/wings are the read, so the
+    // charge must climb the anatomy the player can see (dragon.js lifts rim/wing emissives off this).
+    game.surgeGatherK = gatherK;
     shaft.visible = false;
     // i-frames CALL→RELEASE (§M.1-5): a long authored charge must not be hit-cancellable.
     game.surgeUltInvuln = true;
@@ -1740,7 +1808,7 @@ function updateSurgeBeam(dt, player, time) {
     muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
     muzzleSocket.scale.setScalar(2.4 + gatherK * 1.6 + flick);
     muzzlePetals.scale.setScalar(1.4 + gatherK * 1.6 + flick);
-    muzzleCore.scale.setScalar(0.5 + gatherK * 1.1);
+    muzzleCore.scale.setScalar((0.5 + gatherK * 1.1) * (inApex ? 1.28 : 1));   // fix 1: the apex is visibly MAX (≥1.5× core area vs mid-gather)
     muzzleSocket.material.opacity = 0.35 + gatherK * 0.35;
     muzzlePetals.material.opacity = 0.30 + gatherK * 0.55;
     muzzleCore.material.opacity = 0.25 + gatherK * 0.75;
@@ -1749,12 +1817,14 @@ function updateSurgeBeam(dt, player, time) {
     // camera: trauma ramps through GATHER (0.15→0.5), FOV tightens, push-in — via the surge channels.
     cameraCtl.setSurgeTrauma?.(inApex ? 0.18 : 0.15 + 0.35 * gatherK);
     cameraCtl.setSurgeFov?.(-5 * gatherK, 0.14 * gatherK);
+    cameraCtl.setSurgeApexLift?.(game.surgeApexPin);   // fix 4: the lock lifts the camera — boss/dragon silhouettes separate
     if (t >= beats.releaseAt) {
       // ── RELEASE ── the step function (edge-sharpness law): pose un-pins under the hitstop
       // mask, the conductor snaps 0.25→1.05, ONE capped flash + FOV punch + trauma spike, and
       // the beam fires. hitstopForce zeroes slow-mo + bypasses the cooldown (§M.1-1).
       surgeSeq.phase = 'beam'; surgeSeq.t = 0; beamLandFired = 0;
       game.surgeApexPin = 0;
+      _convActive = false; _convHeld = false; surgeBeam.userData.convLines.visible = false;   // the release CONSUMES the gathered energy — a cut, not a fade
       hitstopForce(0.08);
       juiceEvent('surgeRelease');
       cameraCtl.addSurgeTrauma?.(1.0);
@@ -1766,6 +1836,7 @@ function updateSurgeBeam(dt, player, time) {
   }
   game.surgeUltInvuln = false;
   game.surgeApexPin = 0;
+  game.surgeGatherK = 0;   // fix 3: the release consumed the charge — the dragon's lift decays (damped in dragon.js)
 
   // 'beam' phase (I3): the RIBBON shaft lives mouth→boss with an authored LIFE — birth-EXTEND
   // (core tip races out ~110ms with a 5% overshoot, bloom lags ~16ms, outer wrap fills ~150ms —
@@ -1828,6 +1899,7 @@ function hideBeamEnsemble() {
   const u = surgeBeam.userData;
   u.shaft.visible = false;
   u.muzzleSocket.visible = u.muzzlePetals.visible = u.muzzleCore.visible = false;
+  u.convLines.visible = false; _convActive = false; _convHeld = false;
 }
 let beamLandFired = 0;      // 0 in flight · 1 landed (primary fired) · 2 secondary fired
 let beamLandT = 0;
@@ -1867,32 +1939,38 @@ function reseedSwells(rng) {
 // cluster in reverse: seeded shell of 20 points, velocities aimed at the muzzle so the radius
 // shrinks monotonically; APEX entry ZEROES the velocities (a stop, not a taper).
 function fireSurgeConverge(center, prog = 0) {
-  const { surgeSparks } = surgeBeam.userData;
+  const { convLines } = surgeBeam.userData;
   const rng = mulberry32((beamCastIndex * 0xc2b2ae35 + 3) >>> 0);
-  const n = 20, R = 5.5 * (1 - 0.92 * Math.min(1, prog));
-  const pos = surgeSparks.geometry.attributes.position.array;
-  const col = surgeSparks.geometry.attributes.color.array;
-  for (let i = 0; i < SURGE_SPARK_N; i++) {
-    if (i >= n) { _sparkLife[i] = 0; pos[i * 3 + 1] = -9999; continue; }
+  const R = 5.5 * (1 - 0.92 * Math.min(1, prog));
+  const pos = convLines.geometry.attributes.position.array;
+  const col = convLines.geometry.attributes.color.array;
+  for (let i = 0; i < SURGE_CONV_N; i++) {
     const th = rng() * Math.PI * 2, ph = Math.acos(rng() * 2 - 1);
     const sx = Math.sin(ph) * Math.cos(th), sy = Math.cos(ph), sz = Math.sin(ph) * Math.sin(th);
-    pos[i * 3] = center.x + sx * R; pos[i * 3 + 1] = center.y + sy * R; pos[i * 3 + 2] = center.z + sz * R;
     const sp = 4.2 + rng() * 1.6;               // arrives ≲ the GATHER window; radius shrinks monotonically
-    _sparkVel[i * 3] = -sx * sp; _sparkVel[i * 3 + 1] = -sy * sp; _sparkVel[i * 3 + 2] = -sz * sp;
-    _sparkLife0[i] = _sparkLife[i] = 9;         // outlives GATHER; halted/culled at APEX
+    _convVel[i * 3] = -sx * sp; _convVel[i * 3 + 1] = -sy * sp; _convVel[i * 3 + 2] = -sz * sp;
+    // HEAD vertex (nearer the mouth, brighter) + TAIL vertex trailing outward: the streak's long
+    // axis IS the travel direction, so a single frame reads "energy flowing IN".
+    const hx = center.x + sx * R, hy = center.y + sy * R, hz = center.z + sz * R;
+    const L = 1.15;
+    pos[i * 6] = hx; pos[i * 6 + 1] = hy; pos[i * 6 + 2] = hz;
+    pos[i * 6 + 3] = hx + sx * L; pos[i * 6 + 4] = hy + sy * L; pos[i * 6 + 5] = hz + sz * L;
     const c = (i % 4 === 0) ? _beamPal.core : _beamPal.halo;
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    col[i * 6] = c.r * 1.3; col[i * 6 + 1] = c.g * 1.3; col[i * 6 + 2] = c.b * 1.3;   // bright head
+    col[i * 6 + 3] = c.r * 0.15; col[i * 6 + 4] = c.g * 0.15; col[i * 6 + 5] = c.b * 0.15;   // dim tail
   }
-  surgeSparks.geometry.attributes.position.needsUpdate = true;
-  surgeSparks.geometry.attributes.color.needsUpdate = true;
-  surgeSparks.visible = true;
-  _sparkActive = n; _sparkMode = 'converge';
+  convLines.geometry.attributes.position.needsUpdate = true;
+  convLines.geometry.attributes.color.needsUpdate = true;
+  convLines.visible = true;
+  _convActive = true; _convHeld = false;
 }
 function haltSurgeConverge() {
-  for (let i = 0; i < SURGE_SPARK_N; i++) { _sparkVel[i * 3] = 0; _sparkVel[i * 3 + 1] = 0; _sparkVel[i * 3 + 2] = 0; _sparkLife[i] = Math.min(_sparkLife[i], 0.45); }
-  _sparkMode = 'held';
+  for (let i = 0; i < SURGE_CONV_N * 3; i++) _convVel[i] = 0;
+  _convHeld = true; _convFade = 0.5;
 }
-let _sparkMode = 'burst';   // 'burst' (impact, gravity+drag) · 'converge' (inward, no gravity) · 'held' (apex freeze-sparkle)
+const _convVel = new Float32Array(SURGE_CONV_N * 3);
+let _convActive = false, _convHeld = false, _convFade = 0;
+let _sparkMode = 'burst';   // impact bursts (gravity+drag); convergence now lives on the line streaks
 
 // ── I3 beam-life pure samplers (frame-clock-independent asserts, the I2 lesson) ──
 const BEAM_EXTEND_T = 0.11;    // core tip reaches the boss (90–130ms window), easeOut + 5% overshoot
@@ -2816,7 +2894,7 @@ export function updateBoss(dt, player, time, camera) {
     hideTether();
     surgeSeq = null;
   game.surgeUltimatePhase = null;   // never leave the cascade duck armed across a reset/death
-  game.surgeRitualScale = null; game.surgeUltInvuln = false; game.surgeApexPin = 0;   // I4: conductor/i-frames/pose-pin never strand either
+  game.surgeRitualScale = null; game.surgeUltInvuln = false; game.surgeApexPin = 0; game.surgeGatherK = 0;   // I4: conductor/i-frames/pose-pin/gather never strand either
     // Silence any lingering Surge loops when the fight isn't running (edge-only).
     if (wasSurge) { sfx.surgeCrackleStop?.(); wasSurge = false; }
     sfx.dwellHum?.(0);   // PR7: no dwell whisper outside a live fight
@@ -6107,7 +6185,7 @@ export function resetBoss() {
   sfx.dwellHum?.(0);
   surgeSeq = null;
   game.surgeUltimatePhase = null;   // never leave the cascade duck armed across a reset/death
-  game.surgeRitualScale = null; game.surgeUltInvuln = false; game.surgeApexPin = 0;   // I4: conductor/i-frames/pose-pin never strand either
+  game.surgeRitualScale = null; game.surgeUltInvuln = false; game.surgeApexPin = 0; game.surgeGatherK = 0;   // I4: conductor/i-frames/pose-pin/gather never strand either
   sfx.surgeCrackleStop?.();
   sfx.surgeReadyStop?.();
   wasSurge = false; wasReady = false;

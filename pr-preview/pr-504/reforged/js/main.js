@@ -1755,6 +1755,9 @@ function tick() {
     game.timeScale = game.surgeRitualScale;
     if (game.slowMoTimer > 0) { game.slowMoTimer = 0; game.slowMoScale = null; setSlowMo(false); }
   }
+  // I4 fix 2 — the ritual HUD duck rides the conductor's exact lifetime (CALL→RELEASE+settle):
+  // score/chain/stamina chrome to ~25% so the gather owns the frame. Change-detected inside.
+  ui.surgeDuck?.(game.surgeRitualScale != null);
   let dt = rawDt * (game.state === 'playing' ? game.timeScale : 1);
   // Impact-frame hitstop (juice.js): real-time countdown, near-freeze while
   // active, instant restore — no ramp, distinct from slow-mo's channel.
