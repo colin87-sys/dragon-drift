@@ -3490,3 +3490,9 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .gauntlet-x .dk-fill, .gauntlet-x .dk-head { transition: none; }
 }
+
+/* Keel v1.1 (owner bug 2026-07-19): the combo pop rides the CHILD slug, never the
+   translateX(-50%)-centered .gauntlet-x box — same guard class as the gauntlet-follow
+   animation-override fix (see the 2026-07-17 lesson). */
+.gauntlet-x .dk-x { display: inline-block; }
+.gauntlet-x .dk-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
