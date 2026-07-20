@@ -28,13 +28,25 @@ async function run(viewport, label) {
 
   // Sweep the dragon left↔right while spawning rings dead-ahead so the game's OWN
   // updateRings collects them (real collect() path) and fires surge authentically.
+  // The follow EASES toward the dragon's screen X (τ≈0.14s, 1-exp(-7·dt)). Headless
+  // software-GL runs at a few fps, so a fast 16ms/step sweep gives the ease ~0 frames
+  // per step → it lags a large fraction of the sweep period and the correlation
+  // collapses (a false negative — the follow IS tracking, just phase-lagged). Sweep
+  // SLOWLY (one cycle over the run) and give the follow real frames to settle between
+  // samples, so the measured correlation reflects tracking, not sampling lag.
   const rows = [];
-  for (let i = 0; i < 44; i++) {
-    const r = await page.evaluate((i) => {
-      const dd = window.__dd, el = document.getElementById('stamina-arc'), G = window.__gf;
-      const x = Math.sin((i / 26) * Math.PI * 2 - Math.PI / 2) * 7;
+  const STEPS = 40;
+  for (let i = 0; i < STEPS; i++) {
+    const x = Math.sin((i / STEPS) * Math.PI * 2 - Math.PI / 2) * 7;
+    await page.evaluate((x) => {
+      const dd = window.__dd, G = window.__gf;
       dd.player.position.x = x; dd.player.velocity.x = 0;
       G.RINGS.addRing({ x, y: dd.player.position.y, dist: dd.player.dist + 0.8 });
+    }, x);
+    await page.waitForTimeout(140);   // let the ease track the (slow) target before sampling
+    const r = await page.evaluate((i) => {
+      const dd = window.__dd, el = document.getElementById('stamina-arc'), G = window.__gf;
+      const x = dd.player.position.x;
       G.proj.set(x, dd.player.position.y, -dd.player.dist).project(dd.camera);
       const sx = G.proj.z > 1 ? null : (G.proj.x * 0.5 + 0.5) * window.innerWidth;
       const m = el.style.transform.match(/-50% \+ ([-\d.]+)px/);
@@ -48,7 +60,6 @@ async function run(viewport, label) {
         diverge: (inlineDx != null && computedDx != null) ? Math.abs(computedDx - inlineDx) : null };
     }, i);
     rows.push(r);
-    await page.waitForTimeout(16);
   }
 
   const surgeRows = rows.filter(r => r.surge && r.computedDx != null && r.inlineDx != null);
