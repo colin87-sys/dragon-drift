@@ -44,6 +44,35 @@ async function darkBudget(page, buf, label) {
   return ok;
 }
 
+// PR-A r6 machine probes (gate r5 fix 3): verify the two contested numbers IN THE FRAMEBUFFER before
+// any critic spawn — quarter-frame flank delta at the line rows, and moving-ROSE pixels in the water.
+async function structProbes(page, bufCruise, bufL1, bufL4) {
+  const r = await page.evaluate(async ([c, a, b]) => {
+    const load = (x) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + x; });
+    const px = async (img) => { const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0); return ctx.getImageData(0, 0, cv.width, cv.height).data; };
+    const [ic, ia, ib] = await Promise.all([load(c), load(a), load(b)]);
+    const dc = await px(ic), da = await px(ia), db = await px(ib);
+    const W = ic.width;
+    const L = (d, x, y) => { const i = (y * W + x) * 4; return 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; };
+    let corr = 0, cn = 0, fl = 0, fn = 0;
+    for (let y = 264; y < 300; y += 2) {
+      for (let x = 440; x < 520; x += 2) { corr += L(dc, x, y); cn++; }
+      for (const x0 of [120, 760]) for (let x = x0; x < x0 + 80; x += 2) { fl += L(dc, x, y); fn++; }
+    }
+    const delta = +(100 * (corr / cn - fl / fn) / (corr / cn)).toFixed(1);
+    let rose = 0;
+    for (let y = 302; y < ic.height - 20; y += 2) for (let x = 0; x < W; x += 2) {
+      const i = (y * W + x) * 4;
+      if (Math.abs(da[i] - db[i]) > 10 || Math.abs(da[i + 2] - db[i + 2]) > 10) {
+        if (db[i] > db[i + 2] + 5) rose++;
+        if (da[i] > da[i + 2] + 5) rose++;
+      }
+    }
+    return { delta, rose };
+  }, [bufCruise.toString('base64'), bufL1.toString('base64'), bufL4.toString('base64')]);
+  console.log(`  [struct-probe] flankDelta=${r.delta}% (bar ~15) movingRose=${r.rose} (bar ~400)`);
+}
+
 async function session(tag, view, shots) {
   const query = `?biome=5&debug&cleanshot&seed=73101`;
   const { page, done } = await boot({ query, viewport: view, deviceScaleFactor: 1, initScript: mkSave() });
@@ -54,6 +83,7 @@ async function session(tag, view, shots) {
   }, { timeout: 30000, polling: 500 });
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.__dd.noBoss(true));
+  let _cruiseBuf = null, _live1Buf = null, _liveLastBuf = null;
   for (const s of shots) {
     // fly to the shot's lane distance with the sim running, then settle the fog/sky lerp
     await page.evaluate((d) => { window.__dd.game.timeScale = 1; window.__dd.player.dist = d; }, s.dist);
@@ -65,18 +95,46 @@ async function session(tag, view, shots) {
       await page.waitForTimeout(400);
     }
     if (s.burst) {
-      // live motion burst: the sim keeps running so koi/motes/water move between frames
+      // WORLD-MOTION burst (PR-A gate): FREEZE the sim (shader clock keeps running) so ring travel /
+      // orbiters / phase drift are separable from camera scroll; the diff metric below PROVES the freeze.
+      if (s.frozen) await page.evaluate(() => { window.__dd.game.timeScale = 0; });
+      let _prevB64 = null;
+      if (s.frozen) { await page.evaluate((d) => { window.__dd.player.dist = d; }, s.dist + 60); await page.waitForTimeout(900); }   // r4: settle the chase-cam ease BEFORE frame 1 (live1 shipped from a different camera)
       for (let k = 0; k < s.burst; k++) {
-        await page.evaluate(() => {
+        await page.evaluate(([fz, d]) => {
+          if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }   // PIN dist too — timeScale 0 alone does not stop dist (the r3 finding)
           window.__dd.clearObstacles && window.__dd.clearObstacles();
           window.__dd.clearVents && window.__dd.clearVents();
           const c = window.__dd.camera; c.fov = 85; c.updateProjectionMatrix();
-        });
+        }, [!!s.frozen, s.dist + 60]);
         const buf = await page.screenshot({ timeout: 60000 });
         writeFileSync(`/tmp/empyburst-${tag}-${s.name}${k + 1}.png`, buf);
         console.log(`  wrote /tmp/empyburst-${tag}-${s.name}${k + 1}.png`);
         await darkBudget(page, buf, `${tag}-${s.name}${k + 1}`);
-        if (k < s.burst - 1) await page.waitForTimeout(2000);
+        if (_prevB64) {   // frozen-triplet instrument: fraction of pixels changed >0.05 — must be small (world-shader motion only)
+          const df = await page.evaluate(async ([a, b]) => {
+            const load = (x) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + x; });
+            const [ia, ib] = await Promise.all([load(a), load(b)]);
+            const c1 = document.createElement('canvas'), c2 = document.createElement('canvas');
+            c1.width = c2.width = ia.width; c1.height = c2.height = ia.height;
+            const x1 = c1.getContext('2d'), x2 = c2.getContext('2d');
+            x1.drawImage(ia, 0, 0); x2.drawImage(ib, 0, 0);
+            const d1 = x1.getImageData(0, 0, c1.width, c1.height).data, d2 = x2.getImageData(0, 0, c2.width, c2.height).data;
+            let n = 0, t = 0;
+            for (let i = 0; i < d1.length; i += 16) { t++; if (Math.abs(d1[i] - d2[i]) > 13 || Math.abs(d1[i + 1] - d2[i + 1]) > 13) n++; }
+            return +(n / t).toFixed(4);
+          }, [_prevB64, buf.toString('base64')]);
+          console.log(`  [motion-diff ${tag}-${s.name}${k + 1}] changed=${df}${s.frozen ? (df < 0.35 ? ' (frozen OK - shader/water motion only)' : ' (FREEZE FAILED)') : ''}`);
+        }
+        _prevB64 = buf.toString('base64');
+        if (k === 0) _live1Buf = buf; _liveLastBuf = buf;
+        if (k < s.burst - 1) for (let g = 0; g < 5; g++) {   // sweep DURING the live gap too — a gate respawning mid-burst kills the auto-flying player (a live3 frame once caught the death fade-to-black)
+          await page.evaluate(([fz, d]) => {
+            if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }
+            window.__dd.clearObstacles && window.__dd.clearObstacles();
+          }, [!!s.frozen, s.dist + 60]);
+          await page.waitForTimeout(400);
+        }
       }
       continue;
     }
@@ -94,25 +152,29 @@ async function session(tag, view, shots) {
     writeFileSync(`/tmp/empyburst-${tag}-${s.name}.png`, buf);
     console.log(`  wrote /tmp/empyburst-${tag}-${s.name}.png`);
     await darkBudget(page, buf, `${tag}-${s.name}`);
+    if (s.name === 'cruise') _cruiseBuf = buf;
     if (s.pitch) await page.evaluate((p) => {   // undo the pitch so the next shot starts clean
       const c = window.__dd.camera; c.rotation.x -= p; c.updateMatrixWorld();
     }, s.pitch);
   }
+  if (_cruiseBuf && _live1Buf && _liveLastBuf) await structProbes(page, _cruiseBuf, _live1Buf, _liveLastBuf);
   await done();
 }
 
 console.log('THE EMPYREAN — holistic burst captures');
 const only = process.argv[2];
 if (!only || only === 'desk') await session('desk', { width: 960, height: 600 }, [
-  { name: 'early',  dist: 1200 },
-  { name: 'mid',    dist: 2000 },
+  { name: 'early',  dist: 380 },   // congregation peak (~400) INSIDE the early band - the arch family's home; 1200 looked ahead across the 0.34 band cutoff where arches park
+  { name: 'mid',    dist: 2175 },  // local 675, t=0.45 - TRUE mid band (biomeLength=1500; the old 2000 was t=0.33)
   { name: 'cruise', dist: 2400 },
   { name: 'sky',    dist: 2400, pitch: 0.35 },
   { name: 'water',  dist: 2400, pitch: -0.25 },
-  { name: 'live',   dist: 2600, burst: 3 },
-  { name: 'late',   dist: 3200 },
+  { name: 'live',   dist: 2600, burst: 4, frozen: true },   // 4 frames × ~2.6s ≈ most of an 8s pulse cycle — the rose ring's expansion is capturable at any phase
+  { name: 'late',   dist: 2700 },  // local 1200, t=0.80 - TRUE late band (the old 3200 was local 200 = EARLY - every prior "late" frame was mislabeled)
+  { name: 'gate',   dist: 2755 },  // camera sees local 1255-1405: the RING GATE window (0.88*1500 = 1320 +-60)
 ]);
 if (!only || only === 'phone') await session('phone', { width: 390, height: 780 }, [
   { name: 'cruise', dist: 2400 },
-  { name: 'late',   dist: 3200 },
+  { name: 'late',   dist: 2700 },  // local 1200, t=0.80 - TRUE late band (the old 3200 was local 200 = EARLY - every prior "late" frame was mislabeled)
+  { name: 'gate',   dist: 2755 },  // camera sees local 1255-1405: the RING GATE window (0.88*1500 = 1320 +-60)
 ]);

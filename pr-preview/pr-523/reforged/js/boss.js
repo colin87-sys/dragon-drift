@@ -1156,7 +1156,7 @@ const tmp = new THREE.Vector3();
 
 // Surge-unleash cinematic timing + scratch vectors for the mouth→boss beam.
 const CHARGE_TIME = 0.5;       // legacy constant (the old wind-up; the I4 ritual supersedes it — kept for the capture-seam mapping)
-const BEAM_TIME = 0.55;        // beam live + fade after the strike
+const BEAM_TIME = 0.80;        // beam live + fade after the strike (re-timed to the top of the Lane B PAYLOAD band, 0.55→0.80 — ALL +0.25s into SUSTAIN so the surge-pulse gets ≥1 full muzzle→impact traversal; birth 0.11 + collapse 0.27 unchanged, sustain 0.17→0.42)
 // ── SUNBREAK I4: the ultimate RITUAL (wall-clock, §D.2/§F — Fable pre-assess P0/P4) ──
 // CALL (accept) → GATHER (stepped escalation, convergence) → APEX (the held breath — the
 // signature frame) → RELEASE/beam. ALL clocks run on rawDt (§M.1-1: at timeScale 0.35 a
@@ -1470,8 +1470,17 @@ export function initBoss(sc) {
     vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
   }));
   convLines.frustumCulled = false; convLines.visible = false; convLines.renderOrder = TIERS.surgeFx; convLines.layers.set(1);
-  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines);
-  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines };
+  // IMPACT STACK (Lane C census: impact is where every reference stacks the most — 4–5 layers;
+  // ours was 2). scorch = the DARK band anchor (NormalBlending, hue crushed to shadow — keeps the
+  // CORE:DARK ratio in the 5:1–10:1 band at the land point, where the rear-chase player is looking,
+  // and persists ~1.0s so the strike's CONSEQUENCE extends the perceived payload for free); bloom
+  // disc = the HALO hue; contact core = the white-hot CORE flash. Own clock (outlives the beam like
+  // the sparks). Reuse the shared white glow tex — no new textures.
+  const impactScorch = mkLayer(6.5, TIERS.surgeFx - 2, beamGlowSpriteTex(), THREE.NormalBlending);
+  const impactBloom  = mkLayer(6.0, TIERS.surgeFx,     beamGlowSpriteTex(), THREE.AdditiveBlending);
+  const impactCore   = mkLayer(3.0, TIERS.surgeFx + 2, beamGlowSpriteTex(), THREE.AdditiveBlending);
+  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines, impactScorch, impactBloom, impactCore);
+  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines, impactScorch, impactBloom, impactCore };
   surgeBeam.visible = false;
   scene.add(surgeBeam);
 }
@@ -1746,6 +1755,21 @@ function updateSurgeBeam(dt, player, time) {
       if (_convFade <= 0) { _convActive = false; convLines.visible = false; }
     }
   }
+  // IMPACT STACK integration (own clock — outlives the beam like the sparks; P2: a consequence,
+  // moves on rawDt). Contact core flashes + dies fast; bloom disc blooms + fades; scorch HOLDS then
+  // easeOut-fades over ~1.0s (the perceived-payload extension). Runs even when surgeSeq is null.
+  if (_impactT >= 0) {
+    const { impactCore, impactBloom, impactScorch } = surgeBeam.userData;
+    const sdt = _bossRawDt > 0 ? _bossRawDt : dt;
+    _impactT += sdt; const it = _impactT;
+    impactCore.scale.setScalar(3.0 + 1.6 * Math.min(1, it / 0.15));
+    impactCore.material.opacity = Math.max(0, 1 - it / 0.28);
+    impactBloom.scale.setScalar(6.0 + 3.2 * Math.min(1, it / 0.25));
+    impactBloom.material.opacity = Math.max(0, 0.75 * (1 - it / 0.45));
+    impactScorch.scale.setScalar(6.5 + 0.8 * Math.min(1, it / 0.30));
+    impactScorch.material.opacity = it < 0.5 ? 0.55 : Math.max(0, 0.55 * (1 - (it - 0.5) / 0.5));
+    if (it > 1.0) { _impactT = -1; impactCore.visible = impactBloom.visible = impactScorch.visible = false; }
+  }
   // Capture seam: pin the cinematic to a beat (holds the beat, no auto-transition).
   const pin = surgeForceBeat();
   if (pin) surgeSeq = { phase: pin.phase, t: pin.t };
@@ -1757,7 +1781,7 @@ function updateSurgeBeam(dt, player, time) {
     game.surgeUltInvuln = false; game.surgeApexPin = 0; game.surgeGatherK = 0;
     if (game.surgeRitualScale != null) game.surgeRitualScale = null;
     if (surgeBeam.userData.shaft.visible) hideBeamEnsemble();
-    if (!_sparkActive) surgeBeam.visible = false;
+    if (!_sparkActive && _impactT < 0) surgeBeam.visible = false;
     return;
   }
   // §M.1-1: ALL ritual/beam clocks advance on rawDt (wall-clock) — the conductor floors
@@ -1846,7 +1870,7 @@ function updateSurgeBeam(dt, player, time) {
   // never instant-full-length), a sustain of seeded incommensurate wobbles + the travelling
   // surge-pulse, then a core-LAST collapse (outer→bloom→core pinch-pop) inside the final ~270ms.
   const life = surgeSeq.t / BEAM_TIME;
-  if (life >= 1) { surgeSeq = null; hideBeamEnsemble(); if (!_sparkActive) surgeBeam.visible = false; return; }
+  if (life >= 1) { surgeSeq = null; hideBeamEnsemble(); if (!_sparkActive && _impactT < 0) surgeBeam.visible = false; return; }
   shaft.visible = true;
 
   const bt = surgeSeq.t;
@@ -1891,9 +1915,14 @@ function updateSurgeBeam(dt, player, time) {
     beamLandFired = 1; beamLandT = bt;
     fireSurgeSparks(beamT, beamShatterPending);
     surgeShockRing(beamT, 0xffffff, { grow: 20, life: 0.55 });   // critic fix 3: faster growth → the ring separates from the boss's crown arc before it fades
+    fireImpactStack(beamT);   // Lane C: contact core + hue bloom disc + persistent dark scorch (the DARK anchor)
   } else if (beamLandFired === 1 && bt - beamLandT >= 0.06) {
     beamLandFired = 2;
     surgeShockRing(beamT, beamShatterPending ? 0xfff2d0 : _beamPal.halo.getHex(), { grow: 22, life: 0.38 });
+    if (!beamShatterPending) beamLandFired = 4;   // no shatter → done (skip the 3rd-ring stage)
+  } else if (beamLandFired === 2 && bt - beamLandT >= 0.18) {
+    beamLandFired = 4;
+    surgeShockRing(beamT, 0xfff2d0, { grow: 26, life: 0.40 });   // Lane C: shield-shatter gets a THIRD ring, lagging ~+120ms
     beamShatterPending = false;
   }
 }
@@ -1904,8 +1933,17 @@ function hideBeamEnsemble() {
   u.muzzleSocket.visible = u.muzzlePetals.visible = u.muzzleCore.visible = false;
   u.convLines.visible = false; _convActive = false; _convHeld = false;
 }
-let beamLandFired = 0;      // 0 in flight · 1 landed (primary fired) · 2 secondary fired
+let beamLandFired = 0;      // 0 in flight · 1 primary · 2 secondary · 4 done (3rd ring on shatter)
 let beamLandT = 0;
+let _impactT = -1;          // seconds since land for the impact stack; -1 = inactive (own clock)
+function fireImpactStack(center) {
+  const { impactCore, impactBloom, impactScorch } = surgeBeam.userData;
+  for (const s of [impactScorch, impactBloom, impactCore]) { s.position.copy(center); s.visible = true; }
+  impactCore.material.color.copy(_beamPal.core);
+  impactBloom.material.color.copy(_beamPal.halo);
+  impactScorch.material.color.copy(_beamPal.dark);
+  _impactT = 0;
+}
 let beamShatterPending = false;   // breakShield sets it — the shatter ensemble fires AT LAND
 
 // ── I4 ritual plumbing ──────────────────────────────────────────────────────

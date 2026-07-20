@@ -42,6 +42,9 @@ const C = (hex) => new THREE.Color(hex);
 const _biomeParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const PROPS_FORUM = _biomeParams.get('props') === 'forum';
+// PR-8 DEFAULT FLIP: the retired jungle rosters are opt-in A/B flags; anything else → the Drowned Forum default.
+const _biomePropsOpt = _biomeParams.get('props');
+const PROPS_LAGOON_AB = _biomePropsOpt === 'v1' || _biomePropsOpt === 'v2' || _biomePropsOpt === 'v3';
 
 // Canonical sun direction — a low sun ahead of the player. Shared by the sky
 // shader, the water shader and the god-ray pass so the light shafts streak from
@@ -330,6 +333,15 @@ export const BIOMES = [
     // Player-coupled WAKE (uplift PR-1): ripple rings radiate from the dragon on the nacre — the water
     // answers the player ("world that notices you", the audit's #1 add). 0 elsewhere → byte-identical.
     wake: 1,
+    // VALUE STRUCTURE + WORLD PULSE (uplift PR-A, owner-approved theology amendment): the 3-tier value
+    // scheme (darkened dusty-violet flanks framing the bright corridor to the Mote), the disc's 8s
+    // pulse-ring, the mirror-smudge, orbiters and the sky ribbon. 0 elsewhere -> byte-identical.
+    empyStruct: 1,
+    // AERIAL PERSPECTIVE (uplift PR-2, audit miss #2): far props lighten + drift toward pale violet —
+    // the avenue finally recedes (the 5.8 review's "far monoliths as crisp and dark as near ones" tell)
+    // and it doubles as a depth cue under the early/mid/late staging. Rides the shipped propAerial
+    // lever (Fable 75 pattern); 0 elsewhere → byte-identical.
+    propAerial: 0.6, propAerialColor: C(0xbfaee8),   // Fable gate: recession read via lightening alone - strength + violet both up a notch
     props: ['monolith', 'arcshard'],  // interim legacy Astral kit, pale-retinted via mats.body[5] (PR-4/5 replaces it)
     matIndex: 5, // empyStone bone-nacre (pale-retinted from astral slate)
     // Contrast gate (§3, a REAL gate): a HIGH-KEY field is a NEW contrast regime — every shipped
@@ -517,10 +529,11 @@ export const FORUM_BIOME0 = {
   bullets: undefined,
 };
 
-// The forum atmosphere rides the SAME `?props=forum` flag as its props (environment.js). Default and
-// headless (no window) → BIOMES[0] stays THE LOST LAGOON, so gold-determinism / biomecycle are
-// byte-identical. A const array's ELEMENT may be reassigned (const only pins the binding).
-if (PROPS_FORUM) BIOMES[0] = FORUM_BIOME0;
+// PR-8 DEFAULT FLIP: the Drowned Forum atmosphere is now the DEFAULT biome-0 palette (matching its prop-kit
+// flip in environment.js). Only an explicit A/B opt-in (`?props=v1|v2|v3`) restores the retired Lost Lagoon.
+// The golden fixture (level-gen rings/obstacles/golds) is prop-independent, so gold-determinism / biomecycle
+// stay byte-identical across the flip. A const array's ELEMENT may be reassigned (const only pins the binding).
+if (!PROPS_LAGOON_AB) BIOMES[0] = FORUM_BIOME0;
 
 // The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
 // array order. This indirection lets a new biome be APPENDED to BIOMES (with its mats/skins/
@@ -589,6 +602,8 @@ const env = {
   // THE EMPYREAN uplift PR-1 — player-coupled water WAKE (0 elsewhere → byte-identical water).
   // Consumed by water.js: expanding ripple rings radiate from the dragon on the nacre.
   wakeMix: 0,
+  // THE EMPYREAN uplift PR-A — value structure + world pulse (0 elsewhere → byte-identical).
+  empyStructMix: 0,
   // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
   moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
@@ -723,6 +738,8 @@ export function computeEnv(dist) {
   env.shoalMix = lerp(a.shoal || 0, b.shoal || 0, ts);
   // THE EMPYREAN uplift PR-1 wake (optional-channel): 0 elsewhere = byte-identical water.
   env.wakeMix = lerp(a.wake || 0, b.wake || 0, ts);
+  // THE EMPYREAN uplift PR-A value-structure gate: 0 elsewhere = byte-identical sky + water.
+  env.empyStructMix = lerp(a.empyStruct || 0, b.empyStruct || 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
