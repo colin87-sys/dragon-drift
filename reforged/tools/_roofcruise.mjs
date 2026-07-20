@@ -31,9 +31,9 @@ const dists = [d0, d0 + 500, d0 + 1000];   // three lagoon-comp peaks (period 50
 let shot = 0;
 for (let i = 0; i < dists.length; i++) {
   await page.evaluate((d) => { window.__dd.player.dist = d; window.__dd.player.speed = 0.0001; }, dists[i]);
-  await page.waitForTimeout(600);
-  writeFileSync(`reforged-captures/roofcruise-${tag}-${String(i).padStart(2, '0')}.png`, await page.screenshot({ animations: 'disabled', timeout: 15000 }));
-  console.log('frame', i, '@ dist', dists[i]);
+  await page.waitForTimeout(700);
+  try { writeFileSync(`reforged-captures/roofcruise-${tag}-${String(i).padStart(2, '0')}.png`, await page.screenshot({ timeout: 30000 })); console.log('frame', i, '@ dist', dists[i]); }
+  catch (e) { console.log('frame', i, 'screenshot FAILED:', e.message); }
   shot++;
 }
 await page.evaluate(() => clearInterval(window.__pin));
