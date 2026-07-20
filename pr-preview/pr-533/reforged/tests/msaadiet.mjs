@@ -19,16 +19,27 @@ check('BASE_MSAA is deviceClass-scoped (mobile 2 / desktop 4) with ?msaa0/2/4 ov
   /isMobileClass\(\) \? 2 : 4/.test(main) &&
   main.indexOf('const BASE_MSAA') < main.indexOf('initPostFX(renderer, scene, camera, BASE_MSAA)'));
 check('postfx remembers the boot base as postfx.baseMSAA', /postfx\.baseMSAA = /.test(post) && /baseMSAA: 4/.test(post));
-check('the arena 0-drop RESTORES to the deviceClass base, not a hardcoded 4',
-  /setPostMSAA\(active \? 0 : postfx\.baseMSAA\)/.test(main));
+check('the arena 0-drop RESTORES to the ladder target (base, or 0 if the ?msaadyn rung holds it)',
+  /setPostMSAA\(active \? 0 : dynMSAATarget\(\)\)/.test(main));
+// Gate-2 F1/F2: every path that RESETS the dynRes ladder must also restore MSAA, or a
+// ?msaadyn-engaged 0 gets stranded — worst on dynRes-off, where the governor block that
+// would otherwise restore it is then gated out entirely (a permanent stuck-0).
+check('F1: dynRes-off restores MSAA to base (else it strands at 0 — the governor is now gated off)',
+  /if \(!on\) \{ resGovReset\(resGov\); resScale = 1\.0; setPerfSaver\(false\); if \(MSAA_DYN\) setDynMSAA\(postfx\.baseMSAA\); \}/.test(main));
+check('F1: a tier flip (applyQuality) restores MSAA to the reset ladder target',
+  /resGovReset\(resGov\); resScale = 1\.0; setPerfSaver\(false\);[\s\S]{0,400}if \(MSAA_DYN\) setDynMSAA\(dynMSAATarget\(\)\)/.test(main));
+check('the MSAA target is a single source of truth (dynMSAATarget: 0 at/past the rung, base below)',
+  /function dynMSAATarget\(idx = resGov\.idx\)/.test(main) && /STAGES\.slice\(0, idx \+ 1\)\.some\(\(s\) => s\.msaa === 0\)/.test(main));
 check('the MSAA dynRes rung is an A/B SEAM: ?msaadyn + mobile only (default off)',
   /const MSAA_DYN = urlParams\.has\('msaadyn'\) && isMobileClass\(\)/.test(main));
 check('the MSAA rung sits BEFORE resolution trims (spliced at ladder index 2, full res)',
   /s\.splice\(2, 0, \{ saver: true, scale: RES_SCALES\[0\], msaa: 0 \}\)/.test(main));
 check('setDynMSAA reallocs once + skipQualityFrames-guarded, and is the ONLY dynRes MSAA path',
   /function setDynMSAA/.test(main) && /function setDynMSAA[\s\S]{0,500}skipQualityFrames = 2/.test(main));
-check('tier flips (applyQuality) never touch composer samples — setDynMSAA is gated behind MSAA_DYN',
-  /if \(MSAA_DYN\) setDynMSAA\(/.test(main) && !/applyQuality[\s\S]*?setDynMSAA/.test(main.slice(main.indexOf('function applyQuality'), main.indexOf('function applyQuality') + 900)));
+check('every tier/reset-path MSAA restore is gated behind MSAA_DYN (desktop tier flips never realloc samples)',
+  // applyQuality DOES restore MSAA now (F1) — but only under MSAA_DYN, so the default/desktop
+  // path never calls setDynMSAA on a tier flip (proven functionally below: samples stay 4).
+  /if \(MSAA_DYN\) setDynMSAA\(dynMSAATarget\(\)\);   \/\/ F1/.test(main));
 
 // --- 2. functional: default boot (headless = desktop-class) = byte-identical ---
 {

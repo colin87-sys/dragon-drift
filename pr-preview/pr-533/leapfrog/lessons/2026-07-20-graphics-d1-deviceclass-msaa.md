@@ -33,6 +33,18 @@ default-OFF behind `?msaadyn` (A/B seam) because the plan requires an on-device 
   seam the rung currently restores 0→2 with the governor's reverse step — fine for measuring,
   not for shipping, per the 07-18 mid-play-pop lesson).
 
+**The Gate-2 catch (a state added to a ladder must be restored on EVERY reset path).** The
+`?msaadyn` rung adds a new piece of live state (composer `samples`) to the dynRes ladder — and
+the ladder has three reset paths, not one: the governor's own reverse step, a tier flip
+(`applyQuality` calls `resGovReset`), and the settings dynRes-OFF toggle (`setDynRes(false)`).
+The first restores `samples` naturally; the other two reset `resScale`/`saver` but were blind to
+the new state, stranding a `?msaadyn`-engaged 0 — **permanently** on dynRes-off, because the
+governor block that would otherwise restore it is then gated out (`if (dynResEnabled)`). Fable
+caught both. The fix is a `dynMSAATarget()` single-source-of-truth (0 at/past the rung, base
+below) restored on every reset path + the arena exit. THE LESSON: when you hang a new live knob
+off a shared ladder, grep every place that RESETS the ladder — the dangerous one is the reset
+that also disables the thing that would recover it.
+
 **The gotcha.** The `__dd` debug object is built ~1000 lines ABOVE where `STAGES`/`MSAA_DYN`
 are declared, so putting `stageMSAA: STAGES.map(...)` inside that literal threw
 `ReferenceError: Cannot access 'MSAA_DYN' before initialization` (TDZ) and killed boot — with
