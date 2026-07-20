@@ -570,11 +570,19 @@ export function buildUnmasked(def, quality = 1) {
   // law — the blue tint read plastic under the night hemisphere light); (2) vertexColors on, so the
   // angelWing valueBand ramp (root-dark → tip-lit per feather) multiplies in — every feather draws
   // its own gradient and the fan stops reading as cut card. Ranks stay distinct via the ladder.
-  const LADDER = { upper: 0x3d3c43, uppermid: 0x383740, upmid: 0x383740, middle: 0x312f38, lowermid: 0x2b2a33, lower: 0x27262f };
+  // OWNER PLAYTEST FIX (the "still-black wing roots + black bumpy covert mass"): the wing INTERIOR
+  // (coverts/arm/under-lens = the baseMat) rendered as pure VOID under the dark boss-fight light —
+  // the covert faces angle away from the sun and receive almost no light, so a near-black DIFFUSE
+  // (even ×1.4 warm-lifted by the valueBand) crushes to 0. Diffuse tints CANNOT lift a shadow;
+  // only EMISSIVE adds regardless of light (L105 — dark PBR bodies die in bloom/ACES without an
+  // emissive floor). Fix: a warm-slate emissive FLOOR on the covert ladder so the inner wing reads
+  // as dark FEATHERED MASS (luma ~30), never a black hole — still near-black, still ominous, still
+  // well under the eye + the G2 dark-body cap. The ladder albedo is nudged up a hair to match.
+  const LADDER = { upper: 0x44434c, uppermid: 0x3e3d47, upmid: 0x3e3d47, middle: 0x37353f, lowermid: 0x312f39, lower: 0x2c2b35 };
   const baseMats = {};
-  for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));
-  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x545b66, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));   // cool moonlit steel — the leading-edge rim
-  const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x40454f, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
+  for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], emissive: 0x2b2531, emissiveIntensity: 0.85, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));
+  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x545b66, emissive: 0x20242c, emissiveIntensity: 0.5, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));   // cool moonlit steel — the leading-edge rim (+ a small floor so back-angled flight feathers never crush)
+  const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x40454f, emissive: 0x1e222a, emissiveIntensity: 0.5, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
   // The gold RACHIS quill-shafts on the leading primaries (angelWing rachisMaterial): a DRAWN
   // line, not a light source — plain tone-mapped gold (never blooms, T7-safe), dim enough that
   // the eyes stay the only emissive family while the shafts etch the fan's structure in the dark.
