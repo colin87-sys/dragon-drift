@@ -274,7 +274,7 @@ const fragmentShader = /* glsl */`
     float _stormCalm = 1.0 - 0.75 * _calmPatch;                // storm violence → ~0.25 inside the patch
 
     // Base water body: shallows pick up light at glancing wave faces (shipped mix).
-    float tH = clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55;
+    float tH = clamp(0.5 + h * 1.4 * (1.0 - 0.85 * smoothstep(70.0, 200.0, dist) * uStructMix), 0.0, 1.0) * 0.55;   // PR-B r2: distance LOD-collapse - the constant-frequency interference lattice fades to smooth pearl beyond mid-range (a warp alone only wobbles the quilt, it cannot kill it)
     // N10b fake Beer-Lambert: trans = fraction of virtual-bottom light that survives
     // the slant view-path (depth / V.y). Look-down -> short path -> bright shallows;
     // glancing -> long path -> dark deeps. Gated in the mix-FACTOR domain so

@@ -175,7 +175,7 @@ function addPropDetail(mat, ladderEmissive = false) {
         // faces dip a touch. Implies the bright lane (the biome's light source concept), never a sun.
         vec3 _ttn = normalize(cross(dFdx(vPropWPos), dFdy(vPropWPos)));
         float _tt = clamp(-sign(vPropWPos.x) * _ttn.x, 0.0, 1.0);
-        diffuseColor.rgb *= 1.0 + (0.14 * _tt - 0.05) * uPropTwoTone;
+        diffuseColor.rgb *= 1.0 + (0.22 * _tt - 0.08) * uPropTwoTone;   // r2: 14% died under fog+noise - raised until two adjacent faces are frame-distinguishable
         #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
@@ -540,7 +540,7 @@ function buildSentinelParts() {
 // STRUCTURE (crown catches the zenith, base reads as ambient occlusion) and the mid-field CARRY the harsh
 // Fable gate demanded — the base sits well under the pearl fog so the stone doesn't dissolve into it,
 // while the crown stays bone-pale. `lo`/`hi` = base/crown grayscale multipliers; `mot` = mottle depth.
-function _bakeRamp(arr, lo, hi, mot = 0.055) {
+function _bakeRamp(arr, lo, hi, mot = 0.028) {   // PR-B r2: mottle halved - the speckle noise was drowning the hue ladder ('noisy grey')
   const n = arr.length / 3;
   let yMin = Infinity, yMax = -Infinity;
   for (let i = 0; i < n; i++) { const y = arr[i * 3 + 1]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
@@ -557,9 +557,11 @@ function _bakeRamp(arr, lo, hi, mot = 0.055) {
     // biome-5 prop (empyNew), so other biomes stay byte-identical by construction. Kills the 5.5
     // review's "grey prisms = unlit dev slabs" as ONE coherent kit instead of per-prop repaints.
     const hb = 1 - t;                                              // base weight
-    col[i * 3] = g * (1 - 0.06 * hb);                              // R: slight dip at base
-    col[i * 3 + 1] = g * (1 - 0.10 * hb - 0.03 * t);               // G: dips at base (violet) AND slightly at crown (rose)
-    col[i * 3 + 2] = g * (1 + 0.02 * hb - 0.05 * t);               // B: up at base (violet), down at crown (rose)
+    const cf = Math.max(0, (t - 0.82) / 0.18);                     // crown FEATHER band (top ~18%): the body leans rose
+    col[i * 3] = g * (1 - 0.09 * hb + 0.05 * cf);                  // R: dip at base, lift into the crown
+    col[i * 3 + 1] = g * (1 - 0.16 * hb - 0.07 * cf);              // G: strong dip at base (visible violet), dip at crown (rose)
+    col[i * 3 + 2] = g * (1 + 0.06 * hb - 0.04 * cf);              // B: up at base (violet), slight dip at crown
+    // → the rose cap now meets a rose-leaning body band, reading as light catching the crown (no paint-line)
   }
   return col;
 }
@@ -635,7 +637,7 @@ function buildHaloShardParts() {
     rings.push(ring);
   }
   for (let i = 0; i < N - 1; i++) {
-    const tgt = i === 0 ? crown : body;                      // LOW lip band only → rose; everything else bone
+    const tgt = body;                                        // r2: the band goes BONE - only the low cap fan stays rose (the full band over-read as a fat pink foot at close range)
     for (let j = 0; j < seg; j++) {
       const j2 = (j + 1) % seg;
       const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
