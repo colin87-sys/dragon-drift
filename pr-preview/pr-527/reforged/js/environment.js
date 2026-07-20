@@ -107,6 +107,7 @@ const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
   uniform float uAO; varying float vAO;
   uniform float uPropAerial; uniform vec3 uPropAerialCol;   // Fable 75: per-biome aerial-perspective lever (0 = shipped)
+  uniform float uPropTwoTone;   // uplift PR-B: corridor-facing two-tone (0 = shipped)
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -124,6 +125,7 @@ const PROP_NOISE_HEAD = /* glsl */`
 // fogFarColor can only pull props toward a DARKER amber; this is the only mechanism that makes
 // distance lighten them. `vFogDepth` (the fog chunk's view-space depth) is the free depth signal.
 const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
+const propTwoToneUniform = { value: 0 };                       // uplift PR-B two-tone corridor faces (0 = byte-identical; rides empyStructMix)
 const propAerialColor   = { value: new THREE.Color(0x000000) };
 
 // Fable 79 HERO BACKLIT-RIM lever — a per-biome optional channel (0 everywhere but the Mire) that
@@ -139,6 +141,7 @@ function addPropDetail(mat, ladderEmissive = false) {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
     shader.uniforms.uPropAerial = propAerialUniform;    // Fable 75 aerial lever (0 = shipped)
     shader.uniforms.uPropAerialCol = propAerialColor;
+    shader.uniforms.uPropTwoTone = propTwoToneUniform;  // uplift PR-B (0 = shipped)
     assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
@@ -167,6 +170,12 @@ function addPropDetail(mat, ladderEmissive = false) {
         // (hard bands pop as props approach). uPropAerial 0 ⇒ mix factor 0 ⇒ byte-identical.
         float _aer = smoothstep(55.0, 230.0, vFogDepth); _aer *= _aer * uPropAerial;
         diffuseColor.rgb = mix(diffuseColor.rgb, uPropAerialCol, _aer * 0.50);
+        // Uplift PR-B TWO-TONE (owner-approved theology amendment; uPropTwoTone 0 = byte-identical):
+        // flat-shaded face normal from screen derivatives — faces toward the CORRIDOR axis lift, away
+        // faces dip a touch. Implies the bright lane (the biome's light source concept), never a sun.
+        vec3 _ttn = normalize(cross(dFdx(vPropWPos), dFdy(vPropWPos)));
+        float _tt = clamp(-sign(vPropWPos.x) * _ttn.x, 0.0, 1.0);
+        diffuseColor.rgb *= 1.0 + (0.14 * _tt - 0.05) * uPropTwoTone;
         #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
@@ -543,7 +552,14 @@ function _bakeRamp(arr, lo, hi, mot = 0.055) {
     const v = lo + (hi - lo) * (t * t * (3 - 2 * t));              // smoothstep ramp
     const m = 1 + mot * (Math.sin(x * 3.1 + z * 2.3) * Math.sin(y * 4.7 - x * 1.9));  // erosion mottle (kills the flat-facet crystal tell)
     const g = Math.max(0.05, v * m);
-    col[i * 3] = g; col[i * 3 + 1] = g; col[i * 3 + 2] = g;
+    // Uplift PR-B "stones of light": the ladder carries a HUE ramp too — violet-leaning base → pearl
+    // body → rose-tinged crown (hue ≥315 territory via the shared rose mats). Every _bakeRamp user is a
+    // biome-5 prop (empyNew), so other biomes stay byte-identical by construction. Kills the 5.5
+    // review's "grey prisms = unlit dev slabs" as ONE coherent kit instead of per-prop repaints.
+    const hb = 1 - t;                                              // base weight
+    col[i * 3] = g * (1 - 0.06 * hb);                              // R: slight dip at base
+    col[i * 3 + 1] = g * (1 - 0.10 * hb - 0.03 * t);               // G: dips at base (violet) AND slightly at crown (rose)
+    col[i * 3 + 2] = g * (1 + 0.02 * hb - 0.05 * t);               // B: up at base (violet), down at crown (rose)
   }
   return col;
 }
@@ -6159,6 +6175,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // frame-to-frame, unmistakable court-to-court). 0 off-biome → byte-identical sky.
   su.uMoteMix.value = env.moteMix ?? 0;
   su.uEmpyStruct.value = env.empyStructMix ?? 0;   // uplift PR-A (0 elsewhere = byte-identical)
+  propTwoToneUniform.value = env.empyStructMix ?? 0;   // uplift PR-B two-tone rides the same gate
   { const _L = CONFIG.biomeLength; su.uMoteGrow.value = _L > 0 ? (((playerDist % _L) + _L) % _L) / _L : 0; }
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env

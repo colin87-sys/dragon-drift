@@ -235,6 +235,10 @@ const fragmentShader = /* glsl */`
 
   void main() {
     vec2 p = vWorldPos.xz;
+    // Uplift PR-B (uStructMix 0 = shipped byte-identical): a low-frequency domain WARP breaks the
+    // three fixed-direction waves' interference lattice — the "quilted tile grid" tiling read on the
+    // pale nacre (5.5 review gap 5). The lattice never aligns, so the far field reads as water.
+    p += uStructMix * 2.6 * vec2(sin(p.y * 0.037 + p.x * 0.011), sin(p.x * 0.041 - p.y * 0.013));
     float h = 0.0;
     vec2 grad = vec2(0.0);
     wave(p, normalize(vec2( 0.8,  0.6)), 0.50, 0.16 * waveAmp, 1.10, h, grad);
