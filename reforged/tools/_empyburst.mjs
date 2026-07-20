@@ -44,6 +44,35 @@ async function darkBudget(page, buf, label) {
   return ok;
 }
 
+// PR-A r6 machine probes (gate r5 fix 3): verify the two contested numbers IN THE FRAMEBUFFER before
+// any critic spawn — quarter-frame flank delta at the line rows, and moving-ROSE pixels in the water.
+async function structProbes(page, bufCruise, bufL1, bufL4) {
+  const r = await page.evaluate(async ([c, a, b]) => {
+    const load = (x) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + x; });
+    const px = async (img) => { const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0); return ctx.getImageData(0, 0, cv.width, cv.height).data; };
+    const [ic, ia, ib] = await Promise.all([load(c), load(a), load(b)]);
+    const dc = await px(ic), da = await px(ia), db = await px(ib);
+    const W = ic.width;
+    const L = (d, x, y) => { const i = (y * W + x) * 4; return 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; };
+    let corr = 0, cn = 0, fl = 0, fn = 0;
+    for (let y = 264; y < 300; y += 2) {
+      for (let x = 440; x < 520; x += 2) { corr += L(dc, x, y); cn++; }
+      for (const x0 of [120, 760]) for (let x = x0; x < x0 + 80; x += 2) { fl += L(dc, x, y); fn++; }
+    }
+    const delta = +(100 * (corr / cn - fl / fn) / (corr / cn)).toFixed(1);
+    let rose = 0;
+    for (let y = 302; y < ic.height - 20; y += 2) for (let x = 0; x < W; x += 2) {
+      const i = (y * W + x) * 4;
+      if (Math.abs(da[i] - db[i]) > 10 || Math.abs(da[i + 2] - db[i + 2]) > 10) {
+        if (db[i] > db[i + 2] + 5) rose++;
+        if (da[i] > da[i + 2] + 5) rose++;
+      }
+    }
+    return { delta, rose };
+  }, [bufCruise.toString('base64'), bufL1.toString('base64'), bufL4.toString('base64')]);
+  console.log(`  [struct-probe] flankDelta=${r.delta}% (bar ~15) movingRose=${r.rose} (bar ~400)`);
+}
+
 async function session(tag, view, shots) {
   const query = `?biome=5&debug&cleanshot&seed=73101`;
   const { page, done } = await boot({ query, viewport: view, deviceScaleFactor: 1, initScript: mkSave() });
@@ -54,6 +83,7 @@ async function session(tag, view, shots) {
   }, { timeout: 30000, polling: 500 });
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.__dd.noBoss(true));
+  let _cruiseBuf = null, _live1Buf = null, _liveLastBuf = null;
   for (const s of shots) {
     // fly to the shot's lane distance with the sim running, then settle the fog/sky lerp
     await page.evaluate((d) => { window.__dd.game.timeScale = 1; window.__dd.player.dist = d; }, s.dist);
@@ -97,6 +127,7 @@ async function session(tag, view, shots) {
           console.log(`  [motion-diff ${tag}-${s.name}${k + 1}] changed=${df}${s.frozen ? (df < 0.35 ? ' (frozen OK - shader/water motion only)' : ' (FREEZE FAILED)') : ''}`);
         }
         _prevB64 = buf.toString('base64');
+        if (k === 0) _live1Buf = buf; _liveLastBuf = buf;
         if (k < s.burst - 1) for (let g = 0; g < 5; g++) {   // sweep DURING the live gap too — a gate respawning mid-burst kills the auto-flying player (a live3 frame once caught the death fade-to-black)
           await page.evaluate(([fz, d]) => {
             if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }
@@ -121,10 +152,12 @@ async function session(tag, view, shots) {
     writeFileSync(`/tmp/empyburst-${tag}-${s.name}.png`, buf);
     console.log(`  wrote /tmp/empyburst-${tag}-${s.name}.png`);
     await darkBudget(page, buf, `${tag}-${s.name}`);
+    if (s.name === 'cruise') _cruiseBuf = buf;
     if (s.pitch) await page.evaluate((p) => {   // undo the pitch so the next shot starts clean
       const c = window.__dd.camera; c.rotation.x -= p; c.updateMatrixWorld();
     }, s.pitch);
   }
+  if (_cruiseBuf && _live1Buf && _liveLastBuf) await structProbes(page, _cruiseBuf, _live1Buf, _liveLastBuf);
   await done();
 }
 
