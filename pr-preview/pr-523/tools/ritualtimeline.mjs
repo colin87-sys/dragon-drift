@@ -33,7 +33,7 @@ const SAMPLES = [
   ['gather2', 'ritual', beats.callEnd + (beats.apexStart - beats.callEnd) * 0.55],
   ['gather3', 'ritual', beats.callEnd + (beats.apexStart - beats.callEnd) * 0.85],
   ['apex-in', 'ritual', beats.apexStart + 0.02],
-  ['apex-mid','ritual', beats.apexStart + 0.12],
+  ['apex-mid','ritual', (beats.apexStart + beats.releaseAt) / 2],   // midpoint (retimes with RIT_APEX)
   ['apex-end','ritual', beats.releaseAt - 0.02],
   ['beam-0',  'beam',   0.02],
   ['beam-mid','beam',   0.19],
@@ -71,10 +71,10 @@ writeFileSync(`/tmp/ritual-${key}-sheet.png`, Buffer.from(sheet, 'base64'));
 console.log(`\n== RITUAL TIMELINE (${key}, first cast) — the wind-up before the beam ==`);
 console.log(`  CALL   0.00 → ${beats.callEnd.toFixed(2)}s   (${(beats.callEnd*1000).toFixed(0)}ms, world 100%→~97%)`);
 console.log(`  GATHER ${beats.callEnd.toFixed(2)} → ${beats.apexStart.toFixed(2)}s   (${((beats.apexStart-beats.callEnd)*1000).toFixed(0)}ms, world eases ~97%→35%)`);
-console.log(`  APEX   ${beats.apexStart.toFixed(2)} → ${beats.releaseAt.toFixed(2)}s   (${((beats.releaseAt-beats.apexStart)*1000).toFixed(0)}ms, world FROZEN at 25% — the held breath)`);
-console.log(`  → RELEASE at ${beats.releaseAt.toFixed(2)}s : beam fires (0.55s), world snaps 25%→105%→100%`);
+console.log(`  APEX   ${beats.apexStart.toFixed(2)} → ${beats.releaseAt.toFixed(2)}s   (${((beats.releaseAt-beats.apexStart)*1000).toFixed(0)}ms, world held at 35% — the held breath)`);
+console.log(`  → RELEASE at ${beats.releaseAt.toFixed(2)}s : beam fires (0.55s), world snaps 35%→105%→100%`);
 console.log(`  TOTAL WIND-UP before beam = ${beats.releaseAt.toFixed(2)}s wall-clock (~${((beats.apexStart-beats.callEnd)+(beats.releaseAt-beats.apexStart)).toFixed(2)}s of it noticeably slowed)`);
-console.log(`  repeat cast compresses to CALL 0.10 + GATHER 0.65 + APEX 0.25 = 1.00s`);
+{ const rb = await page.evaluate(() => window.__dd.surgeRitualBeats(true)); console.log(`  repeat cast compresses the approach to ${rb.releaseAt.toFixed(2)}s total`); }
 console.log(`\n  per-frame:`);
 for (const s of shots) console.log(`   ${s.label.padEnd(9)} t=${s.t.toFixed(2)}s  world=${(s.ts*100).toFixed(0)}%${s.gk!=null?`  gather=${(s.gk*100).toFixed(0)}%`:''}`);
 console.log(`\n  sheet: /tmp/ritual-${key}-sheet.png   errors: ${errors.length}`);

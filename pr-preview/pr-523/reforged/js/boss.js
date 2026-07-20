@@ -1163,24 +1163,27 @@ const BEAM_TIME = 0.55;        // beam live + fade after the strike
 // scaled-dt GATHER would silently stretch ~3×). Repeats compress the APPROACH, never the
 // ARRIVAL — APEX + RELEASE numbers are byte-identical on every cast (P4).
 const RIT_CALL = [0.15, 0.10];       // [first cast, repeat] CALL duration (s)
-const RIT_GATHER = [1.15, 0.65];     // GATHER duration
-const RIT_APEX = 0.25;               // APEX held-breath — SACRED, never compressed (230–270ms window)
+const RIT_GATHER = [0.70, 0.40];     // GATHER duration (re-timed: the old 1.15/0.65 back third was flat slow-mo — dead time before the beam)
+const RIT_APEX = 0.15;               // APEX held-breath (130–170ms — a beat, not a stall). The late-dive ease makes 150ms READ as ~150ms; the old easeInOutCubic curve inflated a 250ms hold into a ~600ms perceived time-stop (owner report).
 const RIT_SWELLS = [3, 2];           // seeded GATHER sub-swells (stepped escalation, uneven gaps)
 // The authored timeScale envelope at ritual-time t (pure — the conductor AND the tests read it):
-// 1.0 → easeInOutCubic down to 0.35 across CALL+GATHER → APEX floor 0.25 (flat plateau with
-// CLIFFS, not a valley) → RELEASE snaps to 1.05 in ≤50ms → decaying spring to 1.0 by ~+300ms.
+// 1.0 → easeInCubic (LATE dive: the world holds high while the charge builds, plunging only into
+// the lock) down to 0.35 across CALL+GATHER → APEX plateau HOLDS 0.35 (the ease terminal, no extra
+// cliff) → RELEASE snaps to 1.05 in ≤50ms → decaying spring to 1.0 by ~+300ms. Re-timed (owner:
+// the wind-up felt like a time-stop) — the late-dive curve converts the old dead slow-mo tail into
+// a readable build, and the deep-slow (≤50%) window drops ~0.75s → ~0.22s.
 export function surgeRitualScaleAt(t, repeat = false) {
   const call = RIT_CALL[repeat ? 1 : 0], gather = RIT_GATHER[repeat ? 1 : 0];
   const tApex = call + gather, tRel = tApex + RIT_APEX;
   if (t < 0) return 1;
   if (t < tApex) {
     const x = Math.min(1, t / tApex);
-    const e = x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;   // easeInOutCubic
+    const e = x * x * x;                                                    // easeInCubic — the LATE dive
     return 1 - e * 0.65;                                                    // 1.0 → 0.35
   }
-  if (t < tRel) return 0.25;                                                // the plateau (cliff in, cliff out)
+  if (t < tRel) return 0.35;                                                // the plateau = the ease terminal (no cliff — the dead slow-mo tail that read as a "time stop" is gone)
   const r = t - tRel;
-  if (r < 0.05) return 0.25 + (1.05 - 0.25) * (r / 0.05);                    // the snap (slope 16/s)
+  if (r < 0.05) return 0.35 + (1.05 - 0.35) * (r / 0.05);                    // the snap (slope 14/s ≥ 12)
   return 1 + 0.05 * Math.exp(-r * 9) * Math.cos(r * 24);                     // decaying spring → 1.0
 }
 // Ritual beat boundaries at cast shape `repeat` — [callEnd, apexStart, releaseAt] (s).
@@ -1916,7 +1919,13 @@ export function setBossRawDt(rdt) { _bossRawDt = rdt; }
 let _swellCenters = [[0.35, 0.62, 0.95], [0.30, 0.55]];   // fractions of GATHER, reseeded per cast
 export function surgeGatherKAt(t, repeat = false) {
   const beats = surgeRitualBeats(repeat);
-  if (t >= beats.apexStart) return 1;
+  if (t >= beats.apexStart) {
+    // APEX is short now (~150ms) — keep it from reading as FROZEN pixels: one white flare-crest
+    // pulses the muzzle across the hold. sin(0)=sin(π)=0 → continuous 1.0 at both edges (byte-
+    // identical arrival across casts preserved). Pacing plan.
+    const ap = Math.min(1, (t - beats.apexStart) / Math.max(1e-6, beats.releaseAt - beats.apexStart));
+    return 1 + 0.08 * Math.sin(Math.PI * ap);
+  }
   if (t <= beats.callEnd) return 0.06 * (t / beats.callEnd);   // CALL: barely a spark
   const g = (t - beats.callEnd) / (beats.apexStart - beats.callEnd);   // 0..1 across GATHER
   let k = 0.06 + 0.78 * g;                                     // the base climb
