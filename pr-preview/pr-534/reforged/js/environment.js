@@ -3772,12 +3772,15 @@ const ARCHETYPES = {
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.12, 0.10, 0], [-0.16, 0.62, 0], 0.042, 0.028, 5) });   // trunk
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.15, 0.58, 0], [-0.16, 0.85, 0], 0.022, 0.012, 3) });   // fork limb → pad A
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.14, 0.60, 0], [0.02, 0.77, 0], 0.020, 0.010, 3) });    // fork limb → pad B
-      // 3 PARASOL PADS — squashed CLOSED cones (rb3 law: closed, ~10% apex rise, never a circle-sandwich). The
-      // ONE-CROWN law: all ride above y0.70, stagger Δy≈0.07, overlap ≥40%, counter-tilts → ONE ragged flat
-      // umbrella slab, never a shish-kebab of discs. bake:'pine'. (~44)
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.40, 0.055, 6), { x: -0.16, y: 0.88, sx: 1.10, sz: 0.85, rz: 0.06 }) });   // pad A — wind-sheared crown master
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.28, 0.045, 6), { x: 0.02, y: 0.80, sz: 0.80, rz: -0.10 }) });             // pad B
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.22, 0.04, 5), { x: -0.36, y: 0.73, rz: 0.14 }) });                        // pad C — drooping outboard shoulder
+      // 3 PARASOL PADS — squashed CLOSED cones (rb3 law: closed, ~7% apex rise, never a circle-sandwich). FLATTEN
+      // pass (Fable harsh-critic b): the palm/ragged-radial tell was the apex rise + counter-tilts breaking the top
+      // edge — so kill the apex (0.055→0.03, ~7% rise = a disc not a spike), pull tilts toward 0 (rz ≤0.05 → the
+      // top edge reads HORIZONTAL at every yaw), tighten the stagger (Δy 0.15→0.05) and RAISE the outboard shoulder
+      // so all three FUSE into ONE flat-topped stone-pine umbrella slab, never a palm's ragged radial or a
+      // shish-kebab of discs. bake:'pine'. (~44)
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.42, 0.030, 6), { x: -0.14, y: 0.86, sx: 1.12, sz: 0.86, rz: 0.02 }) });   // pad A — wide flat crown master
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.30, 0.028, 6), { x: 0.04, y: 0.83, sz: 0.82, rz: -0.03 }) });             // pad B — overlaps A, near-level
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.24, 0.026, 5), { x: -0.32, y: 0.81, rz: 0.05 }) });                       // pad C — outboard shoulder, raised to fuse the slab
       // CYPRESS FLAME — a tall thin flame-taper (widest at ⅓ height, tapering BOTH ways = flame not cone),
       // ~9:1 slender, tip overtopping the umbrella (the postcard exclamation point). bake:'pine'. (20)
       parts.push({ mat: 0, bake: 'pine', geo: frustumBetween([0.45, 0.06, 0.10], [0.45, 0.34, 0.10], 0.040, 0.065, 5) });   // shin (widens to the ⅓ belly)
