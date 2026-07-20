@@ -165,14 +165,16 @@ console.log('THE EMPYREAN — holistic burst captures');
 const only = process.argv[2];
 if (!only || only === 'desk') await session('desk', { width: 960, height: 600 }, [
   { name: 'early',  dist: 380 },   // congregation peak (~400) INSIDE the early band - the arch family's home; 1200 looked ahead across the 0.34 band cutoff where arches park
-  { name: 'mid',    dist: 2000 },
+  { name: 'mid',    dist: 2175 },  // local 675, t=0.45 - TRUE mid band (biomeLength=1500; the old 2000 was t=0.33)
   { name: 'cruise', dist: 2400 },
   { name: 'sky',    dist: 2400, pitch: 0.35 },
   { name: 'water',  dist: 2400, pitch: -0.25 },
   { name: 'live',   dist: 2600, burst: 4, frozen: true },   // 4 frames × ~2.6s ≈ most of an 8s pulse cycle — the rose ring's expansion is capturable at any phase
-  { name: 'late',   dist: 3200 },
+  { name: 'late',   dist: 2700 },  // local 1200, t=0.80 - TRUE late band (the old 3200 was local 200 = EARLY - every prior "late" frame was mislabeled)
+  { name: 'gate',   dist: 2755 },  // camera sees local 1255-1405: the RING GATE window (0.88*1500 = 1320 +-60)
 ]);
 if (!only || only === 'phone') await session('phone', { width: 390, height: 780 }, [
   { name: 'cruise', dist: 2400 },
-  { name: 'late',   dist: 3200 },
+  { name: 'late',   dist: 2700 },  // local 1200, t=0.80 - TRUE late band (the old 3200 was local 200 = EARLY - every prior "late" frame was mislabeled)
+  { name: 'gate',   dist: 2755 },  // camera sees local 1255-1405: the RING GATE window (0.88*1500 = 1320 +-60)
 ]);
