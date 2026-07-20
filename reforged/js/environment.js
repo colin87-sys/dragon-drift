@@ -3717,7 +3717,7 @@ const ARCHETYPES = {
       // GABLE PROFILE (WORLD-low Roman pitch ~17°): ridge along local X (x∈±0.68), eaves at z=±0.46, ridge
       // y0.40 / eave y0.26 → drop 0.14 over 0.46 = 16.9° (in the 15–22° band; a steep alpine gable is the wrong
       // culture). Randomize the RUIN (bump spacing, the broken end), never the ARCHITECTURE (this pitch/aspect).
-      const W = 0.68, D = 0.46, rY = 0.44, eY = 0.26, th = 0.05;   // ridge y0.44/eave y0.26 → drop 0.18 over 0.46 = 21° (top of the Roman band — reads as a ROOF, not a flat plate, while staying a low hugger)
+      const W = 0.68, D = 0.46, rY = 0.52, eY = 0.26, th = 0.05;   // ridge y0.52/eave y0.26 → drop 0.26 over 0.46 = 29.5°. CRUISE-LEGIBILITY override of the 15–22° "Roman-shallow" pre-assess guardrail: at 21° the above-behind chase camera saw both slopes at near-equal angles → equal light → a FLAT RAFT read (the shallower cousin of the boat-hull). ~30° splits the slopes into a lit face + a shadowed face → a clear ridge + peaked-roof read from above. The scale-cue JOB (reads as a house roof) outranks the exact pitch degrees; 30° still reads domestic, not alpine.
       const pitch = Math.atan((rY - eY) / D), L = Math.hypot(D, rY - eY);   // slope tilt + slope length
       // TWO thick roof SLABS (a rim face at every yaw → solid, not a paper plane). Each spans the full width,
       // tilted to the pitch, centred between ridge and eave; they MEET at the dead-straight ridge line. (12+12)
