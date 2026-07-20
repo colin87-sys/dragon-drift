@@ -3781,7 +3781,7 @@ const ARCHETYPES = {
       // organic stone-pine parasol, not a machined drum. A closed lens crown = the mushroom-cap umbrella tell.
       // bake:'pine'. (24 — cheaper than the 3 razor cones' 34; the far-cruise slab-on-mast silhouette is preserved.)
       parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.CylinderGeometry(0.40, 0.30, 0.13, 6), { x: -0.16, y: 0.80, sx: 1.14, sz: 0.88, rz: 0.04 }) });   // fused flat-top parasol lens (flat top + rimmed body)
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.CylinderGeometry(0.24, 0.17, 0.10, 5), { x: -0.34, y: 0.75, rz: 0.06 }) });                       // outboard-down shoulder lens — INTERPENETRATES the main body (0.70–0.80 into the crown's 0.735–0.865), so it fuses as one mass (no blade gap) while thickening the wind-sheared droop
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.CylinderGeometry(0.24, 0.17, 0.10, 5), { x: -0.31, y: 0.77, rz: 0.06 }) });                       // outboard-down shoulder lens — sunk DEEPER into the crown (x−0.34→−0.31, y0.75→0.77) so no rim edge surfaces at the seam (Fable re-gate polish); still fully INTERPENETRATES the main body (fused as one mass, no blade gap) while thickening the wind-sheared droop
       // CYPRESS FLAME — a tall thin flame-taper (widest at ⅓ height, tapering BOTH ways = flame not cone),
       // ~9:1 slender, tip overtopping the umbrella (the postcard exclamation point). bake:'pine'. (20)
       parts.push({ mat: 0, bake: 'pine', geo: frustumBetween([0.45, 0.06, 0.10], [0.45, 0.34, 0.10], 0.040, 0.065, 5) });   // shin (widens to the ⅓ belly)
