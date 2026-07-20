@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { ui } from './ui.js';
 import { sfx } from './sfx.js';
 import { burst, ringBurst } from './particles.js';
-import { driftPerfectRadius } from './drift.js';
+import { driftPerfectRadius, driftValue, driftEnabled } from './drift.js';
 import { comboTier } from './util.js';
 import { emit } from './events.js';
 import { juiceEvent } from './juice.js';
@@ -235,7 +235,9 @@ function collect(r, centerDist) {
   if (game.canyonRun === 'flow') {
     game.flowChain += perfect ? 3 : 2;
     game.flowChainBest = Math.max(game.flowChainBest, game.flowChain);
-    emit('flowChain', { chain: game.flowChain, mult: 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap) });
+    emit('flowChain', { chain: game.flowChain, mult: driftEnabled()
+      ? 1 + CONFIG.DRIFT.overdriveScoreStep * driftValue()
+      : 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap) });
   }
   const tierAfter = comboTier(game.combo);
   if (tierAfter > tierBefore) sfx.comboUp(tierAfter);
