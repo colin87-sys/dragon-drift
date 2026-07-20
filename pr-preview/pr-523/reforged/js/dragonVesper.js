@@ -607,8 +607,11 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   // MEMBRANE UNDERGLOW — a withheld ion-blue layer just under the membrane bays (built in
   // buildOneScallopWing): dark in cruise, but on the Night Surge the wing UNDERSIDE glows ion-blue
   // (a backlit membrane — the owner's "the only bits that glow are the underside of the membrane").
-  M.memGlow = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x2050e8, emissiveIntensity: 0.05, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
-  M.memGlow.userData.baseEmissive = 0x2050e8; M.memGlow.userData.baseIntensity = 0.05;
+  // REVERTED (art-director ruling 2026-07-20): the underside glow is now INERT dark geometry.
+  // DoubleSide meant the "underside" light rendered into the rear-chase TOP view; a lit membrane
+  // straddles the biome's horizon luminance and erases the scallop silhouette (the colorblind read).
+  M.memGlow = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x000000, emissiveIntensity: 0, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
+  M.memGlow.userData.baseEmissive = 0x000000; M.memGlow.userData.baseIntensity = 0;
 
   // NIGHTFALL CIRCUIT (owner-directed law revision, audited plan): the Starlit Seam climbs the
   // wing SKELETON on Surge — per-finger circuit mats on the EXISTING bone ridges (zero new
