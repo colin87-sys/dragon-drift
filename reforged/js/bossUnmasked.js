@@ -578,7 +578,7 @@ export function buildUnmasked(def, quality = 1) {
   // The gold RACHIS quill-shafts on the leading primaries (angelWing rachisMaterial): a DRAWN
   // line, not a light source — plain tone-mapped gold (never blooms, T7-safe), dim enough that
   // the eyes stay the only emissive family while the shafts etch the fan's structure in the dark.
-  const rachisMat = track(new THREE.MeshBasicMaterial({ color: 0x8a6f34, side: THREE.DoubleSide }));
+  const rachisMat = track(new THREE.MeshBasicMaterial({ color: 0x6e5a2c, side: THREE.DoubleSide }));   // dimmed (art-director #4) — a quiet drawn quill, not a bright spoke
 
   // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
   // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
@@ -733,7 +733,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat }).group);   // per-wing value ladder + painted moon-rim + per-feather root→tip band + gold rachis shafts (BOSS-VISUAL-AUDIT); merge = 13 draws/wing → ~3
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat, shape: { primBow: 1.35, armBow: 0.2, elbow: 0.45 } }).group);   // per-wing value ladder + moon-rim + per-feather band + rachis; CURVED quills+arm (art-director #4 — bows the covert column so its edges stop reading as straight radial bars); merge = 13 draws/wing → ~3
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),
@@ -867,13 +867,42 @@ export function buildUnmasked(def, quality = 1) {
   const wingRootR = new THREE.Object3D();
   wingRootR.name = 'wingRootR'; wingRootR.position.set(1.25, -0.55, 0.2); stage2.add(wingRootR);
 
-  // ── THE KNOT (the body) — a small, dark, flattened core at the convergence, HALF-BURIED behind
-  // the eight wing roots (owner r-spec): it fills the tight central knot so no sky shows between
-  // the roots and gives the wings a body to spring from. Small (radius ~0.9), dark — NOT a big orb.
-  const knotMat = track(new THREE.MeshStandardMaterial({ color: 0x1b1b24, roughness: 1.0, metalness: 0.0 }));
+  // ── THE RELIQUARY KNOT (art-director #2) — the convergence BODY, no longer a void. Warm umber
+  // with a dim ember floor (a LIT body from below, NOT a bright orb — luma ceiling ≪ the eye so
+  // the focal is never contested). Bigger + flatter so it fills the central pinch behind the ruff.
+  const knotMat = track(new THREE.MeshStandardMaterial({ color: 0x3a2a1e, emissive: 0x30200f, emissiveIntensity: 0.6, roughness: 0.9, metalness: 0.0 }));
   const knot = new THREE.Mesh(new THREE.SphereGeometry(0.92, lowQ ? 8 : 12, lowQ ? 6 : 9), knotMat);
-  knot.scale.set(1.05, 1.18, 0.5); knot.position.set(0, 0, -0.28);   // flattened, seated among the wing roots
+  knot.scale.set(1.35, 1.5, 0.55); knot.position.set(0, 0, -0.28);   // flattened, seated among the wing roots
   knot.name = 'knotBody'; stage2.add(knot);
+
+  // ── THE RELIQUARY RUFF (art-director #2) — a feathered collar of warm covert tufts ringing the
+  // great eye, IN FRONT of every wing plane (z −0.05 > deepest wing −0.65) so every wing-root cord,
+  // arm-edge, and rachis inner end terminates HIDDEN BEHIND it: the lines now radiate OUT FROM
+  // BEHIND a lit mass, never meet at a naked black point (the spoke-killer). Two jittered concentric
+  // arcs (NOT evenly spaced = no picket fence), thinned at 12 and 6 o'clock (the owner's vertical
+  // channel). Warm, 2 steps above the feather ladder. Merged per material (2 draws), opaque — no
+  // additive, no new light. ──
+  const ruffInnerMat = track(new THREE.MeshStandardMaterial({ color: 0x40332a, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const ruffOuterMat = track(new THREE.MeshStandardMaterial({ color: 0x352a22, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const ruffInnerParts = [], ruffOuterParts = [];
+  const RUFF_N = lowQ ? 9 : 13;
+  const rhash = (n) => { const s = Math.sin(n * 21.17) * 9973.13; return s - Math.floor(s); };
+  for (let ring = 0; ring < 2; ring++) {
+    const rBase = ring === 0 ? 1.0 : 1.45, tuftLen = ring === 0 ? 0.85 : 1.05, tuftR = ring === 0 ? 0.19 : 0.16;
+    for (let i = 0; i < RUFF_N; i++) {
+      const a = (i / RUFF_N) * TAU + ring * 0.24 + (rhash(i + ring * 40) - 0.5) * 0.24;   // jittered + ring offset
+      if (Math.abs(Math.sin(a)) > 0.955) continue;   // keep the vertical channel clear (±~18° of straight up/down)
+      const cx = Math.cos(a), cy = Math.sin(a);
+      const g = stripForMerge(new THREE.ConeGeometry(tuftR, tuftLen, 5));
+      g.rotateZ(a - Math.PI / 2);   // cone points +y by default → rotate to radial
+      g.scale(1, 1, 0.4);           // flatten in z — a feather tuft, not a spike
+      g.translate(cx * (rBase + tuftLen * 0.4), cy * (rBase + tuftLen * 0.4), -0.05);
+      (ring === 0 ? ruffInnerParts : ruffOuterParts).push(g);
+    }
+  }
+  let ruffInnerMesh = null, ruffOuterMesh = null;
+  if (ruffInnerParts.length) { ruffInnerMesh = new THREE.Mesh(mergeParts(ruffInnerParts, 'ruffInner'), ruffInnerMat); ruffInnerMesh.name = 'ruffInner'; stage2.add(ruffInnerMesh); }
+  if (ruffOuterParts.length) { ruffOuterMesh = new THREE.Mesh(mergeParts(ruffOuterParts, 'ruffOuter'), ruffOuterMat); ruffOuterMesh.name = 'ruffOuter'; stage2.add(ruffOuterMesh); }
 
   // ── THE STAGE-2 NIMBUS (BOSS-VISUAL-AUDIT §14): the reserved gold corona, present as a FAINT
   // halo ring behind the seraph in its hero stage — the money frame (s2 idle/charge/all-snap)
@@ -891,12 +920,14 @@ export function buildUnmasked(def, quality = 1) {
     vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
   }));
   halo2Mat.toneMapped = false;
-  const H2N = lowQ ? 40 : 72, H2Y = 0.42, H2Z = -1.05;
+  // Seated HIGH (crown-side) as a saint's nimbus BEHIND the head, not a ring on the hub — a
+  // low-centred ring whose top the wings occlude reads as a wheel rim (art-director #5).
+  const H2N = lowQ ? 40 : 72, H2Y = 1.6, H2Z = -1.05;
   const h2Pos = [], h2Col = [], h2Idx = [];
   const h2Accent = new THREE.Color(accent);
   for (let i = 0; i <= H2N; i++) {
     const a = (i / H2N) * TAU, cx = Math.cos(a), cy = Math.sin(a);
-    h2Pos.push(cx * 2.62, cy * 2.62 + H2Y, H2Z, cx * 2.94, cy * 2.94 + H2Y, H2Z, cx * 3.32, cy * 3.32 + H2Y, H2Z);
+    h2Pos.push(cx * 2.9, cy * 2.9 + H2Y, H2Z, cx * 3.25, cy * 3.25 + H2Y, H2Z, cx * 3.7, cy * 3.7 + H2Y, H2Z);
     h2Col.push(0, 0, 0, h2Accent.r, h2Accent.g, h2Accent.b, 0, 0, 0);   // soft in → gold mid → soft out
   }
   for (let i = 0; i < H2N; i++) {
@@ -915,18 +946,26 @@ export function buildUnmasked(def, quality = 1) {
   // form"): the L142 real-eye rig at focal scale — pale sclera, gold iris, dark pupil, proud
   // catchlight. Sized to COVER the wing-root convergence so the central pinch is hidden behind
   // it (owner: all wings sit behind the eye). It renders in front (z≥0); every wing is at z<0. ──
-  const GW = 0.9, GH = 0.62, GD = 0.36;   // focal almond — big enough to cap the convergence, not a tiny jewel
-  const GF = GD;                          // sclera front-face z (center at 0)
-  const GEY = 0.0;                        // ON the centreline AT the knot — the single focal, wrapped in the starburst
+  // Focal almond GROWN to win the centre (art-director #3) + pushed FORWARD (GZ) so it caps the
+  // ruff + convergence and every wing sits clearly behind it. GF = the front-face z AFTER the push
+  // (feeds the build AND the per-frame pupil tracker — keep them one constant).
+  const GW = 1.25, GH = 0.85, GD = 0.4;
+  const GZ = 0.3;                          // forward push
+  const GF = GZ + GD;                      // sclera front-face z after the push
+  const GEY = 0.0;                         // ON the centreline AT the knot — the single focal, wrapped in the starburst
+  // Dedicated focal materials (T7): sclera pale but UNDER the bloom knee, iris a brighter gold —
+  // the eye wins by VALUE + HUE, not by clipping to white. Shared with the S3 star-eye (#6).
+  const focalScleraMat = track(new THREE.MeshBasicMaterial({ color: 0xa89a74 }));   // lifted pale eyeball (luma ~150, well under the knee)
+  const focalIrisMat = track(new THREE.MeshBasicMaterial({ color: 0xa87c2a }));     // brighter gold iris — the hue the focal reads by
+  const greatScleraMat = focalScleraMat;   // (name kept — SCLERA_BASE + star-eye reference it)
   const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), socketMat);
-  greatSocket.scale.set(GW * 1.24, GH * 1.3, 0.5); greatSocket.position.set(0, GEY, -0.18);
+  greatSocket.scale.set(GW * 1.24, GH * 1.3, 0.5); greatSocket.position.set(0, GEY, GZ - 0.18);
   greatSocket.name = 'greatSocket'; stage2.add(greatSocket);
-  const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x8f8365 }));   // PALE eyeball value (matches the root eyes) so the almond reads as an EYE, not a black bead
   const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 12 : 16, lowQ ? 8 : 10), greatScleraMat);
-  greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, GEY, 0);
+  greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, GEY, GZ);
   greatEye.name = 'greatEye'; stage2.add(greatEye);
-  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), irisMat);
-  greatIris.scale.set(GW * 0.44, GH * 0.54, 1); greatIris.position.set(0, GEY, GF + 0.03);   // gold iris ring — shaved so more PALE sclera shows (Fable: was leaning grommet)
+  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), focalIrisMat);
+  greatIris.scale.set(GW * 0.50, GH * 0.60, 1); greatIris.position.set(0, GEY, GF + 0.03);   // wider gold ring — the sclera ring widens with the eye, the pupil hole does not
   greatIris.name = 'greatIris'; stage2.add(greatIris);
   const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), s2pupilMat);
   greatPupil.scale.set(GW * 0.38, GH * 0.44, 0.5); greatPupil.position.set(0, GEY, GF + 0.08);   // dark pupil — smaller so the PALE sclera rings it (an almond eye, not a black hole)
@@ -960,14 +999,31 @@ export function buildUnmasked(def, quality = 1) {
   stage3.visible = false;
   rig.add(stage3);
 
-  // THE HALO — a saint's gold nimbus RING behind the core (the reserved corona glow-shape,
-  // now a halo). Additive so it reads as light, not a solid band; breathes in the tick.
+  // THE HALO — a saint's gold nimbus behind the core (the reserved corona glow-shape). Rebuilt as
+  // the halo2 3-LOOP VERTEX-FALLOFF idiom (art-director #6): the old uniform RingGeometry was an
+  // onion-ring tell (registry #5) with a hard edge. Vertex colours carry a grayscale radial
+  // falloff (soft in → white mid → soft out); the material colour (tick) carries accent×dimmer,
+  // opacity (setStage3) the reveal envelope. Seated at the SAME crown position as halo2 (y1.6,
+  // radii 2.9/3.7) so the S2→S3 nimbus hand-off is a cross-fade in place, not a jump.
   const halo3Mat = track(new THREE.MeshBasicMaterial({
-    color: accent, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    color: accent, vertexColors: true, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
   }));
   halo3Mat.toneMapped = false;
-  const halo3Geo = new THREE.RingGeometry(2.5, 3.3, lowQ ? 36 : 64);
-  halo3Geo.translate(0, 0, -0.9);
+  const H3N = lowQ ? 40 : 72, H3Y = 1.6, H3Z = -0.9;
+  const h3Pos = [], h3Col = [], h3Idx = [];
+  for (let i = 0; i <= H3N; i++) {
+    const a = (i / H3N) * TAU, cx = Math.cos(a), cy = Math.sin(a);
+    h3Pos.push(cx * 2.9, cy * 2.9 + H3Y, H3Z, cx * 3.25, cy * 3.25 + H3Y, H3Z, cx * 3.7, cy * 3.7 + H3Y, H3Z);
+    h3Col.push(0, 0, 0, 1, 1, 1, 0, 0, 0);   // grayscale falloff — accent lives in material.color (the tick dimmer)
+  }
+  for (let i = 0; i < H3N; i++) {
+    const a = i * 3, b = a + 3;
+    h3Idx.push(a, a + 1, b + 1, a, b + 1, b, a + 1, a + 2, b + 2, a + 1, b + 2, b + 1);
+  }
+  const halo3Geo = new THREE.BufferGeometry();
+  halo3Geo.setAttribute('position', new THREE.Float32BufferAttribute(h3Pos, 3));
+  halo3Geo.setAttribute('color', new THREE.Float32BufferAttribute(h3Col, 3));
+  halo3Geo.setIndex(h3Idx);
   const halo3 = new THREE.Mesh(halo3Geo, halo3Mat);
   halo3.name = 'halo'; stage3.add(halo3);
 
@@ -984,14 +1040,16 @@ export function buildUnmasked(def, quality = 1) {
   const NSPIKE = lowQ ? 10 : 14;
   const burstPos = [], burstCol = [], burstIdx = [];
   const burstHot = new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.35);
+  const bhash = (n) => { const s = Math.sin(n * 33.71) * 7411.19; return s - Math.floor(s); };
   let bv = 0;
   for (let i = 0; i < NSPIKE; i++) {
-    const a = (i / NSPIKE) * TAU;
-    // Long rays BURST OUTWARD past the halo (r~3.3) so it reads as RADIANCE, not spokes inside a
-    // rim (the wheel read the design forbids); alternating short rays keep the star silhouette.
-    const len = (i % 2 === 0 ? 5.6 : 2.7);
+    // Deterministic angle + length jitter (art-director #6): a strict alternating 5.6/2.7 metronome
+    // read as a mechanical star; jittered rays (no two adjacent longs within ~6% length) read as
+    // living radiance. Rays start OUTBOARD (r0 0.62) so their bases hide behind the reliquary ruff.
+    const a = (i / NSPIKE) * TAU + (bhash(i) - 0.5) * 0.09;
+    const len = (i % 2 === 0 ? 5.6 * (0.85 + 0.30 * bhash(i + 5)) : 2.7 * (0.80 + 0.40 * bhash(i + 9)));
     const w = 0.16;                                     // rays with body (survive fight distance) — still a sunburst, not fat blades
-    const r0 = 0.5;                                     // spikes start just outside the star-eye
+    const r0 = 0.62;                                    // spikes start just outside the star-eye, behind the ruff
     const tx = Math.cos(a) * (r0 + len), ty = Math.sin(a) * (r0 + len);
     const bax = Math.cos(a - w) * r0, bay = Math.sin(a - w) * r0;
     const bbx = Math.cos(a + w) * r0, bby = Math.sin(a + w) * r0;
@@ -1007,14 +1065,14 @@ export function buildUnmasked(def, quality = 1) {
 
   // THE STAR-EYE — a SMALL almond at the very centre (the L142 real-eye rig, reusing the eye-
   // field materials so it adds no draws): pale sclera, gold iris, dark pupil (tracks), catchlight.
-  const SW = 0.5, SH = 0.34, SD = 0.22;
+  const SW = 0.72, SH = 0.48, SD = 0.22;   // grown (art-director #6) to match the S2 focal eye's new scale
   const starSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 8 : 12, lowQ ? 6 : 8), socketMat);
   starSocket.scale.set(SW * 1.3, SH * 1.35, 0.4); starSocket.position.set(0, 0, -0.12);
   stage3.add(starSocket);
   const starEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), greatScleraMat);
   starEye.scale.set(SW, SH, SD); starEye.position.set(0, 0, 0.05);
   starEye.name = 'starEye'; stage3.add(starEye);
-  const starIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), irisMat);
+  const starIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), focalIrisMat);   // matches the S2 focal iris (art-director #6)
   starIris.scale.set(SW * 0.5, SH * 0.6, 1); starIris.position.set(0, 0, SD + 0.06);
   stage3.add(starIris);
   const starPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 8 : 12, lowQ ? 6 : 8), s2pupilMat);
@@ -1206,7 +1264,7 @@ export function buildUnmasked(def, quality = 1) {
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
   // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
-  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, knot];
+  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, knot, ruffInnerMesh, ruffOuterMesh];
   function setDebugWing(on) {
     stage1.visible = on ? false : (stageN == null || stageN === 1);
     stage2.visible = on ? true : (stageN === 2);
@@ -1445,7 +1503,7 @@ export function buildUnmasked(def, quality = 1) {
       // ── THE STAGE-2 NIMBUS: a whisper at idle (breathing, never a metronome-bright ring),
       // swells with the wrath charge, FLARES on the all-snap (the halo ignites exactly when
       // every eye locks — the screenshot), and hands off to the stage-3 halo as k3 rises. ──
-      halo2Mat.color.setScalar((0.08 + 0.02 * Math.sin(time * 0.45 * TAU) + charge * 0.16 + snapK * 0.28) * (1 - stage3K) * (1 - dyingK));
+      halo2Mat.color.setScalar((0.048 + 0.012 * Math.sin(time * 0.45 * TAU) + charge * 0.16 + snapK * 0.28) * (1 - stage3K) * (1 - dyingK));   // ×0.6 idle (art-director #5) — dimmer than the eye, never the brightest thing
 
       // The great central eye's pupil tracks the player (the focal); constricts on charge and on
       // the S2→S3 GATHER (it recoils inward as the seraph stops watching you).
