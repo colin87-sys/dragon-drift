@@ -308,11 +308,17 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 ## 7. MISSED-ITEM POLICIES (the audit's extras)
 
 - **A swept gate must AWARD, not just kill** — folded into Bug A's fix spec (§1).
-- **Score-economy policy is needed:** DRIFT raises rings/sec → score/sec, which moves the
-  challenge-link comparability the parent's §6 protects. Precedent exists —
-  `glideAssistScoreMult` (`config.js:77-81`) already prices an assist into score. Write
-  the DRIFT score policy (flat? priced? capped?) as its own small ruling before the cap
-  ships; don't let it emerge from tuning.
+- **✅ SCORE POLICY — RULED 2026-07-19 (owner: R1, FLAT):** score pays **per item / per
+  metre, never per second** — that's the binding invariant, and it means DRIFT does NOT
+  inflate score over a seeded course (rings pay per catch; `distanceScore` is 1/m at any
+  speed). No `driftScoreMult`: the `glideAssistScoreMult 0.7` precedent prices a settings
+  toggle, not in-run skill, and challenge-link racers have symmetric access on the same
+  seed. **Fever is the accepted leak** (its 8s wall-clock covers ~15-30% more course at
+  speed ≈ +2-4% run score at full meter) — grandfathered under a `?drift=1` telemetry
+  watch; revisit (R2: fever runs on the odometer) only if measured inflation exceeds 5%.
+  **The flow ×1-×3 orb mult is reborn meter-driven:** `1 + overdriveScoreStep(2.0) × D`
+  in the overdrive zone — same ceiling, same climb, one currency; the `ringMissOverdrive`
+  dent now cuts the score mult automatically (severity-not-wipe expressed in score).
 
 ---
 

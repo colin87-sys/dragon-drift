@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
+import { driftValue, driftEnabled } from './drift.js';
 import { ui } from './ui.js';
 import { sfx } from './sfx.js';
 import { makeGlowTexture } from './util.js';          // kept: the ?skyforged=0 fallback orb still needs it
@@ -130,7 +131,12 @@ export function updatePowerups(dt, player, time) {
         if (o.flow && game.canyonRun === 'flow') {
           game.flowChain++;
           game.flowChainBest = Math.max(game.flowChainBest, game.flowChain);
-          const chainMult = 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
+          // §7 R1: with DRIFT on, the flow score mult is METER-driven (1 + 2.0×D, same
+          // ×1-×3 ceiling as the old chain mult) — one currency, and the overdrive miss
+          // dent cuts the mult automatically. Flag off = the shipped chain mult.
+          const chainMult = driftEnabled()
+            ? 1 + CONFIG.DRIFT.overdriveScoreStep * driftValue()
+            : 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
           game.score += Math.round(CONFIG.FLOW.orbScore * chainMult * game.scoreMult * game.mods.score);
           emit('flowChain', { chain: game.flowChain, mult: chainMult });
         }
