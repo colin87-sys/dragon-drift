@@ -614,7 +614,7 @@ export const DRAGONS = {
       // The Starlit Seam (Surge-only, ion-blue). surgeGlowMultiplier lifts the seam's
       // near-zero cruise base to a blaze ONLY on the Night Surge (eyes stay out of the
       // surge arrays). seamRun/finRims/rootSpark ladder the carved circuit.
-      seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, surgeGlowMultiplier: 22, wingCircuit: 1,   // NIGHTFALL: the seam climbs the wing skeleton on Surge (owner-directed law revision)
+      seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, surgeGlowMultiplier: 22, wingCircuit: 0,   // REVERTED (art-director ruling 2026-07-20): the wings stay BLACK on Surge — the scallop silhouette owns the frame (a lit membrane erases the one value channel the colorblind owner reads)
       // WING MOTION (CP3) — the fingered wing is a 3-segment HINGE on the wingParts poser, NOT
       // the old 1-bone plank (the runtime bug the Fable gate caught): pivot = shoulder flap,
       // mid = forearm lagged curl, tip = the HAND folding at the wrist (the bat read — the whole
@@ -653,14 +653,14 @@ export const DRAGONS = {
         wingParts: 3, midAmp: 0.32, tipAmp: 0.46, glidePow: 1.7,   // radiant: full cascade, calmer beat
         knapPlates: 10, covertRow: 6, wingNSEG: 6, crestBlade: 0, crestWeb: 1, tailPetals: 4, legHint: 1,   // split fan + covert row + crest + legs
         earFinPairs: 3, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
-        seamRun: 1.0, seamFinRims: 0, seamRootSpark: 0, wingCircuit: 0.6, dorsalNubs: 7, haunchFlakes: 1, tailNubs: 3, tailMidFins: 0,
+        seamRun: 1.0, seamFinRims: 0, seamRootSpark: 0, wingCircuit: 0, dorsalNubs: 7, haunchFlakes: 1, tailNubs: 3, tailMidFins: 0,
         colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
       { spanScale: 1.05, glowLevel: 1.00, eyeScale: 0.86, headScale: 1.00, igniteStage: 3,
         scallopLobes: 5, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
         wingParts: 3, midAmp: 0.34, tipAmp: 0.65, glidePow: 2.2,   // sovereign: deep wrist fold (longer hand reads it), held-glide beat
         knapPlates: 18, covertRow: 12, wingNSEG: 8, crestBlade: 1, crestWeb: 1, tailPetals: 4, legHint: 1,   // the finished blade
         earFinPairs: 4, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
-        seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, wingCircuit: 1, dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
+        seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, wingCircuit: 0, dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
         colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0x6ae62a } },
     ],
     fx: { auraColor: '40,72,150', auraIdle: 0.03, sparkle: false },
