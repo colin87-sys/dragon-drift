@@ -35,7 +35,18 @@ never trough it. And the cure for "spokes meeting at a point" is not to delete t
 arena") — this reads as feathers-in-light, not mechanical spokes, and fixes stage 2 and stage 3
 with one part because both stages share the convergence.
 
+**The critic checkpoint + one revise round.** A fresh Fable critic (pixel-sampled) confirmed the
+owner's complaint RESOLVED in S2 — spokes dead, hub warm (near-black hub coverage 68%→43%), the
+great eye wins the focal (L~97 vs halo ~84, amber iris un-clipped) — and scored the S2 money frame
+**6.5/10, up from ~3**. It caught exactly the predicted residual as the one real regression: in S3
+the great eye retires and the smaller star-eye couldn't cap the enlarged knot, so the S3 focal was
+the *dimmest* thing (a mud-brown blob) — inverting core→bloom→dark. The prescribed one-item fix,
+applied: drive the knot's emissive up with `stage3K` (0.55 idle → ~2.75 by the throw) so in S3 the
+knot becomes the lit CORE the star-eye sits on. S2 stays byte-identical (k3=0 → 0.55, occluded
+behind the great eye). Deferred by the critic to a later pass (not piled into this round): the
+halo still encircles rather than crowns (gate 4 PARTIAL).
+
 **What it unlocks.** The `bakeValueBand` root-lift + the reliquary-ruff occluder pattern apply to
-any converging-limb boss (Marrowcoil's ribcage roots, Weftwitch's radial threads). Known residual
-to watch at the critic checkpoint: in S3 the smaller star-eye no longer caps the enlarged knot,
-so the S3 centre reads a touch dark — a candidate one-item follow-up if the critic confirms it.
+any converging-limb boss (Marrowcoil's ribcage roots, Weftwitch's radial threads). The stage-gated
+emissive-core (dim behind a capping eye in one stage, lit as the focal seat in another) is reusable
+for any multi-stage boss that reveals its core. Open follow-up: the halo-crown (gate 4).
