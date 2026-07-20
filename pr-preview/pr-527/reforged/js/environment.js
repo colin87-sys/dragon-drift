@@ -5111,9 +5111,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // slow-drifting ribbon (hue motion, never brightness).
         if (uEmpyStruct > 0.001) {
           float _az = abs(atan(d.x, -d.z));
-          float _flank = smoothstep(0.40, 1.05, _az);          // r5: onset earlier + full strength by ~60° — the quarter-frame flank measured half the bar
+          float _flank = smoothstep(0.35, 0.68, _az);          // r6: FULL depth by ~39° — the quarter-frame (~25°) was getting half the base (gate r5: 5-9% at the line)
           float _hband = 1.0 - smoothstep(0.0, 0.35, h);       // PR-A r3: the r2 drop DECAYED toward the sky-water line (ACES compresses the near-white band) — push harder exactly there
-          col *= 1.0 - (0.20 + 0.26 * _hband) * _flank * uEmpyStruct;
+          col *= 1.0 - (0.24 + 0.27 * _hband) * _flank * uEmpyStruct;   // r6c: margin above the bar
           col = mix(col, col * vec3(0.94, 0.90, 1.06), _flank * 0.6 * uEmpyStruct);
           float _rb = sin(_az * 2.2 + h * 5.0 - time * 0.06);
           float _rbm = smoothstep(0.86, 0.98, _rb) * smoothstep(0.12, 0.45, h) * uEmpyStruct;

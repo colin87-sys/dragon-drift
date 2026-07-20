@@ -364,7 +364,7 @@ const fragmentShader = /* glsl */`
       vec3 _irid2 = mix(vec3(0.786, 0.772, 0.918), vec3(0.949, 0.792, 0.872), smoothstep(0.18, 0.82, _it2));   // periwinkle-violet ↔ soft rose
       col = mix(col, _irid2, uNacreMix * _graze * _crest * 0.34);
       // Broad SATIN sheen: a wide soft grazing lift, no sun dir — the luster read that replaces the glint.
-      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix;
+      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix * (1.0 - 0.6 * smoothstep(10.0, 40.0, abs(vWorldPos.x)) * uStructMix);   // r6: the grazing sheen was rebuilding the waterline highlight on the FLANKS (gate r5: y274 L0.783 erased the drop) - damp it off-corridor
     }
 
     // THE EMPYREAN uplift PR-1 — the player-coupled WAKE (uWakeMix 0 = shipped byte-identical).
@@ -383,15 +383,17 @@ const fragmentShader = /* glsl */`
     // THE EMPYREAN uplift PR-A (uStructMix 0 = shipped byte-identical) — the water's half of the
     // 3-tier value scheme + the disc's WORLD-ANCHORED pulse-ring + its mirror-smudge (all value-DARK,
     // floors well above the Mote's black; owner-approved theology amendment).
+    float _pwG = 0.0;   // r6: the ring band, hoisted for the POST-fog rose pass below
     if (uStructMix > 0.0001) {
-      float _fl = smoothstep(14.0, 55.0, abs(vWorldPos.x));                 // flank water leaves the sky's value band
-      col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.55 * uStructMix);   // r5: amplitude ~doubled — r4 measured 8.7% at the quarter-frame flank vs the 15% bar
+      float _fl = smoothstep(10.0, 40.0, abs(vWorldPos.x));                 // r6: full flank depth by the quarter-frame, not the frame edge
+      col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.68 * uStructMix);   // r6c: margin above the 15% bar (probe straddled 13.8-15.7 with capture noise)
       // the ring is born at a QUANTIZED world point ahead (disc-born, not a wake cousin) and expands
       // past the player at 34 m/s, one pulse every ~8s
       float _pr = length(vWorldPos.xz - vec2(0.0, uPulseFoot));
       float _pR = mod(time, 8.0) * 34.0;
       float _pw = smoothstep(_pR - 13.0, _pR, _pr) * (1.0 - smoothstep(_pR, _pR + 13.0, _pr)) * (1.0 - smoothstep(200.0, 300.0, _pr));
-      col = mix(col, deepColor * vec3(1.48, 0.76, 0.88), _pw * 0.42 * uStructMix);   // r5: deepColor is BLUE-violet (0x6a6490) — r4's mild multiplier still rendered wake-blue (gate: trough hue 246-258). R must BEAT B in the final trough: this lands ~(157,76,127), hue ~320 rose
+      col = mix(col, deepColor, _pw * 0.30 * uStructMix);   // depth only here — the ROSE is applied POST-fog below (r5/r4 lesson: at 100-300m the fog mix replaces 50-77% of any pre-fog tint, re-bluing it)
+      _pwG = _pw * uStructMix;
       // the disc's dark MIRROR-SMUDGE: the 2nd-darkest thing in frame (~L55, above the L50 floor) —
       // a slim centerline streak far ahead, so the disc stains its own reflection
       float _sm = (1.0 - smoothstep(2.5, 13.0, abs(vWorldPos.x))) * smoothstep(90.0, 250.0, uHeroPos.z - vWorldPos.z);
@@ -547,6 +549,9 @@ const fragmentShader = /* glsl */`
     float _fgFl = smoothstep(14.0, 55.0, abs(vWorldPos.x)) * uStructMix;
     fogCol = mix(fogCol, fogCol * vec3(0.72, 0.69, 0.88), _fgFl);   // r5: deeper flank fog (the continuity mechanism is proven; only amplitude was short)
     col = mix(col, fogCol, fogF);
+    // r6: the pulse-ring's ROSE applied AFTER the fog mix — the only place a hue survives to the
+    // framebuffer at ring distance (two gate rounds proved pre-fog tints re-blue). R up, G/B down.
+    col = mix(col, col * vec3(1.34, 0.66, 0.80), _pwG * 0.70);   // r6b: probe read 364 moving-rose px vs the ~400 bar - one notch up
 
     gl_FragColor = vec4(col, 1.0);
     // These chunks are render-target aware in r160: the renderer forces
