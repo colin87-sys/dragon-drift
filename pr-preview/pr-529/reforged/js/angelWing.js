@@ -168,7 +168,7 @@ function bakeValueBand(geo, k, matrixWorld) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
 }
 
-export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {}, merge = false, valueBand = 0, rachisMaterial = null, debugParts = false } = {}) {
+export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, midMaterial = null, blade = 0, shape = {}, merge = false, valueBand = 0, rachisMaterial = null, debugParts = false } = {}) {
   const lowQ = quality < 0.75;
   // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
   // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
@@ -213,6 +213,13 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
   // shading, Fable polish P5), not one flat lit sheet. Falls back to `rimMaterial` → the wing is
   // unchanged (byte-for-byte) when no second rim is supplied.
   const rmatB = (hex, rough = 0.66) => rimMaterialB || rmat(hex, rough);
+  // `midMaterial` (optional) is a distinct MID tier for the COVERT strips + the UNDER-LENS backing —
+  // the "thick black wing-cord" the owner sees (Fable diagnosis 2026-07). The seraph's single-
+  // `material` override painted coverts, under-lens, arm ALL near-black → the inner half of each wing
+  // read as one dark mass (a two-value wing: bright rim blades + black inner). Splitting the coverts +
+  // under-lens onto a lighter mid tier restores the root→covert→flight value gradient. Falls back to
+  // `material` → byte-identical when not supplied. (The under-lens is built on lcMat, so it lifts too.)
+  const midmat = (hex, rough = 0.66) => midMaterial || mat(hex, rough);
   // DEBUG PARTS (diagnostic, default off → byte-identical): paints each anatomical part a distinct
   // flat colour so a capture identifies EXACTLY which geometry renders as a given on-screen shape
   // (used to pin the "thick black wing-cord" the owner sees). Overrides every material.
@@ -220,10 +227,10 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
   const priMat = debugParts ? dbg(0xff2222) : rmat(0xf9f6ee);       // primaries (flight feathers) — RED
   const priMatB = debugParts ? dbg(0xff8800) : rmatB(0xede7d8);     // alternate primary — ORANGE
   const secMat = debugParts ? dbg(0xffee00) : rmatB(0xf1ecdf);      // secondaries — YELLOW
-  const gcMat = debugParts ? dbg(0x22ff22) : mat(0xf4efe4, 0.68);   // greater coverts — GREEN
-  const lcMat = debugParts ? dbg(0x00ddff) : mat(0xf0eadd, 0.68);   // lesser coverts + under-lens — CYAN
-  const mgMat = debugParts ? dbg(0x2277ff) : mat(0xebe4d5, 0.7);    // marginal coverts — BLUE
-  const armMat = debugParts ? dbg(0xff22ff) : mat(0xf1ecdf, 0.7);   // the arm/limb — MAGENTA
+  const gcMat = debugParts ? dbg(0x22ff22) : midmat(0xf4efe4, 0.68);   // greater coverts — GREEN (MID tier)
+  const lcMat = debugParts ? dbg(0x00ddff) : midmat(0xf0eadd, 0.68);   // lesser coverts + under-lens — CYAN (MID tier)
+  const mgMat = debugParts ? dbg(0x2277ff) : midmat(0xebe4d5, 0.7);    // marginal coverts — BLUE (MID tier)
+  const armMat = debugParts ? dbg(0xff22ff) : mat(0xf1ecdf, 0.7);   // the arm/limb — MAGENTA (stays base — 0px on screen)
 
   const addFeather = (matRef, len, w, bow, root, angle, z) => {
     const pivot = new THREE.Object3D();
