@@ -28,6 +28,7 @@ import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
+import { deviceClass, isMobileClass } from './deviceClass.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn, setWaterPerfSaver, setWaterMirrorDiet } from './water.js';
@@ -111,7 +112,20 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 1600);
 camera.layers.enable(1); // layer 1 = sprites hidden from the water reflection
-initPostFX(renderer, scene, camera);
+// D1 (MOBILE-GRAPHICS-DIET): composer MSAA is deviceClass-scoped at BOOT — desktop 4,
+// mobile 2 — set ONCE here and never realloc'd on a tier 0↔1 flip (the 07-18 trap: a
+// per-tier `samples` delta reallocs both composer RTs on every oscillation a capable
+// phone is designed to make). The resolve of a 4× multisampled HalfFloat RT is the
+// confirmed mobile fill wall; 2× halves that bandwidth for a near-invisible edge-AA
+// change on a 6" screen. ?msaa0/?msaa2/?msaa4 force a value for the on-device A/B.
+// Headless chromium is pointer:fine + 0 touch → classifies DESKTOP → 4 → every existing
+// MSAA=4 assertion + all of CI stays byte-identical; the mobile-2 path is real-device-only.
+const BASE_MSAA = (() => {
+  const q = new URLSearchParams(location.search);
+  if (q.has('msaa0')) return 0; if (q.has('msaa2')) return 2; if (q.has('msaa4')) return 4;
+  return isMobileClass() ? 2 : 4;
+})();
+initPostFX(renderer, scene, camera, BASE_MSAA);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -1405,10 +1419,30 @@ let dynResEnabled = urlParams.has('dynres') ? urlParams.get('dynres') !== '0' : 
 // lose. Rungs 2+ then trim resolution. Feature-tier drop stays the final backstop
 // (updateQuality). Restored in reverse: features → resolution → saver last.
 const RES_SCALES = (() => { const m = parseFloat(urlParams.get('dynresmin')); return Number.isFinite(m) && m > 0 ? buildResSteps(m, 5) : RES_STEPS; })();
-const STAGES = [{ saver: false, scale: RES_SCALES[0] },                        // 0 — shipped look
-                { saver: true,  scale: RES_SCALES[0] },                        // 1 — invisible fill cuts, full res
-                ...RES_SCALES.slice(1).map((s) => ({ saver: true, scale: s }))]; // 2.. — + trim resolution to the floor
+// D1 (MOBILE-GRAPHICS-DIET): the mobile MSAA 2→0 rung rides the SAME dynRes ladder — a
+// rung BEFORE resolution trims (spend the invisible edge-AA before the visible pixels),
+// its realloc guarded by skipQualityFrames exactly like setResScale. It is an A/B SEAM,
+// default OFF: the plan requires an on-device 2× A/B before ever shipping the 0, so the
+// rung only exists under ?msaadyn (mobile). Without it, the mobile ladder is structurally
+// identical to shipped (only the BOOT samples differ, 4→2). Shipping the 0 as default is
+// a follow-up gated on that A/B + a re-raise-under-a-masking-event discipline (the 07-18
+// pop lesson) — as a bare A/B seam here it restores 0→2 with the governor's reverse step.
+const MSAA_DYN = urlParams.has('msaadyn') && isMobileClass();
+const STAGES = (() => {
+  const s = [{ saver: false, scale: RES_SCALES[0] },                          // 0 — shipped look
+             { saver: true,  scale: RES_SCALES[0] },                          // 1 — invisible fill cuts, full res
+             ...RES_SCALES.slice(1).map((sc) => ({ saver: true, scale: sc }))]; // 2.. — + trim resolution to the floor
+  if (MSAA_DYN) s.splice(2, 0, { saver: true, scale: RES_SCALES[0], msaa: 0 }); // NEW mobile rung: MSAA base→0, full res, before res trims
+  return s;
+})();
 const resGov = makeResGov(STAGES);   // the governor manages the ladder index; main.js interprets each rung
+// D1 introspection (assigned here, AFTER STAGES/MSAA_DYN exist — the __dd literal is built far
+// above): the boot deviceClass + MSAA choice + the ladder's per-rung MSAA targets (null = base).
+if (typeof window !== 'undefined' && window.__dd) {
+  window.__dd.gfx = { deviceClass: deviceClass(), baseMSAA: BASE_MSAA, msaaDyn: MSAA_DYN,
+    stageMSAA: STAGES.map((s) => (s.msaa != null ? s.msaa : null)),
+    composerSamples: () => (postfx.composer && postfx.composer.renderTarget1 ? postfx.composer.renderTarget1.samples : null) };
+}
 let resScale = 1.0;      // current pixel-scale = STAGES[resGov.idx].scale; 1.0 = full resolution
 let perfSaverOn = false; // current STAGES[resGov.idx].saver
 // ARENA PERF MODE: the final-boss detonation is a full-frame ADDITIVE fire — the frame is FILL-bound
@@ -1431,7 +1465,7 @@ const effectivePR = (tier) => {
 function setArenaPerf(active) {
   if (active === arenaPerfActive) return;
   arenaPerfActive = active;
-  setPostMSAA(active ? 0 : 4);   // the fix: MSAA off in the heaven (near-invisible on soft additive fire), full res kept
+  setPostMSAA(active ? 0 : postfx.baseMSAA);   // MSAA off in the heaven (near-invisible on soft additive fire); RESTORE to the deviceClass base (D1: 2 on mobile, not a hardcoded 4), full res kept
   const pr = effectivePR(qualityTier);   // optional ?arenapr resolution fallback (default Infinity → no-op)
   if (pr !== renderer.getPixelRatio()) { renderer.setPixelRatio(pr); setPostPixelRatio(pr); }
   setPostSize(window.innerWidth, window.innerHeight);   // ONE realloc covers the MSAA change + any pr change
@@ -1457,6 +1491,18 @@ function setPerfSaver(on) {
   perfSaverOn = on;
   setWaterPerfSaver(on);        // cruise mirror ½ → ¼ rate
   setGodRaySamplesSaver(on);    // tier0 shaft march 40 → 24 taps
+}
+// D1 — the dynRes MSAA rung (mobile ?msaadyn only): realloc the composer's multisample
+// framebuffers ONCE per rung change, exactly like setResScale, skipQualityFrames-guarded
+// so the realloc frame never feeds the tier signal. Never called on desktop / without the
+// A/B seam (the rung doesn't exist in STAGES there → target always === baseMSAA → no-op).
+function setDynMSAA(samples) {
+  if (!postfx.composer) return;
+  const cur = postfx.composer.renderTarget1 ? postfx.composer.renderTarget1.samples : postfx.baseMSAA;
+  if (samples === cur) return;
+  setPostMSAA(samples);
+  setPostSize(window.innerWidth, window.innerHeight);   // one realloc at the current size, MSAA-only (scale stays 1.0 on this rung)
+  skipQualityFrames = 2;
 }
 // Settings toggle for the governor. Turning it OFF snaps pixel-scale back to full (shipped
 // look); turning it ON leaves resScale at 1.0 (the governor trims from there under load).
@@ -1537,7 +1583,13 @@ function updateQuality(dt, hitchDt = dt) {
   if (dynResEnabled) {
     const canRestore = !bossEncounter && !(player.tunnelFxMix > 0.3);   // no pixel-restore mid-boss / mid-flow-carve (a realloc breath, kept out of the tense beats — as with tier restores)
     const r = resGovStep(resGov, { medFps, tier: qualityTier, degradeAt, dt, canRestore });
-    if (r.changed) { const st = STAGES[r.idx]; setPerfSaver(st.saver); setResScale(st.scale); }   // saver first (free), then pixels
+    if (r.changed) {
+      const st = STAGES[r.idx];
+      setPerfSaver(st.saver); setResScale(st.scale);   // saver first (free), then pixels
+      // D1 MSAA rung (mobile ?msaadyn): 0 once we're at/past the msaa rung, base below it —
+      // higher (resolution-trim) rungs inherit the 0; a restore below the rung flips it back.
+      if (MSAA_DYN) setDynMSAA(STAGES.slice(0, r.idx + 1).some((s) => s.msaa === 0) ? 0 : postfx.baseMSAA);
+    }
     if (r.owned) { degradeTimer = 0; qualityTimer = 0; return; }
   }
   if (medFps < degradeAt && qualityTier < maxTier) {
