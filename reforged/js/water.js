@@ -385,13 +385,13 @@ const fragmentShader = /* glsl */`
     // floors well above the Mote's black; owner-approved theology amendment).
     if (uStructMix > 0.0001) {
       float _fl = smoothstep(14.0, 55.0, abs(vWorldPos.x));                 // flank water leaves the sky's value band
-      col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.38 * uStructMix);
+      col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.55 * uStructMix);   // r5: amplitude ~doubled — r4 measured 8.7% at the quarter-frame flank vs the 15% bar
       // the ring is born at a QUANTIZED world point ahead (disc-born, not a wake cousin) and expands
       // past the player at 34 m/s, one pulse every ~8s
       float _pr = length(vWorldPos.xz - vec2(0.0, uPulseFoot));
       float _pR = mod(time, 8.0) * 34.0;
       float _pw = smoothstep(_pR - 13.0, _pR, _pr) * (1.0 - smoothstep(_pR, _pR + 13.0, _pr)) * (1.0 - smoothstep(200.0, 300.0, _pr));
-      col = mix(col, deepColor * vec3(1.10, 0.86, 1.02), _pw * 0.38 * uStructMix);   // r4: ROSE-dark ring — hue-distinct from the wake's blue rings so provenance is identifiable on pixels
+      col = mix(col, deepColor * vec3(1.48, 0.76, 0.88), _pw * 0.42 * uStructMix);   // r5: deepColor is BLUE-violet (0x6a6490) — r4's mild multiplier still rendered wake-blue (gate: trough hue 246-258). R must BEAT B in the final trough: this lands ~(157,76,127), hue ~320 rose
       // the disc's dark MIRROR-SMUDGE: the 2nd-darkest thing in frame (~L55, above the L50 floor) —
       // a slim centerline streak far ahead, so the disc stains its own reflection
       float _sm = (1.0 - smoothstep(2.5, 13.0, abs(vWorldPos.x))) * smoothstep(90.0, 250.0, uHeroPos.z - vWorldPos.z);
@@ -545,7 +545,7 @@ const fragmentShader = /* glsl */`
     // jumped 182→200 crossing the line). Darken the fog COLOUR itself off-corridor toward dusty violet
     // (the heavenHaze gating pattern); ×uStructMix ⇒ 0 in every other biome = byte-identical.
     float _fgFl = smoothstep(14.0, 55.0, abs(vWorldPos.x)) * uStructMix;
-    fogCol = mix(fogCol, fogCol * vec3(0.80, 0.77, 0.92), _fgFl);
+    fogCol = mix(fogCol, fogCol * vec3(0.72, 0.69, 0.88), _fgFl);   // r5: deeper flank fog (the continuity mechanism is proven; only amplitude was short)
     col = mix(col, fogCol, fogF);
 
     gl_FragColor = vec4(col, 1.0);
