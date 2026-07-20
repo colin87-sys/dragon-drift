@@ -5946,6 +5946,13 @@ function writeMatrix(band, i, d) {
     // the aqueduct SUPPRESSES there so the arena BECOMES the arcade flank's pierced note — two round-arch ranks
     // never share a frame (Fable pre-assess: the arena's #1 failure risk is aqueduct déjà-vu). Both pure → the
     // gold-determinism call order is untouched; lagoon/other defs carry neither flag, so they never enter.
+    // KNOWN TRADE-OFF (Fable PR-8 harsh-critic c, option 2 accepted): forumArenaAt is the crown's ELIGIBILITY
+    // predicate, but the step-900/perSide-1 double-kill means the single band slot reaches only ~30% of eligible
+    // congregations (the +900 recycle can't lock the 500m comp phase — see the PR-8 flip lesson). So the aqueduct
+    // is suppressed at ALL eligible spots while the crown lands at ~30% of them → at the other ~70% one flank
+    // loses its aqueduct with no crown to replace it (the opposite flank's basilica/arcade still stands). A true
+    // presence-conditional predicate would have to replicate the arena band's recycle lattice (a fragile coupling
+    // to band internals); the gap is mild and localised, so we accept it as-is rather than couple the two systems.
     if (active && band.def.arenaGate && !forumArenaAt(d.dist)) active = false;
     if (active && band.def.suppressForArena && forumArenaAt(d.dist)) active = false;
     // LANDMARK PUNCTUATION (Fable PR-6): a rare landmark reads because a wall rhythm BREAKS for it — so it stands
