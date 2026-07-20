@@ -79,19 +79,28 @@ desktop. Keep `?msaa0/?msaa2/?msaa4` A/B. Edge loss mitigation: dynRes dither + 
 FXAA replacement (that would re-add the pass we're cutting).
 
 **D2 — Fold grading into OutputPass (F4). Zero look lost — so it ranks second.
-✓ LANDED 2026-07-19 (first rung shipped — see Gate Log).**
+✓ LANDED 2026-07-19 (first rung shipped; Gate 2 REVISE→addressed — see Gate Log).**
 Tonemap (`OutputPass`) and grade/vignette/dither (`GradingShader`) were TWO
 full-screen passes; they are now ONE fused `OutputGradePass` (default) — removing a
 full-frame store+load of the multisampled HalfFloat RT (an MSAA store+resolve+reload,
-since the old `OutputPass` hop wrote into the 4× RT) on every frame on every device
-with byte-target-identical math. `?gradefold=0` restores the shipped two-pass chain
-(the A/B / refutation control); both shapes are assembled from the SAME grade GLSL
-strings so they cannot drift; each chromatic-aberration tap is tonemapped+encoded
-individually for exact parity with sampling the old intermediate RT.
-`tests/gradefold.mjs` guards structure + pixel identity (frozen-frame in-page A/B:
-maxΔ = 1/255, ~94% of pixels byte-identical — the residual is the *removed*
-half-float quantize, a sub-LSB precision improvement). By this plan's own metric
-(ms per look lost) a free pass-merge outranks every cut that spends look.
+since the old `OutputPass` hop wrote into the 4× RT) on every frame on every device.
+`?gradefold=0` restores the shipped two-pass chain (the A/B / refutation control);
+both shapes are assembled from the SAME grade GLSL strings so the control can't
+drift. **Identity is EXACT (≤1 LSB) only at aberration 0** — the whole tier-1
+mobile-diet audience (chromatic aberration is tier-0-only, `_aberrationOn=false` at
+tier1) plus all low-speed play. **With CA active it's a JUSTIFIED, inherent
+deviation:** the old chain bilinear-filtered the *already-encoded* intermediate at
+the 3 CA offsets, but the fold removed that intermediate, so the fused pass filters
+*linear HDR then encodes* per tap — since encode is non-linear the two differ on
+glint edges (up to ~105/255 on ~0.1–0.3% of pixels at live CA; meanΔ ≈ 0.07 LSB, an
+edge-local split, not a global cast; arguably the more physically-correct
+dispersion). `tests/gradefold.mjs` pins BOTH regimes (ab 0 ≤1 LSB; ab 0.025 →
+>8-LSB fraction <1%, meanΔ <1 LSB). The Gate-2 correction: the earlier
+"byte-target-identical, never a math change" was an overclaim; the fold is still the
+right zero-look-at-rest first rung, and by this plan's own metric (ms per look lost) a
+free pass-merge outranks every cut that spends look — but the deviation is now
+recorded, not papered over (D1 explicitly gives up byte-identity next, so the
+ladder's identity claims have to be exactly as strong as stated).
 
 **D3 — Half-res god-ray march (F2).** The march is a full-res fullscreen pass
 (`postfx.js:299-301`); shafts are soft by construction — render at half res (¼ the
@@ -168,6 +177,7 @@ Fable Gate 2 ≥8 per PR. Lesson file per landing.
 | Date | Gate | Verdict | Score | Notes |
 |---|---|---|---|---|
 | 2026-07-18 | Plan audit (round 1) | REVISE | 6.5 | 5 required fixes: hazards.js cite, surface-shader v1/v2 cite, tonemap-pass claim, D3 latch discipline, D1 realloc/byte-identical — all applied in this revision; fold promoted to D2, deviceClass shrunk to boot-only |
+| 2026-07-19 | D2 Gate 2 (pre-merge) | REVISE→addressed | 7.5→9 | Fable independently re-verified: shared GLSL token-identical vs `git show`; per-tap encode correct; N3 `CUSTOM_TONE_MAPPING` present + pixel-proven under `?tm=neutral`; `?gradefold=0` reconstructs shipped chain; handle stability; tier degradation correct (no new hook); guard green. **Real catch:** the "byte-target-identical" claim held only at aberration 0 — with CA active the fold filters linear-then-encodes vs the old encode-then-filter, diverging up to ~105/255 on ~0.1–0.3% of glint-edge pixels (both evidence probes + the guard had frozen frames at ab≈0, blind to it). Fixes applied: claim corrected to a recorded justified deviation (postfx.js comments, this doc, lesson); `gradefold.mjs` extended with a forced-aberration A/B pinning the envelope (ab 0 ≤1 LSB; ab 0.025 → >8-LSB <1%, meanΔ <1 LSB); owner CA-active A/B still shot for the preview; 22→21 count nit fixed. Fable: "with those landed this is a 9 and a clean SHIP." Human judges the CA-active surge moment on the preview |
 
 ## F. What success looks like
 

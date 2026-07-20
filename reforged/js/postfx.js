@@ -18,8 +18,11 @@ import { game } from './gameState.js';
 // OutputPass then GradingShader — which cost a full-frame store+reload of the
 // multisampled HalfFloat RT every frame on tile GPUs for zero look).
 // ?gradefold=0 restores the shipped two-pass chain for the A/B / refutation
-// control; the grade math is shared VERBATIM between both paths (below), so
-// the fold is a pass-count change, never a math change.
+// control; the grade GLSL is shared VERBATIM between both paths (below), so the
+// A/B control can't drift. The fold is exact (≤1 LSB) at aberration 0; at CA>0
+// it filters linear-then-encodes where the old chain encoded-then-filtered — a
+// justified, inherent deviation on a sliver of glint-edge pixels (see the
+// OutputGradePass block comment).
 // Tier 2 (or missing float-RT support) falls back to a raw renderer.render,
 // which keeps ACES via renderer.toneMapping — tonally consistent.
 
@@ -107,13 +110,25 @@ ${GRADING_MATH_GLSL}
 // renderer.toneMapping/outputColorSpace — INCLUDING the repo's
 // CUSTOM_TONE_MAPPING branch, the N3 trap: omit it and ?tm=neutral silently
 // ships untonemapped) with the grade body appended after the encode.
-// Byte-target-identical math to the two-pass chain: each of the 3 chromatic-
-// aberration taps is tonemapped + encoded INDIVIDUALLY (exactly what sampling
-// OutputPass's intermediate RT gave the split grading pass), then the shared
-// grade body runs on the same display-referred values. The only difference is
-// the removed intermediate HalfFloat RT round-trip (a full-frame multisampled
-// store+resolve+reload — the D2 win; it also skips that RT's half-float
-// quantize, a sub-LSB precision IMPROVEMENT, never a look change).
+//
+// IDENTITY — exact only at aberration == 0 (Gate-2 correction; the earlier
+// "byte-target-identical, never a math change" claim was an overclaim):
+//   • aberration == 0 → ≤1 LSB vs the shipped two-pass chain (the residual is
+//     the *removed* intermediate HalfFloat RT quantize — sub-LSB precision GAIN).
+//     This is the whole tier-1 mobile-diet audience (CA is tier-0-only,
+//     `_aberrationOn=false` at tier1) and all low-speed play.
+//   • aberration > 0 → a JUSTIFIED, INHERENT deviation. The old split path
+//     bilinear-filtered the ALREADY-ENCODED intermediate at the 3 CA offsets
+//     (encode→filter); the fold removed that intermediate, so the fused pass
+//     filters LINEAR HDR then encodes per tap (filter→encode). Since encode is
+//     non-linear, tonemap(lerp(a,b)) ≠ lerp(tonemap(a),tonemap(b)) at sub-texel
+//     offsets over HDR edges → up to ~105/255 on ~0.1–0.3% of pixels (transient
+//     glint edges) at live CA (ab≈0.012 cruise … 0.039 surge; measured in
+//     tests/gradefold.mjs). Filtering in linear light before encode is arguably
+//     the MORE physically-correct dispersion; either way it can't be avoided
+//     without un-folding (there is no encoded intermediate left to sample).
+// Each of the 3 CA taps is still encoded INDIVIDUALLY (per-tap vec3 encode —
+// ACES is a cross-channel fit, a per-channel encode would be wrong).
 const OutputGradeShader = {
   name: 'OutputGradeShader',
   uniforms: {
@@ -140,7 +155,8 @@ const OutputGradeShader = {
 ${GRADING_PARS_GLSL}
     varying vec2 vUv;
     // OutputShader's tonemap + colorspace tail, factored so each CA tap gets the
-    // full encode (identical to sampling the old intermediate output RT).
+    // full per-tap encode (exact at aberration 0; a justified filter→encode
+    // deviation from the old encode→filter at CA>0 — see the block comment above).
     vec3 outputEncode( vec3 c ) {
       #ifdef LINEAR_TONE_MAPPING
         c = LinearToneMapping( c );
