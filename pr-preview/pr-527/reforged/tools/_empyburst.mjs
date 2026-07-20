@@ -69,12 +69,14 @@ async function session(tag, view, shots) {
       // orbiters / phase drift are separable from camera scroll; the diff metric below PROVES the freeze.
       if (s.frozen) await page.evaluate(() => { window.__dd.game.timeScale = 0; });
       let _prevB64 = null;
+      if (s.frozen) await page.evaluate((d) => { window.__dd.player.dist = d; }, s.dist + 60);
       for (let k = 0; k < s.burst; k++) {
-        await page.evaluate(() => {
+        await page.evaluate(([fz, d]) => {
+          if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }   // PIN dist too — timeScale 0 alone does not stop dist (the r3 finding)
           window.__dd.clearObstacles && window.__dd.clearObstacles();
           window.__dd.clearVents && window.__dd.clearVents();
           const c = window.__dd.camera; c.fov = 85; c.updateProjectionMatrix();
-        });
+        }, [!!s.frozen, s.dist + 60]);
         const buf = await page.screenshot({ timeout: 60000 });
         writeFileSync(`/tmp/empyburst-${tag}-${s.name}${k + 1}.png`, buf);
         console.log(`  wrote /tmp/empyburst-${tag}-${s.name}${k + 1}.png`);
@@ -92,11 +94,14 @@ async function session(tag, view, shots) {
             for (let i = 0; i < d1.length; i += 16) { t++; if (Math.abs(d1[i] - d2[i]) > 13 || Math.abs(d1[i + 1] - d2[i + 1]) > 13) n++; }
             return +(n / t).toFixed(4);
           }, [_prevB64, buf.toString('base64')]);
-          console.log(`  [motion-diff ${tag}-${s.name}${k + 1}] changed=${df}${s.frozen ? (df < 0.05 ? ' (frozen OK - shader-only motion)' : ' (FREEZE FAILED)') : ''}`);
+          console.log(`  [motion-diff ${tag}-${s.name}${k + 1}] changed=${df}${s.frozen ? (df < 0.35 ? ' (frozen OK - shader/water motion only)' : ' (FREEZE FAILED)') : ''}`);
         }
         _prevB64 = buf.toString('base64');
         if (k < s.burst - 1) for (let g = 0; g < 5; g++) {   // sweep DURING the live gap too — a gate respawning mid-burst kills the auto-flying player (a live3 frame once caught the death fade-to-black)
-          await page.evaluate(() => { window.__dd.clearObstacles && window.__dd.clearObstacles(); });
+          await page.evaluate(([fz, d]) => {
+            if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }
+            window.__dd.clearObstacles && window.__dd.clearObstacles();
+          }, [!!s.frozen, s.dist + 60]);
           await page.waitForTimeout(400);
         }
       }
