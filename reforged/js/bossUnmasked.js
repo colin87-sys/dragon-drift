@@ -581,11 +581,30 @@ export function buildUnmasked(def, quality = 1) {
   // emissive floor). Fix: a warm-slate emissive FLOOR on the covert ladder so the inner wing reads
   // as dark FEATHERED MASS (luma ~30), never a black hole — still near-black, still ominous, still
   // well under the eye + the G2 dark-body cap. The ladder albedo is nudged up a hair to match.
-  const LADDER = { upper: 0x44434c, uppermid: 0x3e3d47, upmid: 0x3e3d47, middle: 0x37353f, lowermid: 0x312f39, lower: 0x2c2b35 };
+  // Fable diagnosis (2026-07): the black is a TWO-VALUE wing, and past floors only lifted ONE of the
+  // three families — the darkness migrated to the un-floored flight ranks. Fix per the numeric plan:
+  // three readable emissive floors (all families never drop below the ~L31 biome sky), a distinct
+  // MID tier for the covert strips + under-lens (the "cord"), and — the key — the emissive carries
+  // the per-feather ramp via `patchEmissiveVColor` so the gradient survives on UNLIT faces (vertex
+  // colours multiply diffuse only in stock three.js, which is invisible exactly where the wing is dark).
+  const patchEmissiveVColor = (m) => {
+    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = emissive * vColor;'); };
+    m.customProgramCacheKey = () => 'emVCol';
+    return m;
+  };
+  const LADDER = { upper: 0x44434c, uppermid: 0x3e3d47, upmid: 0x3e3d47, middle: 0x37353f, lowermid: 0x312f39, lower: 0x2c2b35 };   // DARK tier — the arm/root only now (coverts+lens moved to MID)
   const baseMats = {};
-  for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], emissive: 0x2b2531, emissiveIntensity: 0.85, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));
-  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x545b66, emissive: 0x20242c, emissiveIntensity: 0.5, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));   // cool moonlit steel — the leading-edge rim (+ a small floor so back-angled flight feathers never crush)
-  const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x40454f, emissive: 0x1e222a, emissiveIntensity: 0.5, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
+  for (const k of Object.keys(LADDER)) baseMats[k] = track(patchEmissiveVColor(new THREE.MeshStandardMaterial({ color: LADDER[k], emissive: 0x322b3a, emissiveIntensity: 0.90, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true })));
+  // MID tier (NEW) — the covert strips + the broad under-lens backing: LADDER ×1.35 albedo + a warm-slate
+  // emissive floor that CARRIES the per-wing rank separation (albedo is invisible on unlit covert faces),
+  // brighter at the upper ranks. This is the geometry the owner points at; it lifts the "cord" to ~L50 on
+  // the biome sky (1.6× sky) so the wing reads root→covert→flight, not bright-blades + black-hole.
+  const MID_LADDER = { upper: 0x5c5a67, uppermid: 0x545260, upmid: 0x545260, middle: 0x4a4855, lowermid: 0x423f4d, lower: 0x3b3a48 };
+  const MID_EI = { upper: 1.0, uppermid: 0.95, upmid: 0.9, middle: 0.9, lowermid: 0.82, lower: 0.78 };
+  const midMats = {};
+  for (const k of Object.keys(MID_LADDER)) midMats[k] = track(patchEmissiveVColor(new THREE.MeshStandardMaterial({ color: MID_LADDER[k], emissive: 0x3a3342, emissiveIntensity: MID_EI[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true })));
+  const rimMat = track(patchEmissiveVColor(new THREE.MeshStandardMaterial({ color: 0x545b66, emissive: 0x2b2f3a, emissiveIntensity: 0.85, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true })));   // cool moonlit steel — the leading-edge rim (floor lifted so back-angled flight feathers never crush below sky)
+  const rimMatB = track(patchEmissiveVColor(new THREE.MeshStandardMaterial({ color: 0x40454f, emissive: 0x282c36, emissiveIntensity: 0.85, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true })));  // a step DARKER — the alternate primary + secondary rank (the migrated-darkness rank — now floored too)
   // The gold RACHIS quill-shafts on the leading primaries (angelWing rachisMaterial): a DRAWN
   // line, not a light source — plain tone-mapped gold (never blooms, T7-safe), dim enough that
   // the eyes stay the only emissive family while the shafts etch the fan's structure in the dark.
@@ -744,7 +763,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat, shape: { primBow: 1.35, armBow: 0.2, elbow: 0.45 }, debugParts: WING_DEBUG_PARTS }).group);   // per-wing value ladder + moon-rim + per-feather band + rachis; CURVED quills+arm (art-director #4 — bows the covert column so its edges stop reading as straight radial bars); merge = 13 draws/wing → ~3
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat, midMaterial: midMats[P.key] || midMats.middle, shape: { primBow: 1.35, armBow: 0.2, elbow: 0.45 }, debugParts: WING_DEBUG_PARTS }).group);   // per-wing value ladder + moon-rim + per-feather band + rachis; CURVED quills+arm (art-director #4 — bows the covert column so its edges stop reading as straight radial bars); merge = 13 draws/wing → ~3
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),
@@ -1337,6 +1356,15 @@ export function buildUnmasked(def, quality = 1) {
   const LADDER_KEYS = Object.keys(LADDER);   // precomputed — no per-frame Object.keys allocation in the void tick
   const LADDER_BASE = {}, LADDER_VOID = {};
   for (const k of LADDER_KEYS) { LADDER_BASE[k] = baseMats[k].color.clone(); LADDER_VOID[k] = baseMats[k].color.clone().lerp(VOID_BODY, 0.55); }
+  // MID tier (the covert "cord") must rise WITH the rims in the live arena states — the diffuse lerp
+  // alone is invisible on unlit covert faces, so lerp the EMISSIVE too (Fable diagnosis). Void → violet
+  // here; the ignite clones are built after IGNITE_BODY is declared (below). rim:mid ≈ 1.3 kept.
+  const MID_VOID_EM = new THREE.Color(0x473d6a);
+  const MID_BASE = {}, MID_EM_BASE = {}, MID_VOID = {}, MID_EM_VOID = {};
+  for (const k of LADDER_KEYS) {
+    MID_BASE[k] = midMats[k].color.clone(); MID_EM_BASE[k] = midMats[k].emissive.clone();
+    MID_VOID[k] = midMats[k].color.clone().lerp(VOID_BODY, 0.5); MID_EM_VOID[k] = midMats[k].emissive.clone().lerp(MID_VOID_EM, 0.7);
+  }
   const VOID_GLOW_MAX = 0.42;   // low opacity (owner: "yes, low") — the glow supports the rim, never floods
   let voidK = 0;
   function setArenaVoid(k) { voidK = Math.max(0, Math.min(1, k)); }
@@ -1361,6 +1389,10 @@ export function buildUnmasked(def, quality = 1) {
   const IGNITE_BODY = new THREE.Color(0x544862);   // ember violet-BRONZE midtone — warm but dark, the S2 violet undertone kept (hybrid); PARTIAL lerp preserves the ladder separation
   const LADDER_IGNITE = {};
   for (const k of LADDER_KEYS) LADDER_IGNITE[k] = baseMats[k].color.clone().lerp(IGNITE_BODY, 0.30);   // 0.30 — wreathed, not washed (body warms, stays dark)
+  // MID-tier ignite clones (paired with the void clones above — IGNITE_BODY is in scope now).
+  const MID_IGNITE_EM = new THREE.Color(0x4a3a28);
+  const MID_IGNITE = {}, MID_EM_IGNITE = {};
+  for (const k of LADDER_KEYS) { MID_IGNITE[k] = midMats[k].color.clone().lerp(IGNITE_BODY, 0.28); MID_EM_IGNITE[k] = midMats[k].emissive.clone().lerp(MID_IGNITE_EM, 0.6); }
   const IGNITE_GLOW_MAX = 0.46;   // the aura opacity (owner §3d.3 ~0.5·k) — the mandorla is the wreath, supports the silhouette, never floods the frame
   const WISP_MAX = 0.85;          // the living-wisp brightness (thin tapered tongues → cheap on the probes; the shader's prof/edge/flow keep them sparse)
   let igniteK = 0;
@@ -1591,7 +1623,11 @@ export function buildUnmasked(def, quality = 1) {
       rimMat.emissive.copy(RIM_EM_BASE).lerp(RIM_EM_VOID, voidK);
       rimMatB.color.copy(RIMB_BASE).lerp(RIMB_VOID, voidK);
       rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_VOID, voidK);
-      for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_VOID[k], voidK);
+      for (const k of LADDER_KEYS) {
+        baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_VOID[k], voidK);
+        midMats[k].color.copy(MID_BASE[k]).lerp(MID_VOID[k], voidK);
+        midMats[k].emissive.copy(MID_EM_BASE[k]).lerp(MID_EM_VOID[k], voidK);
+      }
       vgMat.opacity = voidK * VOID_GLOW_MAX; voidGlow.visible = true;
     } else if (igniteK > 0) {
       // THE IGNITED SERAPH: gold-wreathed rim + violet-bronze body + roiling gold-violet mandorla.
@@ -1599,13 +1635,17 @@ export function buildUnmasked(def, quality = 1) {
       rimMat.emissive.copy(RIM_EM_BASE).lerp(RIM_EM_IGNITE, igniteK);
       rimMatB.color.copy(RIMB_BASE).lerp(RIMB_IGNITE, igniteK);
       rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_IGNITE, igniteK);
-      for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_IGNITE[k], igniteK);
+      for (const k of LADDER_KEYS) {
+        baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_IGNITE[k], igniteK);
+        midMats[k].color.copy(MID_BASE[k]).lerp(MID_IGNITE[k], igniteK);
+        midMats[k].emissive.copy(MID_EM_BASE[k]).lerp(MID_EM_IGNITE[k], igniteK);
+      }
       igMat.uniforms.uOpacity.value = igniteK * IGNITE_GLOW_MAX; igMat.uniforms.uTime.value = time; igniteGlow.visible = true;
       wMat.uniforms.uOpacity.value = igniteK * WISP_MAX; wMat.uniforms.uTime.value = time; wisps.visible = true;   // the living wisps lick off the crown/wingtips
     } else if (voidGlow.visible || igniteGlow.visible || wisps.visible) {
       rimMat.color.copy(RIM_BASE); rimMat.emissive.copy(RIM_EM_BASE);
       rimMatB.color.copy(RIMB_BASE); rimMatB.emissive.copy(RIMB_EM_BASE);
-      for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]);
+      for (const k of LADDER_KEYS) { baseMats[k].color.copy(LADDER_BASE[k]); midMats[k].color.copy(MID_BASE[k]); midMats[k].emissive.copy(MID_EM_BASE[k]); }
       vgMat.opacity = 0; voidGlow.visible = false;
       igMat.uniforms.uOpacity.value = 0; igniteGlow.visible = false;
       wMat.uniforms.uOpacity.value = 0; wisps.visible = false;
