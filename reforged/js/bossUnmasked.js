@@ -870,7 +870,11 @@ export function buildUnmasked(def, quality = 1) {
   // ── THE RELIQUARY KNOT (art-director #2) — the convergence BODY, no longer a void. Warm umber
   // with a dim ember floor (a LIT body from below, NOT a bright orb — luma ceiling ≪ the eye so
   // the focal is never contested). Bigger + flatter so it fills the central pinch behind the ruff.
-  const knotMat = track(new THREE.MeshStandardMaterial({ color: 0x3a2a1e, emissive: 0x30200f, emissiveIntensity: 0.6, roughness: 0.9, metalness: 0.0 }));
+  // emissive base warm-gold; intensity idles LOW (0.55 — a dim ember behind the great eye in S2)
+  // and is driven UP in stage 3 (setStage3) where the great eye retires and the knot becomes the
+  // lit CORE the small star-eye sits on (critic checkpoint: S3's focal was the dimmest thing —
+  // this restores core→bloom→dark at the S3 centre). Emissive on the existing mesh, zero shells.
+  const knotMat = track(new THREE.MeshStandardMaterial({ color: 0x3a2a1e, emissive: 0x6a4a20, emissiveIntensity: 0.55, roughness: 0.9, metalness: 0.0 }));
   const knot = new THREE.Mesh(new THREE.SphereGeometry(0.92, lowQ ? 8 : 12, lowQ ? 6 : 9), knotMat);
   knot.scale.set(1.35, 1.5, 0.55); knot.position.set(0, 0, -0.28);   // flattened, seated among the wing roots
   knot.name = 'knotBody'; stage2.add(knot);
@@ -1202,6 +1206,11 @@ export function buildUnmasked(def, quality = 1) {
     const hideFocal = k3 >= 0.44;
     for (const e of focalParts) e.visible = !hideFocal;
     greatCatch.visible = !hideFocal && closeK < 0.6;   // the catchlight dies first (the light going out)
+    // RELIGHT THE KNOT CORE (critic one-revise): as the great eye retires, the knot becomes the lit
+    // core the small star-eye sits on — restoring core→bloom→dark at the S3 focal (idle 0.55 → ~2.75
+    // by the throw, brighter than the halo tube, second only to the ray roots). k3 0 → 0.55 (S2 byte-
+    // identical, occluded behind the great eye).
+    knotMat.emissiveIntensity = 0.55 + 2.2 * smooth(0.30, 0.62, k3);
     // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, then SETTLE to
     // 0.20 (PR-K, owner-locked): the dramatic throw is kept intact (throwK/igniteK/settleK timing
     // and the unveil beat/halo/ignition are functions of the Ks, not the settled value), but the
