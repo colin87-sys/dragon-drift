@@ -1465,7 +1465,7 @@ const effectivePR = (tier) => {
 function setArenaPerf(active) {
   if (active === arenaPerfActive) return;
   arenaPerfActive = active;
-  setPostMSAA(active ? 0 : postfx.baseMSAA);   // MSAA off in the heaven (near-invisible on soft additive fire); RESTORE to the deviceClass base (D1: 2 on mobile, not a hardcoded 4), full res kept
+  setPostMSAA(active ? 0 : dynMSAATarget());   // MSAA off in the heaven (near-invisible on soft additive fire); RESTORE to the ladder's CURRENT target — the deviceClass base (D1: 2 on mobile, not a hardcoded 4), OR 0 if the ?msaadyn rung is still engaged (F2: don't un-drop what the governor is holding down)
   const pr = effectivePR(qualityTier);   // optional ?arenapr resolution fallback (default Infinity → no-op)
   if (pr !== renderer.getPixelRatio()) { renderer.setPixelRatio(pr); setPostPixelRatio(pr); }
   setPostSize(window.innerWidth, window.innerHeight);   // ONE realloc covers the MSAA change + any pr change
@@ -1504,11 +1504,20 @@ function setDynMSAA(samples) {
   setPostSize(window.innerWidth, window.innerHeight);   // one realloc at the current size, MSAA-only (scale stays 1.0 on this rung)
   skipQualityFrames = 2;
 }
+// The ladder's CURRENT MSAA target for a given rung index: 0 once we're at/past the ?msaadyn
+// rung, the deviceClass base below it (or always base without the seam). The single source of
+// truth so every path that resets/leaves the ladder restores the RIGHT samples — the arena
+// exit, a tier flip, and dynRes-off (Gate-2 F1/F2: those reset the rung but must not strand
+// samples at 0; dynRes-off is the worst — the governor block is then gated off, so nothing
+// else would ever restore it).
+function dynMSAATarget(idx = resGov.idx) {
+  return (MSAA_DYN && STAGES.slice(0, idx + 1).some((s) => s.msaa === 0)) ? 0 : postfx.baseMSAA;
+}
 // Settings toggle for the governor. Turning it OFF snaps pixel-scale back to full (shipped
 // look); turning it ON leaves resScale at 1.0 (the governor trims from there under load).
 function setDynRes(on) {
   dynResEnabled = on;
-  if (!on) { resGovReset(resGov); resScale = 1.0; setPerfSaver(false); }
+  if (!on) { resGovReset(resGov); resScale = 1.0; setPerfSaver(false); if (MSAA_DYN) setDynMSAA(postfx.baseMSAA); }   // F1: dynRes-off snaps the whole ladder back — restore MSAA too, or it's stranded at 0 forever (the governor block that would restore it is now gated off)
   const pr = effectivePR(qualityTier);
   renderer.setPixelRatio(pr);
   setPostPixelRatio(pr);
@@ -1520,6 +1529,7 @@ document.body.dataset.qtier = qualityTier; // boot default (applyQuality only ru
 function applyQuality(tier) {
   qualityTier = tier;
   resGovReset(resGov); resScale = 1.0; setPerfSaver(false);   // each tier is (re)evaluated from the full ladder top; the governor re-engages the saver / re-trims within the new tier (no double-dip with the tier's own pixelRatio drop)
+  if (MSAA_DYN) setDynMSAA(dynMSAATarget());   // F1: the ladder just reset to rung 0 → MSAA back to base (no-op unless the rung had engaged 0); setPostTier below reallocs the RT, so this stays in sync
   skipQualityFrames = 2;   // the next 2 frames carry this flip's RT realloc + shader recompile — exclude them from the signal (see updateQuality)
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
@@ -1588,7 +1598,7 @@ function updateQuality(dt, hitchDt = dt) {
       setPerfSaver(st.saver); setResScale(st.scale);   // saver first (free), then pixels
       // D1 MSAA rung (mobile ?msaadyn): 0 once we're at/past the msaa rung, base below it —
       // higher (resolution-trim) rungs inherit the 0; a restore below the rung flips it back.
-      if (MSAA_DYN) setDynMSAA(STAGES.slice(0, r.idx + 1).some((s) => s.msaa === 0) ? 0 : postfx.baseMSAA);
+      if (MSAA_DYN) setDynMSAA(dynMSAATarget(r.idx));
     }
     if (r.owned) { degradeTimer = 0; qualityTimer = 0; return; }
   }
