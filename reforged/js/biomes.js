@@ -42,6 +42,9 @@ const C = (hex) => new THREE.Color(hex);
 const _biomeParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const PROPS_FORUM = _biomeParams.get('props') === 'forum';
+// PR-8 DEFAULT FLIP: the retired jungle rosters are opt-in A/B flags; anything else → the Drowned Forum default.
+const _biomePropsOpt = _biomeParams.get('props');
+const PROPS_LAGOON_AB = _biomePropsOpt === 'v1' || _biomePropsOpt === 'v2' || _biomePropsOpt === 'v3';
 
 // Canonical sun direction — a low sun ahead of the player. Shared by the sky
 // shader, the water shader and the god-ray pass so the light shafts streak from
@@ -526,10 +529,11 @@ export const FORUM_BIOME0 = {
   bullets: undefined,
 };
 
-// The forum atmosphere rides the SAME `?props=forum` flag as its props (environment.js). Default and
-// headless (no window) → BIOMES[0] stays THE LOST LAGOON, so gold-determinism / biomecycle are
-// byte-identical. A const array's ELEMENT may be reassigned (const only pins the binding).
-if (PROPS_FORUM) BIOMES[0] = FORUM_BIOME0;
+// PR-8 DEFAULT FLIP: the Drowned Forum atmosphere is now the DEFAULT biome-0 palette (matching its prop-kit
+// flip in environment.js). Only an explicit A/B opt-in (`?props=v1|v2|v3`) restores the retired Lost Lagoon.
+// The golden fixture (level-gen rings/obstacles/golds) is prop-independent, so gold-determinism / biomecycle
+// stay byte-identical across the flip. A const array's ELEMENT may be reassigned (const only pins the binding).
+if (!PROPS_LAGOON_AB) BIOMES[0] = FORUM_BIOME0;
 
 // The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
 // array order. This indirection lets a new biome be APPENDED to BIOMES (with its mats/skins/

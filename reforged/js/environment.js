@@ -1621,8 +1621,14 @@ const PROPS_V2 = _envParams.get('props') === 'v2';
 // blank canvas the atmosphere blind-test wants (§5 PR-1). Forum archetypes append at the END of
 // ARCHETYPES with `biomes: forumV1` as each WAVE lands (PR-2 onward), keeping gold-determinism green.
 const PROPS_FORUM = _envParams.get('props') === 'forum';
-const lagoonV3 = (PROPS_V1 || PROPS_V2 || PROPS_FORUM) ? [] : [0];  // v3 jungle-drowned-temple kit — DEFAULT (karstfang + roster as it lands); parked under ?props=forum
-const forumV1 = PROPS_FORUM ? [0] : [];  // Drowned Forum kit — opt-in via ?props=forum (archetypes land PR-2 onward)
+// ── PR-8 DEFAULT FLIP ── The Drowned Forum is now the DEFAULT biome-0 kit; the retired v3 jungle-drowned-temple
+// roster is parked behind `?props=v3` (A/B only — deletion awaits owner sign-off on the closing audit). `?props=
+// forum` still resolves to the forum kit (harmless, it's the default now). Headless/no-window has no param, so
+// the DEFAULT branch (forum) is what the tests now see — the golden fixture is level-gen (rings/obstacles/golds),
+// independent of the prop bands, so gold-determinism stays byte-identical across the flip.
+const PROPS_V3 = _envParams.get('props') === 'v3';
+const forumV1 = (PROPS_V1 || PROPS_V2 || PROPS_V3) ? [] : [0];  // THE DROWNED FORUM — DEFAULT biome-0 kit (PR-8 flip); suppressed only under an explicit A/B opt-in
+const lagoonV3 = PROPS_V3 ? [0] : [];  // v3 jungle-drowned-temple kit — PARKED behind ?props=v3 (retired; deletion after owner sign-off)
 const lagoonNew = PROPS_V2 ? [0] : [];   // retired v2 drowned-Greco ruins — opt-in via ?props=v2
 const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins — opt-in via ?props=v1
 // TEMPEST REACH overhaul (TEMPEST-REACH-BIBLE.md) — same flip idiom. Default (v2) = the new
@@ -4541,7 +4547,7 @@ const ARCHETYPES = {
   // in arena congregations so two round-arch ranks never share a frame. MASS not height — level rim ~28 world,
   // never competing with the pharos. ≤150 tris, forumdark, NO glow.
   arena: {
-    step: 211, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arcade', arenaGate: true,
+    step: 900, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arcade', arenaGate: true,   // step≥WALL_WINDOW → perSide=1 → at most ONE slot per side in the band window → ≤1 crown per congregation by construction (0 doubles, Codex P2 / Fable ruling) + cuts the arena's band-tri buffer 1500→300 (the PR-8 default-flip budget)
     comp: { floor: 0, sMin: 1.0, sMax: 1.0 },   // full-size-or-absent (the Frozen hero law — a crown never rides the comp scale lottery)
     build: () => {
       // WORLD-ASPECT curved wall (the aqueduct arch law wrapped onto an ellipse): object XZ scaled by r, Y by h;
