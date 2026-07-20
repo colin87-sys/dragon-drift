@@ -12,6 +12,9 @@ import { buildAngelWing } from './angelWing.js';   // the owner's merged, signed
 // eye/feather placement — the merge is a build-time collapse, so the design params are edited the same
 // either way; this flag just lets you grab individual feathers while tweaking.
 const WING_MERGE = !(typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('wingedit'));
+// ?wingparts — DIAGNOSTIC: paint each wing anatomical part a distinct flat colour (angelWing
+// debugParts) so a capture identifies exactly which geometry renders as a given on-screen shape.
+const WING_DEBUG_PARTS = (typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('wingparts'));
 
 // THE UNMASKED — slot 14, the APEX / FINALE (BOSS-DESIGN.md §5b row 14, §5c APEX).
 // "The second sun that cracks open into a biblically-accurate angel." Three STAGES
@@ -741,7 +744,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat, shape: { primBow: 1.35, armBow: 0.2, elbow: 0.45 } }).group);   // per-wing value ladder + moon-rim + per-feather band + rachis; CURVED quills+arm (art-director #4 — bows the covert column so its edges stop reading as straight radial bars); merge = 13 draws/wing → ~3
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE, valueBand: 1, rachisMaterial: rachisMat, shape: { primBow: 1.35, armBow: 0.2, elbow: 0.45 }, debugParts: WING_DEBUG_PARTS }).group);   // per-wing value ladder + moon-rim + per-feather band + rachis; CURVED quills+arm (art-director #4 — bows the covert column so its edges stop reading as straight radial bars); merge = 13 draws/wing → ~3
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),

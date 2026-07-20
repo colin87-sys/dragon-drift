@@ -129,3 +129,45 @@ D — the audit's point; it lives here only).
 - **Pickup restyle:** gameplay-readability item — bulletcontrast must stay green; if pearl-tinting
   costs pickup legibility, fall back to desaturating toward rose-gold (hue ≥315°) rather than full
   palette compliance.
+
+---
+
+# REVISION 2 — the mid-plan checkpoint fired (5.5/10) · re-audited remaining plan
+
+**What happened.** PR-1 (life pass) + PR-2 (ring court) shipped, each 4.4/5 on per-PR Fable craft
+gates — yet the unanchored mid-plan re-score came back **5.5** (baseline 5.8). The stall rule fired;
+an independent re-audit diagnosed and re-planned.
+
+**DIAGNOSIS (the sequencing error).** The PRs added content into an unchanged VALUE FIELD; the
+holistic score is dominated by the field itself (sky/haze/water within ~10% L = "luminous implemented
+as low contrast"), which no PR scheduled — and the aerial haze *worsened* it by lightening far props
+toward sky. Per-element craft gates verify "the arch reads," not "the frame improved." And the
+life/motion bet on AMBIENT ACTORS is empirically dead: both critics scored it 4.0 before AND after
+the actor pass — the demand is EMANATING world motion, not more fauna.
+
+**REVISED REMAINING PLAN (3 PRs, impact order):**
+- **PR-A — VALUE STRUCTURE + WORLD PULSE** (gaps 1+2+4, expected +1.5–1.8): one `empyStructMix` gate.
+  Azimuthal 3-tier value scheme — off-corridor sky + far flanks drop 15–20% L toward dusty violet,
+  a ~±25° near-white corridor cone holds the Mote bearing (per-column the zenith still wins → the
+  inversion survives; contrast-from-below, the occultation-halo family). Water inherits the
+  directional darkening. The disc PULSE-RING (~8s, dark hue accent, L≥50, charged to the dark
+  budget), phase-animated ripple/contour lines, ONE drifting sky ribbon, and the disc CONTACT KIT
+  (dark mirror-smudge promoted from PR-4, px-sized corona arc, 6–10 dark orbiting motes).
+  Gate: `_empyregate` corridor-axis L separation ≥12% and flank-vs-corridor ≥15%; dark budget ≤40%.
+  **⚑ OWNER SIGN-OFF: flank zeniths stop being the frame's brightest pixels.**
+- **PR-B — MONOLITH KIT REBUILD + WATER CONSISTENCY** (gaps 3+5+8, +0.7–1.0): rebuild sentinels on
+  the ring-court grammar (faceted lens lathe, violet base → pearl body → rose tip, crown-lip-segment
+  rim only); DELETE fin/quill variants; two-tone corridor-facing faces (**⚑ OWNER SIGN-OFF: amends
+  the "no directional value split" prop law — one note with PR-A's**); domain-warped water UVs + a
+  second non-integer octave; one sprite grammar for motes/pickups.
+- **PR-C — FLANKS + FINALE** (gaps 6+7, +0.4–0.6; mergeable into B): distant floating ring-shards
+  (the shipped arch kit, re-instanced under heavy propAerial), the RING GATE + `uMoteGrow` growth
+  choreography on the Mote approach, the horizon seam band.
+
+**KEEP/DROP:** ring gate KEEP (PR-C); monolith hue-ramp DROP (superseded by the kit rebuild);
+Godhead Gate DROP from the uplift (no critic raised it — its 2 budgeted rounds fund PR-C); Ribbon
+Sky KEEP cut to one ribbon (PR-A); Nacre Mirror KEEP promoted (PR-A); third NEAR-LOW koi school
+DROP (the disproven actor bet); horizon seam KEEP (PR-C).
+
+**EXPECTED LANDING: 7.8–8.3** at the 65%-yield rule; **8.5 via the exit protocol's one targeted
+polish round** — the stretch, not the expectation.

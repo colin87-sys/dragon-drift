@@ -267,6 +267,11 @@ body.app-loaded > canvas { opacity: 1; }
 .combo[data-tier="1"], .combo[data-tier="2"], .combo[data-tier="3"],
 .combo[data-tier="4"], .combo[data-tier="5"] { opacity: 1; }
 @keyframes combo-pop { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }
+/* combo-pop for the CENTERED slug (owner bug 2026-07-20): .gauntlet-x is positioned by
+   translateX(-50%); a bare-scale animation OVERRIDES that transform while running and
+   lurches the slug sideways by half its width on every ring (the 2026-07-17 guard class).
+   Bake the owned translate into the keyframes so the pop scales IN PLACE. */
+@keyframes combo-pop-x { 0%{transform:translateX(-50%) scale(1)} 40%{transform:translateX(-50%) scale(1.45)} 100%{transform:translateX(-50%) scale(1)} }
 /* GAUNTLET-FOLLOW GUARD (owner bug 2026-07-17). This container's transform is OWNED by
    ui.gauntletFollow — main.js projects the dragon each frame and gauntletFollow writes an
    inline `translate(calc(-50% + Xpx), -50%) scale(...)` so the cluster rides under the
@@ -807,7 +812,7 @@ html.vitals-on .gauntlet-surge i.gem-pop { animation-delay: 120ms; }
 .gauntlet[data-tier="4"] .gauntlet-x { color: #ff9a5a; }
 .gauntlet[data-tier="5"] .gauntlet-x { color: #fff; }
 .gauntlet.fever .gauntlet-x { color: #fff2d6; }   /* HUD-POLISH (Fable P2) — white-hot ember, not danger-magenta */
-.gauntlet-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
+.gauntlet-x.combo-pop { animation: combo-pop-x 0.3s var(--ease-out); }
 
 /* READY / fever start: the WHOLE gauntlet ignites once (spring 600ms + ping) */
 .gauntlet.igniting .g-arc,

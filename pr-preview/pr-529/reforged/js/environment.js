@@ -107,6 +107,7 @@ const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
   uniform float uAO; varying float vAO;
   uniform float uPropAerial; uniform vec3 uPropAerialCol;   // Fable 75: per-biome aerial-perspective lever (0 = shipped)
+  uniform float uPropTwoTone;   // uplift PR-B: corridor-facing two-tone (0 = shipped)
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -124,6 +125,7 @@ const PROP_NOISE_HEAD = /* glsl */`
 // fogFarColor can only pull props toward a DARKER amber; this is the only mechanism that makes
 // distance lighten them. `vFogDepth` (the fog chunk's view-space depth) is the free depth signal.
 const propAerialUniform = { value: 0 };                        // 0 = byte-identical (the other 6 biomes)
+const propTwoToneUniform = { value: 0 };                       // uplift PR-B two-tone corridor faces (0 = byte-identical; rides empyStructMix)
 const propAerialColor   = { value: new THREE.Color(0x000000) };
 
 // Fable 79 HERO BACKLIT-RIM lever — a per-biome optional channel (0 everywhere but the Mire) that
@@ -139,6 +141,7 @@ function addPropDetail(mat, ladderEmissive = false) {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
     shader.uniforms.uPropAerial = propAerialUniform;    // Fable 75 aerial lever (0 = shipped)
     shader.uniforms.uPropAerialCol = propAerialColor;
+    shader.uniforms.uPropTwoTone = propTwoToneUniform;  // uplift PR-B (0 = shipped)
     assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
@@ -167,6 +170,12 @@ function addPropDetail(mat, ladderEmissive = false) {
         // (hard bands pop as props approach). uPropAerial 0 ⇒ mix factor 0 ⇒ byte-identical.
         float _aer = smoothstep(55.0, 230.0, vFogDepth); _aer *= _aer * uPropAerial;
         diffuseColor.rgb = mix(diffuseColor.rgb, uPropAerialCol, _aer * 0.50);
+        // Uplift PR-B TWO-TONE (owner-approved theology amendment; uPropTwoTone 0 = byte-identical):
+        // flat-shaded face normal from screen derivatives — faces toward the CORRIDOR axis lift, away
+        // faces dip a touch. Implies the bright lane (the biome's light source concept), never a sun.
+        vec3 _ttn = normalize(cross(dFdx(vPropWPos), dFdy(vPropWPos)));
+        float _tt = clamp(-sign(vPropWPos.x) * _ttn.x, 0.0, 1.0);
+        diffuseColor.rgb *= 1.0 + (0.22 * _tt - 0.08) * uPropTwoTone;   // r2: 14% died under fog+noise - raised until two adjacent faces are frame-distinguishable
         #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
@@ -531,7 +540,7 @@ function buildSentinelParts() {
 // STRUCTURE (crown catches the zenith, base reads as ambient occlusion) and the mid-field CARRY the harsh
 // Fable gate demanded — the base sits well under the pearl fog so the stone doesn't dissolve into it,
 // while the crown stays bone-pale. `lo`/`hi` = base/crown grayscale multipliers; `mot` = mottle depth.
-function _bakeRamp(arr, lo, hi, mot = 0.055) {
+function _bakeRamp(arr, lo, hi, mot = 0.028) {   // PR-B r2: mottle halved - the speckle noise was drowning the hue ladder ('noisy grey')
   const n = arr.length / 3;
   let yMin = Infinity, yMax = -Infinity;
   for (let i = 0; i < n; i++) { const y = arr[i * 3 + 1]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
@@ -543,7 +552,16 @@ function _bakeRamp(arr, lo, hi, mot = 0.055) {
     const v = lo + (hi - lo) * (t * t * (3 - 2 * t));              // smoothstep ramp
     const m = 1 + mot * (Math.sin(x * 3.1 + z * 2.3) * Math.sin(y * 4.7 - x * 1.9));  // erosion mottle (kills the flat-facet crystal tell)
     const g = Math.max(0.05, v * m);
-    col[i * 3] = g; col[i * 3 + 1] = g; col[i * 3 + 2] = g;
+    // Uplift PR-B "stones of light": the ladder carries a HUE ramp too — violet-leaning base → pearl
+    // body → rose-tinged crown (hue ≥315 territory via the shared rose mats). Every _bakeRamp user is a
+    // biome-5 prop (empyNew), so other biomes stay byte-identical by construction. Kills the 5.5
+    // review's "grey prisms = unlit dev slabs" as ONE coherent kit instead of per-prop repaints.
+    const hb = 1 - t;                                              // base weight
+    const cf = Math.max(0, (t - 0.82) / 0.18);                     // crown FEATHER band (top ~18%): the body leans rose
+    col[i * 3] = g * (1 - 0.09 * hb + 0.05 * cf);                  // R: dip at base, lift into the crown
+    col[i * 3 + 1] = g * (1 - 0.16 * hb - 0.07 * cf);              // G: strong dip at base (visible violet), dip at crown (rose)
+    col[i * 3 + 2] = g * (1 + 0.06 * hb - 0.04 * cf);              // B: up at base (violet), slight dip at crown
+    // → the rose cap now meets a rose-leaning body band, reading as light catching the crown (no paint-line)
   }
   return col;
 }
@@ -589,6 +607,124 @@ function _bladeInto(body, crown, { seg, zLens, slope, st, amp, sx = 1, sy = 1, r
   for (const p of top) { mx += p[0]; my += p[1]; mz += p[2]; }
   const ctr = [mx / seg, my / seg, mz / seg];
   for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; crown.push(...top[j], ...top[j2], ...ctr); }
+}
+
+// THE EMPYREAN uplift PR-2 — HALO SHARD (EMPYREAN-RINGCOURT-REFERENCE.md, Fable-audited): a broken
+// ring-arc FRAGMENT standing out of the water — the EARLY-band identity. Sweep 75° (the audit's ≥55°
+// floor: at smaller sweeps a standing arc reads as a leaning blade = a sentinel clone). Lens-section
+// tube-lathe along the arc; one end BURIED (bedded), the high end a broken 2-facet fracture. Rose on
+// the LOW fracture lip ONLY (mat 1, mostly at the waterline) so the crown zone stays rose-free — the
+// at-a-glance difference from the rose-tipped sentinels. ~112 tris, 2 mats, deterministic.
+function buildHaloShardParts() {
+  const body = [], crown = [];
+  const N = 9, seg = 8, R = 0.85, zLens = 0.30;
+  const th0 = -0.26, th1 = th0 + 3.67;   // ~210 deg sweep - a broken ARCH whose BOTH horns pierce the waterline (Fable re-gate: a 95 deg arc seen edge-on collapses to a blade - the depth-projection trap; an arch reads as a ring fragment from EVERY yaw)                       // ~75° sweep, low end dipping below the water
+  const rings = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const th = th0 + (th1 - th0) * t;
+    const cx = Math.cos(th) * R, cy = Math.sin(th) * R + 0.20;   // lift so BOTH horns bed at/under y0
+    // tube radius: flared at the buried foot (1.25×), gentle taper to the broken top (0.85×)
+    const rt = 0.145 * (i === 0 || i === N - 1 ? 1.2 : 1 - 0.12 * Math.sin(t * 3.14159) * 0.5) * (1 + 0.06 * Math.sin(i * 2.6));   // thicker limbs survive band distance + partial occlusion   // both feet flared (bedded), slight mid-span slim
+    const tx = -Math.sin(th), ty = Math.cos(th);             // arc tangent → ring plane normal
+    const ring = [];
+    for (let j = 0; j < seg; j++) {
+      const ph = (j / seg) * Math.PI * 2;
+      const u = Math.cos(ph) * rt * (1 + 0.10 * Math.sin(3 * ph + i)); // soft lens wobble (kills the lathe tell)
+      const w = Math.sin(ph) * rt * zLens;
+      ring.push([cx + u * ty, cy - u * tx, w]);              // lens long-axis in the arc plane, thin in Z
+    }
+    rings.push(ring);
+  }
+  for (let i = 0; i < N - 1; i++) {
+    const tgt = body;                                        // r2: the band goes BONE - only the low cap fan stays rose (the full band over-read as a fat pink foot at close range)
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      tgt.push(...A, ...C, ...B, ...A, ...D, ...C);
+    }
+  }
+  const cap = (ring, tgt, flip) => {                          // fracture caps: fan to centroid
+    let mx = 0, my = 0, mz = 0;
+    for (const p of ring) { mx += p[0]; my += p[1]; mz += p[2]; }
+    const c = [mx / seg, my / seg, mz / seg];
+    for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      if (flip) tgt.push(...ring[j2], ...ring[j], ...c); else tgt.push(...ring[j], ...ring[j2], ...c);
+    }
+  };
+  cap(rings[0], crown, true);                                 // buried/low fracture lip — the ONE rose lip
+  cap(rings[N - 1], body, false);                             // high broken end stays bone-nacre
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.70, 1.02)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.90, 1.00, 0.03)) }];
+}
+
+// THE EMPYREAN uplift PR-C — THE RING GATE: the late-approach finale — a broken ring the lane flies
+// THROUGH, framing the Mote (audited spec: two ~115° posts, top gap, inner clear radius ≥18 world at
+// the shipped place scale, crest below the disc's elevation band). One geometry, 144 tris, 2 mats;
+// rose on ONE post's low lip only (asymmetry, not gates-of-heaven kitsch).
+function buildRingGateParts() {
+  const body = [], crown = [];
+  const seg = 6, N = 6, R = 1.0, zLens = 0.30;
+  const post = (mirror, roseLip) => {
+    const th0 = -0.24, th1 = 1.78;                          // ~116°: horn bedded below water → just short of the apex
+    const rings = [];
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const th = th0 + (th1 - th0) * t;
+      const cx = Math.cos(th) * R * mirror, cy = Math.sin(th) * R + 0.14;
+      const rt = 0.085 * (i === 0 ? 1.25 : 1 - 0.10 * t) * (1 + 0.05 * Math.sin(i * 2.2 + mirror));
+      const tx = -Math.sin(th) * mirror, ty = Math.cos(th);
+      const ring = [];
+      for (let j = 0; j < seg; j++) {
+        const ph = (j / seg) * Math.PI * 2;
+        const u = Math.cos(ph) * rt * (1 + 0.09 * Math.sin(3 * ph + i));
+        const w = Math.sin(ph) * rt * zLens;
+        ring.push([cx + u * ty, cy - u * tx, w]);
+      }
+      rings.push(ring);
+    }
+    for (let i = 0; i < N - 1; i++) for (let j = 0; j < seg; j++) {
+      const j2 = (j + 1) % seg;
+      const A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+      body.push(...A, ...C, ...B, ...A, ...D, ...C);
+    }
+    const cap = (ring, tgt) => {
+      let mx = 0, my = 0, mz = 0;
+      for (const q of ring) { mx += q[0]; my += q[1]; mz += q[2]; }
+      const c = [mx / seg, my / seg, mz / seg];
+      for (let j = 0; j < seg; j++) { const j2 = (j + 1) % seg; tgt.push(...ring[j2], ...ring[j], ...c); }
+    };
+    cap(rings[0], roseLip ? crown : body);                  // the low fracture lip — rose on ONE post only
+    cap(rings[N - 1], body);                                // the broken top ends stay bone (the gap frames the Mote)
+  };
+  post(1, true); post(-1, false);
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.72, 1.04)) },
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.90, 1.00, 0.03)) }];
+}
+
+// THE EMPYREAN uplift PR-2 — SHARD SHRINE: a LOW tiered crystalline rosette (gypsum desert-rose /
+// cairn-shrine refs) — the off-lane rest note beside the pearlshoal. 4 canted low blades (the sentinel
+// grammar at ~0.25× height) in a tight rosette, one dominant + three stepped; per the audit's station
+// allocation the 3 stations are skirt + body + crown-lip (mid rings dropped). Rose on the DOMINANT
+// blade's cut lip ONLY (one lip per cluster). ~100 tris, 2 mats, deterministic.
+function buildShardShrineParts() {
+  const body = [], crown = [];
+  const st4 = [ { r: 0.30, cx: 0.02, y: -0.08 },             // buried SKIRT (widest — bedded flare, mandatory)
+    { r: 0.25, cx: 0.05, y: 0.55 },
+    { r: 0.22, cx: 0.07, y: 0.90 },                          // crown-START at y0.90…
+    { r: 0.20, cx: 0.08, y: 1.00 } ];                        // …so the rose band y0.90→1.0 is a thin LIP, never candy-dip
+  const amp4 = [0.10, 0.07, 0.04, 0.02];                      // de-jittered top ring (apex-spike law)
+  const B = [
+    { sy: 1.00, ry: 0.4,  tx: 0.00, tz: 0.00, rose: true },   // the dominant — the cluster's ONE rose lip
+    { sy: 0.52, ry: 2.1,  tx: 0.32, tz: 0.20, rose: false },
+    { sy: 0.42, ry: 4.0,  tx: -0.30, tz: 0.24, rose: false },
+    { sy: 0.48, ry: 5.3,  tx: 0.07, tz: -0.33, rose: false },
+  ];
+  for (const b of B) _bladeInto(body, b.rose ? crown : body,
+    { seg: 5, zLens: 0.26, slope: 0.24, st: st4, amp: amp4, sx: 0.55, sy: b.sy, ry: b.ry, tx: b.tx, tz: b.tz });
+  return [{ mat: 0, geo: _mkFlatGeo(body, _bakeRamp(body, 0.86, 1.12)) },   // INVERSE low-prop ladder: crest LIFT, capped ≤1.15 (audit fix 4)
+    { mat: 1, geo: _mkFlatGeo(crown, _bakeRamp(crown, 0.95, 1.08, 0.03)) }];
 }
 
 // THE EMPYREAN — CHOIRSTONES (§5 "THE MID MASS"; Money-Shot-3's subject): a recurring COURT in one
@@ -2055,7 +2191,7 @@ const ARCHETYPES = {
   // 0.1 → present in more breaths than the sentinel (it's the connective mid-mass, not a rare elder);
   // sMax 1.15 → gentle swell, never rivals the sentinel; rotY random so each court presents fresh.
   choirstones: {
-    step: 47, biomes: empyNew, matIndex: 5, arrivalPark: true, comp: { floor: 0.1, sMin: 0.85, sMax: 1.15 },
+    step: 47, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'mid', comp: { floor: 0.1, sMin: 0.85, sMax: 1.15 },
     build: () => mergeParts(buildChoirstonesParts(), 5),
     // Pushed further off-lane than the sentinel (x 25–34) because the COURT footprint spreads ±1 in object
     // space — the extra reach must still clear the ±16 gate veil (propclearance audits it). h 8–14 keeps the
@@ -2074,6 +2210,40 @@ const ARCHETYPES = {
     // Bigger too (h 3.5–7, r 4.5–7.5) so the back is a real mid-mass note. Exempt-below-lane (crest never
     // reaches the flight band), so it may sit closer than the tall stones.
     place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 3.5 + rnd() * 3.5, r: 4.5 + rnd() * 3, tilt: side * (rnd() * 0.03 - 0.012) }),
+  },
+  // THE EMPYREAN uplift PR-2 — HALO SHARD: the broken ring-arc fragment (the EARLY-band identity per the
+  // audited RINGCOURT reference). Sweep ≥55° so curvature reads against sky (never a sentinel clone);
+  // rose on the LOW waterline lip only, crown bare. Off-lane like the courts; the arc's lateral reach is
+  // in the r footprint (propclearance audits it).
+  haloShard: {
+    step: 49, biomes: empyNew, matIndex: 5, arrivalPark: true, laneBand: 'early', broadside: true, comp: { floor: 0.12, sMin: 0.9, sMax: 1.2 },
+    build: () => mergeParts(buildHaloShardParts(), 5),
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 9), h: 13 + rnd() * 7, r: 7.5 + rnd() * 2.8, tilt: side * (rnd() * 0.04 - 0.015) }),
+  },
+  // THE EMPYREAN uplift PR-2 — SHARD SHRINE: the low crystalline rosette (off-lane rest note). WIDE +
+  // LOW (h ≤ 2× width via place); INVERSE ladder crest-lift ≤1.15; parks in the mid-field read range
+  // like the pearlshoal (a low pale prop dies on the fog horizon).
+  shardShrine: {
+    step: 43, biomes: empyNew, matIndex: 5, laneBand: 'late', comp: { floor: 0.22, sMin: 0.85, sMax: 1.1 },
+    build: () => mergeParts(buildShardShrineParts(), 5),
+    place: (side, rnd) => ({ x: side * (20 + rnd() * 8), h: 2.6 + rnd() * 2.2, r: 4.5 + rnd() * 2.5, tilt: side * (rnd() * 0.03 - 0.012) }),
+  },
+  // THE EMPYREAN uplift PR-C — THE RING GATE: ONE per biome cycle, phase-locked to the late Mote
+  // approach via gateEvent in the bi===5 branch (a ~120m window at t≈0.88). Near-centred on the lane
+  // (the lane flies THROUGH the aperture — inner clear ≈ 0.9·r ≥ 18 at the shipped scale; horns bed
+  // at ±r, apex above the flight band). broadside so the ring faces the flight axis.
+  ringGate: {
+    step: 127, biomes: empyNew, matIndex: 5, broadside: true, gateEvent: true,
+    build: () => mergeParts(buildRingGateParts(), 5),
+    place: (side, rnd) => ({ x: side * (1.2 + rnd() * 1.5), h: 19 + rnd() * 3, r: 21 + rnd() * 2.5, tilt: side * (rnd() * 0.015 - 0.006) }),
+  },
+  // THE EMPYREAN uplift PR-C — FAR SHARD: very distant flank silhouettes (5.5-review gap 6, "empty
+  // flanks") — the arch kit re-instanced tall and far off-lane; the propAerial haze fades them to
+  // 3–8% over-sky contrast for free. Sparse (floor 0.08), all bands.
+  farShard: {
+    step: 97, biomes: empyNew, matIndex: 5, broadside: true, comp: { floor: 0.08, sMin: 0.9, sMax: 1.15 },
+    build: () => mergeParts(buildHaloShardParts(), 5),
+    place: (side, rnd) => ({ x: side * (58 + rnd() * 26), h: 18 + rnd() * 11, r: 9 + rnd() * 4, tilt: side * (rnd() * 0.03 - 0.012) }),
   },
   // Interim retinted astral monolith wearing a rose band (empyOld — ?props=v1 only; replaced by the kit).
   monolith: {
@@ -4501,6 +4671,10 @@ const FOAM_CFG = {
   sentinel: { r: 0.5 },              // THE EMPYREAN hero — a faint pearl waterline shimmer where the bedded blade meets the nacre (not white surf; the biome foam is tuned faint)
   choirstones: { r: 0.42 },          // THE EMPYREAN mid-mass court — a faint pearl collar around the congregation's bedded feet (matches the sentinel's tuned-faint waterline)
   pearlshoal: { r: 0.6 },            // THE EMPYREAN low rest note — a faint pearl waterline seat around the surfacing backs (wide low footprint; keeps the loaf seated, never a wet-dark band)
+  haloShard: { r: 0.45 },            // THE EMPYREAN uplift PR-2 — faint pearl collar where the arc's buried foot beds into the water (the tuned-faint sentinel waterline treatment)
+  shardShrine: { r: 0.5 },
+  ringGate: { r: 0.4 },              // PR-C — faint collars where the ring's two horns bed
+  farShard: { r: 0.0 },              // PR-C — far beyond the foam read range; zero collar           // THE EMPYREAN uplift PR-2 — wide faint seat under the low rosette (keeps it seated like the pearlshoal, never a wet-dark band)
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
   // Lumen Mire PR-2 depth/canopy: reedveil gets a faint warm waterline collar; the mid/far
@@ -4792,6 +4966,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       // object — an opaque black disc that ZEROES the stars inside it (the hole-vs-object firewall).
       uMoteMix: { value: 0 },
       uMoteGrow: { value: 0 },
+      uEmpyStruct: { value: 0 },   // uplift PR-A: 3-tier value scheme + ribbon + orbiters (0 = byte-identical)
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
       ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
       ...empyUniforms, // THE EMPYREAN: uEmpyMix 0 = shipped (biome gate; the nebula blooms + sky-disc sun kill)
@@ -4810,6 +4985,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform float uRainVeil, uRainVeilScroll, uRainVeilFlash, uStormFlash, uBreachMix;
       uniform float uShaft;   // Fable 90 lever-7: Lumen Mire horizon glow-column (0 = off → byte-identical)
       uniform float uMoteMix, uMoteGrow;   // THE EMPYREAN Mote (§8): 0 = off → byte-identical
+      uniform float uEmpyStruct;           // uplift PR-A: value tiering + ribbon + orbiters (0 = off)
       uniform vec2 uStormFlashDir;
       ${CLOUD_HEAD}
       ${AURORA_HEAD}
@@ -5009,6 +5185,24 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         float _sFade = clamp((0.96 - _sLuma) / 0.16, 0.0, 1.0);
         vec3 _starEmpy = vec3(0.98, 0.982, 1.0) * (star * (0.34 + 0.14 * _sLuma) * _sFade) * starMix;   // a clear pearl sparkle over the local sky (the old relative add died on the bright field); fade only in the brightest band
         col += mix(_starNight, _starEmpy, uEmpyMix);
+        // UPLIFT PR-A (uEmpyStruct 0 = byte-identical) — the 3-TIER VALUE SCHEME (owner-approved
+        // theology amendment): off-corridor sky drops ~15-20% L and drifts dusty-violet; a ~±25°
+        // corridor cone about the Mote bearing keeps the near-white ramp (per-column the zenith still
+        // wins → the inversion survives; contrast-from-below, the occultation-halo family). Plus ONE
+        // slow-drifting ribbon (hue motion, never brightness).
+        if (uEmpyStruct > 0.001) {
+          float _az = abs(atan(d.x, -d.z));
+          float _flank = smoothstep(0.35, 0.68, _az);          // r6: FULL depth by ~39° — the quarter-frame (~25°) was getting half the base (gate r5: 5-9% at the line)
+          float _hband = 1.0 - smoothstep(0.0, 0.35, h);       // PR-A r3: the r2 drop DECAYED toward the sky-water line (ACES compresses the near-white band) — push harder exactly there
+          col *= 1.0 - (0.24 + 0.27 * _hband) * _flank * uEmpyStruct;   // r6c: margin above the bar
+          col = mix(col, col * vec3(0.94, 0.90, 1.06), _flank * 0.6 * uEmpyStruct);
+          float _rb = sin(_az * 2.2 + h * 5.0 - time * 0.06);
+          float _rbm = smoothstep(0.86, 0.98, _rb) * smoothstep(0.12, 0.45, h) * uEmpyStruct;
+          col = mix(col, col * vec3(1.045, 0.975, 1.03), _rbm * 0.8);
+          // PR-C horizon SEAM: a thin rose-ward hue band anchors the water-sky meeting line (the 5.5
+          // review's "mushy horizon"); hue only, never a bright line.
+          col = mix(col, col * vec3(1.04, 0.972, 1.005), (1.0 - smoothstep(0.0, 0.045, abs(h))) * 0.7 * uEmpyStruct);
+        }
         // THE EMPYREAN — THE MOTE (§8, uMoteMix 0 = off → byte-identical). The one true-dark object: a
         // perfectly round, perfectly BLACK disc at a FIXED bearing just above the dissolve (inside the
         // reserved easement), fog-exempt, drawn AFTER the stars so it ZEROES them inside its radius (the
@@ -5060,6 +5254,14 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
           float _dsn = _aHash(floor(_mUV * 13.0 + vec2(time * 0.05, time * 0.021)));
           float _dstar = step(0.982, _dsn) * (0.55 + 0.45 * sin(time * 1.3 + _dsn * 80.0));
           col += vec3(0.82, 0.86, 1.0) * _dstar * 0.5 * _core;
+          // (4) ORBITERS (uplift PR-A): 6 small dark motes circling just outside the rim — the disc
+          // holds court; world-visible motion on the landmark itself. Dark accents, tiny dark budget.
+          for (int _oi = 0; _oi < 6; _oi++) {
+            float _oa = float(_oi) * 1.0472 + time * (0.10 + 0.025 * float(_oi));
+            vec2 _op = vec2(cos(_oa), sin(_oa)) * (1.28 + 0.12 * sin(time * 0.31 + float(_oi) * 2.1));
+            float _od = length(_mUV - _op);
+            col = mix(col, vec3(0.16, 0.13, 0.22), smoothstep(0.10, 0.035, _od) * 0.8 * uEmpyStruct * uMoteMix);
+          }
         }
         // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
         // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
@@ -5616,7 +5818,11 @@ function writeMatrix(band, i, d) {
   // distance — they re-enter when recycled into a matching stretch.
   const bi = biomeIndexAt(Math.max(d.dist, 0));
   let active = band.def.biomes.includes(bi);
-  eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt); // rnd order MUST stay here (determinism outside Frozen)
+  let _yaw = d.rotY ?? (d.rotY = rnd() * Math.PI); // rnd order MUST stay here (determinism outside Frozen)
+  // Broadside bias (uplift PR-2, haloShard): an ARCH whose identity is its aperture dies edge-on — remap
+  // the stored yaw into ±~37 deg of broadside (pure, AFTER the rnd init → call order untouched).
+  if (band.def.broadside) _yaw = _yaw * 0.5 - 0.25;
+  eul.set(0, _yaw, d.tilt);
   quat.setFromEuler(eul);
   // Composition rhythm — FROZEN only, PURE (no rnd), evaluated AFTER the rotY init
   // so no rnd() call order changes. Parks off-beat instances and scales the rest.
@@ -5655,6 +5861,41 @@ function writeMatrix(band, i, d) {
       const g = calderaComp(d.dist);
       const c = band.def.comp;
       const density = c.floor + (1 - c.floor) * g;
+      if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
+      else k = c.sMin + (c.sMax - c.sMin) * g;
+    }
+  } else if (active && bi === 5) {
+    // THE EMPYREAN composition (uplift PR-2, RINGCOURT reference §staged identity) — the FIRST real
+    // bi===5 branch: until now the empy defs' comp was INERT (no branch consumed it → uniform density =
+    // the 5.8 review's "early/mid/late nearly interchangeable"). (a) The arrival beat opens the
+    // Aurora→Empyrean seam on clear water (The Breach). (b) A raised-cosine congregation rhythm (the
+    // caldera grammar, ~800m period) parks off-beat instances into courts + open nacre breaths.
+    // (c) A LANE-BAND weight stages the biome's identity: halo shards own the EARLY third, stone courts
+    // the MID, shard shrines the LATE approach (sentinel + pearlshoal carry no laneBand — the constants).
+    // ALL pure functions of dist/side/slot (position-hashed, never band-conditional rejection on the
+    // shared rnd stream) → gold-determinism byte-identical.
+    if (band.def.arrivalPark) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+      if (seamDelta < 220) active = false;
+    }
+    if (active && band.def.gateEvent) {
+      // THE RING GATE (PR-C): exactly ONE per cycle — keep only inside a ~120m window at the late
+      // Mote approach (t≈0.88); everything else parks. Pure function of dist → determinism-safe.
+      const localG = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      if (Math.abs(localG - 0.88 * CONFIG.biomeLength) > 60) active = false;
+    }
+    if (active && band.def.comp) {
+      const local = ((d.dist % CONFIG.biomeLength) + CONFIG.biomeLength) % CONFIG.biomeLength;
+      const t = local / CONFIG.biomeLength;                     // biome-local progress 0→1
+      const g0 = 0.5 - 0.5 * Math.cos(d.dist * 0.00785);        // ~800m raised-cosine congregation
+      const g = g0 * g0;                                        // squared - deeper breaths, tighter knots (Fable gate: even flanking picket in the mid band)
+      let bandW = 1;
+      if (band.def.laneBand === 'early') bandW = t < 0.34 ? 1 : 0.25;
+      else if (band.def.laneBand === 'mid') bandW = t < 0.20 ? 0.55 : t > 0.72 ? 0.5 : 1;
+      else if (band.def.laneBand === 'late') bandW = t > 0.60 ? 1 : 0.30;
+      const c = band.def.comp;
+      const density = Math.min(1, (c.floor + (1 - c.floor) * g) * bandW);
       if (compHash(band.def._salt, d.side, d.slot) >= density) active = false;
       else k = c.sMin + (c.sMax - c.sMin) * g;
     }
@@ -6007,6 +6248,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // is biome-LOCAL progress 0→1 (slow + monotonic across the run, resetting each lap — below conscious notice
   // frame-to-frame, unmistakable court-to-court). 0 off-biome → byte-identical sky.
   su.uMoteMix.value = env.moteMix ?? 0;
+  su.uEmpyStruct.value = env.empyStructMix ?? 0;   // uplift PR-A (0 elsewhere = byte-identical)
+  propTwoToneUniform.value = env.empyStructMix ?? 0;   // uplift PR-B two-tone rides the same gate
   { const _L = CONFIG.biomeLength; su.uMoteGrow.value = _L > 0 ? (((playerDist % _L) + _L) % _L) / _L : 0; }
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   // Fable 75 aerial perspective: drive the shared prop-shader ember lever from the lerped env
@@ -6059,6 +6302,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     nacreMix: env.nacreMix,
     // THE EMPYREAN uplift PR-1 wake: player-coupled ripple rings; 0 elsewhere = byte-identical.
     wakeMix: env.wakeMix,
+    // uplift PR-A: water half of the value scheme + pulse-ring + mirror-smudge; 0 elsewhere = identical.
+    structMix: env.empyStructMix,
   });
   // THE EMPYREAN uplift PR-1: rose-gold pickup tint (the canary comet is the loudest warmth violation
   // on the pearl field). Rides empyMix → 0 elsewhere = the shipped gold, lerp-identity.

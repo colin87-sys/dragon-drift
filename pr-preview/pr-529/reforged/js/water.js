@@ -100,6 +100,8 @@ const sharedUniforms = {
   // faces at grazing angles. MUST live here or it vanishes on the reflective↔cheap/swell tier rebuild.
   uNacreMix: { value: 0 },
   uWakeMix: { value: 0 },   // THE EMPYREAN uplift PR-1 — player-coupled wake rings (0 = shipped byte-identical)
+  uStructMix: { value: 0 }, // THE EMPYREAN uplift PR-A — value tiering + pulse-ring + mirror-smudge (0 = shipped)
+  uPulseFoot: { value: 0 }, // PR-A r3: the pulse-ring's WORLD-LOCKED birth z — latched CPU-side once per 8s pulse (shader state can't persist; a quantized foot re-anchored mid-pulse = the player-centric read)
   // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
   // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
   // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
@@ -197,6 +199,8 @@ const fragmentShader = /* glsl */`
   uniform float uReflStretch, uReflGlint, uReflGreenPull;    // Fable 85: reflection craft (0 = shipped)
   uniform float uNacreMix;   // THE EMPYREAN nacre (§4b): 0 = shipped; >0 kills the sun-glitter + adds satin sheen + iridescence
   uniform float uWakeMix;    // THE EMPYREAN uplift PR-1: player-coupled wake rings (0 = shipped)
+  uniform float uStructMix;  // THE EMPYREAN uplift PR-A: value tiering + pulse + smudge (0 = shipped)
+  uniform float uPulseFoot;  // PR-A r3: world-locked ring-foot z for the current pulse
   uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
@@ -231,6 +235,10 @@ const fragmentShader = /* glsl */`
 
   void main() {
     vec2 p = vWorldPos.xz;
+    // Uplift PR-B (uStructMix 0 = shipped byte-identical): a low-frequency domain WARP breaks the
+    // three fixed-direction waves' interference lattice — the "quilted tile grid" tiling read on the
+    // pale nacre (5.5 review gap 5). The lattice never aligns, so the far field reads as water.
+    p += uStructMix * 2.6 * vec2(sin(p.y * 0.037 + p.x * 0.011), sin(p.x * 0.041 - p.y * 0.013));
     float h = 0.0;
     vec2 grad = vec2(0.0);
     wave(p, normalize(vec2( 0.8,  0.6)), 0.50, 0.16 * waveAmp, 1.10, h, grad);
@@ -266,7 +274,7 @@ const fragmentShader = /* glsl */`
     float _stormCalm = 1.0 - 0.75 * _calmPatch;                // storm violence → ~0.25 inside the patch
 
     // Base water body: shallows pick up light at glancing wave faces (shipped mix).
-    float tH = clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55;
+    float tH = clamp(0.5 + h * 1.4 * (1.0 - 0.85 * smoothstep(70.0, 200.0, dist) * uStructMix), 0.0, 1.0) * 0.55;   // PR-B r2: distance LOD-collapse - the constant-frequency interference lattice fades to smooth pearl beyond mid-range (a warp alone only wobbles the quilt, it cannot kill it)
     // N10b fake Beer-Lambert: trans = fraction of virtual-bottom light that survives
     // the slant view-path (depth / V.y). Look-down -> short path -> bright shallows;
     // glancing -> long path -> dark deeps. Gated in the mix-FACTOR domain so
@@ -356,11 +364,11 @@ const fragmentShader = /* glsl */`
       // position (not view), so at a glance the surface crosses between periwinkle-violet and a soft ROSE
       // across its expanse — along-surface zones that read as FORM, not a painted stripe. ΔH only, S≈0.15
       // (≤0.30 cap), sourceless, still off green + gold. Softer/broader than the primary band.
-      float _it2 = fract(dot(vWorldPos.xz, vec2(0.011, 0.008)) + h * 0.4 + fresnel * 0.5);
+      float _it2 = fract(dot(vWorldPos.xz, vec2(0.011, 0.008)) + h * 0.4 + fresnel * 0.5 + time * 0.013 * uStructMix);   // PR-A: slow interference-phase drift (hue motion; 0 elsewhere = shipped)
       vec3 _irid2 = mix(vec3(0.786, 0.772, 0.918), vec3(0.949, 0.792, 0.872), smoothstep(0.18, 0.82, _it2));   // periwinkle-violet ↔ soft rose
       col = mix(col, _irid2, uNacreMix * _graze * _crest * 0.34);
       // Broad SATIN sheen: a wide soft grazing lift, no sun dir — the luster read that replaces the glint.
-      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix;
+      col += vec3(0.94, 0.90, 0.96) * pow(1.0 - NdotV, 3.0) * 0.22 * uNacreMix * (1.0 - 0.6 * smoothstep(10.0, 40.0, abs(vWorldPos.x)) * uStructMix);   // r6: the grazing sheen was rebuilding the waterline highlight on the FLANKS (gate r5: y274 L0.783 erased the drop) - damp it off-corridor
     }
 
     // THE EMPYREAN uplift PR-1 — the player-coupled WAKE (uWakeMix 0 = shipped byte-identical).
@@ -374,6 +382,26 @@ const fragmentShader = /* glsl */`
       // "reads as a vignette, not a wake"); still value-dark only.
       float _wk = pow(max(sin(_wkr * 1.6 - time * 4.6), 0.0), 3.0) * exp(-_wkr * 0.085) * smoothstep(36.0, 7.0, _wkr);
       col = mix(col, deepColor, _wk * 0.30 * uWakeMix);
+    }
+
+    // THE EMPYREAN uplift PR-A (uStructMix 0 = shipped byte-identical) — the water's half of the
+    // 3-tier value scheme + the disc's WORLD-ANCHORED pulse-ring + its mirror-smudge (all value-DARK,
+    // floors well above the Mote's black; owner-approved theology amendment).
+    float _pwG = 0.0;   // r6: the ring band, hoisted for the POST-fog rose pass below
+    if (uStructMix > 0.0001) {
+      float _fl = smoothstep(10.0, 40.0, abs(vWorldPos.x));                 // r6: full flank depth by the quarter-frame, not the frame edge
+      col = mix(col, deepColor * vec3(0.92, 0.90, 1.05), _fl * 0.68 * uStructMix);   // r6c: margin above the 15% bar (probe straddled 13.8-15.7 with capture noise)
+      // the ring is born at a QUANTIZED world point ahead (disc-born, not a wake cousin) and expands
+      // past the player at 34 m/s, one pulse every ~8s
+      float _pr = length(vWorldPos.xz - vec2(0.0, uPulseFoot));
+      float _pR = mod(time, 8.0) * 34.0;
+      float _pw = smoothstep(_pR - 13.0, _pR, _pr) * (1.0 - smoothstep(_pR, _pR + 13.0, _pr)) * (1.0 - smoothstep(200.0, 300.0, _pr));
+      col = mix(col, deepColor, _pw * 0.30 * uStructMix);   // depth only here — the ROSE is applied POST-fog below (r5/r4 lesson: at 100-300m the fog mix replaces 50-77% of any pre-fog tint, re-bluing it)
+      _pwG = _pw * uStructMix;
+      // the disc's dark MIRROR-SMUDGE: the 2nd-darkest thing in frame (~L55, above the L50 floor) —
+      // a slim centerline streak far ahead, so the disc stains its own reflection
+      float _sm = (1.0 - smoothstep(2.5, 13.0, abs(vWorldPos.x))) * smoothstep(90.0, 250.0, uHeroPos.z - vWorldPos.z);
+      col = mix(col, deepColor * 0.58, _sm * 0.55 * uStructMix);
     }
 
     // Golden sun streak: compress the normal's x so the highlight stretches
@@ -518,7 +546,16 @@ const fragmentShader = /* glsl */`
     // above) — reuse it to save a normalize on the frame's largest fill surface.
     float atmSun = pow(clamp(dot(-V, uAtmosSunDir), 0.0, 1.0), 6.0);
     fogCol += uAtmosSunTint * (atmSun * uAtmosInscatter * fogF);
+    // THE EMPYREAN uplift PR-A r4: the flank deepening must survive INTO the fog — the bright opal fog
+    // repainted the far water rows and rebuilt the fog stripe at the sky-water line (gate r3: flank L
+    // jumped 182→200 crossing the line). Darken the fog COLOUR itself off-corridor toward dusty violet
+    // (the heavenHaze gating pattern); ×uStructMix ⇒ 0 in every other biome = byte-identical.
+    float _fgFl = smoothstep(14.0, 55.0, abs(vWorldPos.x)) * uStructMix;
+    fogCol = mix(fogCol, fogCol * vec3(0.72, 0.69, 0.88), _fgFl);   // r5: deeper flank fog (the continuity mechanism is proven; only amplitude was short)
     col = mix(col, fogCol, fogF);
+    // r6: the pulse-ring's ROSE applied AFTER the fog mix — the only place a hue survives to the
+    // framebuffer at ring distance (two gate rounds proved pre-fog tints re-blue). R up, G/B down.
+    col = mix(col, col * vec3(1.34, 0.66, 0.80), _pwG * 0.70);   // r6b: probe read 364 moving-rose px vs the ~400 bar - one notch up
 
     gl_FragColor = vec4(col, 1.0);
     // These chunks are render-target aware in r160: the renderer forces
@@ -786,11 +823,12 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull, nacreMix, wakeMix }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow, stormSea, rainRipple, breach, reflStretch, reflGlint, reflGreenPull, nacreMix, wakeMix, structMix }) {
   if (!water) return;
   const u = water.material.uniforms;
   u.uNacreMix.value = nacreMix || 0;   // THE EMPYREAN nacre (§4b); 0 in every other biome → byte-identical water
   u.uWakeMix.value = wakeMix || 0;     // THE EMPYREAN uplift PR-1 wake; 0 elsewhere → byte-identical
+  u.uStructMix.value = structMix || 0; // THE EMPYREAN uplift PR-A; 0 elsewhere → byte-identical
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical
@@ -816,10 +854,15 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
 // so writing the template would never reach the drawn water; the atmosphere.js clone-trap lesson).
 // pos = dragon world position; col = the hero light's (warm-neutralised) colour; k = 0.55 idle → 1.0
 // fever. k=0 ⇒ the fragment add is exactly +0 (byte-identical), so any water-identity test still walks.
+let _lastPulseIdx = -1;
 export function setWaterHeroPool(pos, col, k) {
   if (!water) return;
   const u = water.material.uniforms;
   if (pos) u.uHeroPos.value.copy(pos);
+  // PR-A r3: latch the pulse-ring's birth point ONCE per 8s pulse — world-locked for the whole pulse,
+  // so the ring is born ahead and expands PAST the (moving or frozen) player. CPU state, shader-free.
+  const _pIdx = Math.floor(u.time.value / 8);
+  if (_pIdx !== _lastPulseIdx && pos) { _lastPulseIdx = _pIdx; u.uPulseFoot.value = pos.z - 290; }
   if (col) u.uHeroCol.value.copy(col);
   u.uHeroPool.value = k || 0;
 }
