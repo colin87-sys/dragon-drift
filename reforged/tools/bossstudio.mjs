@@ -176,7 +176,8 @@ const srv = await serve();
 const browser = await pw.chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, deviceScaleFactor: 2 });
 page.on('pageerror', (e) => console.error('PAGEERR', e.message));
-await page.goto(`${srv.url}/tools/bossstudio.html?boss=${bossId}&seed=${SEED}&bg=dark`);
+const EXTRA_QS = process.env.EXTRA_QS ? '&' + process.env.EXTRA_QS : '';   // e.g. EXTRA_QS=wingparts for the material-ID diagnostic
+await page.goto(`${srv.url}/tools/bossstudio.html?boss=${bossId}&seed=${SEED}&bg=dark${EXTRA_QS}`);
 await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
 
 // Hide the interactive chrome — the sheet element is captured on its own.

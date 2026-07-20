@@ -168,7 +168,7 @@ function bakeValueBand(geo, k, matrixWorld) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
 }
 
-export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {}, merge = false, valueBand = 0, rachisMaterial = null } = {}) {
+export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {}, merge = false, valueBand = 0, rachisMaterial = null, debugParts = false } = {}) {
   const lowQ = quality < 0.75;
   // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
   // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
@@ -213,13 +213,17 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
   // shading, Fable polish P5), not one flat lit sheet. Falls back to `rimMaterial` → the wing is
   // unchanged (byte-for-byte) when no second rim is supplied.
   const rmatB = (hex, rough = 0.66) => rimMaterialB || rmat(hex, rough);
-  const priMat = rmat(0xf9f6ee);       // primaries — brightest (the rim, when supplied)
-  const priMatB = rmatB(0xede7d8);     // alternate finger tone (edge definition — a step darker → the fingers separate)
-  const secMat = rmatB(0xf1ecdf);      // secondaries — the interior rank, a step darker than the leading primaries
-  const gcMat = mat(0xf4efe4, 0.68);   // greater coverts
-  const lcMat = mat(0xf0eadd, 0.68);   // lesser coverts
-  const mgMat = mat(0xebe4d5, 0.7);    // marginal coverts (innermost, warmest)
-  const armMat = mat(0xf1ecdf, 0.7);   // the slim limb — same tone as the wing edge
+  // DEBUG PARTS (diagnostic, default off → byte-identical): paints each anatomical part a distinct
+  // flat colour so a capture identifies EXACTLY which geometry renders as a given on-screen shape
+  // (used to pin the "thick black wing-cord" the owner sees). Overrides every material.
+  const dbg = (hex) => new THREE.MeshBasicMaterial({ color: hex, side: THREE.DoubleSide });
+  const priMat = debugParts ? dbg(0xff2222) : rmat(0xf9f6ee);       // primaries (flight feathers) — RED
+  const priMatB = debugParts ? dbg(0xff8800) : rmatB(0xede7d8);     // alternate primary — ORANGE
+  const secMat = debugParts ? dbg(0xffee00) : rmatB(0xf1ecdf);      // secondaries — YELLOW
+  const gcMat = debugParts ? dbg(0x22ff22) : mat(0xf4efe4, 0.68);   // greater coverts — GREEN
+  const lcMat = debugParts ? dbg(0x00ddff) : mat(0xf0eadd, 0.68);   // lesser coverts + under-lens — CYAN
+  const mgMat = debugParts ? dbg(0x2277ff) : mat(0xebe4d5, 0.7);    // marginal coverts — BLUE
+  const armMat = debugParts ? dbg(0xff22ff) : mat(0xf1ecdf, 0.7);   // the arm/limb — MAGENTA
 
   const addFeather = (matRef, len, w, bow, root, angle, z) => {
     const pivot = new THREE.Object3D();
