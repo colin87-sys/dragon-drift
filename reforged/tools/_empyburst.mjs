@@ -69,7 +69,7 @@ async function session(tag, view, shots) {
       // orbiters / phase drift are separable from camera scroll; the diff metric below PROVES the freeze.
       if (s.frozen) await page.evaluate(() => { window.__dd.game.timeScale = 0; });
       let _prevB64 = null;
-      if (s.frozen) await page.evaluate((d) => { window.__dd.player.dist = d; }, s.dist + 60);
+      if (s.frozen) { await page.evaluate((d) => { window.__dd.player.dist = d; }, s.dist + 60); await page.waitForTimeout(900); }   // r4: settle the chase-cam ease BEFORE frame 1 (live1 shipped from a different camera)
       for (let k = 0; k < s.burst; k++) {
         await page.evaluate(([fz, d]) => {
           if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }   // PIN dist too — timeScale 0 alone does not stop dist (the r3 finding)
@@ -136,7 +136,7 @@ if (!only || only === 'desk') await session('desk', { width: 960, height: 600 },
   { name: 'cruise', dist: 2400 },
   { name: 'sky',    dist: 2400, pitch: 0.35 },
   { name: 'water',  dist: 2400, pitch: -0.25 },
-  { name: 'live',   dist: 2600, burst: 3, frozen: true },
+  { name: 'live',   dist: 2600, burst: 4, frozen: true },   // 4 frames × ~2.6s ≈ most of an 8s pulse cycle — the rose ring's expansion is capturable at any phase
   { name: 'late',   dist: 3200 },
 ]);
 if (!only || only === 'phone') await session('phone', { width: 390, height: 780 }, [
