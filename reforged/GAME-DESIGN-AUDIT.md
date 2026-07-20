@@ -672,8 +672,17 @@ as a harvest, T3-PR1 S.
 **Riskiest residual assumptions** (watch during build): the school's scheduler-state
 bypass is the most delicate item in T2; the deep >3km determinism fixture must exist
 BEFORE any T3-PR2 main-stream change; #522 is `dirty` and needs a rebase before
-anything in T0/T7 stacks on it; the #522 "all-113-green" figure is that branch's own
-claim until the harvested suite runs green in the new CI job.
+anything in T0/T7 stacks on it.
+
+**Post-audit verification (2026-07-20):** a no-bail sweep of all 113 runnable suites on
+this branch (= master + these docs) was run directly — **26 fail** (badges, boss,
+bossrushui, buildstamp, canyon, celebrate, economy, gauntlet-follow-surge, glbcontract,
+graphicssettings, knellburn, particlebatch, perfhud, recap, resgovernor,
+return-triggers, save-migration, save-purchases, shoulderbridge, stamina, sweptail,
+sweptprofile, torsoshoulder, unifiedhull, unmaskedarena, weftorgans). This independently
+confirms W18/T0 (the "~27 reds" figure previously rested on #522's word) — the reds are
+real and invisible today because the gate exits on script #1 before reaching them. The
+harvested #522 branch must run these green in the new CI job to close T0.
 
 ---
 
