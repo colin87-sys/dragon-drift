@@ -391,7 +391,7 @@ const fragmentShader = /* glsl */`
       float _pr = length(vWorldPos.xz - vec2(0.0, uPulseFoot));
       float _pR = mod(time, 8.0) * 34.0;
       float _pw = smoothstep(_pR - 13.0, _pR, _pr) * (1.0 - smoothstep(_pR, _pR + 13.0, _pr)) * (1.0 - smoothstep(200.0, 300.0, _pr));
-      col = mix(col, deepColor, _pw * 0.32 * uStructMix);
+      col = mix(col, deepColor * vec3(1.10, 0.86, 1.02), _pw * 0.38 * uStructMix);   // r4: ROSE-dark ring — hue-distinct from the wake's blue rings so provenance is identifiable on pixels
       // the disc's dark MIRROR-SMUDGE: the 2nd-darkest thing in frame (~L55, above the L50 floor) —
       // a slim centerline streak far ahead, so the disc stains its own reflection
       float _sm = (1.0 - smoothstep(2.5, 13.0, abs(vWorldPos.x))) * smoothstep(90.0, 250.0, uHeroPos.z - vWorldPos.z);
@@ -540,6 +540,12 @@ const fragmentShader = /* glsl */`
     // above) — reuse it to save a normalize on the frame's largest fill surface.
     float atmSun = pow(clamp(dot(-V, uAtmosSunDir), 0.0, 1.0), 6.0);
     fogCol += uAtmosSunTint * (atmSun * uAtmosInscatter * fogF);
+    // THE EMPYREAN uplift PR-A r4: the flank deepening must survive INTO the fog — the bright opal fog
+    // repainted the far water rows and rebuilt the fog stripe at the sky-water line (gate r3: flank L
+    // jumped 182→200 crossing the line). Darken the fog COLOUR itself off-corridor toward dusty violet
+    // (the heavenHaze gating pattern); ×uStructMix ⇒ 0 in every other biome = byte-identical.
+    float _fgFl = smoothstep(14.0, 55.0, abs(vWorldPos.x)) * uStructMix;
+    fogCol = mix(fogCol, fogCol * vec3(0.80, 0.77, 0.92), _fgFl);
     col = mix(col, fogCol, fogF);
 
     gl_FragColor = vec4(col, 1.0);
