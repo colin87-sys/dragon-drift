@@ -1621,8 +1621,14 @@ const PROPS_V2 = _envParams.get('props') === 'v2';
 // blank canvas the atmosphere blind-test wants (§5 PR-1). Forum archetypes append at the END of
 // ARCHETYPES with `biomes: forumV1` as each WAVE lands (PR-2 onward), keeping gold-determinism green.
 const PROPS_FORUM = _envParams.get('props') === 'forum';
-const lagoonV3 = (PROPS_V1 || PROPS_V2 || PROPS_FORUM) ? [] : [0];  // v3 jungle-drowned-temple kit — DEFAULT (karstfang + roster as it lands); parked under ?props=forum
-const forumV1 = PROPS_FORUM ? [0] : [];  // Drowned Forum kit — opt-in via ?props=forum (archetypes land PR-2 onward)
+// ── PR-8 DEFAULT FLIP ── The Drowned Forum is now the DEFAULT biome-0 kit; the retired v3 jungle-drowned-temple
+// roster is parked behind `?props=v3` (A/B only — deletion awaits owner sign-off on the closing audit). `?props=
+// forum` still resolves to the forum kit (harmless, it's the default now). Headless/no-window has no param, so
+// the DEFAULT branch (forum) is what the tests now see — the golden fixture is level-gen (rings/obstacles/golds),
+// independent of the prop bands, so gold-determinism stays byte-identical across the flip.
+const PROPS_V3 = _envParams.get('props') === 'v3';
+const forumV1 = (PROPS_V1 || PROPS_V2 || PROPS_V3) ? [] : [0];  // THE DROWNED FORUM — DEFAULT biome-0 kit (PR-8 flip); suppressed only under an explicit A/B opt-in
+const lagoonV3 = PROPS_V3 ? [0] : [];  // v3 jungle-drowned-temple kit — PARKED behind ?props=v3 (retired; deletion after owner sign-off)
 const lagoonNew = PROPS_V2 ? [0] : [];   // retired v2 drowned-Greco ruins — opt-in via ?props=v2
 const lagoonOld = PROPS_V1 ? [0] : [];   // legacy verdigris ruins — opt-in via ?props=v1
 // TEMPEST REACH overhaul (TEMPEST-REACH-BIBLE.md) — same flip idiom. Default (v2) = the new
@@ -3766,12 +3772,16 @@ const ARCHETYPES = {
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.12, 0.10, 0], [-0.16, 0.62, 0], 0.042, 0.028, 5) });   // trunk
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.15, 0.58, 0], [-0.16, 0.85, 0], 0.022, 0.012, 3) });   // fork limb → pad A
       parts.push({ mat: 0, bake: 'wood', geo: frustumBetween([-0.14, 0.60, 0], [0.02, 0.77, 0], 0.020, 0.010, 3) });    // fork limb → pad B
-      // 3 PARASOL PADS — squashed CLOSED cones (rb3 law: closed, ~10% apex rise, never a circle-sandwich). The
-      // ONE-CROWN law: all ride above y0.70, stagger Δy≈0.07, overlap ≥40%, counter-tilts → ONE ragged flat
-      // umbrella slab, never a shish-kebab of discs. bake:'pine'. (~44)
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.40, 0.055, 6), { x: -0.16, y: 0.88, sx: 1.10, sz: 0.85, rz: 0.06 }) });   // pad A — wind-sheared crown master
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.28, 0.045, 6), { x: 0.02, y: 0.80, sz: 0.80, rz: -0.10 }) });             // pad B
-      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.ConeGeometry(0.22, 0.04, 5), { x: -0.36, y: 0.73, rz: 0.14 }) });                        // pad C — drooping outboard shoulder
+      // FLAT-TOPPED PARASOL LENS — round 2 (Fable harsh-critic b, re-gate): the flattened cones traded the palm
+      // read for the PLANE tell — razor-thin at side yaw + a see-through double-blade gap between pads. Fable's
+      // endorsed fix is to MERGE INTO ONE SLAB with real BODY. So: a single TAPERED LENS (CylinderGeometry, wide
+      // flat top r0.40 tucking under to a narrower r0.30 base) — the flat top stays HORIZONTAL at every yaw, but
+      // now there is ~0.13 of genuine depth and a visible sloped RIM FACE at side yaw (no more paper plane), and
+      // it's ONE piece so there is no blade gap. Asymmetric scale (sx1.14/sz0.88) + a slight rake read it as an
+      // organic stone-pine parasol, not a machined drum. A closed lens crown = the mushroom-cap umbrella tell.
+      // bake:'pine'. (24 — cheaper than the 3 razor cones' 34; the far-cruise slab-on-mast silhouette is preserved.)
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.CylinderGeometry(0.40, 0.30, 0.13, 6), { x: -0.16, y: 0.80, sx: 1.14, sz: 0.88, rz: 0.04 }) });   // fused flat-top parasol lens (flat top + rimmed body)
+      parts.push({ mat: 0, bake: 'pine', geo: xform(new THREE.CylinderGeometry(0.24, 0.17, 0.10, 5), { x: -0.31, y: 0.77, rz: 0.06 }) });                       // outboard-down shoulder lens — sunk DEEPER into the crown (x−0.34→−0.31, y0.75→0.77) so no rim edge surfaces at the seam (Fable re-gate polish); still fully INTERPENETRATES the main body (fused as one mass, no blade gap) while thickening the wind-sheared droop
       // CYPRESS FLAME — a tall thin flame-taper (widest at ⅓ height, tapering BOTH ways = flame not cone),
       // ~9:1 slender, tip overtopping the umbrella (the postcard exclamation point). bake:'pine'. (20)
       parts.push({ mat: 0, bake: 'pine', geo: frustumBetween([0.45, 0.06, 0.10], [0.45, 0.34, 0.10], 0.040, 0.065, 5) });   // shin (widens to the ⅓ belly)
@@ -4541,7 +4551,7 @@ const ARCHETYPES = {
   // in arena congregations so two round-arch ranks never share a frame. MASS not height — level rim ~28 world,
   // never competing with the pharos. ≤150 tris, forumdark, NO glow.
   arena: {
-    step: 211, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arcade', arenaGate: true,
+    step: 900, biomes: forumV1, matIndex: 0, arrivalPark: true, flankAlt: 'arcade', arenaGate: true,   // step≥WALL_WINDOW → perSide=1 → at most ONE slot per side in the band window → ≤1 crown per congregation by construction (0 doubles, Codex P2 / Fable ruling) + cuts the arena's band-tri buffer 1500→300 (the PR-8 default-flip budget)
     comp: { floor: 0, sMin: 1.0, sMax: 1.0 },   // full-size-or-absent (the Frozen hero law — a crown never rides the comp scale lottery)
     build: () => {
       // WORLD-ASPECT curved wall (the aqueduct arch law wrapped onto an ellipse): object XZ scaled by r, Y by h;
@@ -5937,6 +5947,13 @@ function writeMatrix(band, i, d) {
     // the aqueduct SUPPRESSES there so the arena BECOMES the arcade flank's pierced note — two round-arch ranks
     // never share a frame (Fable pre-assess: the arena's #1 failure risk is aqueduct déjà-vu). Both pure → the
     // gold-determinism call order is untouched; lagoon/other defs carry neither flag, so they never enter.
+    // KNOWN TRADE-OFF (Fable PR-8 harsh-critic c, option 2 accepted): forumArenaAt is the crown's ELIGIBILITY
+    // predicate, but the step-900/perSide-1 double-kill means the single band slot reaches only ~30% of eligible
+    // congregations (the +900 recycle can't lock the 500m comp phase — see the PR-8 flip lesson). So the aqueduct
+    // is suppressed at ALL eligible spots while the crown lands at ~30% of them → at the other ~70% one flank
+    // loses its aqueduct with no crown to replace it (the opposite flank's basilica/arcade still stands). A true
+    // presence-conditional predicate would have to replicate the arena band's recycle lattice (a fragile coupling
+    // to band internals); the gap is mild and localised, so we accept it as-is rather than couple the two systems.
     if (active && band.def.arenaGate && !forumArenaAt(d.dist)) active = false;
     if (active && band.def.suppressForArena && forumArenaAt(d.dist)) active = false;
     // LANDMARK PUNCTUATION (Fable PR-6): a rare landmark reads because a wall rhythm BREAKS for it — so it stands
