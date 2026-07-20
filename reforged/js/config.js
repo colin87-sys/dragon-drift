@@ -504,7 +504,13 @@ export const CONFIG = {
             flowDrop: 0.15, damage: 0.20, bossHit: 0.10 },
     boss: { parry: 0.03, riposte: 0.06, card: 0.15, mechanic: 0.04,
             graze: 0.002, grazeCap: 0.20, parryCap: 0.25, defeat: 0.20,
-            grazeChargeBoost: 0.30, grazeChargeDClamp: 0.5 },  // M2 + the §4a in-boss clamp
+            grazeChargeBoost: 0.30, grazeChargeDClamp: 0.5,   // M2 + the §4a in-boss clamp
+            // M1 — rider chip quickens with earned DRIFT. Ceiling ×1.15 (0.30 × min(D,0.5))
+            // = the chipRateMult LAW's magnitude; fever-EXCLUDED in drift.js so it NEVER
+            // stacks on surgeRiderMult (§4a — the audited melt frame stays shipped-identical).
+            // Conditioned-only by law: VOIDMAW P1 base chip pins at 0.99× its card timer,
+            // so any UNCONDITIONAL rider multiplier would break the phase-deleter floor.
+            chipRateBoost: 0.30, chipDClamp: 0.5 },
     gauntletClean: 0.12,
     overdriveScoreStep: 2.0,  // §7 R1: the flow orb mult reborn as 1 + step×D (was chain ×1-×3)
   },
