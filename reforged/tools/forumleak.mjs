@@ -29,7 +29,7 @@ let fail = 0;
 const extra = inB0.filter((k) => !FORUM.includes(k));
 const missing = FORUM.filter((k) => !inB0.includes(k));
 if (extra.length) { console.log('\x1b[31mFAIL\x1b[0m biome-0 default has non-forum keys:', extra.join(', ')); fail++; }
-else console.log('\x1b[32m ok \x1b[0m biome-0 default whitelist = the 13 forum keys only (' + inB0.length + ')');
+else console.log(`\x1b[32m ok \x1b[0m biome-0 default whitelist = the ${FORUM.length} shipped forum keys only (${inB0.length})`);
 if (missing.length) { console.log('\x1b[31mFAIL\x1b[0m biome-0 missing forum keys:', missing.join(', ')); fail++; }
 
 const leaked = diag.filter((d) => PURGED.includes(d.name) && d.biomes.length > 0);
