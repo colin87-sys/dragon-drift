@@ -184,9 +184,15 @@ a hit −0.10 (a drop, never zero); defeat +0.20, carried into the grace band
   the fever refractory (§4a fix d), or clamp effective D≤~0.5 inside a boss. M2 + an ungoverned
   F2 IS the feedback loop in §4a.
 - **SHIP M4:** FOV push + wind-streaks stay on through the fight (fixed-cost uniforms).
-- **A/B M1:** rider fire `0.5 / (1 + 0.4·D)` (`config.js:566`) = a genuinely SHORTER
-  fight — but the chip-DPS ledger is tuned to two decimals (`config.js:475-488`, the
-  lockdps margins), so **re-run `tests/lockdps.mjs` + the kill-time sim gates first**.
+- **✅ SHIPPED M1 (2026-07-20, coeff 0.30 not the plan's 0.4):** rider fire
+  `interval / (held × driftChipMult())` where `driftChipMult = 1 + 0.30·min(D, 0.5)`
+  → ceiling ×1.15 (the `chipRateMult` LAW magnitude), **fever-EXCLUDED** so it never
+  stacks on `surgeRiderMult` (the audited melt frame is byte-identical to shipped).
+  Critic-verified SHIP: A/B kill-time 0.89–0.94 (6–11% shorter, deeper on longer
+  fights), surges stay ≥3 (M1 can't chip past a phase — the shield only breaks on
+  Surge, where M1 is off), every card resolves. **lockdps is lance-only and structurally
+  BLIND to the rider** — the real gate is the new `tests/driftchip.mjs` (ceiling law +
+  the VOIDMAW-P1 0.99× razor) + `tests/driftm1life.mjs` (the live A/B).
 - **CUT M3** (graze-band widening at high DRIFT): a positive-feedback loop that
   double-dips M2. Dead.
 
@@ -347,7 +353,8 @@ stamina-arc SVG technique," `ui.js:585-589`). Value structure per AAA-PIPELINE:
 **TUNE-LATER / A-B:**
 8. Perfect-radius coefficient 0.6 → A/B vs ~0.7 (`tests/flowmeter.mjs`).
 9. Perfect pay ×1.30 / +0.10 curve.
-10. M1 rider-fire scaling — gated on `tests/lockdps.mjs` + kill-time sim.
+10. ✅ ~~M1 rider-fire scaling~~ — SHIPPED (coeff 0.30, fever-excluded); gated on the NEW
+    `tests/driftchip.mjs` + `tests/driftm1life.mjs`, NOT lockdps (lance-blind to the rider).
 11. F1 graze coefficient + cap values.
 
 **⚖ OWNER-GATED BALANCE (separate track — NOT part of the DRIFT flag; awaits the owner's call):**
