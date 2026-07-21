@@ -36,6 +36,10 @@ about). The fix is pitch: ~30° splits the slopes into a LIT face + a SHADOWED f
 read from above. **The scale-cue JOB (reads as a house roof) outranks the exact authenticity degrees** — 30° still
 reads domestic, not alpine. *The lesson: a top-down/above-behind flyer flattens shallow-pitched forms; verify every
 low prop with an actual CRUISE render, never just the angled studio sheet — the studio's ¾ view hides the flatten.*
+Fable saw the cruise evidence and ACCEPTED the override at the gate (4.4/5), revising its own spec to "~28–32°,
+tuned for slope-split legibility from the chase camera" and stating the law directly: **the in-context render
+outranks the studio sheet for silhouette calls, and a guardrail that produces a plank from the one camera the
+player actually has is a bad guardrail — the JOB is the law, the degree number was only the means.**
 
 **A SCALE CUE NEEDS ADJACENCY.** roofline clusters at congregation FEET (`comp.floor 0` + `arrivalPark`) where the
 8 m domestic ridge shares a frame with the 40 m civic mass — a lone roof in an open breath is just a wedge. One
