@@ -83,8 +83,8 @@ check('main: governor decision is gated behind `if (dynResEnabled)`', /if \(dynR
 check('main: setResScale reallocs ONCE and shields the tier signal (skipQualityFrames)', /function setResScale[\s\S]*?setPostSize\(window\.innerWidth[\s\S]*?skipQualityFrames = 2;/.test(main));
 check('main: onGraphicsChange routes dynRes → setDynRes', /kind === 'dynRes'\) setDynRes\(value\)/.test(main));
 // perf-saver stage (cheap invisible cuts spent BEFORE resolution):
-check('main: STAGES ladder is saver-first — rung 0 shipped, rung 1 saver at full res', /STAGES = \[\{ saver: false[\s\S]*?\{ saver: true,  scale: RES_SCALES\[0\] \}/.test(main));
-check('main: each rung applies saver THEN scale (saver is free, spent first)', /const st = STAGES\[r\.idx\]; setPerfSaver\(st\.saver\); setResScale\(st\.scale\);/.test(main));
+check('main: STAGES ladder is saver-first — rung 0 shipped, rung 1 saver at full res', /const s = \[\{ saver: false, scale: RES_SCALES\[0\] \},[\s\S]*?\{ saver: true,  scale: RES_SCALES\[0\] \}/.test(main));
+check('main: each rung applies saver THEN scale (saver is free, spent first)', /const st = STAGES\[r\.idx\];[\s\S]{0,40}setPerfSaver\(st\.saver\); setResScale\(st\.scale\);/.test(main));
 check('main: setPerfSaver flips the mirror + god-ray levers (no realloc)', /function setPerfSaver[\s\S]*?setWaterPerfSaver\(on\)[\s\S]*?setGodRaySamplesSaver\(on\)/.test(main));
 check('water: setWaterPerfSaver present; cruise mirror ½→¼ only under the saver (identity off)', /export function setWaterPerfSaver/.test(src('../js/water.js')) && /_perfSaver \? 3 : 1/.test(src('../js/water.js')));
 check('postfx: setGodRaySamplesSaver present; tier0 march 40→24 only under the saver (identity off)', /export function setGodRaySamplesSaver/.test(src('../js/postfx.js')) && /_grSaver \? 24 : 40/.test(src('../js/postfx.js')));

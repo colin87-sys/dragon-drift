@@ -105,13 +105,24 @@ const combo = await page.evaluate(async () => {
 check(`combo > 1 shows the multiplier slug (${combo.text})`, combo.cls && combo.text === '×2.40');
 
 // ---- 6. boost denial shake --------------------------------------------------
+// The shake (.g-deny) is added on the per-FRAME denial EDGE (ui.js:855) with a
+// 900ms re-fire cooldown, and it's a RESTART-animation class (removed when the
+// anim ends) — so a fixed wait + a live class-poll races it two ways: the frame
+// that fires it, and the window the class is present. Robust: first drop boost
+// long enough to clear any prior deny's edge+cooldown, then watch for the class
+// with a MutationObserver (catches the transient add even if it's gone by the
+// next poll) while holding the empty-tank boost.
 const deny = await page.evaluate(async () => {
   const dd = window.__dd;
-  dd.game.stamina = 0;
-  dd.player.orbTimer = 0;
-  dd.input.boost = true;
-  await new Promise((r) => setTimeout(r, 300));
-  const shaken = document.getElementById('g-arc').classList.contains('g-deny');
+  const el = document.getElementById('g-arc');
+  dd.input.boost = false; dd.game.stamina = 110;
+  await new Promise((r) => setTimeout(r, 1100));   // > the 900ms cooldown; resets lastDenied
+  let shaken = el.classList.contains('g-deny');
+  const obs = new MutationObserver(() => { if (el.classList.contains('g-deny')) shaken = true; });
+  obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+  dd.game.stamina = 0; dd.player.orbTimer = 0; dd.input.boost = true;
+  for (let i = 0; i < 50 && !shaken; i++) await new Promise((r) => setTimeout(r, 100));   // up to ~5s of real frames
+  obs.disconnect();
   dd.input.boost = false;
   dd.game.stamina = 110;
   return shaken;

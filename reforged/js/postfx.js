@@ -246,6 +246,7 @@ export const postfx = {
   godRayPass: null,
   gradingPass: null,   // the pass that OWNS the grade uniforms (fused OutputGradePass by default; split ShaderPass under ?gradefold=0)
   gradeFolded: true,   // D2 — tonemap+grade fused into one pass (?gradefold=0 = shipped two-pass chain)
+  baseMSAA: 4,         // D1 — deviceClass boot sample count (desktop 4 / mobile 2); the arena 0-drop restores HERE
   _renderer: null,
   _scene: null,
   _camera: null,
@@ -426,7 +427,7 @@ export function kickState() {
     hud: { ..._hudGrade } };
 }
 
-export function initPostFX(renderer, scene, camera) {
+export function initPostFX(renderer, scene, camera, bootSamples) {
   postfx._renderer = renderer;
   postfx._scene = scene;
   postfx._camera = camera;
@@ -442,10 +443,17 @@ export function initPostFX(renderer, scene, camera) {
   if (!postfx.supported) return postfx;
 
   // Multisampled HalfFloat target: composer output keeps AA (canvas MSAA
-  // doesn't apply to render targets) and HDR headroom for bloom.
+  // doesn't apply to render targets) and HDR headroom for bloom. D1
+  // (MOBILE-GRAPHICS-DIET): the boot sample count is deviceClass-scoped by the
+  // caller (desktop 4 / mobile 2, set ONCE — never realloc'd on a tier flip),
+  // and remembered as `postfx.baseMSAA` so the arena's 0-drop restores to the
+  // right base per device (not a hardcoded 4). Fallback to 4 preserves the
+  // shipped default for any caller that doesn't pass it; ?msaa0 still forces 0.
+  const legacyMsaa0 = (typeof location !== 'undefined' && new URLSearchParams(location.search).has('msaa0'));
+  postfx.baseMSAA = legacyMsaa0 ? 0 : (bootSamples != null ? bootSamples : 4);
   const rt = new THREE.WebGLRenderTarget(1, 1, {
     type: THREE.HalfFloatType,
-    samples: (typeof location !== 'undefined' && new URLSearchParams(location.search).has('msaa0')) ? 0 : 4,   // ?msaa0 — perf A/B: MSAA-resolve bandwidth probe
+    samples: postfx.baseMSAA,
   });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
