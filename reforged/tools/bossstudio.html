@@ -104,7 +104,7 @@
 
     // §7c backdrops: near-dark + pale + (L140) warm sunset-gold — warm dark accents
     // (oxblood, ember) vanish against warm skies in a way neither neutral backdrop catches.
-    const BACKDROPS = { dark: 0x14121a, pale: 0xcfd6e4, sunset: 0xd9a24a, white: 0xffffff };
+    const BACKDROPS = { dark: 0x14121a, pale: 0xcfd6e4, sunset: 0xd9a24a, white: 0xffffff, biome: 0x322a5c };   // biome = the Unmasked's astral-purple home value (§3b.7 — judge dark bosses on the home backdrop, NOT the black studio which hides void-black interiors)
 
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
