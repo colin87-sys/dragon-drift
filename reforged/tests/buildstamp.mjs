@@ -8,7 +8,9 @@ const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const swVersion = (sw.match(/const VERSION = '([^']+)'/) || [])[1];
 
 const { page, errors, done } = await boot();
-await page.waitForSelector('#build-stamp', { timeout: 8000 });
+// waitForSelector's visibility check starves under swiftshader even when the element
+// IS present+visible (the uishots gotcha) — poll for it in-page with a generous timeout.
+await page.waitForFunction(() => !!document.querySelector('#build-stamp'), { timeout: 20000, polling: 120 });
 const stamp = (await page.textContent('#build-stamp')).trim();
 
 // The stamp live-appends a perf readout ("· tier N · swell on/off") 1s after boot
