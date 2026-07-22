@@ -17,9 +17,10 @@ if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 
 const { propDiag } = await import('../js/environment.js');
 
-// The SHIPPED Drowned Forum roster (11). `forumfield` (mosaic-grid gut-punch) + `roofline` (villa-gable scale
-// anchor) were the deferred PR-END low-seasoning props — never built; they remain a recommended follow-up.
-const FORUM = ['triumphgate','viamarina','viamarinaM','aqueduct','pantheon','drumfall','pinisle','basilica','colossus','pharos','arena'];
+// The SHIPPED Drowned Forum roster (12). `roofline` (villa-gable scale anchor) landed in PR-8.1. `forumfield`
+// (mosaic-grid gut-punch) is still deferred — it needs a technique redesign (invisible through the reflective
+// water as specced), so it stays unbuilt / not whitelisted.
+const FORUM = ['triumphgate','viamarina','viamarinaM','aqueduct','pantheon','drumfall','pinisle','basilica','colossus','pharos','arena','roofline'];
 const PURGED = ['karstfang','figgate','mangrovehold','prasat','lotusraft','nagawall','causeway','rampart','lilyraft','rootbastion','arcade','rotunda','wrackstone'];
 
 const diag = propDiag();
