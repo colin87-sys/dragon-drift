@@ -83,9 +83,10 @@ const INK_BOX = { x: 64, y: 46, z: 130 };
 // dissolve (scale→0) high — ember-style pass-through, obeying the biome's drift-up law. Gated on
 // env.empyOrchardMix (0 elsewhere → invisible, zero cost).
 let petals = null;
-const PETAL_COUNT = 120;
-const RAFT_COUNT = 6;
-const RAFT_SPAN = 55;             // world-Z spacing between rafts
+const PETAL_COUNT = 288;          // denser streams: 36/raft over COL_H → columns read + portrait crop stays full
+const RAFT_COUNT = 8;             // 4 Z-lines × L/R pair → both flanks always carry a column
+const RAFT_SPAN = 40;             // Z spacing between raft PAIRS (near band shows ~2 pairs = 4 columns)
+const COL_H = 26;                 // column height water(0)→dissolve: short enough to stay in the visible band
 const petalData = [];
 const raftX = new Float32Array(RAFT_COUNT);
 const raftZ = new Float32Array(RAFT_COUNT);
@@ -269,8 +270,8 @@ export function createAmbient(scene) {
     -0.16, 0.58, 0,  0.16, 0.58, 0,   0, 0.40, 0,      // L/R lobe-tips, N notch
   ]);
   const pc = new Float32Array([
-    0.90, 0.87, 0.93,  0.88, 0.85, 0.92,  0.88, 0.85, 0.92,   // body pearl (L~86-90, faint violet)
-    0.90, 0.63, 0.78,  0.90, 0.63, 0.78,  0.90, 0.80, 0.88,   // L/R rose tips (hue~324, S~0.30 pastel cap, L~0.76), N pearl
+    0.82, 0.58, 0.74,  0.87, 0.66, 0.80,  0.87, 0.66, 0.80,   // base(A)=DARK-rose anchor, shoulders(B,C)=mid rose — value ladder so a petal reads ROSE on the bright field, not white (hue~320°)
+    0.93, 0.62, 0.81,  0.93, 0.62, 0.81,  0.86, 0.64, 0.79,   // L/R lobe-tips=BRIGHT-rose bloom (hue~323°), N notch=mid rose
   ]);
   const pidx = [0, 1, 2,  1, 5, 2,  1, 3, 5,  2, 5, 4];        // body, mid(B,N,C), left lobe, right lobe
   const petalGeo = new THREE.BufferGeometry();
@@ -290,16 +291,16 @@ export function createAmbient(scene) {
   for (let i = 0; i < PETAL_COUNT; i++) {
     petalData.push({
       raft: i % RAFT_COUNT,
-      hx: (Math.random() - 0.5) * 6.5,           // TIGHT column (a raft reads as a lift-site, not a scatter)
-      hz: (Math.random() - 0.5) * 6.5,
+      hx: (Math.random() - 0.5) * 3.6,           // TIGHT column base (≤2.5m radius) — a raft reads as a lift-site
+      hz: (Math.random() - 0.5) * 3.6,
       phase: Math.random(),                      // 0..1 position along the rise cycle
-      rise: (1.4 + Math.random() * 0.8) / 45,    // 1.4-2.2 m/s over the 45m column → cycles/sec
+      rise: (1.1 + Math.random() * 0.7) / COL_H, // 1.1-1.8 m/s over the column → gentle drift-up
       swayA: 0.35 + Math.random() * 0.3,
       swayR: (2 * Math.PI) / (2.3 + Math.random() * 1.8),  // non-integer periods 2.3-4.1s
       swayP: Math.random() * Math.PI * 2,
       tumble: 0.3 + Math.random() * 0.35,
       tumbleP: Math.random() * Math.PI * 2,
-      size: 0.62 + Math.random() * 0.34,        // bigger — a small petal on the bright field washes to confetti
+      size: 0.80 + Math.random() * 0.44,        // bigger still — reads at near-LOD + survives the fog at portrait distance
     });
     // per-petal tumble axis (stable): reuse hx/phase to seed an axis in setMatrix below
   }
@@ -533,21 +534,24 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
     if (orchOn) {
       petals.material.opacity = env.empyOrchardMix;
       const cz = camera.position.z, cx = camera.position.x;
+      // Rafts come in L/R PAIRS sharing a world-Z line: pair = s>>1, side = s&1. Both flanks of the
+      // lane always carry a rising column, and paired rafts recycle on the same frame (shared Z).
+      const ZSPAN = RAFT_SPAN * (RAFT_COUNT >> 1);
       if (!raftInit) {
         for (let s = 0; s < RAFT_COUNT; s++) {
-          raftZ[s] = cz - 40 - s * RAFT_SPAN;
-          raftX[s] = cx + (s % 2 === 0 ? 1 : -1) * (16 + ((s * 97) % 15));
+          raftZ[s] = cz - 40 - (s >> 1) * RAFT_SPAN;
+          raftX[s] = cx + ((s & 1) ? -1 : 1) * (7 + ((s * 97) % 9));          // ±(7-15)m — nearer the lane → more columns enter the portrait crop
         }
         raftInit = true;
       }
-      // recycle rafts that the camera has passed → far ahead, re-hashed lateral (world-anchored columns)
+      // recycle rafts the camera has passed → far ahead, re-hashed lateral (world-anchored columns)
       for (let s = 0; s < RAFT_COUNT; s++) {
         if (raftZ[s] > cz - 6) {
-          raftZ[s] -= RAFT_SPAN * RAFT_COUNT;
-          raftX[s] = cx + (s % 2 === 0 ? 1 : -1) * (16 + ((Math.floor(-raftZ[s]) * 13) % 15));
+          raftZ[s] -= ZSPAN;
+          raftX[s] = cx + ((s & 1) ? -1 : 1) * (7 + ((Math.floor(-raftZ[s]) * 13) % 9));
         }
       }
-      const H = 45;                              // column height, water(0) → dissolve ceiling
+      const H = COL_H;                           // column height, water(0) → dissolve ceiling
       for (let i = 0; i < PETAL_COUNT; i++) {
         const f = petalData[i];
         const cyc = ((time * f.rise + f.phase) % 1 + 1) % 1;   // 0..1 up the column

@@ -103,7 +103,7 @@ const sharedUniforms = {
   uStructMix: { value: 0 }, // THE EMPYREAN uplift PR-A — value tiering + pulse-ring + mirror-smudge (0 = shipped)
   uPulseFoot: { value: 0 }, // PR-A r3: the pulse-ring's WORLD-LOCKED birth z — latched CPU-side once per 8s pulse (shader state can't persist; a quantized foot re-anchored mid-pulse = the player-centric read)
   uOrchardMix: { value: 0 },          // GHOST ORCHARD P1 — raft reverse-ripples + rose discs (0 = shipped byte-identical)
-  uRaftXZ: { value: new Float32Array(12) },   // 6 rafts × (x,z), world space; fed from ambient.js's live raft state
+  uRaftXZ: { value: new Float32Array(16) },   // 8 rafts × (x,z), world space; fed from ambient.js's live raft state
   // GLOW-SPILL water pools (Fable 96-B): the Mire's hero glow clusters answered on the black mirror —
   // amber pools under the arch gates + spire beacon, the mirror doubles them back. uHeroPool pattern.
   // uMirePoolK 0 = byte-identical shipped water. MUST live here (survives the reflective↔cheap tier rebuild).
@@ -204,7 +204,7 @@ const fragmentShader = /* glsl */`
   uniform float uStructMix;  // THE EMPYREAN uplift PR-A: value tiering + pulse + smudge (0 = shipped)
   uniform float uPulseFoot;  // PR-A r3: world-locked ring-foot z for the current pulse
   uniform float uOrchardMix;         // GHOST ORCHARD P1 (0 = shipped)
-  uniform vec2 uRaftXZ[6];           // world-space raft centres
+  uniform vec2 uRaftXZ[8];           // world-space raft centres
   uniform float uMirePoolK; uniform vec4 uMirePools[4]; uniform vec3 uMirePoolCol;  // Fable 96-B glow pools (0 = shipped)
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);               // Rec.601 luma for the reflection-craft keys
   #ifdef USE_REFLECTION
@@ -413,7 +413,7 @@ const fragmentShader = /* glsl */`
     // HUE-ward only (ΔL ≤ ~4, no brightness pulse under ACES); the petals rise from these spots.
     if (uOrchardMix > 0.0001) {
       float _rr = 0.0, _rd = 0.0;
-      for (int _ri = 0; _ri < 6; _ri++) {
+      for (int _ri = 0; _ri < 8; _ri++) {
         float _d = length(vWorldPos.xz - uRaftXZ[_ri]);
         float _near = 1.0 - smoothstep(3.0, 11.0, _d);                 // the raft disc (radius ~11m)
         _rd = max(_rd, _near);
@@ -422,8 +422,8 @@ const fragmentShader = /* glsl */`
         float _ring = smoothstep(0.5, 0.9, _ph) * (1.0 - smoothstep(0.9, 1.0, _ph));
         _rr = max(_rr, _ring * (1.0 - smoothstep(2.0, 13.0, _d)));     // only within the raft's reach
       }
-      col = mix(col, col * vec3(1.09, 0.94, 1.01), _rd * 0.55 * uOrchardMix);   // rose disc, hue-ward (deeper so the lift-site reads)
-      col = mix(col, col * vec3(1.10, 0.93, 1.02), _rr * 0.65 * uOrchardMix);   // contracting rose rings
+      col = mix(col, col * vec3(1.15, 0.89, 1.00), _rd * 0.70 * uOrchardMix);   // rose DISC — the visible lift point (was too faint: raft→petal link half-drawn)
+      col = mix(col, col * vec3(1.11, 0.92, 1.02), _rr * 0.62 * uOrchardMix);   // contracting rose rings
     }
 
     // Golden sun streak: compress the normal's x so the highlight stretches
@@ -577,7 +577,7 @@ const fragmentShader = /* glsl */`
     col = mix(col, fogCol, fogF);
     // r6: the pulse-ring's ROSE applied AFTER the fog mix — the only place a hue survives to the
     // framebuffer at ring distance (two gate rounds proved pre-fog tints re-blue). R up, G/B down.
-    col = mix(col, col * vec3(1.34, 0.66, 0.80), _pwG * 0.70);   // r6b: probe read 364 moving-rose px vs the ~400 bar - one notch up
+    col = mix(col, col * vec3(1.20, 0.80, 0.90), _pwG * 0.55);   // ORCHARD P1: softened — the hot magenta band out-shouted the petals (still R>B so PR-A movingRose holds)
 
     gl_FragColor = vec4(col, 1.0);
     // These chunks are render-target aware in r160: the renderer forces
@@ -852,7 +852,7 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
   u.uWakeMix.value = wakeMix || 0;     // THE EMPYREAN uplift PR-1 wake; 0 elsewhere → byte-identical
   u.uStructMix.value = structMix || 0; // THE EMPYREAN uplift PR-A; 0 elsewhere → byte-identical
   u.uOrchardMix.value = orchardMix || 0;   // GHOST ORCHARD P1; 0 elsewhere → byte-identical
-  if (rafts && rafts.ready) for (let _i = 0; _i < 6; _i++) { u.uRaftXZ.value[_i * 2] = rafts.x[_i]; u.uRaftXZ.value[_i * 2 + 1] = rafts.z[_i]; }
+  if (rafts && rafts.ready) for (let _i = 0; _i < 8; _i++) { u.uRaftXZ.value[_i * 2] = rafts.x[_i]; u.uRaftXZ.value[_i * 2 + 1] = rafts.z[_i]; }
   u.uStormSea.value = _stormSeaForce != null ? _stormSeaForce : (stormSea || 0); // 0 elsewhere → byte-identical calm sea; ?stormsea=0|1 forces the A/B
   u.uRainRipple.value = _stormSeaForce != null ? _stormSeaForce : (rainRipple || 0); // splash rings ride the same A/B pin
   u.uBreachMix.value = breach || 0;   // EYE-BREACH calm/gold patch; 0 in every biome that doesn't pass it → byte-identical
