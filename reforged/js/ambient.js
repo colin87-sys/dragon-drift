@@ -93,8 +93,8 @@ const COL_H = 26;                 // column height water(0)→dissolve: short en
 // matrices → 2 draw calls for all trees. World-anchored ceremonial placement, recycled far-ahead when
 // passed (matrices only rewritten on recycle — the trees are static). Gated on empyOrchardMix.
 let orchardTrunks = null, orchardCanopies = null;
-const TREE_COUNT = 8;             // 6 shoreline heroes + an elder pair (scale 1.0)
-const TREE_SPAN = 128;            // mean Z spacing (jittered per instance) — sparse ceremonial cadence
+const TREE_COUNT = 10;            // 8 shoreline heroes + an elder pair (scale 1.35)
+const TREE_SPAN = 62;             // Z spacing (jittered) — dense enough that ≥1-2 trees sit near the camera each frame
 const treeZ = new Float32Array(TREE_COUNT);
 const treeX = new Float32Array(TREE_COUNT);
 const treeScale = new Float32Array(TREE_COUNT);
@@ -582,10 +582,13 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
         const f = petalData[i];
         const cyc = ((time * f.rise + f.phase) % 1 + 1) % 1;   // 0..1 up the column
         const y = cyc * H;
+        // threaded columns (rafts 6,7 ride hero-tree bases) FAN wide through the canopy band (y~6-14) so
+        // ≥30% of the petals overlap the canopy silhouette — the water→canopy→sky sentence reads as one.
+        const spread = f.raft >= 6 ? 1 + Math.max(0, 1 - Math.abs(y - 10) / 8) * 2.4 : 1;
         _ov.set(
-          raftX[f.raft] + f.hx + Math.sin(time * f.swayR + f.swayP) * f.swayA,
+          raftX[f.raft] + f.hx * spread + Math.sin(time * f.swayR + f.swayP) * f.swayA,
           y,
-          raftZ[f.raft] + f.hz
+          raftZ[f.raft] + f.hz * spread
         );
         // scale: fade IN over the first 8% (materialise at water), full, dissolve→0 over the top 15%
         const grow = Math.min(1, cyc / 0.08);
@@ -616,8 +619,8 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       const seat = (s) => {
         // per-instance seeded placement — alternating flanks, non-uniform Z, ≤17m via scale, full-yaw.
         const h = ((Math.floor(-treeZ[s]) * 2654435761) >>> 0);
-        treeX[s] = cx + ((s & 1) ? -1 : 1) * (16 + (h % 13));                 // 16-28m off-lane
-        treeScale[s] = (s < 2) ? 1.0 : (0.82 + ((h >> 4) % 14) / 100);        // trees 0,1 = elder pair (1.0); rest heroes 0.82-0.95
+        treeX[s] = cx + ((s & 1) ? -1 : 1) * (14 + (h % 7));                  // 14-20m off-lane (tighter → nearer the lane, bigger in frame)
+        treeScale[s] = (s < 2) ? 1.35 : (0.85 + ((h >> 4) % 12) / 100);       // trees 0,1 = elder pair (1.35 → ~19m); heroes 0.85-0.96
         treeYaw[s] = ((h >> 8) % 628) / 100;                                  // full 360° seeded yaw
       };
       if (!treeInit) {
@@ -637,12 +640,18 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
         }
         orchardTrunks.instanceMatrix.needsUpdate = true; orchardCanopies.instanceMatrix.needsUpdate = true;
       }
-      // P2 threading (water→canopy→sky): two petal rafts ride the base of two hero trees so their rising
-      // columns thread the canopy. Re-asserted every frame (overrides the petal block's own recycle of
-      // these two rafts). Trees 2 & 3 are heroes, never the elder pair (finale stays particle-clean).
+      // P2 threading (water→canopy→sky): rafts 6 & 7 ride the base of the two NEAREST-AHEAD hero trees
+      // (not a fixed pair) so whichever tree the player is passing carries its own rising rose column
+      // through the canopy. Re-asserted every frame (overrides the petal block's recycle of these rafts).
       if (raftInit) {
-        raftX[6] = treeX[2]; raftZ[6] = treeZ[2];
-        raftX[7] = treeX[3]; raftZ[7] = treeZ[3];
+        let n1 = -1, n2 = -1, d1 = 1e9, d2 = 1e9;
+        for (let s = 0; s < TREE_COUNT; s++) {           // the two NEAREST trees in view get columns (incl. the big elders)
+          const d = cz - treeZ[s];                       // >0 = ahead of camera
+          if (d > 0 && d < d1) { d2 = d1; n2 = n1; d1 = d; n1 = s; }
+          else if (d > 0 && d < d2) { d2 = d; n2 = s; }
+        }
+        if (n1 >= 0) { raftX[6] = treeX[n1]; raftZ[6] = treeZ[n1]; }
+        if (n2 >= 0) { raftX[7] = treeX[n2]; raftZ[7] = treeZ[n2]; }
       }
     }
   }
