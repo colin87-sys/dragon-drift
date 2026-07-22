@@ -270,8 +270,8 @@ export function createAmbient(scene) {
     -0.16, 0.58, 0,  0.16, 0.58, 0,   0, 0.40, 0,      // L/R lobe-tips, N notch
   ]);
   const pc = new Float32Array([
-    0.82, 0.58, 0.74,  0.87, 0.66, 0.80,  0.87, 0.66, 0.80,   // base(A)=DARK-rose anchor, shoulders(B,C)=mid rose — value ladder so a petal reads ROSE on the bright field, not white (hue~320°)
-    0.93, 0.62, 0.81,  0.93, 0.62, 0.81,  0.86, 0.64, 0.79,   // L/R lobe-tips=BRIGHT-rose bloom (hue~323°), N notch=mid rose
+    0.62, 0.16, 0.38,  0.76, 0.27, 0.50,  0.76, 0.27, 0.50,   // base(A)=DEEP-rose anchor (S~0.74), shoulders(B,C)=mid rose (S~0.65) — deep enough that ACES leaves screen-sat ≥0.30 (was washing WHITE), hue~331°
+    0.90, 0.42, 0.66,  0.90, 0.42, 0.66,  0.76, 0.28, 0.51,   // L/R lobe-tips=BRIGHT-rose bloom (hue~330°, still S~0.53), N notch=mid rose
   ]);
   const pidx = [0, 1, 2,  1, 5, 2,  1, 3, 5,  2, 5, 4];        // body, mid(B,N,C), left lobe, right lobe
   const petalGeo = new THREE.BufferGeometry();
@@ -291,11 +291,11 @@ export function createAmbient(scene) {
   for (let i = 0; i < PETAL_COUNT; i++) {
     petalData.push({
       raft: i % RAFT_COUNT,
-      hx: (Math.random() - 0.5) * 3.6,           // TIGHT column base (≤2.5m radius) — a raft reads as a lift-site
-      hz: (Math.random() - 0.5) * 3.6,
+      hx: (Math.random() - 0.5) * 2.0,           // TIGHT column base (≤1.4m radius) — each raft = ONE coherent vertical thread, not a burst
+      hz: (Math.random() - 0.5) * 2.0,
       phase: Math.random(),                      // 0..1 position along the rise cycle
       rise: (1.1 + Math.random() * 0.7) / COL_H, // 1.1-1.8 m/s over the column → gentle drift-up
-      swayA: 0.35 + Math.random() * 0.3,
+      swayA: 0.15 + Math.random() * 0.20,        // small sway (was 0.35-0.65) — keep the thread vertical, don't fan it out
       swayR: (2 * Math.PI) / (2.3 + Math.random() * 1.8),  // non-integer periods 2.3-4.1s
       swayP: Math.random() * Math.PI * 2,
       tumble: 0.3 + Math.random() * 0.35,
@@ -540,7 +540,7 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       if (!raftInit) {
         for (let s = 0; s < RAFT_COUNT; s++) {
           raftZ[s] = cz - 40 - (s >> 1) * RAFT_SPAN;
-          raftX[s] = cx + ((s & 1) ? -1 : 1) * (7 + ((s * 97) % 9));          // ±(7-15)m — nearer the lane → more columns enter the portrait crop
+          raftX[s] = cx + ((s & 1) ? -1 : 1) * (2 + ((s * 97) % 13));         // ±(2-14)m — some rafts near-CENTER (portrait ±13° corridor), some flank (desk width)
         }
         raftInit = true;
       }
@@ -548,7 +548,7 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       for (let s = 0; s < RAFT_COUNT; s++) {
         if (raftZ[s] > cz - 6) {
           raftZ[s] -= ZSPAN;
-          raftX[s] = cx + ((s & 1) ? -1 : 1) * (7 + ((Math.floor(-raftZ[s]) * 13) % 9));
+          raftX[s] = cx + ((s & 1) ? -1 : 1) * (2 + ((Math.floor(-raftZ[s]) * 13) % 13));
         }
       }
       const H = COL_H;                           // column height, water(0) → dissolve ceiling
