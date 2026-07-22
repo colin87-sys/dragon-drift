@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { makeGlowTexture } from './util.js';
 import { bindAtmosphere, chainBeforeCompile } from './atmosphere.js';
+import { buildOrchardTree } from './orchardTree.js';
 import { ROOF_ALT_LO, ROOF_ALT_HI } from './environment.js';   // Fable A1: SAME altitude window as the canopy roof (used at runtime → cyclic import safe)
 
 // MOTE DEPTH-FADE (Fable 70) — a per-biome lever (default 0 = byte-identical, the godrayMul pattern).
@@ -78,9 +79,42 @@ let inkMotes = null;
 let inkPos = null;
 const INK_COUNT = 54;
 const INK_BOX = { x: 64, y: 46, z: 130 };
+// GHOST ORCHARD P1 — rising rose-petal columns. A single InstancedMesh (one draw call) of 4-tri
+// notched-teardrop petals that lift off seeded water RAFTS, rise the full water→sky band, and
+// dissolve (scale→0) high — ember-style pass-through, obeying the biome's drift-up law. Gated on
+// env.empyOrchardMix (0 elsewhere → invisible, zero cost).
+let petals = null;
+const PETAL_COUNT = 288;          // denser streams: 36/raft over COL_H → columns read + portrait crop stays full
+const RAFT_COUNT = 8;             // 4 Z-lines × L/R pair → both flanks always carry a column
+const RAFT_SPAN = 40;             // Z spacing between raft PAIRS (near band shows ~2 pairs = 4 columns)
+const COL_H = 26;                 // column height water(0)→dissolve: short enough to stay in the visible band
+
+// GHOST ORCHARD P2 — ghost sakura hero trees. TWO InstancedMeshes (trunk + canopy) share per-instance
+// matrices → 2 draw calls for all trees. World-anchored ceremonial placement, recycled far-ahead when
+// passed (matrices only rewritten on recycle — the trees are static). Gated on empyOrchardMix.
+let orchardTrunks = null, orchardCanopies = null;
+const TREE_COUNT = 10;            // 8 shoreline heroes + an elder pair (scale 1.35)
+const TREE_SPAN = 62;             // Z spacing (jittered) — dense enough that ≥1-2 trees sit near the camera each frame
+const treeZ = new Float32Array(TREE_COUNT);
+const treeX = new Float32Array(TREE_COUNT);
+const treeScale = new Float32Array(TREE_COUNT);
+const treeYaw = new Float32Array(TREE_COUNT);
+let treeInit = false;
+const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _tp = new THREE.Vector3(), _tsv = new THREE.Vector3(), _tup = new THREE.Vector3(0, 1, 0);
+const petalData = [];
+const raftX = new Float32Array(RAFT_COUNT);
+const raftZ = new Float32Array(RAFT_COUNT);
+let raftInit = false;
+const _oq = new THREE.Quaternion();
+const _oe = new THREE.Euler();
+const _ov = new THREE.Vector3();
+const _os = new THREE.Vector3();
+const _om = new THREE.Matrix4();
+const _oax = new THREE.Vector3();
 
 // Tier gate: per-frame matrix writers (birds, flyby, shoal) drop out at the lowest tier.
 let tierOn = true;
+export function getOrchardRafts() { return { x: raftX, z: raftZ, n: RAFT_COUNT, ready: raftInit }; }
 export function setAmbientQuality(q) {
   tierOn = q > 0.4;
   if (birds) birds.visible = tierOn;
@@ -88,6 +122,9 @@ export function setAmbientQuality(q) {
   if (shoal) shoal.visible = tierOn;
   if (shoal2) shoal2.visible = tierOn;
   if (inkMotes) inkMotes.visible = tierOn;
+  if (petals) petals.visible = tierOn;
+  if (orchardTrunks) orchardTrunks.visible = tierOn;
+  if (orchardCanopies) orchardCanopies.visible = tierOn;
 }
 
 const m4 = new THREE.Matrix4();
@@ -240,6 +277,60 @@ export function createAmbient(scene) {
   inkMotes.visible = false;
   inkMotes.name = 'inkMotes';
   scene.add(inkMotes);
+
+  // GHOST ORCHARD P1 — the rose petal. A NOTCHED-teardrop (6 verts, 4 tris): the top notch between two
+  // lobes is THE sakura cue (a plain quad reads as confetti). Flat vertex-colour, NO texture (repo law):
+  // pearl body, ROSE lobe-tips (hue ~322°). One InstancedMesh, one material, one draw call.
+  const pv = new Float32Array([
+    0, -0.55, 0,   -0.30, 0.15, 0,   0.30, 0.15, 0,   // A tip, B/C shoulders
+    -0.16, 0.58, 0,  0.16, 0.58, 0,   0, 0.40, 0,      // L/R lobe-tips, N notch
+  ]);
+  const pc = new Float32Array([
+    0.62, 0.16, 0.38,  0.76, 0.27, 0.50,  0.76, 0.27, 0.50,   // base(A)=DEEP-rose anchor (S~0.74), shoulders(B,C)=mid rose (S~0.65) — deep enough that ACES leaves screen-sat ≥0.30 (was washing WHITE), hue~331°
+    0.90, 0.42, 0.66,  0.90, 0.42, 0.66,  0.76, 0.28, 0.51,   // L/R lobe-tips=BRIGHT-rose bloom (hue~330°, still S~0.53), N notch=mid rose
+  ]);
+  const pidx = [0, 1, 2,  1, 5, 2,  1, 3, 5,  2, 5, 4];        // body, mid(B,N,C), left lobe, right lobe
+  const petalGeo = new THREE.BufferGeometry();
+  petalGeo.setAttribute('position', new THREE.Float32BufferAttribute(pv, 3));
+  petalGeo.setAttribute('color', new THREE.Float32BufferAttribute(pc, 3));
+  petalGeo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(12), 2));
+  petalGeo.setIndex(pidx);
+  petalGeo.computeVertexNormals();
+  petals = new THREE.InstancedMesh(
+    petalGeo,
+    bindAtmosphere(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true, transparent: true, opacity: 0, depthWrite: false })),
+    PETAL_COUNT
+  );
+  petals.frustumCulled = false;
+  petals.visible = false;
+  petals.name = 'orchardPetals';
+  for (let i = 0; i < PETAL_COUNT; i++) {
+    petalData.push({
+      raft: i % RAFT_COUNT,
+      hx: (Math.random() - 0.5) * 2.0,           // TIGHT column base (≤1.4m radius) — each raft = ONE coherent vertical thread, not a burst
+      hz: (Math.random() - 0.5) * 2.0,
+      phase: Math.random(),                      // 0..1 position along the rise cycle
+      rise: (1.1 + Math.random() * 0.7) / COL_H, // 1.1-1.8 m/s over the column → gentle drift-up
+      swayA: 0.15 + Math.random() * 0.20,        // small sway (was 0.35-0.65) — keep the thread vertical, don't fan it out
+      swayR: (2 * Math.PI) / (2.3 + Math.random() * 1.8),  // non-integer periods 2.3-4.1s
+      swayP: Math.random() * Math.PI * 2,
+      tumble: 0.3 + Math.random() * 0.35,
+      tumbleP: Math.random() * Math.PI * 2,
+      size: 0.80 + Math.random() * 0.44,        // bigger still — reads at near-LOD + survives the fog at portrait distance
+    });
+    // per-petal tumble axis (stable): reuse hx/phase to seed an axis in setMatrix below
+  }
+  scene.add(petals);
+
+  // GHOST ORCHARD P2 — ghost sakura hero trees. One tree geo, instanced TREE_COUNT× (yaw+scale give
+  // per-instance variety within 2 draw calls). Flat vertex-colour (baked value ladder), atmosphere-fogged.
+  const { trunk: trunkGeo, canopy: canopyGeo } = buildOrchardTree(7);
+  const treeMat = () => bindAtmosphere(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true, transparent: true, opacity: 0, depthWrite: true }));
+  orchardTrunks = new THREE.InstancedMesh(trunkGeo, treeMat(), TREE_COUNT);
+  orchardCanopies = new THREE.InstancedMesh(canopyGeo, treeMat(), TREE_COUNT);
+  for (const m of [orchardTrunks, orchardCanopies]) { m.frustumCulled = false; m.visible = false; }
+  orchardTrunks.name = 'orchardTrunks'; orchardCanopies.name = 'orchardCanopies';
+  scene.add(orchardTrunks); scene.add(orchardCanopies);
 
   // Foreground flyby: single gull crossing high over the lane (biome 0 only).
   flyby = new THREE.InstancedMesh(
@@ -457,6 +548,111 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
         inkPos[i * 3] = x; inkPos[i * 3 + 1] = y; inkPos[i * 3 + 2] = z;
       }
       inkMotes.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+
+  // GHOST ORCHARD P1 — rising petal columns. Rafts are world-anchored (fixed world-Z lines the player
+  // flies past; recycled far-ahead when passed, behind-camera so no pop) → petals rise in COLUMNS at
+  // fixed spots, not camera-locked snow. Everything drift-UP. Gated on empyOrchardMix (0 → invisible).
+  if (petals) {
+    const orchOn = tierOn && env.empyOrchardMix > 0.02;
+    petals.visible = orchOn;
+    if (orchOn) {
+      petals.material.opacity = env.empyOrchardMix;
+      const cz = camera.position.z, cx = camera.position.x;
+      // Rafts come in L/R PAIRS sharing a world-Z line: pair = s>>1, side = s&1. Both flanks of the
+      // lane always carry a rising column, and paired rafts recycle on the same frame (shared Z).
+      const ZSPAN = RAFT_SPAN * (RAFT_COUNT >> 1);
+      if (!raftInit) {
+        for (let s = 0; s < RAFT_COUNT; s++) {
+          raftZ[s] = cz - 40 - (s >> 1) * RAFT_SPAN;
+          raftX[s] = cx + ((s & 1) ? -1 : 1) * (2 + ((s * 97) % 13));         // ±(2-14)m — some rafts near-CENTER (portrait ±13° corridor), some flank (desk width)
+        }
+        raftInit = true;
+      }
+      // recycle rafts the camera has passed → far ahead, re-hashed lateral (world-anchored columns)
+      for (let s = 0; s < RAFT_COUNT; s++) {
+        if (raftZ[s] > cz - 6) {
+          raftZ[s] -= ZSPAN;
+          raftX[s] = cx + ((s & 1) ? -1 : 1) * (2 + ((Math.floor(-raftZ[s]) * 13) % 13));
+        }
+      }
+      const H = COL_H;                           // column height, water(0) → dissolve ceiling
+      for (let i = 0; i < PETAL_COUNT; i++) {
+        const f = petalData[i];
+        const cyc = ((time * f.rise + f.phase) % 1 + 1) % 1;   // 0..1 up the column
+        const y = cyc * H;
+        // threaded columns (rafts 6,7 ride hero-tree bases) FAN wide through the canopy band (y~6-14) so
+        // ≥30% of the petals overlap the canopy silhouette — the water→canopy→sky sentence reads as one.
+        const spread = f.raft >= 6 ? 1 + Math.max(0, 1 - Math.abs(y - 10) / 8) * 2.4 : 1;
+        _ov.set(
+          raftX[f.raft] + f.hx * spread + Math.sin(time * f.swayR + f.swayP) * f.swayA,
+          y,
+          raftZ[f.raft] + f.hz * spread
+        );
+        // scale: fade IN over the first 8% (materialise at water), full, dissolve→0 over the top 15%
+        const grow = Math.min(1, cyc / 0.08);
+        const fade = 1 - Math.max(0, (cyc - 0.85) / 0.15);
+        const s = f.size * grow * fade;
+        _os.set(s, s, s);
+        // tumble about a stable per-petal axis (geometry motion — the flicker-sliver that reads as a PETAL)
+        _oax.set(Math.sin(f.tumbleP), 0.4, Math.cos(f.tumbleP)).normalize();
+        _oq.setFromAxisAngle(_oax, time * f.tumble + f.tumbleP);
+        _om.compose(_ov, _oq, _os);
+        petals.setMatrixAt(i, _om);
+      }
+      petals.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  // GHOST ORCHARD P2 — ghost sakura hero trees. World-anchored ceremonial placement; static (matrices
+  // rewritten only on init + recycle). Sparse: 6 shoreline heroes + an elder pair (scale 1.0). Off-lane
+  // 16-28m (naturally ≥10° off the Mote bearing dead ahead). Gated on empyOrchardMix (0 → invisible).
+  if (orchardTrunks) {
+    const treeOn = tierOn && env.empyOrchardMix > 0.02;
+    orchardTrunks.visible = treeOn; orchardCanopies.visible = treeOn;
+    if (treeOn) {
+      orchardTrunks.material.opacity = env.empyOrchardMix;
+      orchardCanopies.material.opacity = env.empyOrchardMix;
+      const cz = camera.position.z, cx = camera.position.x;
+      let rewrite = false;
+      const seat = (s) => {
+        // per-instance seeded placement — alternating flanks, non-uniform Z, ≤17m via scale, full-yaw.
+        const h = ((Math.floor(-treeZ[s]) * 2654435761) >>> 0);
+        treeX[s] = cx + ((s & 1) ? -1 : 1) * (14 + (h % 7));                  // 14-20m off-lane (tighter → nearer the lane, bigger in frame)
+        treeScale[s] = (s < 2) ? 1.35 : (0.85 + ((h >> 4) % 12) / 100);       // trees 0,1 = elder pair (1.35 → ~19m); heroes 0.85-0.96
+        treeYaw[s] = ((h >> 8) % 628) / 100;                                  // full 360° seeded yaw
+      };
+      if (!treeInit) {
+        for (let s = 0; s < TREE_COUNT; s++) { treeZ[s] = cz - 60 - s * TREE_SPAN - ((s * 53) % 40); seat(s); }
+        treeInit = true; rewrite = true;
+      }
+      for (let s = 0; s < TREE_COUNT; s++) {
+        if (treeZ[s] > cz - 8) { treeZ[s] -= TREE_SPAN * TREE_COUNT + ((s * 53) % 40); seat(s); rewrite = true; }   // recycle far-ahead, re-hash
+      }
+      if (rewrite) {
+        for (let s = 0; s < TREE_COUNT; s++) {
+          _tp.set(treeX[s], 0, treeZ[s]);
+          _tq.setFromAxisAngle(_tup, treeYaw[s]);
+          _tsv.set(treeScale[s], treeScale[s], treeScale[s]);
+          _tm.compose(_tp, _tq, _tsv);
+          orchardTrunks.setMatrixAt(s, _tm); orchardCanopies.setMatrixAt(s, _tm);
+        }
+        orchardTrunks.instanceMatrix.needsUpdate = true; orchardCanopies.instanceMatrix.needsUpdate = true;
+      }
+      // P2 threading (water→canopy→sky): rafts 6 & 7 ride the base of the two NEAREST-AHEAD hero trees
+      // (not a fixed pair) so whichever tree the player is passing carries its own rising rose column
+      // through the canopy. Re-asserted every frame (overrides the petal block's recycle of these rafts).
+      if (raftInit) {
+        let n1 = -1, n2 = -1, d1 = 1e9, d2 = 1e9;
+        for (let s = 0; s < TREE_COUNT; s++) {           // the two NEAREST trees in view get columns (incl. the big elders)
+          const d = cz - treeZ[s];                       // >0 = ahead of camera
+          if (d > 0 && d < d1) { d2 = d1; n2 = n1; d1 = d; n1 = s; }
+          else if (d > 0 && d < d2) { d2 = d; n2 = s; }
+        }
+        if (n1 >= 0) { raftX[6] = treeX[n1]; raftZ[6] = treeZ[n1]; }
+        if (n2 >= 0) { raftX[7] = treeX[n2]; raftZ[7] = treeZ[n2]; }
+      }
     }
   }
 
