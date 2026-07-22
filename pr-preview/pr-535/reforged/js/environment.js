@@ -3653,7 +3653,7 @@ const ARCHETYPES = {
   // scattered around it — leaning / lying / strayed. Every drum CLOSED-end (wrackstone w2 + viamarina law:
   // an open cylinder shows the water straight through it and reads as curled paper). No set dressing. ≤150.
   drumfall: {
-    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // foil rest note: floor 0.12→0.05 (Fable density pass) — near-ZERO in the breaths so the walls read as the frame; the scatter clusters ONLY in the congregation peaks (wrackstone rhythm)
+    step: 34, biomes: forumV1, matIndex: 0, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // step 29→34 (64→~54 instances, still the most common prop — pyramid intact) THIN pass (Fable prop-distribution audit P2, owner's "repeating"): 64 of ONE mesh at similar scale read as a metronome; thinning + the widened size envelope below breaks the recognition. floor 0.05 near-ZERO in the breaths so the walls read as the frame; the scatter clusters ONLY in the congregation peaks (wrackstone rhythm)
     build: () => {
       const parts = [];
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // tide ladder by world Y (ladder-only foil)
@@ -3688,8 +3688,8 @@ const ARCHETYPES = {
     // low h so the stump-capital reads proud over a flat rubble field, never a tower. FREE rotY — a rubble heap
     // has no facing, and random spin kills the copy-paste tell down the lane (viamarina Stage-2 note).
     place: (side, rnd) => {
-      const r = 6 + rnd() * 3;   // r 6-9 (scatter field proportional to the taller coins)
-      const p = { x: side * (13 + 0.7 * r + rnd() * 4), h: 7 + rnd() * 2, r, tilt: side * (rnd() * 0.10 - 0.05) };   // PORTRAIT scale-up: h 4.5–6 → 7–9 (×1.55, HARD ceiling 9, no glow). x base 16→13 KICKS the foil ~3 units INTO the open channel water off the viamarina rail line (Fable: at the column feet it silhouette-merges into base rubble; ~3u of clear water buys the "distinct fallen column" read). Inner edge stays clear of the flight lane (≥~14.5) because 13 + 0.7·6 = 17.2 center at r_min.
+      const r = 6 + rnd() * 4.5;   // r 6-10.5 (Fable P2: WIDEN the scatter-field spread 6-9→6-10.5 — a ~1.75× field of one mesh reads as differently-sized ruins, not clones; r_min held at 6 so the inner edge stays legal)
+      const p = { x: side * (13 + 0.7 * r + rnd() * 4), h: 5.5 + rnd() * 4.5, r, tilt: side * (rnd() * 0.10 - 0.05) };   // h 7-9 → 5.5-10 (Fable P2: a wide COLLAPSE-STATE spread — some barely break the tide, some stand tall — is the cheapest "these are different fallen columns" signal; height is vertical only, no lane-clearance effect). x base 13; inner edge stays clear of the flight lane (≥~14.5) because 13 + 0.7·6 = 17.2 center at r_min 6.
       // Fable df4 Stage-2 note: turn the LOUD side/¾ face (the sliced-column profile down the fall line) toward
       // the lane, and keep the weak down-the-length view off the approach → fall line ≈ lane-parallel. A generous
       // ±0.6rad jitter (plus per-instance r/h/x/tilt spread) keeps a COMMON foil from reading copy-paste.
@@ -4400,7 +4400,13 @@ const ARCHETYPES = {
   // _salt (from the key) decorrelates the two park hashes for free. Same place/comp/z-octave as viamarina.
   // APPENDED AT THE END of ARCHETYPES (determinism law: never reorder existing slots).
   viamarinaM: {
-    step: 46, biomes: forumV1, matIndex: 0, sizeOctave: [[0.40, 0.82], [0.80, 1.0], [1, 1.22]], octaveAxis: 'z', comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 },
+    // FLANK-STAGGER (Fable prop-distribution audit P1, owner's real-play "repeating rails"): floor 0.30→0.05.
+    // viamarina keeps floor 0.30 (ONE flank stays walled through the breaths — the causeway-corridor rationale
+    // survives); its mirror drops to 0.05 so the OTHER flank OPENS to the fog line in the breaths. The breath was
+    // a ~70%-rail monoculture (both mirrors at 0.30) — "both horizons lined with identical posts" (owner shot #2).
+    // Now it reads "a rail on one side, open gold water on the other." Combined congregation density is untouched
+    // (both still swell to sMax at the peaks); only the BREATH floor of the mirror flank drops. Zero tri cost.
+    step: 46, biomes: forumV1, matIndex: 0, sizeOctave: [[0.40, 0.82], [0.80, 1.0], [1, 1.22]], octaveAxis: 'z', comp: { floor: 0.05, sMin: 0.85, sMax: 1.08 },
     build: () => buildViamarina(-1),
     place: (side, rnd) => {
       const r = 10 + rnd() * 5;
