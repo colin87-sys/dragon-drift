@@ -78,9 +78,28 @@ let inkMotes = null;
 let inkPos = null;
 const INK_COUNT = 54;
 const INK_BOX = { x: 64, y: 46, z: 130 };
+// GHOST ORCHARD P1 — rising rose-petal columns. A single InstancedMesh (one draw call) of 4-tri
+// notched-teardrop petals that lift off seeded water RAFTS, rise the full water→sky band, and
+// dissolve (scale→0) high — ember-style pass-through, obeying the biome's drift-up law. Gated on
+// env.empyOrchardMix (0 elsewhere → invisible, zero cost).
+let petals = null;
+const PETAL_COUNT = 120;
+const RAFT_COUNT = 6;
+const RAFT_SPAN = 55;             // world-Z spacing between rafts
+const petalData = [];
+const raftX = new Float32Array(RAFT_COUNT);
+const raftZ = new Float32Array(RAFT_COUNT);
+let raftInit = false;
+const _oq = new THREE.Quaternion();
+const _oe = new THREE.Euler();
+const _ov = new THREE.Vector3();
+const _os = new THREE.Vector3();
+const _om = new THREE.Matrix4();
+const _oax = new THREE.Vector3();
 
 // Tier gate: per-frame matrix writers (birds, flyby, shoal) drop out at the lowest tier.
 let tierOn = true;
+export function getOrchardRafts() { return { x: raftX, z: raftZ, n: RAFT_COUNT, ready: raftInit }; }
 export function setAmbientQuality(q) {
   tierOn = q > 0.4;
   if (birds) birds.visible = tierOn;
@@ -88,6 +107,7 @@ export function setAmbientQuality(q) {
   if (shoal) shoal.visible = tierOn;
   if (shoal2) shoal2.visible = tierOn;
   if (inkMotes) inkMotes.visible = tierOn;
+  if (petals) petals.visible = tierOn;
 }
 
 const m4 = new THREE.Matrix4();
@@ -240,6 +260,50 @@ export function createAmbient(scene) {
   inkMotes.visible = false;
   inkMotes.name = 'inkMotes';
   scene.add(inkMotes);
+
+  // GHOST ORCHARD P1 — the rose petal. A NOTCHED-teardrop (6 verts, 4 tris): the top notch between two
+  // lobes is THE sakura cue (a plain quad reads as confetti). Flat vertex-colour, NO texture (repo law):
+  // pearl body, ROSE lobe-tips (hue ~322°). One InstancedMesh, one material, one draw call.
+  const pv = new Float32Array([
+    0, -0.55, 0,   -0.30, 0.15, 0,   0.30, 0.15, 0,   // A tip, B/C shoulders
+    -0.16, 0.58, 0,  0.16, 0.58, 0,   0, 0.40, 0,      // L/R lobe-tips, N notch
+  ]);
+  const pc = new Float32Array([
+    0.90, 0.87, 0.93,  0.88, 0.85, 0.92,  0.88, 0.85, 0.92,   // body pearl (L~86-90, faint violet)
+    0.90, 0.63, 0.78,  0.90, 0.63, 0.78,  0.90, 0.80, 0.88,   // L/R rose tips (hue~324, S~0.30 pastel cap, L~0.76), N pearl
+  ]);
+  const pidx = [0, 1, 2,  1, 5, 2,  1, 3, 5,  2, 5, 4];        // body, mid(B,N,C), left lobe, right lobe
+  const petalGeo = new THREE.BufferGeometry();
+  petalGeo.setAttribute('position', new THREE.Float32BufferAttribute(pv, 3));
+  petalGeo.setAttribute('color', new THREE.Float32BufferAttribute(pc, 3));
+  petalGeo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(12), 2));
+  petalGeo.setIndex(pidx);
+  petalGeo.computeVertexNormals();
+  petals = new THREE.InstancedMesh(
+    petalGeo,
+    bindAtmosphere(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true, transparent: true, opacity: 0, depthWrite: false })),
+    PETAL_COUNT
+  );
+  petals.frustumCulled = false;
+  petals.visible = false;
+  petals.name = 'orchardPetals';
+  for (let i = 0; i < PETAL_COUNT; i++) {
+    petalData.push({
+      raft: i % RAFT_COUNT,
+      hx: (Math.random() - 0.5) * 6.5,           // TIGHT column (a raft reads as a lift-site, not a scatter)
+      hz: (Math.random() - 0.5) * 6.5,
+      phase: Math.random(),                      // 0..1 position along the rise cycle
+      rise: (1.4 + Math.random() * 0.8) / 45,    // 1.4-2.2 m/s over the 45m column → cycles/sec
+      swayA: 0.35 + Math.random() * 0.3,
+      swayR: (2 * Math.PI) / (2.3 + Math.random() * 1.8),  // non-integer periods 2.3-4.1s
+      swayP: Math.random() * Math.PI * 2,
+      tumble: 0.3 + Math.random() * 0.35,
+      tumbleP: Math.random() * Math.PI * 2,
+      size: 0.62 + Math.random() * 0.34,        // bigger — a small petal on the bright field washes to confetti
+    });
+    // per-petal tumble axis (stable): reuse hx/phase to seed an axis in setMatrix below
+  }
+  scene.add(petals);
 
   // Foreground flyby: single gull crossing high over the lane (biome 0 only).
   flyby = new THREE.InstancedMesh(
@@ -457,6 +521,54 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
         inkPos[i * 3] = x; inkPos[i * 3 + 1] = y; inkPos[i * 3 + 2] = z;
       }
       inkMotes.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+
+  // GHOST ORCHARD P1 — rising petal columns. Rafts are world-anchored (fixed world-Z lines the player
+  // flies past; recycled far-ahead when passed, behind-camera so no pop) → petals rise in COLUMNS at
+  // fixed spots, not camera-locked snow. Everything drift-UP. Gated on empyOrchardMix (0 → invisible).
+  if (petals) {
+    const orchOn = tierOn && env.empyOrchardMix > 0.02;
+    petals.visible = orchOn;
+    if (orchOn) {
+      petals.material.opacity = env.empyOrchardMix;
+      const cz = camera.position.z, cx = camera.position.x;
+      if (!raftInit) {
+        for (let s = 0; s < RAFT_COUNT; s++) {
+          raftZ[s] = cz - 40 - s * RAFT_SPAN;
+          raftX[s] = cx + (s % 2 === 0 ? 1 : -1) * (16 + ((s * 97) % 15));
+        }
+        raftInit = true;
+      }
+      // recycle rafts that the camera has passed → far ahead, re-hashed lateral (world-anchored columns)
+      for (let s = 0; s < RAFT_COUNT; s++) {
+        if (raftZ[s] > cz - 6) {
+          raftZ[s] -= RAFT_SPAN * RAFT_COUNT;
+          raftX[s] = cx + (s % 2 === 0 ? 1 : -1) * (16 + ((Math.floor(-raftZ[s]) * 13) % 15));
+        }
+      }
+      const H = 45;                              // column height, water(0) → dissolve ceiling
+      for (let i = 0; i < PETAL_COUNT; i++) {
+        const f = petalData[i];
+        const cyc = ((time * f.rise + f.phase) % 1 + 1) % 1;   // 0..1 up the column
+        const y = cyc * H;
+        _ov.set(
+          raftX[f.raft] + f.hx + Math.sin(time * f.swayR + f.swayP) * f.swayA,
+          y,
+          raftZ[f.raft] + f.hz
+        );
+        // scale: fade IN over the first 8% (materialise at water), full, dissolve→0 over the top 15%
+        const grow = Math.min(1, cyc / 0.08);
+        const fade = 1 - Math.max(0, (cyc - 0.85) / 0.15);
+        const s = f.size * grow * fade;
+        _os.set(s, s, s);
+        // tumble about a stable per-petal axis (geometry motion — the flicker-sliver that reads as a PETAL)
+        _oax.set(Math.sin(f.tumbleP), 0.4, Math.cos(f.tumbleP)).normalize();
+        _oq.setFromAxisAngle(_oax, time * f.tumble + f.tumbleP);
+        _om.compose(_ov, _oq, _os);
+        petals.setMatrixAt(i, _om);
+      }
+      petals.instanceMatrix.needsUpdate = true;
     }
   }
 
