@@ -21,6 +21,7 @@ function rng(seed) {
 // petal ladder constants (shared with ambient.js orchardPetals — the canopy rose IS petal material)
 const ROSE_BLOOM = [0.90, 0.42, 0.66];   // tips (hue ~330°, S~0.53, L≤0.55 pre-tonemap → legal pastel post-ACES)
 const ROSE_MID   = [0.76, 0.28, 0.51];   // under-edge darker facet
+const ROSE_DEEP  = [0.86, 0.30, 0.58];   // deepened underside rose (S~0.65, hue ~330°) — breathes at 60m cruise
 
 // bone-ash → L in [0..1] roughly; faint cool-violet cast (hue ~295°, S≤0.06) to family with the monoliths
 function ash(L, jitter) {
@@ -88,36 +89,42 @@ function sweptTube(pts, radii, sides, squash, rand, colorFn) {
 // ---- one jittered icosa hull (indexed→jitter 12 verts→non-indexed flat→colour per face) --------------
 // roseFrac: probability a qualifying DOWNWARD face (ny<-0.30) is rose. Crown 0 → mass stays PALE; only
 // the low undersides breathe rose. This is what keeps rose ≤20% of canopy pixels (no pink blob).
-function hull(cx, cy, cz, r, squashY, rand, baseL, roseFrac) {
+function hull(cx, cy, cz, r, squashY, rand, baseL, roseFrac, holeZ) {
   const ico = new THREE.IcosahedronGeometry(r, 0);        // indexed, 12 verts / 20 faces
   const p = ico.attributes.position;
-  for (let v = 0; v < p.count; v++) {                     // jitter each unique vert radially — SPIKY (±28-45%)
+  for (let v = 0; v < p.count; v++) {                     // jitter each unique vert radially — SPIKY
     const j = 1 + (0.22 + rand() * 0.16) * (rand() < 0.5 ? -1 : 1);   // spiky (±22-38%) → notched silhouette without splitting into balloons
     p.setXYZ(v, p.getX(v) * j, p.getY(v) * j * squashY, p.getZ(v) * j);
   }
   const flat = ico.toNonIndexed();
   flat.computeVertexNormals();                            // flat per-face normals (facet grain + ny rose)
   flat.translate(cx, cy, cz);
-  const nn = flat.attributes.normal;
-  const col = [];
-  const faces = flat.attributes.position.count / 3;
-  for (let f = 0; f < faces; f++) {
+  const nn = flat.attributes.normal, fp = flat.attributes.position;
+  const faces = fp.count / 3;
+  // holeZ: delete the ±z cap faces → a ring band with a TUNNEL along the camera axis. Placed where sky
+  // is behind, the tunnel reads as an enclosed sky-window through the foliage (and costs FEWER tris).
+  const keep = [];
+  for (let f = 0; f < faces; f++) if (!(holeZ && Math.abs(nn.getZ(f * 3)) > 0.42)) keep.push(f);
+  const pos = [], col = [];
+  for (const f of keep) {
     const ny = nn.getY(f * 3);                            // flat face normal (all 3 verts equal)
     const grain = (((Math.sin(f * 12.9898 + cx) * 43758.5453) % 1) + 1) % 1 * 0.05 - 0.025;   // ±2.5L per face
     const upMod = ny > 0.2 ? 0.02 : (ny < -0.2 ? -0.03 : 0);   // up +2L / down -3L within hull
     const rHash = (((Math.sin(f * 78.233 + cy) * 21783.1) % 1) + 1) % 1;
     let c;
     if (ny < -0.30 && rHash < roseFrac) {
-      c = (f & 1) ? ROSE_BLOOM : ROSE_MID;               // two-tone rose facets (kills flat paper-cut)
+      // two-tone rose facets (kills flat paper-cut); the low satellites (roseFrac≥0.5) run DEEPER so rose breathes at 60m
+      c = (f & 1) ? (roseFrac >= 0.5 ? ROSE_DEEP : ROSE_BLOOM) : ROSE_MID;
     } else {
       const L = Math.max(0.68, baseL + upMod + grain);   // pale body / clefts, never <L68 (Mote monopoly)
       c = [L * 1.00, L * 0.975, L * 1.02];
     }
-    for (let k = 0; k < 3; k++) col.push(c[0], c[1], c[2]);
+    for (let k = 0; k < 3; k++) { pos.push(fp.getX(f * 3 + k), fp.getY(f * 3 + k), fp.getZ(f * 3 + k)); col.push(c[0], c[1], c[2]); }
   }
-  flat.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  flat.deleteAttribute('normal'); flat.deleteAttribute('uv');
-  return flat;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
 }
 
 // ---- a small tip-tuft (triangular bipyramid, 6 tris) — ceremonial silhouette breaker -----------------
@@ -211,17 +218,21 @@ export function buildOrchardTree(seed = 1) {
   // windows between neighbouring lobes. Overlap ~20-30% keeps it reading as one crown.
   // Overlapping crown: hulls interpenetrate ~25-30% so it reads as ONE connected crown (not 5 balloons),
   // the spiky jitter cuts notches into the silhouette, and the low satellites carry the rose undersides.
+  // z-spread widened so the SIDE silhouette is wider-than-tall (W/H≥1.1). Two upper gaps are bridged
+  // below into enclosed sky-windows.
+  // Two hulls are HOLED (z-tunnel) where sky sits behind them → 2 enclosed sky-windows that survive the
+  // ¾/cruise projection. The rest overlap into one connected crown; low satellites carry the rose.
   const hulls = [
-    hull(0.1, 11.2, -0.5, 2.4, 0.80, rand, 0.88, 0.0),     // crown  L88 — PALE
-    hull(2.8, 9.5, 0.3, 2.1, 0.82, rand, 0.84, 0.24),      // mid A (right)  L84
-    hull(-2.7, 9.8, -0.4, 2.0, 0.82, rand, 0.82, 0.24),    // mid B (left, higher, smaller)  L82
-    hull(1.5, 7.9, 1.1, 1.65, 0.85, rand, 0.78, 0.7),      // sat A (low, right-front)  L78 — rose breathes
-    hull(-1.4, 8.1, -1.0, 1.55, 0.85, rand, 0.78, 0.7),    // sat B (low, left-back)  L78
+    hull(0.0, 11.5, -0.2, 2.05, 0.80, rand, 0.88, 0.0, true),   // crown  L88 — HOLED (sky above/behind)
+    hull(3.4, 9.6, 1.0, 1.95, 0.82, rand, 0.84, 0.24, false),   // mid A (upper-right, +z)  L84
+    hull(-3.3, 10.0, -1.7, 2.05, 0.82, rand, 0.82, 0.24, true), // mid B (rearmost) L82 — HOLED (sky behind)
+    hull(1.6, 8.3, 1.3, 1.6, 0.85, rand, 0.78, 0.7, false),     // sat A (low-right)  L78 — rose breathes
+    hull(-1.5, 8.5, -1.3, 1.5, 0.85, rand, 0.78, 0.7, false),   // sat B (low-left)  L78
   ];
   // tip-tufts outside the main mass (silhouette breakers)
-  const tufts = [tuft(3.5, 7.7, 1.0, 0.7, rand), tuft(-3.4, 7.9, -0.9, 0.65, rand), tuft(0.2, 12.8, -0.4, 0.6, rand)];
+  const tufts = [tuft(3.6, 7.6, 1.4, 0.7, rand), tuft(-3.5, 7.8, -1.5, 0.65, rand), tuft(0.1, 12.7, -0.3, 0.6, rand)];
   // weeping strands hung from under-edges of the mid/sat hulls
-  const strands = [strand(1.4, 7.1, 1.0, rand), strand(-1.3, 7.3, -0.8, rand), strand(2.6, 8.6, 0.4, rand)];
+  const strands = [strand(1.4, 6.9, 1.7, rand), strand(-1.3, 7.1, -1.8, rand), strand(2.7, 8.5, 1.2, rand)];
   const canopy = mergeGeometries([...hulls, ...tufts, ...strands], false);
   if (!canopy) throw new Error('orchardTree: canopy mergeGeometries returned null');
 
