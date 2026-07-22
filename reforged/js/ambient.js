@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { makeGlowTexture } from './util.js';
 import { bindAtmosphere, chainBeforeCompile } from './atmosphere.js';
+import { buildOrchardTree } from './orchardTree.js';
 import { ROOF_ALT_LO, ROOF_ALT_HI } from './environment.js';   // Fable A1: SAME altitude window as the canopy roof (used at runtime → cyclic import safe)
 
 // MOTE DEPTH-FADE (Fable 70) — a per-biome lever (default 0 = byte-identical, the godrayMul pattern).
@@ -87,6 +88,19 @@ const PETAL_COUNT = 288;          // denser streams: 36/raft over COL_H → colu
 const RAFT_COUNT = 8;             // 4 Z-lines × L/R pair → both flanks always carry a column
 const RAFT_SPAN = 40;             // Z spacing between raft PAIRS (near band shows ~2 pairs = 4 columns)
 const COL_H = 26;                 // column height water(0)→dissolve: short enough to stay in the visible band
+
+// GHOST ORCHARD P2 — ghost sakura hero trees. TWO InstancedMeshes (trunk + canopy) share per-instance
+// matrices → 2 draw calls for all trees. World-anchored ceremonial placement, recycled far-ahead when
+// passed (matrices only rewritten on recycle — the trees are static). Gated on empyOrchardMix.
+let orchardTrunks = null, orchardCanopies = null;
+const TREE_COUNT = 8;             // 6 shoreline heroes + an elder pair (scale 1.0)
+const TREE_SPAN = 128;            // mean Z spacing (jittered per instance) — sparse ceremonial cadence
+const treeZ = new Float32Array(TREE_COUNT);
+const treeX = new Float32Array(TREE_COUNT);
+const treeScale = new Float32Array(TREE_COUNT);
+const treeYaw = new Float32Array(TREE_COUNT);
+let treeInit = false;
+const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _tp = new THREE.Vector3(), _tsv = new THREE.Vector3(), _tup = new THREE.Vector3(0, 1, 0);
 const petalData = [];
 const raftX = new Float32Array(RAFT_COUNT);
 const raftZ = new Float32Array(RAFT_COUNT);
@@ -109,6 +123,8 @@ export function setAmbientQuality(q) {
   if (shoal2) shoal2.visible = tierOn;
   if (inkMotes) inkMotes.visible = tierOn;
   if (petals) petals.visible = tierOn;
+  if (orchardTrunks) orchardTrunks.visible = tierOn;
+  if (orchardCanopies) orchardCanopies.visible = tierOn;
 }
 
 const m4 = new THREE.Matrix4();
@@ -305,6 +321,16 @@ export function createAmbient(scene) {
     // per-petal tumble axis (stable): reuse hx/phase to seed an axis in setMatrix below
   }
   scene.add(petals);
+
+  // GHOST ORCHARD P2 — ghost sakura hero trees. One tree geo, instanced TREE_COUNT× (yaw+scale give
+  // per-instance variety within 2 draw calls). Flat vertex-colour (baked value ladder), atmosphere-fogged.
+  const { trunk: trunkGeo, canopy: canopyGeo } = buildOrchardTree(7);
+  const treeMat = () => bindAtmosphere(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true, transparent: true, opacity: 0, depthWrite: true }));
+  orchardTrunks = new THREE.InstancedMesh(trunkGeo, treeMat(), TREE_COUNT);
+  orchardCanopies = new THREE.InstancedMesh(canopyGeo, treeMat(), TREE_COUNT);
+  for (const m of [orchardTrunks, orchardCanopies]) { m.frustumCulled = false; m.visible = false; }
+  orchardTrunks.name = 'orchardTrunks'; orchardCanopies.name = 'orchardCanopies';
+  scene.add(orchardTrunks); scene.add(orchardCanopies);
 
   // Foreground flyby: single gull crossing high over the lane (biome 0 only).
   flyby = new THREE.InstancedMesh(
@@ -573,6 +599,44 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
         petals.setMatrixAt(i, _om);
       }
       petals.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  // GHOST ORCHARD P2 — ghost sakura hero trees. World-anchored ceremonial placement; static (matrices
+  // rewritten only on init + recycle). Sparse: 6 shoreline heroes + an elder pair (scale 1.0). Off-lane
+  // 16-28m (naturally ≥10° off the Mote bearing dead ahead). Gated on empyOrchardMix (0 → invisible).
+  if (orchardTrunks) {
+    const treeOn = tierOn && env.empyOrchardMix > 0.02;
+    orchardTrunks.visible = treeOn; orchardCanopies.visible = treeOn;
+    if (treeOn) {
+      orchardTrunks.material.opacity = env.empyOrchardMix;
+      orchardCanopies.material.opacity = env.empyOrchardMix;
+      const cz = camera.position.z, cx = camera.position.x;
+      let rewrite = false;
+      const seat = (s) => {
+        // per-instance seeded placement — alternating flanks, non-uniform Z, ≤17m via scale, full-yaw.
+        const h = ((Math.floor(-treeZ[s]) * 2654435761) >>> 0);
+        treeX[s] = cx + ((s & 1) ? -1 : 1) * (16 + (h % 13));                 // 16-28m off-lane
+        treeScale[s] = (s < 2) ? 1.0 : (0.82 + ((h >> 4) % 14) / 100);        // trees 0,1 = elder pair (1.0); rest heroes 0.82-0.95
+        treeYaw[s] = ((h >> 8) % 628) / 100;                                  // full 360° seeded yaw
+      };
+      if (!treeInit) {
+        for (let s = 0; s < TREE_COUNT; s++) { treeZ[s] = cz - 60 - s * TREE_SPAN - ((s * 53) % 40); seat(s); }
+        treeInit = true; rewrite = true;
+      }
+      for (let s = 0; s < TREE_COUNT; s++) {
+        if (treeZ[s] > cz - 8) { treeZ[s] -= TREE_SPAN * TREE_COUNT + ((s * 53) % 40); seat(s); rewrite = true; }   // recycle far-ahead, re-hash
+      }
+      if (rewrite) {
+        for (let s = 0; s < TREE_COUNT; s++) {
+          _tp.set(treeX[s], 0, treeZ[s]);
+          _tq.setFromAxisAngle(_tup, treeYaw[s]);
+          _tsv.set(treeScale[s], treeScale[s], treeScale[s]);
+          _tm.compose(_tp, _tq, _tsv);
+          orchardTrunks.setMatrixAt(s, _tm); orchardCanopies.setMatrixAt(s, _tm);
+        }
+        orchardTrunks.instanceMatrix.needsUpdate = true; orchardCanopies.instanceMatrix.needsUpdate = true;
+      }
     }
   }
 

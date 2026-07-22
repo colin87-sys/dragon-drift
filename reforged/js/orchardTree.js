@@ -230,7 +230,7 @@ export function buildOrchardTree(seed = 1) {
     hull(-1.5, 8.5, -1.3, 1.5, 0.85, rand, 0.78, 0.7, false),   // sat B (low-left)  L78
   ];
   // tip-tufts outside the main mass (silhouette breakers)
-  const tufts = [tuft(3.6, 7.6, 1.4, 0.7, rand), tuft(-3.5, 7.8, -1.5, 0.65, rand), tuft(0.1, 12.7, -0.3, 0.6, rand)];
+  const tufts = [tuft(3.6, 7.6, 1.4, 0.7, rand), tuft(-3.5, 7.8, -1.5, 0.65, rand), tuft(0.1, 11.9, -0.3, 0.6, rand)];  // top cap nudged down into the crown mass (Fable polish)
   // weeping strands hung from under-edges of the mid/sat hulls
   const strands = [strand(1.4, 6.9, 1.7, rand), strand(-1.3, 7.1, -1.8, rand), strand(2.7, 8.5, 1.2, rand)];
   const canopy = mergeGeometries([...hulls, ...tufts, ...strands], false);
