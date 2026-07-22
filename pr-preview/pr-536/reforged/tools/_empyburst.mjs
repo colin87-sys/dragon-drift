@@ -122,7 +122,9 @@ async function session(tag, view, shots) {
   for (const s of shots) {
     // fly to the shot's lane distance with the sim running, then settle the fog/sky lerp
     await page.evaluate((d) => { window.__dd.game.timeScale = 1; window.__dd.player.dist = d; }, s.dist);
-    await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, s.dist).catch(() => {});
+    // sweep obstacles EVERY poll while the sim advances — the ghost trees slow the headless renderer enough
+    // that the auto-flying player over-steps into a live crystal wall between shots (caught the CRASHED! screen).
+    await page.waitForFunction((d) => { window.__dd.clearObstacles && window.__dd.clearObstacles(); return window.__dd.player.dist > d + 40; }, { timeout: 8000 }, s.dist).catch(() => {});
     // settle the fog/sky lerp while SWEEPING obstacles — a gate that respawns mid-settle can crash the
     // auto-flying player before the freeze (a phone-late frame once captured the CRASHED! screen).
     for (let w = 0; w < 4; w++) {
