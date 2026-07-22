@@ -55,6 +55,10 @@ async function orchardProbe(page, bufA, bufB) {
     const da = px(ia), db = px(ib), W = ia.width, H = ia.height;
     // band = full frame height (petals rise water→sky); thirds by screen-Y
     const thirds = [0, 0, 0]; let up = 0, moved = 0;
+    // Fable's near-LOD saturation gate: petals must read ROSE, not white. Sample screen HSV-sat on the
+    // moving-rose pixels (= petals + rings). satHi = fraction with sat >= 0.30. This is what catches the
+    // "GREEN band totals but WHITE near petals" split the band probe missed.
+    let satSum = 0, satHi = 0;
     for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
       const i = (y * W + x) * 4;
       const roseA = da[i] > da[i + 2] + 6 && da[i] > 150, roseB = db[i] > db[i + 2] + 6 && db[i] > 150;
@@ -62,14 +66,17 @@ async function orchardProbe(page, bufA, bufB) {
       if ((roseA || roseB) && changed) {
         moved++;
         thirds[Math.min(2, Math.floor(y / (H / 3)))]++;
+        const mx = Math.max(db[i], db[i + 1], db[i + 2]), mn = Math.min(db[i], db[i + 1], db[i + 2]);
+        const sat = mx > 0 ? (mx - mn) / mx : 0;
+        satSum += sat; if (sat >= 0.30) satHi++;
         // does a rose pixel here appear ABOVE where it was? sample 8px up in A vs here in B
         const iu = ((y - 8) * W + x) * 4;
         if (y > 8 && db[i] > db[i + 2] + 6 && da[iu] <= da[iu + 2] + 6) up++;
       }
     }
-    return { thirds, upFrac: moved ? +(up / moved).toFixed(2) : 0 };
+    return { thirds, upFrac: moved ? +(up / moved).toFixed(2) : 0, meanSat: moved ? +(satSum / moved).toFixed(2) : 0, satHiFrac: moved ? +(satHi / moved).toFixed(2) : 0 };
   }, [bufA.toString('base64'), bufB.toString('base64')]);
-  console.log(`  [orchard-probe] rose/third=[${r.thirds}] upFrac=${r.upFrac} (bars: >=250/120 per third, upFrac>=0.5-ish)`);
+  console.log(`  [orchard-probe] rose/third=[${r.thirds}] upFrac=${r.upFrac} meanSat=${r.meanSat} satHiFrac=${r.satHiFrac} (bars: third>=250, upFrac>=0.5, meanSat>=0.30, satHiFrac>=0.5)`);
 }
 
 // PR-A r6 machine probes (gate r5 fix 3): verify the two contested numbers IN THE FRAMEBUFFER before

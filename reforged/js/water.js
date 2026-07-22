@@ -422,8 +422,8 @@ const fragmentShader = /* glsl */`
         float _ring = smoothstep(0.5, 0.9, _ph) * (1.0 - smoothstep(0.9, 1.0, _ph));
         _rr = max(_rr, _ring * (1.0 - smoothstep(2.0, 13.0, _d)));     // only within the raft's reach
       }
-      col = mix(col, col * vec3(1.15, 0.89, 1.00), _rd * 0.70 * uOrchardMix);   // rose DISC — the visible lift point (was too faint: raft→petal link half-drawn)
-      col = mix(col, col * vec3(1.11, 0.92, 1.02), _rr * 0.62 * uOrchardMix);   // contracting rose rings
+      col = mix(col, col * vec3(1.50, 0.80, 0.96), _rd * 0.80 * uOrchardMix);   // rose DISC — R must beat the blue-violet water (hue≥318°) so the lift point reads ROSE, not neutral lavender
+      col = mix(col, col * vec3(1.34, 0.85, 0.99), _rr * 0.66 * uOrchardMix);   // contracting rose rings
     }
 
     // Golden sun streak: compress the normal's x so the highlight stretches
