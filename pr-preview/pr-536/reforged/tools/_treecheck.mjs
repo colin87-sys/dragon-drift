@@ -24,7 +24,7 @@ const r = await page.evaluate(() => {
 });
 console.log(JSON.stringify(r, null, 2));
 import { writeFileSync } from 'fs';
-for (const d of [2600, 2680, 2760]) {
+for (const d of [2600, 2640, 2680, 2720, 2760, 2800, 2840, 2880]) {
   await page.evaluate((dd) => { window.__dd.game.timeScale = 0; window.__dd.player.dist = dd; window.__dd.clearObstacles && window.__dd.clearObstacles(); }, d);
   await page.waitForTimeout(500);
   const buf = await page.screenshot();

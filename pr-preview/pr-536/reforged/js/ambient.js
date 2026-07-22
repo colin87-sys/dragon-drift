@@ -637,6 +637,13 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
         }
         orchardTrunks.instanceMatrix.needsUpdate = true; orchardCanopies.instanceMatrix.needsUpdate = true;
       }
+      // P2 threading (water→canopy→sky): two petal rafts ride the base of two hero trees so their rising
+      // columns thread the canopy. Re-asserted every frame (overrides the petal block's own recycle of
+      // these two rafts). Trees 2 & 3 are heroes, never the elder pair (finale stays particle-clean).
+      if (raftInit) {
+        raftX[6] = treeX[2]; raftZ[6] = treeZ[2];
+        raftX[7] = treeX[3]; raftZ[7] = treeZ[3];
+      }
     }
   }
 
