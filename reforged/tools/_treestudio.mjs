@@ -43,7 +43,10 @@ console.log(`  [color] rosePct=${color.rosePct}% (≤20) warmGreen=${color.warmG
 for (const a of ['side', 'q34']) {
   await page.evaluate((o) => window.tsRender(o), { angle: a, bg: 'key', canopyOnly: true, fill: 0.74 });
   const gap = await page.evaluate(() => window.tsGapProbe());
-  console.log(`  [sky-gap ${a}] holes≥1.5%=${gap.holes} (≥2) notchFrac=${gap.notchFrac}% (blob<8, airy≥14) fillFrac=${gap.fillFrac} sizes=[${gap.sizes}]`);
+  // Airiness gate (Fable ruling — enclosed-hole counts DON'T survive textureless one-sided projection;
+  // see 2026-07-22 P2 lesson). PASS = fillFrac ≤0.45 AND notchFrac ≥12 AND ≥1 see-through ≥0.5% of bbox.
+  const seeThrough = (gap.sizes[0] || 0);
+  console.log(`  [airiness ${a}] fillFrac=${gap.fillFrac} (≤0.45) notchFrac=${gap.notchFrac}% (≥12) seeThrough=${seeThrough}% (≥0.5) — NOT enclosed-hole counts`);
 }
 
 await browser.close(); srv.close?.();
