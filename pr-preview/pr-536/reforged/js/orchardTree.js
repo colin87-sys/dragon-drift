@@ -117,7 +117,7 @@ function hull(cx, cy, cz, r, squashY, rand, baseL, roseFrac, holeZ) {
       c = (f & 1) ? (roseFrac >= 0.5 ? ROSE_DEEP : ROSE_BLOOM) : ROSE_MID;
     } else {
       const L = Math.max(0.68, baseL + upMod + grain);   // pale body / clefts, never <L68 (Mote monopoly)
-      c = [L * 1.00, L * 0.975, L * 1.02];
+      c = [L * 1.00, L * 0.86, L * 0.93];                 // pale-ROSE blush (hue ~332°, S~0.15) so the canopy reads SAKURA, not white frost, past 40m — trunk stays bone-white for pillar separation
     }
     for (let k = 0; k < 3; k++) { pos.push(fp.getX(f * 3 + k), fp.getY(f * 3 + k), fp.getZ(f * 3 + k)); col.push(c[0], c[1], c[2]); }
   }
