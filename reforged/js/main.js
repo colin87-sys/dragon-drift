@@ -231,7 +231,7 @@ createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
 if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
 if (!urlParams.has('norays')) setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0 + 1); ?norays — perf A/B: kills the per-frame shaft march + the mask scene pass
-initAnime(renderer, scene, camera, getSkyMesh()); // ANIME prototype (?anime=1): ink pre-pass + anime composer pass; no-op without the flag
+initAnime(); // ANIME prototype (?anime=1): vibrancy composer pass; no-op without the flag
 createWater(scene, 0); // N11: boot at tier0 (768² full-rate mirror); applyQuality retiers
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
