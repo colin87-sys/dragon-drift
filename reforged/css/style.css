@@ -625,11 +625,17 @@ html.vitals-on .gauntlet-surge.rest { opacity: 0.18; }
 /* Surge: the WHOLE bar ignites — the track lights up and every filled cell goes
    bright near-white with a hard pulsing bloom, so "ready to phase" is unmistakable. */
 .stamina-arc.surge .arc-trk { stroke: rgba(150,255,235,0.45); }
-.stamina-arc.surge .arc-cell.on { opacity: 1; stroke: #c8fff2; stroke-width: 7;
-  animation: stam-glow 0.8s ease-in-out infinite; }
+/* The surge-lit gauntlet arc rides on the DRAGON in rear-chase. During Surge the world dims,
+   so a near-white bloom here became the single brightest element on the dark dragon (an
+   "LED strip across the shoulders" — art-director ruling 2026-07-20, cheap-tell #3/#9). The
+   arc still IGNITES (saturated cyan, full-cell) so the meter reads as charged, but the stroke
+   is held off pure white and the wide bloom is pulled in tight so it no longer bleeds cyan
+   across the silhouette. The gems/multiplier keep their own legibility below. */
+.stamina-arc.surge .arc-cell.on { opacity: 1; stroke: #6fe0d0; stroke-width: 7;
+  animation: stam-glow 0.9s ease-in-out infinite; }
 @keyframes stam-glow {
-  0%,100% { filter: drop-shadow(0 0 5px rgba(130,255,235,0.95)) drop-shadow(0 0 11px rgba(80,240,220,0.7)); }
-  50%     { filter: drop-shadow(0 0 11px rgba(190,255,248,1)) drop-shadow(0 0 20px rgba(120,255,235,0.9)); } }
+  0%,100% { filter: drop-shadow(0 0 2px rgba(120,235,220,0.7)); }
+  50%     { filter: drop-shadow(0 0 4px rgba(150,245,232,0.85)); } }
 
 /* FLOW "Keystone Crest" — a miniature Windvault in the centre column (above the surge gems),
    shown ONLY during a Sky Canyon flow run. Cyan light climbs both legs of a forged-glass arch

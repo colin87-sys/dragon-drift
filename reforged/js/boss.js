@@ -1156,31 +1156,34 @@ const tmp = new THREE.Vector3();
 
 // Surge-unleash cinematic timing + scratch vectors for the mouth→boss beam.
 const CHARGE_TIME = 0.5;       // legacy constant (the old wind-up; the I4 ritual supersedes it — kept for the capture-seam mapping)
-const BEAM_TIME = 0.55;        // beam live + fade after the strike
+const BEAM_TIME = 0.80;        // beam live + fade after the strike (re-timed to the top of the Lane B PAYLOAD band, 0.55→0.80 — ALL +0.25s into SUSTAIN so the surge-pulse gets ≥1 full muzzle→impact traversal; birth 0.11 + collapse 0.27 unchanged, sustain 0.17→0.42)
 // ── SUNBREAK I4: the ultimate RITUAL (wall-clock, §D.2/§F — Fable pre-assess P0/P4) ──
 // CALL (accept) → GATHER (stepped escalation, convergence) → APEX (the held breath — the
 // signature frame) → RELEASE/beam. ALL clocks run on rawDt (§M.1-1: at timeScale 0.35 a
 // scaled-dt GATHER would silently stretch ~3×). Repeats compress the APPROACH, never the
 // ARRIVAL — APEX + RELEASE numbers are byte-identical on every cast (P4).
 const RIT_CALL = [0.15, 0.10];       // [first cast, repeat] CALL duration (s)
-const RIT_GATHER = [1.15, 0.65];     // GATHER duration
-const RIT_APEX = 0.25;               // APEX held-breath — SACRED, never compressed (230–270ms window)
+const RIT_GATHER = [0.70, 0.40];     // GATHER duration (re-timed: the old 1.15/0.65 back third was flat slow-mo — dead time before the beam)
+const RIT_APEX = 0.15;               // APEX held-breath (130–170ms — a beat, not a stall). The late-dive ease makes 150ms READ as ~150ms; the old easeInOutCubic curve inflated a 250ms hold into a ~600ms perceived time-stop (owner report).
 const RIT_SWELLS = [3, 2];           // seeded GATHER sub-swells (stepped escalation, uneven gaps)
 // The authored timeScale envelope at ritual-time t (pure — the conductor AND the tests read it):
-// 1.0 → easeInOutCubic down to 0.35 across CALL+GATHER → APEX floor 0.25 (flat plateau with
-// CLIFFS, not a valley) → RELEASE snaps to 1.05 in ≤50ms → decaying spring to 1.0 by ~+300ms.
+// 1.0 → easeInCubic (LATE dive: the world holds high while the charge builds, plunging only into
+// the lock) down to 0.35 across CALL+GATHER → APEX plateau HOLDS 0.35 (the ease terminal, no extra
+// cliff) → RELEASE snaps to 1.05 in ≤50ms → decaying spring to 1.0 by ~+300ms. Re-timed (owner:
+// the wind-up felt like a time-stop) — the late-dive curve converts the old dead slow-mo tail into
+// a readable build, and the deep-slow (≤50%) window drops ~0.75s → ~0.22s.
 export function surgeRitualScaleAt(t, repeat = false) {
   const call = RIT_CALL[repeat ? 1 : 0], gather = RIT_GATHER[repeat ? 1 : 0];
   const tApex = call + gather, tRel = tApex + RIT_APEX;
   if (t < 0) return 1;
   if (t < tApex) {
     const x = Math.min(1, t / tApex);
-    const e = x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;   // easeInOutCubic
+    const e = x * x * x;                                                    // easeInCubic — the LATE dive
     return 1 - e * 0.65;                                                    // 1.0 → 0.35
   }
-  if (t < tRel) return 0.25;                                                // the plateau (cliff in, cliff out)
+  if (t < tRel) return 0.35;                                                // the plateau = the ease terminal (no cliff — the dead slow-mo tail that read as a "time stop" is gone)
   const r = t - tRel;
-  if (r < 0.05) return 0.25 + (1.05 - 0.25) * (r / 0.05);                    // the snap (slope 16/s)
+  if (r < 0.05) return 0.35 + (1.05 - 0.35) * (r / 0.05);                    // the snap (slope 14/s ≥ 12)
   return 1 + 0.05 * Math.exp(-r * 9) * Math.cos(r * 24);                     // decaying spring → 1.0
 }
 // Ritual beat boundaries at cast shape `repeat` — [callEnd, apexStart, releaseAt] (s).
@@ -1467,8 +1470,26 @@ export function initBoss(sc) {
     vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
   }));
   convLines.frustumCulled = false; convLines.visible = false; convLines.renderOrder = TIERS.surgeFx; convLines.layers.set(1);
-  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines);
-  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines };
+  // IMPACT STACK (Lane C census: impact is where every reference stacks the most — 4–5 layers;
+  // ours was 2). scorch = the DARK band anchor (NormalBlending, hue crushed to shadow — keeps the
+  // CORE:DARK ratio in the 5:1–10:1 band at the land point, where the rear-chase player is looking,
+  // and persists ~1.0s so the strike's CONSEQUENCE extends the perceived payload for free); bloom
+  // disc = the HALO hue; contact core = the white-hot CORE flash. Own clock (outlives the beam like
+  // the sparks). Reuse the shared white glow tex — no new textures.
+  const impactScorch = mkLayer(6.5, TIERS.surgeFx - 2, beamGlowSpriteTex(), THREE.NormalBlending);
+  const impactBloom  = mkLayer(6.0, TIERS.surgeFx,     beamGlowSpriteTex(), THREE.AdditiveBlending);
+  const impactCore   = mkLayer(3.0, TIERS.surgeFx + 2, beamGlowSpriteTex(), THREE.AdditiveBlending);
+  // GATHER accumulation motes (the Hadouken/Kamehameha/Mega-Flare inrush — research §3): motes
+  // materialize on a shell around the head and CONVERGE to the mouth during CHARGE, each arrival
+  // feeding the orb (the orb is MADE of the gathered energy). Separate Points, 1 DC, gather-only
+  // (never overlaps the impact sparks in time). depthTest off — the head faces away in rear-chase.
+  const gmGeo = new THREE.BufferGeometry();
+  gmGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SURGE_GM_N * 3), 3));
+  gmGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(SURGE_GM_N * 3), 3));
+  const gatherMotes = new THREE.Points(gmGeo, new THREE.PointsMaterial({ size: 0.85, map: beamGlowSpriteTex(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, sizeAttenuation: true }));
+  gatherMotes.frustumCulled = false; gatherMotes.visible = false; gatherMotes.renderOrder = TIERS.surgeFx; gatherMotes.layers.set(1);
+  surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines, impactScorch, impactBloom, impactCore, gatherMotes);
+  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines, impactScorch, impactBloom, impactCore, gatherMotes };
   surgeBeam.visible = false;
   scene.add(surgeBeam);
 }
@@ -1507,6 +1528,7 @@ function petalTex() { return _petalTex || (_petalTex = makeMandalaTex('petal'));
 function socketTex() { return _socketTex || (_socketTex = makeMandalaTex('socket')); }
 const SURGE_SPARK_N = 44;   // 28 impact sparks + up to 16 shield shards, one Points draw
 const SURGE_CONV_N = 20;    // GATHER convergence streaks (LineSegments, 1 DC, gather-only)
+const SURGE_GM_N = 52;      // GATHER accumulation motes (converge to the mouth + feed the orb) — Points, 1 DC, gather-only
 const _sparkVel = new Float32Array(SURGE_SPARK_N * 3);
 const _sparkLife = new Float32Array(SURGE_SPARK_N);
 const _sparkLife0 = new Float32Array(SURGE_SPARK_N);
@@ -1743,6 +1765,55 @@ function updateSurgeBeam(dt, player, time) {
       if (_convFade <= 0) { _convActive = false; convLines.visible = false; }
     }
   }
+  // GATHER MOTES integration (rawDt — consequences move through the APEX floor). Each mote
+  // ACCELERATES toward the mouth (the pull strengthens as it nears — the inrush), brightens to
+  // WHITE-hot in the last ~1u (Lane B value stack), and on ARRIVAL feeds the orb (_orbBump) then
+  // dies (respawned by emit while gathering). At APEX (_gmGathering=false) the in-flight motes
+  // FREEZE and gently fade — the held-breath overcharge.
+  if (_gmActive) {
+    const gm = surgeBeam.userData.gatherMotes;
+    const pos = gm.geometry.attributes.position.array;
+    const col = gm.geometry.attributes.color.array;
+    const sdt = _bossRawDt > 0 ? _bossRawDt : dt;
+    let live = 0;
+    for (let i = 0; i < SURGE_GM_N; i++) {
+      if (_gmLife[i] <= 0) continue;
+      live++;
+      if (_gmGathering) {
+        const dx = _gmTarget.x - _gmPos[i * 3], dy = _gmTarget.y - _gmPos[i * 3 + 1], dz = _gmTarget.z - _gmPos[i * 3 + 2];
+        const d = Math.hypot(dx, dy, dz) || 1;
+        const acc = 22 * sdt / d;   // stronger pull as it nears — the accelerating inrush
+        _gmVel[i * 3] += dx * acc; _gmVel[i * 3 + 1] += dy * acc; _gmVel[i * 3 + 2] += dz * acc;
+        _gmPos[i * 3] += _gmVel[i * 3] * sdt; _gmPos[i * 3 + 1] += _gmVel[i * 3 + 1] * sdt; _gmPos[i * 3 + 2] += _gmVel[i * 3 + 2] * sdt;
+        const near = Math.max(0, 1 - d / 1.0);
+        const c = (i % 4 === 0) ? _beamPal.core : _beamPal.halo;
+        col[i * 3] = c.r + (1 - c.r) * near; col[i * 3 + 1] = c.g + (1 - c.g) * near; col[i * 3 + 2] = c.b + (1 - c.b) * near;
+        if (d < 0.5) { _gmLife[i] = 0; pos[i * 3 + 1] = -9999; _orbBump = Math.min(1.0, _orbBump + 0.06); continue; }   // ARRIVE → feed the orb
+      } else {
+        const k = 0.97; col[i * 3] *= k; col[i * 3 + 1] *= k; col[i * 3 + 2] *= k;   // APEX freeze + fade
+      }
+      pos[i * 3] = _gmPos[i * 3]; pos[i * 3 + 1] = _gmPos[i * 3 + 1]; pos[i * 3 + 2] = _gmPos[i * 3 + 2];
+    }
+    gm.geometry.attributes.position.needsUpdate = true;
+    gm.geometry.attributes.color.needsUpdate = true;
+    _orbBump = Math.max(0, _orbBump - sdt * 1.2);
+    if (!live && !_gmGathering) { _gmActive = false; gm.visible = false; }
+  }
+  // IMPACT STACK integration (own clock — outlives the beam like the sparks; P2: a consequence,
+  // moves on rawDt). Contact core flashes + dies fast; bloom disc blooms + fades; scorch HOLDS then
+  // easeOut-fades over ~1.0s (the perceived-payload extension). Runs even when surgeSeq is null.
+  if (_impactT >= 0) {
+    const { impactCore, impactBloom, impactScorch } = surgeBeam.userData;
+    const sdt = _bossRawDt > 0 ? _bossRawDt : dt;
+    _impactT += sdt; const it = _impactT;
+    impactCore.scale.setScalar(3.0 + 1.6 * Math.min(1, it / 0.15));
+    impactCore.material.opacity = Math.max(0, 1 - it / 0.28);
+    impactBloom.scale.setScalar(6.0 + 3.2 * Math.min(1, it / 0.25));
+    impactBloom.material.opacity = Math.max(0, 0.75 * (1 - it / 0.45));
+    impactScorch.scale.setScalar(6.5 + 0.8 * Math.min(1, it / 0.30));
+    impactScorch.material.opacity = it < 0.5 ? 0.55 : Math.max(0, 0.55 * (1 - (it - 0.5) / 0.5));
+    if (it > 1.0) { _impactT = -1; impactCore.visible = impactBloom.visible = impactScorch.visible = false; }
+  }
   // Capture seam: pin the cinematic to a beat (holds the beat, no auto-transition).
   const pin = surgeForceBeat();
   if (pin) surgeSeq = { phase: pin.phase, t: pin.t };
@@ -1752,9 +1823,10 @@ function updateSurgeBeam(dt, player, time) {
   game.surgeUltimatePhase = surgeSeq ? surgeSeq.phase : null;
   if (!surgeSeq) {
     game.surgeUltInvuln = false; game.surgeApexPin = 0; game.surgeGatherK = 0;
+    if (_gmActive) cutGatherMotes();
     if (game.surgeRitualScale != null) game.surgeRitualScale = null;
     if (surgeBeam.userData.shaft.visible) hideBeamEnsemble();
-    if (!_sparkActive) surgeBeam.visible = false;
+    if (!_sparkActive && _impactT < 0) surgeBeam.visible = false;
     return;
   }
   // §M.1-1: ALL ritual/beam clocks advance on rawDt (wall-clock) — the conductor floors
@@ -1802,13 +1874,18 @@ function updateSurgeBeam(dt, player, time) {
     // CALL end, velocities ZEROED at APEX entry (a stop, not a taper — the edge-sharpness law).
     const convProg = Math.max(0, Math.min(1, (t - beats.callEnd) / (beats.apexStart - beats.callEnd)));
     if (t >= beats.callEnd && !surgeSeq.convFired) { surgeSeq.convFired = true; fireSurgeConverge(beamO, pin ? convProg : 0); }
-    if (inApex && !surgeSeq.convStopped) { surgeSeq.convStopped = true; haltSurgeConverge(); sfx.surgeApexSilence?.(); }   // the stop + the silence land on the SAME edge (P3 co-timing)
+    if (t >= beats.callEnd && !inApex && !_gmActive) startGatherMotes(beamO);   // start ONCE per cast (persistent flag, not surgeSeq — survives the capture-pin's per-frame surgeSeq rebuild)
+    if (t >= beats.callEnd && !inApex) emitGatherMotes(beamO, gatherK);   // the ACCUMULATION inrush (research §3) — count ramps with gatherK
+    if (inApex && !surgeSeq.convStopped) { surgeSeq.convStopped = true; haltSurgeConverge(); haltGatherMotes(); sfx.surgeApexSilence?.(); }   // convergence STOPS + motes FREEZE + silence — all on the SAME edge (P3 co-timing)
     muzzleSocket.visible = muzzlePetals.visible = muzzleCore.visible = true;
     const flick = Math.sin(time * 40) * 0.06 * gatherK * (inApex ? 0.4 : 1);
     muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
     muzzleSocket.scale.setScalar(2.4 + gatherK * 1.6 + flick);
     muzzlePetals.scale.setScalar(1.4 + gatherK * 1.6 + flick);
-    muzzleCore.scale.setScalar((0.5 + gatherK * 1.1) * (inApex ? 1.28 : 1));   // fix 1: the apex is visibly MAX (≥1.5× core area vs mid-gather)
+    // THE ORB (research §3): the core is now a MASS, not a glow — it grows with the charge AND
+    // with each mote arrival (_orbBump), so it reads as ~3× its mid-gather diameter at the APEX
+    // lock (Hadouken/Kamehameha: the gathered energy becomes a body before it fires).
+    muzzleCore.scale.setScalar((0.25 + gatherK * 2.2 + _orbBump) * (inApex ? 1.65 : 1));
     muzzleSocket.material.opacity = 0.35 + gatherK * 0.35;
     muzzlePetals.material.opacity = 0.30 + gatherK * 0.55;
     muzzleCore.material.opacity = 0.25 + gatherK * 0.75;
@@ -1824,8 +1901,13 @@ function updateSurgeBeam(dt, player, time) {
       // the beam fires. hitstopForce zeroes slow-mo + bypasses the cooldown (§M.1-1).
       surgeSeq.phase = 'beam'; surgeSeq.t = 0; beamLandFired = 0;
       game.surgeApexPin = 0;
+      _orbApexScale = muzzleCore.scale.x;   // capture the overcharged orb size — the beam is born by COLLAPSING it (research §3-D: the Kamehameha "orb erupts into the beam")
       _convActive = false; _convHeld = false; surgeBeam.userData.convLines.visible = false;   // the release CONSUMES the gathered energy — a cut, not a fade
-      hitstopForce(0.08);
+      cutGatherMotes();   // the motes are consumed into the beam-birth (a cut, not a fade)
+      // NO hitstop here (research Lane D: don't collapse the activation held-breath and the impact
+      // hitstop). The RELEASE now LURCHES forward — the conductor's 0.35→1.05 snap plays unmasked
+      // (it used to be multiplied by an 80ms freeze → the world's SLOWEST point was the release,
+      // swallowing the snap). The contact hitstop moves to LAND (below), where the beam actually hits.
       juiceEvent('surgeRelease');
       cameraCtl.addSurgeTrauma?.(1.0);
       cameraCtl.setSurgeFov?.(7, 0);          // the punch (decays inside the camera channel)
@@ -1843,7 +1925,7 @@ function updateSurgeBeam(dt, player, time) {
   // never instant-full-length), a sustain of seeded incommensurate wobbles + the travelling
   // surge-pulse, then a core-LAST collapse (outer→bloom→core pinch-pop) inside the final ~270ms.
   const life = surgeSeq.t / BEAM_TIME;
-  if (life >= 1) { surgeSeq = null; hideBeamEnsemble(); if (!_sparkActive) surgeBeam.visible = false; return; }
+  if (life >= 1) { surgeSeq = null; hideBeamEnsemble(); if (!_sparkActive && _impactT < 0) surgeBeam.visible = false; return; }
   shaft.visible = true;
 
   const bt = surgeSeq.t;
@@ -1875,7 +1957,16 @@ function updateSurgeBeam(dt, player, time) {
   muzzleSocket.visible = muzzlePetals.visible = muzzleCore.visible = true;
   muzzleSocket.position.copy(beamO); muzzlePetals.position.copy(beamO); muzzleCore.position.copy(beamO);
   const mz = 1 + Math.sin(time * 45) * 0.06;
-  muzzleSocket.scale.setScalar(4.0 * mz); muzzlePetals.scale.setScalar(2.9 * mz); muzzleCore.scale.setScalar(1.7 * mz);
+  // ORB CONSUME (research §3-D): over the first ~60ms the overcharged orb COLLAPSES from its APEX
+  // size into the beam-core's blaze width — the beam is born OUT OF the gathered mass (the
+  // Kamehameha read), not beside it. After the collapse it holds the steady muzzle blaze.
+  // A POP then a COLLAPSE: the orb over-expands ~1.4× in the first ~25ms (the eruption crack the
+  // held-breath resolves into), then collapses into the beam-core width by ~90ms.
+  const pop = bt < 0.025 ? 1 + 0.4 * (bt / 0.025) : Math.max(0, 1.4 - 1.4 * ((bt - 0.025) / 0.065));
+  const consume = Math.min(1, Math.max(0, (bt - 0.025) / 0.065));
+  muzzleSocket.scale.setScalar((4.0 + 1.5 * Math.max(0, 1 - bt / 0.05)) * mz);   // socket flares with the burst
+  muzzlePetals.scale.setScalar((2.9 + 1.2 * Math.max(0, 1 - bt / 0.05)) * mz);
+  muzzleCore.scale.setScalar(_orbApexScale * pop + 1.7 * mz * consume);
   muzzleSocket.material.opacity = 0.55 * col[0];
   muzzlePetals.material.opacity = 0.80 * col[1];
   muzzleCore.material.opacity = Math.max(0.95 * col[2], 0.05);
@@ -1888,9 +1979,15 @@ function updateSurgeBeam(dt, player, time) {
     beamLandFired = 1; beamLandT = bt;
     fireSurgeSparks(beamT, beamShatterPending);
     surgeShockRing(beamT, 0xffffff, { grow: 20, life: 0.55 });   // critic fix 3: faster growth → the ring separates from the boss's crown arc before it fades
+    fireImpactStack(beamT);   // Lane C: contact core + hue bloom disc + persistent dark scorch (the DARK anchor)
+    hitstopForce(0.07);   // Lane D: the impact hitstop belongs at FIRST CONTACT (the beam landing), not at release — 70ms, and the debris/beam keep moving on rawDt so the freeze never feels dead
   } else if (beamLandFired === 1 && bt - beamLandT >= 0.06) {
     beamLandFired = 2;
     surgeShockRing(beamT, beamShatterPending ? 0xfff2d0 : _beamPal.halo.getHex(), { grow: 22, life: 0.38 });
+    if (!beamShatterPending) beamLandFired = 4;   // no shatter → done (skip the 3rd-ring stage)
+  } else if (beamLandFired === 2 && bt - beamLandT >= 0.18) {
+    beamLandFired = 4;
+    surgeShockRing(beamT, 0xfff2d0, { grow: 26, life: 0.40 });   // Lane C: shield-shatter gets a THIRD ring, lagging ~+120ms
     beamShatterPending = false;
   }
 }
@@ -1901,8 +1998,57 @@ function hideBeamEnsemble() {
   u.muzzleSocket.visible = u.muzzlePetals.visible = u.muzzleCore.visible = false;
   u.convLines.visible = false; _convActive = false; _convHeld = false;
 }
-let beamLandFired = 0;      // 0 in flight · 1 landed (primary fired) · 2 secondary fired
+let beamLandFired = 0;      // 0 in flight · 1 primary · 2 secondary · 4 done (3rd ring on shatter)
 let beamLandT = 0;
+let _impactT = -1;          // seconds since land for the impact stack; -1 = inactive (own clock)
+function fireImpactStack(center) {
+  const { impactCore, impactBloom, impactScorch } = surgeBeam.userData;
+  for (const s of [impactScorch, impactBloom, impactCore]) { s.position.copy(center); s.visible = true; }
+  impactCore.material.color.copy(_beamPal.core);
+  impactBloom.material.color.copy(_beamPal.halo);
+  impactScorch.material.color.copy(_beamPal.dark);
+  _impactT = 0;
+}
+// ── GATHER accumulation motes (research §3: the charge-accumulate-then-release grammar) ──
+const _gmPos = new Float32Array(SURGE_GM_N * 3);
+const _gmVel = new Float32Array(SURGE_GM_N * 3);
+const _gmLife = new Float32Array(SURGE_GM_N);
+const _gmTarget = new THREE.Vector3();
+let _gmActive = false, _gmGathering = false, _gmRng = null;
+let _orbBump = 0;         // decaying scale bump on mote arrival — the orb GROWS as it's fed
+let _orbApexScale = 1;    // muzzleCore scale captured at release, for the beam-birth CONSUME collapse
+function startGatherMotes(mouth) {
+  _gmTarget.copy(mouth); _gmActive = true; _gmGathering = true;
+  _gmRng = mulberry32((beamCastIndex * 0x27d4eb2f + 11) >>> 0);
+  for (let i = 0; i < SURGE_GM_N; i++) _gmLife[i] = 0;
+  surgeBeam.userData.gatherMotes.visible = true;
+}
+function spawnGatherMote(i) {
+  const rng = _gmRng;
+  const th = rng() * Math.PI * 2, ph = Math.acos(rng() * 0.9);   // upper hemisphere (not occluded by the body)
+  const R = 3 + rng() * 3;
+  const sx = Math.sin(ph) * Math.cos(th), sy = Math.abs(Math.cos(ph)) * 0.7 + 0.25, sz = Math.sin(ph) * Math.sin(th);
+  _gmPos[i * 3] = _gmTarget.x + sx * R; _gmPos[i * 3 + 1] = _gmTarget.y + sy * R; _gmPos[i * 3 + 2] = _gmTarget.z + sz * R;
+  const sp = 2 + rng() * 2;
+  _gmVel[i * 3] = -sx * sp; _gmVel[i * 3 + 1] = -sy * sp; _gmVel[i * 3 + 2] = -sz * sp;
+  _gmLife[i] = 1;
+  const c = (i % 4 === 0) ? _beamPal.core : _beamPal.halo;
+  const col = surgeBeam.userData.gatherMotes.geometry.attributes.color.array;
+  col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+}
+function emitGatherMotes(mouth, gatherK) {
+  if (!_gmGathering || !_gmRng) return;
+  _gmTarget.copy(mouth);
+  let live = 0; for (let i = 0; i < SURGE_GM_N; i++) if (_gmLife[i] > 0) live++;
+  const target = Math.round(10 + 40 * Math.min(1, gatherK));   // accelerating accumulation (few → many)
+  for (let i = 0; i < SURGE_GM_N && live < target; i++) if (_gmLife[i] <= 0) { spawnGatherMote(i); live++; }
+}
+function haltGatherMotes() { _gmGathering = false; }   // APEX: stop the inrush, hold overcharged (the held breath)
+function cutGatherMotes() {   // RELEASE / teardown: consumed into the beam — a cut, not a fade
+  _gmActive = false; _gmGathering = false;
+  if (surgeBeam) surgeBeam.userData.gatherMotes.visible = false;
+  for (let i = 0; i < SURGE_GM_N; i++) _gmLife[i] = 0;
+}
 let beamShatterPending = false;   // breakShield sets it — the shatter ensemble fires AT LAND
 
 // ── I4 ritual plumbing ──────────────────────────────────────────────────────
@@ -1916,7 +2062,13 @@ export function setBossRawDt(rdt) { _bossRawDt = rdt; }
 let _swellCenters = [[0.35, 0.62, 0.95], [0.30, 0.55]];   // fractions of GATHER, reseeded per cast
 export function surgeGatherKAt(t, repeat = false) {
   const beats = surgeRitualBeats(repeat);
-  if (t >= beats.apexStart) return 1;
+  if (t >= beats.apexStart) {
+    // APEX is short now (~150ms) — keep it from reading as FROZEN pixels: one white flare-crest
+    // pulses the muzzle across the hold. sin(0)=sin(π)=0 → continuous 1.0 at both edges (byte-
+    // identical arrival across casts preserved). Pacing plan.
+    const ap = Math.min(1, (t - beats.apexStart) / Math.max(1e-6, beats.releaseAt - beats.apexStart));
+    return 1 + 0.08 * Math.sin(Math.PI * ap);
+  }
   if (t <= beats.callEnd) return 0.06 * (t / beats.callEnd);   // CALL: barely a spark
   const g = (t - beats.callEnd) / (beats.apexStart - beats.callEnd);   // 0..1 across GATHER
   let k = 0.06 + 0.78 * g;                                     // the base climb
