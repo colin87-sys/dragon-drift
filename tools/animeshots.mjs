@@ -26,8 +26,12 @@ const DSF = parseFloat(process.env.ANIME_DSF || '1');
 // Each scenario boots fresh with a pinned save (runs:0 → the authored first-
 // flight seed, so both modes fly the same course) and tier 0 pinned (SwiftShader
 // frame times would otherwise degrade the adaptive tier mid-capture).
+// Veteran save (runs:9): a runs-0 save triggers the authored first flight AND
+// the gesture-tutorial overlay, which paints a grey DOM panel over slow
+// headless runs (the round-8 "grey rectangle" artifact). The course seed is
+// pinned via ?seed+?challenge below instead of the first-flight pin.
 const SAVE = `localStorage.setItem('dragonDriftSave', JSON.stringify({
-  v: 2, embers: 50,
+  v: 2, embers: 50, stats: { runs: 9 },
   skins: { owned: ['azure'], equipped: 'azure' },
   ascension: { tiers: [['azure', 2]], radiance: [] },
   cosmetics: { marksOwned: [], markEquipped: '', formPref: [] },
@@ -41,9 +45,12 @@ const SAVE = `localStorage.setItem('dragonDriftSave', JSON.stringify({
 // death grade veil + recap backdrop instead of the style (the round-8 "the
 // prototype went dark" false alarm). Run shots trigger at a pinned course
 // DISTANCE with the dragon alive; the hub shot waits out the menu mood-dim.
+// ?seed+?challenge pins the SAME course for both modes (the challenge-seed
+// seam in seedForRun); dist targets sized for headless SwiftShader pace
+// (~1 m/s of wall clock — 120s timeout).
 const SCENARIOS = [
-  { name: 'run', query: '?debug', start: true, dist: 140 },
-  { name: 'run-far', query: '?debug', start: true, dist: 330 },
+  { name: 'run', query: '?debug&seed=777&challenge=100', start: true, dist: 55 },
+  { name: 'run-far', query: '?debug&seed=777&challenge=100', start: true, dist: 105 },
   { name: 'hub', query: '?debug', start: false, wait: 6000 },
 ];
 const only = process.env.ANIME_ONLY;    // run only one named scenario
