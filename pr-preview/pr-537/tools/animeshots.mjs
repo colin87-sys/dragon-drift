@@ -51,7 +51,7 @@ const SAVE = `localStorage.setItem('dragonDriftSave', JSON.stringify({
 const SCENARIOS = [
   { name: 'run', query: '?debug&seed=777&challenge=100', start: true, dist: 55 },
   { name: 'run-far', query: '?debug&seed=777&challenge=100', start: true, dist: 105 },
-  { name: 'hub', query: '?debug', start: false, wait: 6000 },
+  { name: 'hub', query: '?debug', start: false, wait: 9000 },   // long: the boot shader-compile storm stalls the env fade-in headless
 ];
 const only = process.env.ANIME_ONLY;    // run only one named scenario
 
