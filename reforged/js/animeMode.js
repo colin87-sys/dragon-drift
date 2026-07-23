@@ -55,23 +55,37 @@ const CEL = {
   edge1: _qget('aedge1', 0.08),   // shadow→mid terminator (dotNL)
   edge2: _qget('aedge2', 0.62),   // mid→lit terminator (high — only sun-facing planes get FULL light, or the frame washes)
   soft:  _qget('asoft', 0.045),   // terminator half-width (0 = razor)
-  shadow: _qget('ashadow', 0.26), // shadow band level
+  // Fable Δ3: shadow band lifted 0.26→0.36 + a more chromatic, less dark cool
+  // tint — the hero's shadow side must read "cool blue of the same dragon",
+  // never a grey cutout hostage to incidence angle.
+  shadow: _qget('ashadow', 0.36), // shadow band level
   mid:   _qget('amid', 0.50),     // mid band level
   lit:   _qget('alit', 0.85),     // lit band level — NOT 1.0: a flat-1.0 lit band overshoots what smooth dotNL averaged and washes sun-facing planes (round-3 pale wings)
-  spec:  _qget('aspec', 0.30),    // direct-specular damp — cel gloss is a dot, not a fresnel sheen (round-2 white-wing wash)
+  spec:  _qget('aspec', 0.30),    // direct-specular damp floor — cel gloss is a dot, not a fresnel sheen (round-2 white-wing wash); luma-gated below so hot sun-paths keep full strength (Fable Δ1)
+  // Fable Δ3: a hard quantized rim band — anime leans on rim light harder than
+  // any style; without it the flattened lit band turns the hero into a cutout.
+  rim:   _qget('arim', 0.35),     // rim strength (0 = off)
+  rimEdge: 0.72,                  // 1-dot(N,V) threshold for the rim band
   // Painterly-background blend: cel bands on the SUBJECT zone, smooth shading
   // returning with distance (the anime-film split: cel character, painted BG).
   // Also kills the round-3 muddy horizon (far walls stuck in the shadow band).
   farStart: 120.0, farEnd: 380.0,
   // cool shadow tint (r,g,b multipliers at full shadow; 1,1,1 = neutral)
-  tintR: 0.80, tintG: 0.88, tintB: 1.14,
+  tintR: 0.85, tintG: 0.90, tintB: 1.22,
 };
 const INK = {
-  strength: _qget('aink', 0.78),      // max line opacity
-  width: _qget('awidth', 1.0),        // sample offset in texels (line weight)
-  // Crease thresholds: high, so only REAL creases (~≥45°) ink — the round-1
-  // values hatched every feather facet into a pencil sketch.
-  normalT0: 0.50, normalT1: 0.85,     // 1-dot(n1,n2) crease thresholds
+  strength: _qget('aink', 0.78),      // max line opacity (silhouettes)
+  width: _qget('awidth', 1.0),        // base sample offset in texels
+  // Fable Δ2 — line-weight HIERARCHY (uniform weight+density read as hatching,
+  // not drawing): silhouettes are FAT and dark, interior creases thin and
+  // faint, and contours thicken as the subject nears the camera.
+  silWidth: 1.6,                      // silhouette (depth-edge) weight, ×width
+  creaseWidth: 0.8,                   // interior crease (normal-edge) weight
+  creaseOpacity: 0.45,               // interior lines never outrank the contour
+  nearK: 40.0, nearMax: 1.8,          // width *= clamp(nearK/depth, 1, nearMax)
+  // Crease thresholds: high, so only REAL creases (~≥52°) ink — lower values
+  // hatched every feather facet into a pencil sketch (rounds 1 + 7).
+  normalT0: 0.62, normalT1: 0.90,     // 1-dot(n1,n2) crease thresholds
   depthT0: 0.010, depthT1: 0.028,     // relative depth-step thresholds
   // Line-art belongs to the SUBJECT zone only: at the old 420-unit fade the
   // perspective-compressed far ruins accumulated thousands of half-faded lines
@@ -80,11 +94,11 @@ const INK = {
   r: 0.10, g: 0.07, b: 0.14,          // ink color — deep warm plum, not black
 };
 const SKY = {
-  bands: _qget('abands', 10.0),       // sky luma quantization levels
+  bands: _qget('abands', 7.0),        // sky luma quantization levels (Fable Δ1: fewer, bolder bands)
   mix: _qget('askymix', 0.42),        // 0 = untouched sky, 1 = full bands
 };
 const GRADE = {
-  sat: _qget('asat', 1.10),           // extra saturation inside the anime pass
+  sat: _qget('asat', 1.18),           // extra saturation inside the anime pass (Fable Δ3)
   lift: _qget('alift', 0.035),        // shadow-floor lift (cel blacks are dyed, not void)
 };
 
@@ -121,15 +135,24 @@ export function installAnimeLighting() {
     // fades out by the lit band (per-channel, luminance-preserving-ish).
     `\tvec3 animeTint = mix( vec3( ${f(CEL.tintR)}, ${f(CEL.tintG)}, ${f(CEL.tintB)} ), vec3( 1.0 ), max( animeB2, animeFar ) );\n` +
     '\tvec3 irradiance = animeCel * animeTint * directLight.color;\n' +
+    // Fable Δ3 — banded rim (subject zone only, faded by animeFar): one hard
+    // step on view-grazing, in the light's color but clamped so the intensity-12
+    // hero point light can't blow it out. Adds where the light actually reaches
+    // (×animeB1) so the rim reads as light, not paint.
+    `\tfloat animeRim = step( ${f(CEL.rimEdge)}, 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ) ) * ${f(CEL.rim)} * ( 1.0 - animeFar );\n` +
+    '\treflectedLight.directDiffuse += animeRim * animeB1 * min( directLight.color, vec3( 1.0 ) ) * material.diffuseColor;\n' +
     '\t#ifdef USE_CLEARCOAT';
   let patched = chunk.replace(sig, celGlsl);
-  // Damp direct specular: with the banded irradiance no longer tapering by
-  // dotNL, full-strength GGX + fresnel sheens grazing surfaces (wings) to
-  // white. Cel gloss is a restrained accent.
+  // Fable Δ1 — luma-GATED specular damp: with banded irradiance no longer
+  // tapering by dotNL, full-strength GGX fresnel sheens grazing wings to white
+  // (round-2) — but a flat damp also killed the water's golden sun-path (the
+  // game's signature light). Damp only dim/mid speculars; hot cores keep full
+  // strength: cel gloss is a restrained sheen plus a genuine sparkle.
   const specSig = '\treflectedLight.directSpecular += irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );';
   if (patched.includes(specSig)) {
     patched = patched.replace(specSig,
-      `\treflectedLight.directSpecular += ${f(CEL.spec)} * irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );`);
+      '\tvec3 animeSpec = irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );\n' +
+      `\treflectedLight.directSpecular += animeSpec * mix( ${f(CEL.spec)}, 1.0, smoothstep( 0.45, 1.1, dot( animeSpec, vec3( 0.299, 0.587, 0.114 ) ) ) );`);
   }
   THREE.ShaderChunk.lights_physical_pars_fragment = patched;
   _lightingInstalled = true;
@@ -170,31 +193,34 @@ const AnimeShader = {
     }
     void main() {
       vec3 col = texture2D(tDiffuse, vUv).rgb;
-      vec2 o = uTexel * uWidth;
       float dRawC = texture2D(tDepth, vUv).x;
       float isSky = step(0.99995, dRawC);
+      float dC = linDepth(dRawC);
 
-      // ── INK LINES (world pixels only) ──
+      // ── INK LINES (world pixels only) — two-weight hierarchy (Fable Δ2) ──
+      // SILHOUETTES: fat contour, thickening as the subject nears the camera.
+      float nearW = clamp(${INK.nearK.toFixed(1)} / max(dC, 1.0), 1.0, ${INK.nearMax.toFixed(2)});
+      vec2 oS = uTexel * uWidth * ${INK.silWidth.toFixed(2)} * nearW;
       // Depth silhouettes: Roberts-cross on linearized depth, thresholded
       // RELATIVE to eye depth so far geometry needs a proportionally bigger
       // step (kills perspective-slope false lines).
-      float dC = linDepth(dRawC);
-      float dL = linDepth(texture2D(tDepth, vUv - vec2(o.x, 0.0)).x);
-      float dR = linDepth(texture2D(tDepth, vUv + vec2(o.x, 0.0)).x);
-      float dU = linDepth(texture2D(tDepth, vUv + vec2(0.0, o.y)).x);
-      float dD = linDepth(texture2D(tDepth, vUv - vec2(0.0, o.y)).x);
+      float dL = linDepth(texture2D(tDepth, vUv - vec2(oS.x, 0.0)).x);
+      float dR = linDepth(texture2D(tDepth, vUv + vec2(oS.x, 0.0)).x);
+      float dU = linDepth(texture2D(tDepth, vUv + vec2(0.0, oS.y)).x);
+      float dD = linDepth(texture2D(tDepth, vUv - vec2(0.0, oS.y)).x);
       float dStep = (abs(dL - dR) + abs(dU - dD)) / max(dC, 1.0);
       float edgeD = smoothstep(${INK.depthT0.toFixed(4)}, ${INK.depthT1.toFixed(4)}, dStep);
-      // Normal creases: max angular break against 4 neighbors.
+      // INTERIOR CREASES: thin, faint — they must never outrank the contour.
+      vec2 oC = uTexel * ${INK.creaseWidth.toFixed(2)};
       vec3 nC = texture2D(tNormal, vUv).xyz * 2.0 - 1.0;
-      vec3 nL = texture2D(tNormal, vUv - vec2(o.x, 0.0)).xyz * 2.0 - 1.0;
-      vec3 nR = texture2D(tNormal, vUv + vec2(o.x, 0.0)).xyz * 2.0 - 1.0;
-      vec3 nU = texture2D(tNormal, vUv + vec2(0.0, o.y)).xyz * 2.0 - 1.0;
-      vec3 nD = texture2D(tNormal, vUv - vec2(0.0, o.y)).xyz * 2.0 - 1.0;
+      vec3 nL = texture2D(tNormal, vUv - vec2(oC.x, 0.0)).xyz * 2.0 - 1.0;
+      vec3 nR = texture2D(tNormal, vUv + vec2(oC.x, 0.0)).xyz * 2.0 - 1.0;
+      vec3 nU = texture2D(tNormal, vUv + vec2(0.0, oC.y)).xyz * 2.0 - 1.0;
+      vec3 nD = texture2D(tNormal, vUv - vec2(0.0, oC.y)).xyz * 2.0 - 1.0;
       float nBreak = max(max(1.0 - dot(nC, nL), 1.0 - dot(nC, nR)),
                          max(1.0 - dot(nC, nU), 1.0 - dot(nC, nD)));
       float edgeN = smoothstep(${INK.normalT0.toFixed(4)}, ${INK.normalT1.toFixed(4)}, nBreak);
-      float edge = max(edgeD, edgeN * 0.6);
+      float edge = max(edgeD, edgeN * ${INK.creaseOpacity.toFixed(2)});
       // Distance fade: near lines full ink, far field painterly (no noise soup).
       edge *= 1.0 - smoothstep(${INK.fadeNear.toFixed(1)}, ${INK.fadeFar.toFixed(1)}, dC);
       edge *= (1.0 - isSky);
@@ -210,9 +236,10 @@ const AnimeShader = {
       float qSoft = mix(floor(lum * uSkyBands) / uSkyBands,
                         (floor(lum * uSkyBands) + 1.0) / uSkyBands, bandT);
       vec3 skyCol = col * (qSoft / max(lum, 1e-4));
-      // Protect the bright peak — the sun's halo must keep its smooth golden
-      // swell (round 1 quantized it away and the hour lost its light source).
-      float peakProtect = 1.0 - smoothstep(0.70, 0.86, lum);
+      // Protect the bright peak — the sun's halo and the horizon GLOW must keep
+      // their smooth golden swell (Fable Δ1: the old 0.70 gate let the quantizer
+      // round the glow down into a muddy grey-brown horizon strip).
+      float peakProtect = 1.0 - smoothstep(0.60, 0.80, lum);
       col = mix(col, skyCol, isSky * uSkyMix * peakProtect);
 
       // ── CEL GRADE BIAS ──

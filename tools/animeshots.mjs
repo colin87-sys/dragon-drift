@@ -35,12 +35,17 @@ const SAVE = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   settings: { reticle: false, qualityOverride: 0 },
 }))`;
 
+// Deterministic states, not timed waits: SwiftShader's low headless framerate
+// makes wall-clock waits land on different course positions per boot — and a
+// blind-flown dragon eventually CRASHES, so a late timed shot captures the
+// death grade veil + recap backdrop instead of the style (the round-8 "the
+// prototype went dark" false alarm). Run shots trigger at a pinned course
+// DISTANCE with the dragon alive; the hub shot waits out the menu mood-dim.
 const SCENARIOS = [
-  { name: 'run', query: '?debug', start: true, wait: 3800 },
-  { name: 'run-far', query: '?debug', start: true, wait: 9000 },
-  { name: 'hub', query: '?debug', start: false, wait: 1800 },
+  { name: 'run', query: '?debug', start: true, dist: 140 },
+  { name: 'run-far', query: '?debug', start: true, dist: 330 },
+  { name: 'hub', query: '?debug', start: false, wait: 6000 },
 ];
-const extra = process.env.ANIME_SCEN;   // e.g. ANIME_SCEN=run:1:4000&biome=3
 const only = process.env.ANIME_ONLY;    // run only one named scenario
 
 const pairs = [];
@@ -52,14 +57,22 @@ for (const sc of SCENARIOS) {
     const { page, errors, done } = await boot({
       query: q, viewport: VIEW, deviceScaleFactor: DSF, initScript: SAVE,
     });
+    let state = '';
     if (sc.start) {
       await page.click('#btn-start').catch(() => {});
+      const alive = await page.waitForFunction(
+        (d) => window.__dd && window.__dd.game.state === 'playing' && window.__dd.player.dist > d,
+        sc.dist, { timeout: 120000 },
+      ).then(() => true).catch(() => false);
+      state = await page.evaluate(() => `dist ${Math.round(window.__dd.player.dist)} state ${window.__dd.game.state}`);
+      if (!alive) state += '  ⚠ TARGET NOT REACHED (crashed or stalled) — frame not comparable';
+    } else {
+      await page.waitForTimeout(sc.wait);
     }
-    await page.waitForTimeout(sc.wait);
     const out = `${OUT}/anime-${sc.name}-${mode}.png`;
     await page.screenshot({ path: out });
     files[mode] = out;
-    console.log(`wrote ${out}${errors.length ? '  ERRORS: ' + errors.join(' | ') : ''}`);
+    console.log(`wrote ${out}  ${state}${errors.length ? '  ERRORS: ' + errors.join(' | ') : ''}`);
     await done();
   }
   pairs.push({ name: sc.name, ...files });
