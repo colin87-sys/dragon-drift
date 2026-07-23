@@ -103,15 +103,22 @@ export function installAnimeLighting() {
     // geometryPosition is view-space → its length is eye distance; blend the
     // cel band back to smooth Lambert with distance (painterly background).
     `\tfloat animeFar = smoothstep( ${f(CEL.farStart)}, ${f(CEL.farEnd)}, length( geometryPosition ) );\n` +
-    '\tanimeCel = mix( animeCel, dotNL, animeFar );\n' +
+    // HOT-LIGHT GUARD: the cel floor must not apply to high-HDR lights. The
+    // dragon's own intensity-12 point light bathes the whole hero at the
+    // shadow-floor minimum (shipped dotNL tapers it to zero on back-faces),
+    // stacking ×3-4 over shipped brightness → bloom blows the dragon into a
+    // white orb. Sun-scale lights (≤~2) stay fully banded; hot close-range
+    // lights fall back to smooth dotNL, exactly like shipped.
+    '\tfloat animeHot = smoothstep( 2.2, 5.0, max( directLight.color.r, max( directLight.color.g, directLight.color.b ) ) );\n' +
+    '\tfloat animeSmooth = max( animeFar, animeHot );\n' +
+    '\tanimeCel = mix( animeCel, dotNL, animeSmooth );\n' +
     // Warm-light/cool-shadow: the shadow band multiplies a saturated cool tint
     // that fades out by the lit band.
-    `\tvec3 animeTint = mix( vec3( ${f(CEL.tintR)}, ${f(CEL.tintG)}, ${f(CEL.tintB)} ), vec3( 1.0 ), max( animeB2, animeFar ) );\n` +
+    `\tvec3 animeTint = mix( vec3( ${f(CEL.tintR)}, ${f(CEL.tintG)}, ${f(CEL.tintB)} ), vec3( 1.0 ), max( animeB2, animeSmooth ) );\n` +
     '\tvec3 irradiance = animeCel * animeTint * directLight.color;\n' +
-    // Banded rim (subject zone only): one hard step on view-grazing, clamped so
-    // the intensity-12 hero point light can't blow it out; ×animeB1 so the rim
-    // reads as light reaching the edge, not paint.
-    `\tfloat animeRim = step( ${f(CEL.rimEdge)}, 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ) ) * ${f(CEL.rim)} * ( 1.0 - animeFar );\n` +
+    // Banded rim (subject zone, sun-scale lights only — the hot-light guard
+    // keeps the hero point light from painting rim over the whole body).
+    `\tfloat animeRim = step( ${f(CEL.rimEdge)}, 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ) ) * ${f(CEL.rim)} * ( 1.0 - animeSmooth );\n` +
     '\treflectedLight.directDiffuse += animeRim * animeB1 * min( directLight.color, vec3( 1.0 ) ) * material.diffuseColor;\n' +
     '\t#ifdef USE_CLEARCOAT';
   let patched = chunk.replace(sig, celGlsl);
