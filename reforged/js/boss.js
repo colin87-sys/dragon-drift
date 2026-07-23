@@ -1486,7 +1486,7 @@ export function initBoss(sc) {
   const gmGeo = new THREE.BufferGeometry();
   gmGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SURGE_GM_N * 3), 3));
   gmGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(SURGE_GM_N * 3), 3));
-  const gatherMotes = new THREE.Points(gmGeo, new THREE.PointsMaterial({ size: 0.5, map: beamGlowSpriteTex(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, sizeAttenuation: true }));
+  const gatherMotes = new THREE.Points(gmGeo, new THREE.PointsMaterial({ size: 0.85, map: beamGlowSpriteTex(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, sizeAttenuation: true }));
   gatherMotes.frustumCulled = false; gatherMotes.visible = false; gatherMotes.renderOrder = TIERS.surgeFx; gatherMotes.layers.set(1);
   surgeBeam.add(shaft, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines, impactScorch, impactBloom, impactCore, gatherMotes);
   surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleSocket, muzzlePetals, muzzleCore, surgeSparks, convLines, impactScorch, impactBloom, impactCore, gatherMotes };
@@ -1528,7 +1528,7 @@ function petalTex() { return _petalTex || (_petalTex = makeMandalaTex('petal'));
 function socketTex() { return _socketTex || (_socketTex = makeMandalaTex('socket')); }
 const SURGE_SPARK_N = 44;   // 28 impact sparks + up to 16 shield shards, one Points draw
 const SURGE_CONV_N = 20;    // GATHER convergence streaks (LineSegments, 1 DC, gather-only)
-const SURGE_GM_N = 40;      // GATHER accumulation motes (converge to the mouth + feed the orb) — Points, 1 DC, gather-only
+const SURGE_GM_N = 52;      // GATHER accumulation motes (converge to the mouth + feed the orb) — Points, 1 DC, gather-only
 const _sparkVel = new Float32Array(SURGE_SPARK_N * 3);
 const _sparkLife = new Float32Array(SURGE_SPARK_N);
 const _sparkLife0 = new Float32Array(SURGE_SPARK_N);
@@ -1788,7 +1788,7 @@ function updateSurgeBeam(dt, player, time) {
         const near = Math.max(0, 1 - d / 1.0);
         const c = (i % 4 === 0) ? _beamPal.core : _beamPal.halo;
         col[i * 3] = c.r + (1 - c.r) * near; col[i * 3 + 1] = c.g + (1 - c.g) * near; col[i * 3 + 2] = c.b + (1 - c.b) * near;
-        if (d < 0.5) { _gmLife[i] = 0; pos[i * 3 + 1] = -9999; _orbBump = Math.min(0.7, _orbBump + 0.045); continue; }   // ARRIVE → feed the orb
+        if (d < 0.5) { _gmLife[i] = 0; pos[i * 3 + 1] = -9999; _orbBump = Math.min(1.0, _orbBump + 0.06); continue; }   // ARRIVE → feed the orb
       } else {
         const k = 0.97; col[i * 3] *= k; col[i * 3 + 1] *= k; col[i * 3 + 2] *= k;   // APEX freeze + fade
       }
@@ -1885,7 +1885,7 @@ function updateSurgeBeam(dt, player, time) {
     // THE ORB (research §3): the core is now a MASS, not a glow — it grows with the charge AND
     // with each mote arrival (_orbBump), so it reads as ~3× its mid-gather diameter at the APEX
     // lock (Hadouken/Kamehameha: the gathered energy becomes a body before it fires).
-    muzzleCore.scale.setScalar((0.25 + gatherK * 1.9 + _orbBump) * (inApex ? 1.5 : 1));
+    muzzleCore.scale.setScalar((0.25 + gatherK * 2.2 + _orbBump) * (inApex ? 1.65 : 1));
     muzzleSocket.material.opacity = 0.35 + gatherK * 0.35;
     muzzlePetals.material.opacity = 0.30 + gatherK * 0.55;
     muzzleCore.material.opacity = 0.25 + gatherK * 0.75;
@@ -1960,9 +1960,13 @@ function updateSurgeBeam(dt, player, time) {
   // ORB CONSUME (research §3-D): over the first ~60ms the overcharged orb COLLAPSES from its APEX
   // size into the beam-core's blaze width — the beam is born OUT OF the gathered mass (the
   // Kamehameha read), not beside it. After the collapse it holds the steady muzzle blaze.
-  const consume = Math.min(1, bt / 0.06);
-  muzzleSocket.scale.setScalar(4.0 * mz); muzzlePetals.scale.setScalar(2.9 * mz);
-  muzzleCore.scale.setScalar((_orbApexScale * (1 - consume) + 1.7 * mz * consume));
+  // A POP then a COLLAPSE: the orb over-expands ~1.4× in the first ~25ms (the eruption crack the
+  // held-breath resolves into), then collapses into the beam-core width by ~90ms.
+  const pop = bt < 0.025 ? 1 + 0.4 * (bt / 0.025) : Math.max(0, 1.4 - 1.4 * ((bt - 0.025) / 0.065));
+  const consume = Math.min(1, Math.max(0, (bt - 0.025) / 0.065));
+  muzzleSocket.scale.setScalar((4.0 + 1.5 * Math.max(0, 1 - bt / 0.05)) * mz);   // socket flares with the burst
+  muzzlePetals.scale.setScalar((2.9 + 1.2 * Math.max(0, 1 - bt / 0.05)) * mz);
+  muzzleCore.scale.setScalar(_orbApexScale * pop + 1.7 * mz * consume);
   muzzleSocket.material.opacity = 0.55 * col[0];
   muzzlePetals.material.opacity = 0.80 * col[1];
   muzzleCore.material.opacity = Math.max(0.95 * col[2], 0.05);
@@ -2036,7 +2040,7 @@ function emitGatherMotes(mouth, gatherK) {
   if (!_gmGathering || !_gmRng) return;
   _gmTarget.copy(mouth);
   let live = 0; for (let i = 0; i < SURGE_GM_N; i++) if (_gmLife[i] > 0) live++;
-  const target = Math.round(6 + 30 * Math.min(1, gatherK));   // accelerating accumulation (few → many)
+  const target = Math.round(10 + 40 * Math.min(1, gatherK));   // accelerating accumulation (few → many)
   for (let i = 0; i < SURGE_GM_N && live < target; i++) if (_gmLife[i] <= 0) { spawnGatherMote(i); live++; }
 }
 function haltGatherMotes() { _gmGathering = false; }   // APEX: stop the inrush, hold overcharged (the held breath)
