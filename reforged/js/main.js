@@ -29,6 +29,7 @@ import { uiSound } from './uiSound.js';
 import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayTint, setGodRayBreak, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver, setGodRayMaskDuty, setGodRayDietDim, surgeExposureDip, surgeGradeMix, surgeGradeEnvAt, surgeLost as surgeLostPostfx } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
+import { installAnimeLighting, initAnime } from './animeMode.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn, setWaterPerfSaver, setWaterMirrorDiet } from './water.js';
@@ -99,6 +100,9 @@ import { BUILD, BUILT } from './buildId.js';
 // N3: install the Neutral tonemapper into the CustomToneMapping slot BEFORE any
 // material compiles. No-op on the frame unless ?tm=neutral selects it below.
 installNeutralToneMap();
+// ANIME prototype (?anime=1): banded cel lighting is a chunk override, so it too
+// must land before the first material compile. No-op without the flag.
+installAnimeLighting();
 // N2 (renderer contract): request the discrete/high-perf GPU where the platform
 // exposes a choice — a free win for the 60fps-on-weak-mobile goal.
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -227,6 +231,7 @@ createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
 if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
 if (!urlParams.has('norays')) setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0 + 1); ?norays — perf A/B: kills the per-frame shaft march + the mask scene pass
+initAnime(renderer, scene, camera, getSkyMesh()); // ANIME prototype (?anime=1): ink pre-pass + anime composer pass; no-op without the flag
 createWater(scene, 0); // N11: boot at tier0 (768² full-rate mirror); applyQuality retiers
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);

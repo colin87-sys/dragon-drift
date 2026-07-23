@@ -617,8 +617,15 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   u.vignette.value = vig;
 }
 
+// ANIME prototype seam (?anime=1): animeMode.js registers its normal+depth
+// pre-pass here (registration avoids a postfx↔animeMode import cycle). Null in
+// the shipped game — renderPostFX is byte-identical without the flag.
+let _animePrePass = null;
+export function setAnimePrePass(fn) { _animePrePass = fn; }
+
 export function renderPostFX() {
   if (postfx.enabled) {
+    if (_animePrePass) _animePrePass();
     // Build the sky/occluder mask just before compositing (cheap, tier-0, only
     // while the pass is live). SUPPRESSED while EMBERTIDE IS the sky — it replaces the
     // dome with a bright field and has no discrete sun, so god-ray shafts read as a
