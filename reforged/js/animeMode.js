@@ -144,9 +144,13 @@ function hullMaterial(width) {
     side: THREE.BackSide,
   });
   mat.onBeforeCompile = (shader) => {
+    // NOTE: the raw `normal` ATTRIBUTE, not objectNormal — MeshBasicMaterial's
+    // vertex shader has no beginnormal_vertex chunk, so objectNormal doesn't
+    // exist there (v2 round-1 compile error). Offsetting the bind-pose normal
+    // before the skinning chunk is the standard inverted-hull approximation.
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
-      `#include <begin_vertex>\n\ttransformed += objectNormal * ${width.toFixed(4)};`);
+      `#include <begin_vertex>\n\ttransformed += normal * ${width.toFixed(4)};`);
   };
   mat.customProgramCacheKey = () => 'animeHull' + key;
   _hullMats.set(key, mat);
