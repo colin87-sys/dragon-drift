@@ -51,7 +51,7 @@ const CEL = {
   soft:  _qget('asoft', 0.06),    // terminator half-width
   // BRIGHT bands (v2): the shadow step is a hue statement, not a darkness —
   // v1's 0.2-0.26 shadow floor muted the whole frame below the shipped look.
-  shadow: _qget('ashadow', 0.45),
+  shadow: _qget('ashadow', 0.38),
   mid:   _qget('amid', 0.68),
   lit:   _qget('alit', 0.95),
   spec:  _qget('aspec', 0.30),    // spec damp floor; luma-gated below so hot sun-paths keep full strength
@@ -61,7 +61,7 @@ const CEL = {
   farStart: 120.0, farEnd: 380.0,
   // Chromatic cool shadow tint (multipliers at full shadow) — saturated blue,
   // not grey: cel shadows carry color.
-  tintR: 0.78, tintG: 0.86, tintB: 1.30,
+  tintR: 0.78, tintG: 0.86, tintB: 1.20,
 };
 const HULL = {
   width: _qget('ahull', 0.055),   // outline shell thickness, world units (0 = off)
@@ -103,14 +103,13 @@ export function installAnimeLighting() {
     // geometryPosition is view-space → its length is eye distance; blend the
     // cel band back to smooth Lambert with distance (painterly background).
     `\tfloat animeFar = smoothstep( ${f(CEL.farStart)}, ${f(CEL.farEnd)}, length( geometryPosition ) );\n` +
-    // HOT-LIGHT GUARD: the cel floor must not apply to high-HDR lights. The
-    // dragon's own intensity-12 point light bathes the whole hero at the
-    // shadow-floor minimum (shipped dotNL tapers it to zero on back-faces),
-    // stacking ×3-4 over shipped brightness → bloom blows the dragon into a
-    // white orb. Sun-scale lights (≤~2) stay fully banded; hot close-range
-    // lights fall back to smooth dotNL, exactly like shipped.
-    '\tfloat animeHot = smoothstep( 2.2, 5.0, max( directLight.color.r, max( directLight.color.g, directLight.color.b ) ) );\n' +
-    '\tfloat animeSmooth = max( animeFar, animeHot );\n' +
+    // POINT-LIGHT EXEMPTION: the cel band applies to the SUN only. Banding a
+    // point light floor-lights every surface in range (shipped dotNL tapers
+    // back-faces to zero) — the dragon's own intensity-12 hero light then
+    // stacks ×3-4 over shipped and bloom blows the hero into a white orb (a
+    // magnitude-based guard still leaked in its partial zone; the exemption is
+    // by light TYPE, tagged at the call sites in lights_fragment_begin).
+    '\tfloat animeSmooth = max( animeFar, animeIsPoint );\n' +
     '\tanimeCel = mix( animeCel, dotNL, animeSmooth );\n' +
     // Warm-light/cool-shadow: the shadow band multiplies a saturated cool tint
     // that fades out by the lit band.
@@ -132,7 +131,24 @@ export function installAnimeLighting() {
       '\tvec3 animeSpec = irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );\n' +
       `\treflectedLight.directSpecular += animeSpec * mix( ${f(CEL.spec)}, 1.0, smoothstep( 0.45, 1.1, dot( animeSpec, vec3( 0.299, 0.587, 0.114 ) ) ) );`);
   }
-  THREE.ShaderChunk.lights_physical_pars_fragment = patched;
+  // The cross-chunk flag RE_Direct reads (global, default 0 = banded).
+  THREE.ShaderChunk.lights_physical_pars_fragment = 'float animeIsPoint = 0.0;\n' + patched;
+
+  // Tag light TYPE at each RE_Direct call site: point + spot lights (the hero
+  // light, mire spill) shade smooth like shipped; only sun-class directionals
+  // (and rect areas, which don't route through RE_Direct_Physical's dotNL) band.
+  let lfb = THREE.ShaderChunk.lights_fragment_begin;
+  const tags = [
+    ['getPointLightInfo( pointLight, geometryPosition, directLight );', 'animeIsPoint = 1.0;'],
+    ['getSpotLightInfo( spotLight, geometryPosition, directLight );', 'animeIsPoint = 1.0;'],
+    ['getDirectionalLightInfo( directionalLight, directLight );', 'animeIsPoint = 0.0;'],
+  ];
+  let tagged = 0;
+  for (const [site, tag] of tags) {
+    if (lfb.includes(site)) { lfb = lfb.replace(site, site + '\n\t\t' + tag); tagged++; }
+  }
+  if (tagged < 3) console.warn('[anime] light-type tagging incomplete (' + tagged + '/3) — vendored chunk drift.');
+  THREE.ShaderChunk.lights_fragment_begin = lfb;
   _lightingInstalled = true;
 }
 
@@ -248,5 +264,12 @@ export function initAnime() {
   const pass = new ShaderPass(AnimeShader);
   const gradeIdx = postfx.composer.passes.indexOf(postfx.gradingPass);
   postfx.composer.insertPass(pass, gradeIdx < 0 ? postfx.composer.passes.length : gradeIdx);
+  // BLOOM RESTRAINT: the cel shadow-lift raises large surfaces in linear HDR
+  // just past the 1.0 bloom threshold, and UnrealBloom integrates the whole
+  // area into a white orb swallowing the hero. Anime bloom belongs to true
+  // emissives only — raising the base threshold keeps the cel fills crisp.
+  // (_baseBloomThreshold is read every frame by updatePostFX and survives tier
+  // flips; setPostTier never resets it.)
+  postfx._baseBloomThreshold = _qget('abloomth', 1.22);
   _installed = true;
 }
