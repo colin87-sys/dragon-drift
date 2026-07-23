@@ -43,6 +43,22 @@ deleted — the next extra-scene-pass consumer will hit them):
 - **A cel ramp deletes what smooth shading was carrying.** The specular sun-path and the
   rim light both died silently; each needed an explicit replacement (luma-gated spec,
   banded rim) — restyle the light, don't subtract it.
+- **THE BIG ONE — banded irradiance breaks the dotNL·GGX cancellation.** GGX specular
+  is only finite because `irradiance = dotNL·color` cancels `V_GGX`'s `1/dotNL` blowup
+  at grazing. A banded floor (0.38·color) removes that zero and grazing facets emit
+  radiance in the HUNDREDS — invisible after tonemap (tiny near-white dots) but
+  UnrealBloom integrates them into a soft white ORB swallowing the hero at ANY bloom
+  threshold (v1's "pale washed dragon" was the same leak at lower gain). Chasing it
+  falsely convicted, in order: the hero point light, the hull, the rim, the surge
+  showcase, god-rays, and bloom's threshold plumbing — the decisive probe was a
+  THRESHOLD SWEEP (orb at threshold 6, gone at 100000 ⇒ finite-but-huge pixels, i.e. a
+  shader energy leak, not FX). LAW: **cel-band DIFFUSE only; specular must keep the
+  true dotNL irradiance.** And when a glow defies the bloom threshold, sweep the
+  threshold to classify the source before touching anything else.
+- **Point/spot lights must be exempt from cel banding** (tag by TYPE at the
+  `lights_fragment_begin` call sites, not by magnitude — magnitude guards leak in their
+  partial zone): a banded floor turns a close-range intensity-12 hero light into a
+  whole-body wash that shipped's dotNL taper never produces.
 - **Headless timed waits are not states.** SwiftShader's low fps means wall-clock waits
   land on different course positions — and a blind-flown dragon eventually crashes, so a
   late timed screenshot captures the DEATH GRADE veil + recap backdrop, which reads
