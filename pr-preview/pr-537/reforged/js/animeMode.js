@@ -121,14 +121,19 @@ export function installAnimeLighting() {
     '\treflectedLight.directDiffuse += animeRim * animeB1 * min( directLight.color, vec3( 1.0 ) ) * material.diffuseColor;\n' +
     '\t#ifdef USE_CLEARCOAT';
   let patched = chunk.replace(sig, celGlsl);
-  // Luma-GATED specular damp: with banded irradiance no longer tapering by
-  // dotNL, full-strength GGX fresnel sheens grazing wings to white — but a flat
-  // damp also killed the water's golden sun-path (the game's signature light).
-  // Damp only dim/mid speculars; hot cores keep full strength.
+  // SPECULAR KEEPS THE TRUE dotNL IRRADIANCE. GGX is only finite because
+  // irradiance = dotNL·color cancels V_GGX's 1/dotNL blowup at grazing; the
+  // banded floor (0.38·color) broke that cancellation and grazing facets
+  // emitted radiance in the HUNDREDS — invisible after tonemap but bloom
+  // integrated them into a white orb swallowing the dragon at any threshold
+  // (and v1's "pale washed hero" was the same leak at lower gain). So: cel
+  // bands are a DIFFUSE-only statement; spec uses shipped irradiance with a
+  // luma-gated damp (fresnel wing-sheen dies, hot sun-path cores keep full
+  // strength).
   const specSig = '\treflectedLight.directSpecular += irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );';
   if (patched.includes(specSig)) {
     patched = patched.replace(specSig,
-      '\tvec3 animeSpec = irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );\n' +
+      '\tvec3 animeSpec = ( dotNL * directLight.color ) * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );\n' +
       `\treflectedLight.directSpecular += animeSpec * mix( ${f(CEL.spec)}, 1.0, smoothstep( 0.45, 1.1, dot( animeSpec, vec3( 0.299, 0.587, 0.114 ) ) ) );`);
   }
   // The cross-chunk flag RE_Direct reads (global, default 0 = banded).
