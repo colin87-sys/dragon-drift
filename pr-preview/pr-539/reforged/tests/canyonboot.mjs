@@ -1,0 +1,68 @@
+// Sky Canyon integration boot: with the ?canyon= test harness forcing rock runs
+// right after takeoff, the game flies THROUGH a canyon with zero errors — proving
+// buildRockGap (real WebGL geometry), the collision branch, the camera framing,
+// and the dissolve all run without throwing. Jumps the player forward so the test
+// doesn't have to fly the full distance in real time.
+import { boot, check } from './browser.mjs';
+
+const { page, errors, done } = await boot({
+  query: '?debug&canyon=all',
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
+});
+
+await page.click('#btn-start');
+await page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 8000 });
+// Hop to the edge of the first forced canyon so the rock gates build immediately.
+// (Headless has no steering input, so the dragon may clip the rock — that's fine;
+// we're proving the geometry/collision/camera code path runs, not that an
+// input-less dragon survives.)
+await page.evaluate(() => { window.__dd.player.dist = 300; });
+await page.waitForFunction(() => window.__dd.obstacleCount() > 0, { timeout: 10000 });
+await page.waitForTimeout(1500); // run dissolve + collision + camera frames over the rocks
+
+check('rock gates built in WebGL (obstacles present)',
+  await page.evaluate(() => window.__dd.obstacleCount() > 0));
+check('zero console errors building/flying rock gates', errors.length === 0) ||
+  console.error(errors.join('\n'));
+
+await done();
+
+// FLOW run: force a flow set-piece and fly it in real WebGL — the light-gate builder
+// must run clean AND emit ZERO collider boxes (the run is walls-free by design).
+const flow = await boot({
+  query: '?debug&canyon=flow',
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
+});
+await flow.page.click('#btn-start');
+await flow.page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 8000 });
+await flow.page.evaluate(() => { window.__dd.player.dist = 300; });
+// Fly until we actually CROSS into the forced flow run (canyonRun flips to 'flow').
+await flow.page.waitForFunction(() => window.__dd.game.canyonRun === 'flow', { timeout: 15000 });
+await flow.page.waitForTimeout(800); // let a few gates build + the collision/camera run
+check('flow light-gates built in WebGL (obstacles present)',
+  await flow.page.evaluate(() => window.__dd.obstacleCount() > 0));
+check('flow run is walls-free (zero collider boxes on flow gates)',
+  await flow.page.evaluate(() => window.__dd.flowColliderBoxes() === 0));
+// MOMENTUM (PR-3): a HELD carve chain must drive the slipstream UP (the chain→speed
+// coupling that makes the carve matter). Re-inject a full chain each frame (simulate a
+// player HOLDING the line — the input-less dragon otherwise misses rings and zeroes it).
+// NB headless throttles requestAnimationFrame heavily, so only a few sim frames run and
+// the slip can't reach its 1.40 ceiling in wall-time; we assert it's clearly RAMPING above
+// the no-chain baseline of 1.0 (the coupling is active). The 1.40 target = formula + preview.
+const slip = await flow.page.evaluate(async () => {
+  const t0 = performance.now();
+  while (performance.now() - t0 < 1500) {
+    window.__dd.game.flowChain = 20; // chainCap
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  return window.__dd.player.canyonSlip;
+});
+// Assert the coupling is ACTIVE (slip clearly above the 1.0 no-chain baseline). A low bar
+// on purpose: headless rAF throttling means only a few sim frames run, so the damp can't
+// reach 1.40 — one frame alone already gives ~1.039 (τ≈0.5s), so >1.02 proves the chain→slip
+// coupling fires while staying robust to a CPU-starved CI that yields few frames.
+check('flow chain drives the slipstream (held chain ramps canyonSlip above the 1.0 baseline)',
+  slip > 1.02) || console.error(`  canyonSlip only ${slip.toFixed(3)} — the chain→slip coupling isn't firing`);
+check('zero console errors building/flying flow gates', flow.errors.length === 0) ||
+  console.error(flow.errors.join('\n'));
+await flow.done();

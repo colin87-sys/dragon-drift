@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>html,body{margin:0;background:#141824}</style>
+  <script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
+</head>
+<body>
+  <!-- Vision-tagger renders: flat-lit CLAY orthographic TOP + SIDE views of an
+       asset-backed dragon's GLB, with a labeled world-coordinate grid, so
+       Claude can mark the skeleton joints (def.glb.rig.joints) by looking at
+       the images — the tools/glbtagger.html job, without the human.
+       ?key=<dragonKey> — placement (scale/rot) comes from the def.glb block,
+       so the marks are in the exact post-bake game frame the rig uses. -->
+  <canvas id="top" width="900" height="900"></canvas>
+  <canvas id="side" width="900" height="900"></canvas>
+  <canvas id="gl" width="900" height="900" style="display:none"></canvas>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from '/lib/loaders/GLTFLoader.js';
+    import { DRAGONS } from '/js/dragons.js';
+
+    const key = new URLSearchParams(location.search).get('key') || 'verdant';
+    const def = DRAGONS[key];
+    if (!def || !def.meshUrl) throw new Error(`no asset-backed dragon '${key}'`);
+    const cfg = def.glb || {};
+
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a2030);
+    // flat, shadowless clay lighting (L35: judge geometry, not finish)
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 1.4));
+    const d1 = new THREE.DirectionalLight(0xffffff, 0.6); d1.position.set(1, 2, 1); scene.add(d1);
+
+    const clay = new THREE.MeshStandardMaterial({ color: 0xb8bcc8, roughness: 0.9, metalness: 0 });
+
+    const gltf = await new GLTFLoader().loadAsync(new URL(def.meshUrl, location.origin + '/').href);
+    const content = gltf.scene;
+    // the exact applyGlbTransform placement (dragonGlb.js) → game frame
+    content.scale.multiplyScalar(cfg.scale ?? 1);
+    if (cfg.rotY) content.rotation.y += cfg.rotY;
+    if (cfg.rotX) content.rotation.x += cfg.rotX;
+    if (cfg.rotZ) content.rotation.z += cfg.rotZ;
+    if (cfg.offset) content.position.set(cfg.offset[0] || 0, cfg.offset[1] || 0, cfg.offset[2] || 0);
+    content.traverse((o) => { if (o.isMesh) o.material = clay; });
+    scene.add(content);
+
+    content.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(content);
+    const size = bb.getSize(new THREE.Vector3());
+    const mid = bb.getCenter(new THREE.Vector3());
+    const pad = 1.12;
+
+    const rects = {};
+    function shoot(which) {
+      const half = 0.5 * pad * (which === 'top'
+        ? Math.max(size.x, size.z)
+        : Math.max(size.z, size.y));
+      const cam = new THREE.OrthographicCamera(-half, half, half, -half, 0.1, 200);
+      if (which === 'top') {
+        cam.position.set(mid.x, bb.max.y + 20, mid.z);
+        cam.up.set(0, 0, -1);                    // screen up = −z (head at top)
+        cam.lookAt(mid.x, 0, mid.z);
+        rects.top = { cx: mid.x, cz: mid.z, half };   // screen right = +x
+      } else {
+        cam.position.set(bb.max.x + 20, mid.y, mid.z);
+        cam.up.set(0, 1, 0);                     // screen up = +y
+        cam.lookAt(0, mid.y, mid.z);
+        rects.side = { cy: mid.y, cz: mid.z, half };  // screen right = −z (head at RIGHT)
+      }
+      cam.updateProjectionMatrix();
+      renderer.render(scene, cam);
+
+      const out = document.getElementById(which);
+      const ctx = out.getContext('2d');
+      ctx.drawImage(renderer.domElement, 0, 0);
+      // grid + labels: world coords every `step`, so marks can be read off
+      const stepFor = (h) => { const t = h / 4; const p = Math.pow(10, Math.floor(Math.log10(t))); return Math.round(t / p) * p || p; };
+      const step = stepFor(half);
+      ctx.strokeStyle = 'rgba(120,220,160,0.45)';
+      ctx.fillStyle = 'rgba(160,255,200,0.95)';
+      ctx.font = '16px monospace';
+      const W = out.width, H = out.height;
+      const axes = which === 'top'
+        ? { h: { c: rects.top.cx, name: 'x', dir: 1 }, v: { c: rects.top.cz, name: 'z', dir: 1 } }   // v: screen down = +z
+        : { h: { c: rects.side.cz, name: 'z', dir: -1 }, v: { c: rects.side.cy, name: 'y', dir: -1 } }; // right = −z, down = −y
+      for (let k = Math.ceil((axes.h.c - half) / step) * step; k <= axes.h.c + half; k += step) {
+        const fx = ((k - axes.h.c) * axes.h.dir / (2 * half) + 0.5) * W;
+        ctx.beginPath(); ctx.moveTo(fx, 0); ctx.lineTo(fx, H); ctx.stroke();
+        ctx.fillText(`${axes.h.name}=${+k.toFixed(2)}`, fx + 3, 18);
+      }
+      for (let k = Math.ceil((axes.v.c - half) / step) * step; k <= axes.v.c + half; k += step) {
+        const fy = ((k - axes.v.c) * axes.v.dir / (2 * half) + 0.5) * H;
+        ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(W, fy); ctx.stroke();
+        ctx.fillText(`${axes.v.name}=${+k.toFixed(2)}`, 4, fy - 4);
+      }
+    }
+    shoot('top');
+    shoot('side');
+    window.__rects = rects;
+    window.__ready = true;
+  </script>
+</body>
+</html>

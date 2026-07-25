@@ -1,0 +1,145 @@
+import * as THREE from 'three';
+import { CONFIG } from './config.js';
+import { game } from './gameState.js';
+import { saveData, persist, todayUTC } from './save.js';
+import { riderEmberBonus } from './riders.js';
+import { ascendEmberBonus } from './ascension.js';
+import { burst } from './particles.js';
+import { sfx } from './sfx.js';
+import { emit } from './events.js';
+
+// Embers: the meta currency, laid in arcing lines along the flight path
+// (Subway Surfers coin trails). One InstancedMesh, instances recycled by the
+// same windowed pattern as everything else. Collected embers bank into the
+// save at run end; a pitch-rising blip rewards consecutive pickups.
+
+const POOL = 192;
+const PICKUP_R = 1.8;
+const PICKUP_R2 = PICKUP_R * PICKUP_R;
+
+let mesh = null;
+const slots = []; // { dist, x, y, active }
+let cursor = 0;
+let streak = 0;
+let streakTimer = 0;
+
+const m4 = new THREE.Matrix4();
+const quat = new THREE.Quaternion();
+const eul = new THREE.Euler();
+const posV = new THREE.Vector3();
+const sclV = new THREE.Vector3();
+const HIDDEN = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
+
+// THE EMPYREAN uplift PR-1: the amber ember shards are a warmth violation on the pearl field — in
+// biome 5 the shared material lerps to ROSE (hue ≥315°); 0 elsewhere = exact shipped amber.
+const _EMB_GOLD = { color: new THREE.Color(0xffb030), emissive: new THREE.Color(0xff9010) };
+const _EMB_ROSE = { color: new THREE.Color(0xffaacb), emissive: new THREE.Color(0xef4a90) };
+let _embTint = 0;
+export function setEmberTint(mix) {
+  _embTint = mix || 0;
+  if (!mesh) return;
+  mesh.material.color.copy(_EMB_GOLD.color).lerp(_EMB_ROSE.color, _embTint);
+  mesh.material.emissive.copy(_EMB_GOLD.emissive).lerp(_EMB_ROSE.emissive, _embTint);
+}
+
+export function initEmbers(scene) {
+  mesh = new THREE.InstancedMesh(
+    new THREE.OctahedronGeometry(0.3, 0),
+    new THREE.MeshStandardMaterial({
+      color: 0xffb030, emissive: 0xff9010, emissiveIntensity: 1.7,
+      roughness: 0.3, metalness: 0.2,
+    }),
+    POOL
+  );
+  mesh.frustumCulled = false;
+  for (let i = 0; i < POOL; i++) {
+    slots.push({ dist: 0, x: 0, y: 0, active: false });
+    mesh.setMatrixAt(i, HIDDEN);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  scene.add(mesh);
+}
+
+// Spawned by level generation: an arc of embers between two waypoints.
+export function addEmberLine(line) {
+  for (const p of line.points) {
+    const s = slots[cursor];
+    cursor = (cursor + 1) % POOL;
+    s.dist = p.dist;
+    s.x = p.x;
+    s.y = p.y;
+    s.active = true;
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+}
+
+export function updateEmbers(dt, player, time) {
+  const p = player.position;
+  streakTimer -= dt;
+  if (streakTimer <= 0) streak = 0;
+
+  for (let i = 0; i < POOL; i++) {
+    const s = slots[i];
+    if (!s.active) {
+      continue;
+    }
+    if (s.dist < player.dist - 30) {
+      s.active = false;
+      mesh.setMatrixAt(i, HIDDEN);
+      continue;
+    }
+    // Spin + bob, written every frame (cheap: 192 matrix composes max)
+    eul.set(0, time * 2.5 + i, 0.5);
+    quat.setFromEuler(eul);
+    const bob = Math.sin(time * 2 + s.dist) * 0.25;
+    m4.compose(posV.set(s.x, s.y + bob, -s.dist), quat, sclV.set(1, 1, 1));
+    mesh.setMatrixAt(i, m4);
+
+    // Pickup test
+    const dx = p.x - s.x;
+    const dy = p.y - (s.y + bob);
+    const dz = player.dist - s.dist;
+    if (dx * dx + dy * dy + dz * dz < PICKUP_R2) {
+      s.active = false;
+      mesh.setMatrixAt(i, HIDDEN);
+      game.embersRun++;
+      emit('ember');
+      streak = Math.min(streak + 1, 24);
+      streakTimer = 1.2;
+      sfx.ember(streak);
+      burst(posV, _embTint > 0.5 ? 0xf6a0c4 : 0xffc050, { count: 4, speed: 6, size: 0.5, life: 0.4 });
+    }
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+}
+
+// Bank the run's embers into the save (called once at run end). The equipped
+// rider's emberBonus pays extra on top, and the first flight of each UTC day
+// pays ×CONFIG.firstFlightMult — both broken out on the recap. Returns the
+// banked total.
+export function bankEmbers() {
+  if (game.embersRun <= 0) return 0;
+  game.emberBonusEarned = Math.round(game.embersRun * riderEmberBonus());
+  let total = game.embersRun + game.emberBonusEarned;
+  if (saveData.firstFlightDay !== todayUTC()) {
+    saveData.firstFlightDay = todayUTC();
+    game.firstFlightBonus = Math.round(total * (CONFIG.firstFlightMult - 1));
+    total += game.firstFlightBonus;
+  }
+  game.ascendBonusEarned = Math.round(total * ascendEmberBonus());
+  total += game.ascendBonusEarned;
+  saveData.embers += total;
+  saveData.stats.totalEmbers += total;
+  persist();
+  return total;
+}
+
+export function resetEmbers() {
+  for (let i = 0; i < POOL; i++) {
+    slots[i].active = false;
+    mesh.setMatrixAt(i, HIDDEN);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  streak = 0;
+  cursor = 0;
+}
