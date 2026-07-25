@@ -235,6 +235,16 @@ could ACT).
   bays**: trailing-edge bay sag **≤0.10 of bay chord** (Vesper cups at 0.35) — shallow,
   near-straight scallop arcs that read as membrane under TENSION, not drape. Side by
   side: Vesper is a tall deep-cupped hand, Fornax a low taut sail.
+- **⚠ THE NOTCH FLOOR (audit round 2 — the taut bay must not become the PLANE WING).**
+  Taut bays differentiate us from Vesper but put the rear-chase sentence at risk: at the
+  measured ~180 px chase span a ≤0.10-chord notch is only **3–4 px**, and a trailing edge
+  that shallow collapses to a straight-edged delta — the kill-on-sight plane wing
+  (`DRAGON-DESIGN.md` §2.1), which would gut the very silhouette claim the sentence rests
+  on. **The notch depth therefore comes from BONE PROJECTION, not membrane drape:** each
+  digit tip projects **≥0.15 of bay chord beyond the between-tip membrane line**. The
+  membrane stays taut (our identity); the SILHOUETTE stays scalloped (the read). Asserted
+  in §11 — this is a floor, not a target, and it outranks the taut-bay number if they ever
+  conflict.
 - **Stiffened leading edge (NEW, ref §4):** both real lineages actively stiffen it — the
   leading edge gets a **forward sheet** (propatagium analog) ahead of the arm, ~**9% of
   wing area**; armwing ~**52%**, handwing ~**39%** (ref §4 — equal-width bays ARE the
@@ -401,6 +411,12 @@ Every rung a CRUISE-visible earn (house §7); apex built first, ladder by subtra
 Asserts: tris ↑ · digits 2<3<4 · seam gens 0<1<2<3 · followers 0<1<2<3 · embers ↑ ·
 span:torso ↑ · glide hold ↑ · no inverted light signal (whelp never out-glows apex).
 
+⚠ **The `seam gens 0<1<2<3` assert must build at ULTRA detail** (audit round 2). Gen-3 is
+gated on `activeDetailKey()==='ultra'` (§5/B5), so on low/high the f3 form builds only 2
+generations and a naive ladder assert fails on exactly the devices most players use. Pin
+the assert's build to ultra, or assert AUTHORED gens rather than built ones — but say which
+in the test, because a silently-detail-dependent assert is a flaky test, not a law.
+
 ## 11. Tests spec + feasibility audit
 
 **House harness (all standard gates apply):** tricount <6000/form monotonic · blueprint ·
@@ -409,6 +425,16 @@ math) · `flapstrip` + named-pivot amplitude table · `tiershots` · `gameshots`
 a `fornax` block in `tests/starters.mjs`.
 
 **Bespoke asserts:**
+- **⚠ NOTCH FLOOR (audit round 2, blocks I1 sign-off):** each digit tip projects **≥0.15 of
+  bay chord beyond the between-tip membrane line** (§5). This is the geometry guard against
+  the taut bays collapsing into the plane wing at chase distance — assert it on the built
+  mesh, not on the dial, since drape and projection are different numbers.
+- **⚠ WRIST-FOLD LEGIBILITY at `wristT 0.30`:** 0.30 sits at the TOP of the house 0.2–0.3
+  band, and the medial wrist exists precisely to make the fold read — pulling the wrist
+  INBOARD is what creates it (ref §4.4). Our differentiation pushes the opposite way, so
+  `flapstrip` must explicitly confirm the fold still reads at 0.30 before the number locks.
+  If it doesn't, the wrist moves inboard and the planform differentiation is carried by
+  `archRise` alone — the fold outranks the differentiator.
 - **Channel-order probe:** every fire-region pixel R≥G≥B; bloom B ≤ 0.5·G (law 4) —
   a pixel-cross-section check per AAA §4, worst case = warmest sky. **Flakiness guard
   (audit):** chromatic aberration's per-channel offsets (`postfx.js:57-61`), the ±0.5 LSB
@@ -570,3 +596,35 @@ Cost of the round: no direction change — BANKED, the STOKE, the firebrand tail
 abducted legs and the 4-digit fan all survived; what changed is honesty (pose-gating,
 gameplay-scale reads), engine truth (bloom, LOD, shared-rig emissive), and one real
 differentiation axis for the wing.
+
+---
+
+**Round 2 — same auditor, re-confirmation. Verdict: PASS, 4.4/5.**
+
+All five blockers **CLEARED and verified against source**, not against the director's
+account of itself — the auditor independently re-checked `dragon.js:520`
+(`setFeverTint(def.feverWash || null)` — so a def without a warm `feverWash` really does
+flash magenta on `surgeStart`), the `wingMembraneEmissive ?? wingEmissive` fallback at
+`dragon.js:1979`, and every bloom constant quoted in the revised §3. All eight
+non-blocking fixes confirmed present.
+
+**Both refusals upheld.** Keeping 4 digits: the round-1 ask was differentiation on a real
+axis, not fewer digits — and digit count is invisible at chase distance anyway, so dropping
+to 3 "would have chased a number instead of a read." Keeping the STOKE timing, firebrand,
+abducted legs and the SETTLED items: none were defects in round 1. The auditor's summary of
+a correct revise round — *"direction survived, claims were fixed."*
+
+**One NEW defect, introduced by the B1 fix** (which is the argument for re-checking rather
+than trusting a fix list): the taut bays that differentiate us from Vesper put the rear-chase
+sentence at risk of the PLANE WING, because a ≤0.10-chord notch is 3–4 px at the measured
+~180 px chase span. Fixed here by THE NOTCH FLOOR (§5) — notch depth comes from bone
+projection, ≥0.15 bay chord beyond the membrane line — with a §11 assert. Two nits fixed with
+it: the `seam gens` ladder assert must build at ultra (gen-3 is device-gated, so the naive
+assert is flaky on most devices), and `flapstrip` must confirm the wrist fold still reads at
+`wristT 0.30` before that number locks — **the fold outranks the differentiator**.
+
+**Turntable-only list confirmed honest and complete.** No remaining feature claims a
+rear-chase read it cannot deliver. Standing residual for I1: the distinctiveness veto is
+decided in the shop turntable, where the shared kit vocabulary (thumb claw + propatagium +
+cowl plates) is fully visible — §12's Vesper side-by-side tile is the control for exactly
+that.
