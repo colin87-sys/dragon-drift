@@ -66,8 +66,19 @@ const SLAG_PROFILE = [
 // The break pattern is a deterministic index hash, never `Math.random` (a build must be
 // reproducible frame to frame), and it is deliberately UNEVEN — an alternating on/off would be
 // the picket-fence tell in value instead of in geometry.
+// ⚠ THE ONE SANCTIONED INDEX PICK (§4b RL3). Every other index-keyed material selector in this
+// module was camouflage and has been deleted; this one survives because it is a DUTY BREAK, not a
+// scatter: it only ever steps ONE tier DARKER (deck ashLit→scorch, bevel scorch→char), never
+// brighter and never two tiers. Direction is the whole law — stepping field-ward reads as shadow
+// and wear, stepping bright-ward is the confetti tell.
+//
+// Retuned v2.2: the old `((i*7+3)%5)<3` gave the period-5 pattern F,T,T,F,T — lit runs of 2 AND 1,
+// so it violated RL3's own min-lit-run≥2 bound (the audit asserted it complied; computing it showed
+// otherwise). `((i*2+1)%7)<4` gives period 7, duty 12/21, lit runs uniformly 2 with 1-2 dark
+// between — irregular period, no singletons, and still breaks the pooled deck strake that keying
+// on column alone produced.
 function slagBand(M, k, i = 0) {
-  const lit = ((i * 7 + 3) % 5) < 3;                          // ~60% duty, irregular period
+  const lit = ((i * 2 + 1) % 7) < 4;
   if (k === 0 || k === 9) return lit ? M.ashLit : M.scorch;   // dorsal deck — broken lit plates
   if (k === 1 || k === 8) return lit ? M.scorch : M.char;     // shoulder bevel picks up the break
   if (k === 4 || k === 5) return M.scorch;                    // belly — lifted so it never crushes to black
@@ -153,38 +164,98 @@ function seamStrip(pts, halfW, mat) {
 // R1 — DORSAL SCUTE RANK, withers→tail-root. Low armoured scutes, not spikes: the sheet keeps the
 // sky above the spine unbroken for the tail's crest and I3's horns, so these ride the deck and
 // break the outline only in profile. Dominant + decay with a deliberate irregular step.
-function addDorsalScutes(push, at, S, M, n) {
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1 || 1);
-    const z = S(-1.20) + (S(1.45) - S(-1.20)) * t;
+// R1 — THE SLAG SERRATION. The §2 reversal made flesh, and the single biggest lever on this
+// creature: the old rank topped out at 0.052u (~1px) and could not break its own outline, which is
+// why five rounds of surface tuning produced a smooth lozenge.
+//
+//   HEIGHT   H = (0.30 | 0.17)·fr + 0.06, fr decaying 0.9→0.4 occiput→HIP  → tall vanes 0.18–0.33u
+//   PITCH    16 intervals of ~0.156u over the 2.5u occiput→hip run (a 1–2 interval dark gap in the
+//            rail is 0.14–0.32u ≈ 3–7px at 21px/u — the gap must RESOLVE or the split is fiction)
+//   RHYTHM   period-3 tall-tall-short (Tempest alternates strict period 2)
+//   PROFILE  asymmetric struck shard — apex 0.65 of the footprint AFT, leading face ≥3× the
+//            trailing slope. TURNTABLE-SCALE ONLY: at chase distance this moves 0.3–0.5px, and the
+//            sheet lists it as turntable-only rather than pretending it differentiates in play.
+//   RECESS   every vane sits over its own charcoal under-gap (RL2) — a raised form with no shadow
+//            step reads as a decal, which is exactly what round 5 shipped.
+//
+// Height is deliberately NOT the split from Tempest (ours 0.33u sits ABOVE its built 0.284u max);
+// the split is the BROKEN rail, applied by the caller.
+function addSlagSerration(push, at, S, M, opts) {
+  const { n = 16, z0 = -1.90, z1 = 0.60, litRun } = opts || {};
+  const tops = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const z = S(z0) + (S(z1) - S(z0)) * t;
     const st = at(z);
-    const h = S(0.052) * (1 - 0.55 * t) * (1 + 0.18 * ((i * 5) % 3 === 0 ? 1 : -1));  // decay + jitter
-    const w = S(0.075) * (1 - 0.35 * t);
+    const fr = 0.9 - 0.5 * t;                       // occiput → hip
+    const tall = (i % 3) !== 2;                     // period-3: tall, tall, short
+    const H = S((tall ? 0.30 : 0.17) * fr + 0.06);
+    const foot = S(0.150);                          // fore-aft footprint
+    const w = S(0.052) * (1 - 0.28 * t);            // half-width — a BLADE, not a cone
     const yTop = st.cy + st.ry;
-    const zc = z, zb = z - S(0.055);
-    push(i % 3 === 0 ? M.ashLit : M.scorch,
-      [[0, yTop + h, zc], [-w, yTop - S(0.006), zb], [w, yTop - S(0.006), zb]],
-      [[0, yTop + h, zc], [w, yTop - S(0.006), zb], [w * 0.5, yTop - S(0.004), zc + S(0.05)]],
-      [[0, yTop + h, zc], [-w * 0.5, yTop - S(0.004), zc + S(0.05)], [-w, yTop - S(0.006), zb]]);
+    // Asymmetric shard: apex sits 0.65 aft of the leading edge, so the leading face is steep and
+    // the trailing face rakes — a struck shard rather than a symmetric tent.
+    const zLead = z - foot * 0.65, zTrail = z + foot * 0.35, zApex = z + foot * 0.15;
+    const apex = [0, yTop + H, zApex];
+    push(M.char,
+      [apex, [-w, yTop, zLead], [w, yTop, zLead]],            // leading face (steep)
+      [apex, [w, yTop, zLead], [w * 0.72, yTop, zTrail]],     // starboard rake
+      [apex, [-w * 0.72, yTop, zTrail], [-w, yTop, zLead]],   // port rake
+      [apex, [w * 0.72, yTop, zTrail], [-w * 0.72, yTop, zTrail]]);
+    // RL2 — the under-gap recess: a dark step sunk INTO the hull at the vane's base, so the vane
+    // casts a visible shadow line instead of floating on the surface.
+    push(M.seam,
+      [[-w * 1.15, yTop - S(0.028), zLead], [w * 1.15, yTop - S(0.028), zLead], [w * 1.15, yTop - S(0.004), zTrail]],
+      [[-w * 1.15, yTop - S(0.028), zLead], [w * 1.15, yTop - S(0.004), zTrail], [-w * 1.15, yTop - S(0.004), zTrail]]);
+    tops.push({ z, y: yTop + H, w });
   }
+  // (c) THE BROKEN RAIL — the load-bearing split from Tempest, whose crest ribbon is CONTINUOUS.
+  // Pale bone-ash segments of 2–4 vane intervals with 1–2 dark between (~60% duty). It fuses whole
+  // only when THE STOKE runs at I4 — withheld completeness, which turns the distinctiveness
+  // problem into an expression of the identity rather than a tweak.
+  if (litRun) {
+    for (let i = 0; i < tops.length - 1; i++) {
+      if (!litRun(i)) continue;
+      const a = tops[i], b = tops[i + 1];
+      const rw = S(0.013);
+      push(M.rim,
+        [[-rw, a.y, a.z], [rw, a.y, a.z], [rw, b.y, b.z]],
+        [[-rw, a.y, a.z], [rw, b.y, b.z], [-rw, b.y, b.z]]);
+    }
+  }
+  return tops;
 }
 
 // R2 — BELLY DECK: raised ventral plates separated by RECESSED gutters. The gutters are the ventral
 // half of the seam network and the channel THE STOKE runs along at I4, so the geometry has to exist
 // now even though it reads only as shadow.
 function addBellyDeck(push, at, S, M, n) {
+  // Lift 0.05u (was 0.010-0.016 = sub-pixel) over a recessed base, with real gutter WALLS rather
+  // than the flat coplanar quad round-5 shipped — that quad sat INSIDE the hull and drew nothing.
+  // Tier by RADIAL DISTANCE FROM THE KEEL (core/mid/edge), never by index: value follows structure.
+  const LIFT = S(0.05);
   for (let i = 0; i < n; i++) {
     const z = S(-1.15) + (S(0.95) - S(-1.15)) * (i / (n - 1 || 1));
     const st = at(z);
     const yB = st.cy - st.ry;
     const w = st.rx * 0.42, d = S(0.085);
-    push(M.scorch,
-      [[-w, yB - S(0.010), z - d], [w, yB - S(0.010), z - d], [w * 0.86, yB - S(0.016), z + d]],
-      [[-w, yB - S(0.010), z - d], [w * 0.86, yB - S(0.016), z + d], [-w * 0.86, yB - S(0.016), z + d]]);
-    // the gutter aft of each plate — seated INTO the hull so it reads as a cut, not a rib
+    // three lanes across the belly; the tier is a function of |x| from the keel line
+    for (const [x0, x1, mat] of [[-w, -w * 0.34, M.scorch], [-w * 0.34, w * 0.34, M.ashLit], [w * 0.34, w, M.scorch]]) {
+      const yT = yB - LIFT;
+      push(mat,
+        [[x0, yT, z - d], [x1, yT, z - d], [x1, yT, z + d]],
+        [[x0, yT, z - d], [x1, yT, z + d], [x0, yT, z + d]]);
+      // GUTTER WALLS — full 0 -> lift height on both flanks, so each plate throws a shadow step.
+      for (const xe of [x0, x1]) {
+        push(M.seam,
+          [[xe, yB, z - d], [xe, yT, z - d], [xe, yT, z + d]],
+          [[xe, yB, z - d], [xe, yT, z + d], [xe, yB, z + d]]);
+      }
+    }
+    // transverse gutter wall aft of each deck plate
     push(M.seam,
-      [[-w * 0.7, yB + S(0.004), z + d], [w * 0.7, yB + S(0.004), z + d], [w * 0.7, yB + S(0.004), z + d + S(0.028)]],
-      [[-w * 0.7, yB + S(0.004), z + d], [w * 0.7, yB + S(0.004), z + d + S(0.028)], [-w * 0.7, yB + S(0.004), z + d + S(0.028)]]);
+      [[-w, yB, z + d], [w, yB, z + d], [w, yB - LIFT, z + d]],
+      [[-w, yB, z + d], [w, yB - LIFT, z + d], [-w, yB - LIFT, z + d]]);
   }
 }
 
@@ -201,7 +272,7 @@ function addFurnaceSocket(push, S, M, cx, cy, cz, r) {
     push(M.rim, [p(a0, r, S(0.012)), p(a1, r, S(0.012)), p(a1, r * 0.80, S(0.004))],
                 [p(a0, r, S(0.012)), p(a1, r * 0.80, S(0.004)), p(a0, r * 0.80, S(0.004))]);
     // sunk floor — the void the rim shades
-    push(M.seam, [p(a0, r * 0.80, S(0.004)), p(a1, r * 0.80, S(0.004)), [cx, cy - S(0.030), cz]]);
+    push(M.seam, [p(a0, r * 0.80, S(0.004)), p(a1, r * 0.80, S(0.004)), [cx, cy - S(0.150), cz]]);   // sunk 0.15u INBOARD (was 0.030) — a carved void, not a dimple
   }
   // cowl vanes — two shading blades over the socket's upper lip, so it reads as sheltered
   for (const sd of [1, -1]) {
@@ -222,14 +293,25 @@ function addLappedArmor(push, at, S, M) {
         const st = at(z);
         const th = 0.55 + 0.28 * i;
         const nx = side * Math.sin(th), ny = Math.cos(th);
-        const x = side * Math.sin(th) * st.rx + nx * S(0.014);
-        const y = st.cy + Math.cos(th) * st.ry + ny * S(0.014);
+        const OFF = S(0.055), CUP = S(0.035);   // was 0.014 flat — a decal, not armour
+        const x = side * Math.sin(th) * st.rx + nx * OFF;
+        const y = st.cy + Math.cos(th) * st.ry + ny * OFF;
         const tx = side * Math.cos(th), ty = -Math.sin(th);
         const s = sz * (1 - 0.16 * i);
-        const P = (u, v) => [x + tx * u, y + ty * u, z + v];
-        push(i === 0 ? M.ashLit : M.scorch,
-          [P(-s, -s * 0.8), P(s, -s * 0.6), P(s * 0.8, s)],
-          [P(-s, -s * 0.8), P(s * 0.8, s), P(-s * 0.85, s * 0.9)]);
+        const P = (u, v, out = 0) => [x + tx * u + nx * out, y + ty * u + ny * out, z + v];
+        // VALUE BY ROLE, not by index: the shoulder run is flank-tier, the haunch run ventral-tier.
+        // (The old `i === 0 ? ashLit : scorch` was a non-modulo index pick that evaded the firewall.)
+        const roleMat = z0 < 0 ? M.scorch : M.char;
+        push(roleMat,
+          [P(-s, -s * 0.8, CUP), P(s, -s * 0.6, CUP), P(s * 0.8, s, 0)],
+          [P(-s, -s * 0.8, CUP), P(s * 0.8, s, 0), P(-s * 0.85, s * 0.9, 0)]);
+        // PERIMETER RECESS WALLS (0 -> standoff) so the plate visibly laps the next one.
+        const B = (u, v) => [x + tx * u - nx * OFF, y + ty * u - ny * OFF, z + v];
+        push(M.seam,
+          [P(-s, -s * 0.8, CUP), B(-s, -s * 0.8), B(s, -s * 0.6)],
+          [P(-s, -s * 0.8, CUP), B(s, -s * 0.6), P(s, -s * 0.6, CUP)],
+          [P(s * 0.8, s, 0), B(s * 0.8, s), B(-s * 0.85, s * 0.9)],
+          [P(s * 0.8, s, 0), B(-s * 0.85, s * 0.9), P(-s * 0.85, s * 0.9, 0)]);
       }
     }
   }
@@ -238,17 +320,27 @@ function addLappedArmor(push, at, S, M) {
 // R5 — FLANK SHINGLE ROWS: two lines of small cupped cards per side over the smooth flank wall,
 // the rank that keeps the mid-body from being a bare panel between the two muscle masses.
 function addFlankShingles(push, at, S, M, perRow) {
+  // Proud 0.05u (was 0.008 = sub-pixel) with a DARK RECESS GAP under every fore edge, and cards
+  // >=0.10u — RL4: fewer, bigger, organised. Round 5 scattered many tiny cards, which is the
+  // confetti half of the camouflage read.
+  const PROUD = S(0.05);
   for (const side of [1, -1]) {
     for (const [th, cnt] of [[0.95, perRow], [1.28, perRow - 1]]) {
       for (let i = 0; i < cnt; i++) {
         const z = S(-1.05) + (S(1.25) - S(-1.05)) * (i / (cnt - 1 || 1));
         const st = at(z);
         const nx = side * Math.sin(th), ny = Math.cos(th);
-        const x = side * Math.sin(th) * st.rx + nx * S(0.008);
-        const y = st.cy + Math.cos(th) * st.ry + ny * S(0.008);
-        const s = S(0.052), d = S(0.062);
-        push(i % 2 ? M.char : M.scorch,
-          [[x, y + s, z - d], [x, y - s, z - d * 0.7], [x + nx * S(0.014), y, z + d]]);
+        const xh = side * Math.sin(th) * st.rx, yh = st.cy + Math.cos(th) * st.ry;
+        const x = xh + nx * PROUD, y = yh + ny * PROUD;
+        const s2 = S(0.055), d = S(0.075);          // card >= 0.10u across
+        // VALUE BY ROLE: the flank rank is flank-tier, full stop. No index pick.
+        push(M.scorch,
+          [[x, y + s2, z - d], [x, y - s2, z - d * 0.7], [x + nx * S(0.010), y, z + d]],
+          [[x, y + s2, z - d], [x + nx * S(0.010), y, z + d], [x - nx * S(0.004), y + s2 * 0.4, z + d * 0.6]]);
+        // RECESS under the FORE edge — the shadow that makes a card read as lapped, not painted.
+        push(M.seam,
+          [[xh, yh + s2, z - d], [xh, yh - s2, z - d * 0.7], [x, y - s2, z - d * 0.7]],
+          [[xh, yh + s2, z - d], [x, y - s2, z - d * 0.7], [x, y + s2, z - d]]);
       }
     }
   }
@@ -257,13 +349,24 @@ function addFlankShingles(push, at, S, M, perRow) {
 // R6 — THROAT GORGET: banded collar plates under the jaw line, the rank that stops the neck reading
 // as a smooth pipe. Pale-ish diffuse so the throat separates from the hull in shadow.
 function addGorget(push, at, S, M, n) {
+  // Each band is a raised STEP >=0.04u with a recessed dark seam aft — stand-off geometry, not
+  // paint. Round 5 used an `i % 2` tier flip (an index pick) and no step at all.
+  const STEP = S(0.045);
   for (let i = 0; i < n; i++) {
     const z = S(-2.62) + i * S(0.17);
     const st = at(z);
     const yB = st.cy - st.ry, w = st.rx * 0.68;
-    push(i % 2 ? M.scorch : M.ashLit,
-      [[-w, yB + S(0.004), z], [w, yB + S(0.004), z], [w * 0.82, yB - S(0.012), z + S(0.085)]],
-      [[-w, yB + S(0.004), z], [w * 0.82, yB - S(0.012), z + S(0.085)], [-w * 0.82, yB - S(0.012), z + S(0.085)]]);
+    const yT = yB - STEP;
+    // VALUE BY ROLE: throat is ventral -> ash tier throughout.
+    push(M.ashLit,
+      [[-w, yT, z], [w, yT, z], [w * 0.82, yT, z + S(0.085)]],
+      [[-w, yT, z], [w * 0.82, yT, z + S(0.085)], [-w * 0.82, yT, z + S(0.085)]]);
+    // the step wall + the recessed seam aft of it
+    push(M.seam,
+      [[-w, yB, z], [w, yB, z], [w, yT, z]],
+      [[-w, yB, z], [w, yT, z], [-w, yT, z]],
+      [[-w * 0.82, yT, z + S(0.085)], [w * 0.82, yT, z + S(0.085)], [w * 0.7, yB, z + S(0.115)]],
+      [[-w * 0.82, yT, z + S(0.085)], [w * 0.7, yB, z + S(0.115)], [-w * 0.7, yB, z + S(0.115)]]);
   }
 }
 
@@ -304,11 +407,11 @@ function fornaxMats(def) {
     // I4's embers arrive. Lower roughness on the lit tiers lets them actually CATCH the key —
     // albedo alone had run out of headroom (round 2 lifted the hexes and the render barely moved).
     scorch: mk(0x54504c, 0.72),
-    ashLit: mk(0x94897c, 0.60),
+    ashLit: mk(0x8f8a84, 0.60),   // RL7 warm-GREY: R-B 11, HSV sat 0.077 (<=0.10). 0x94897c read khaki-brown
     // The plate-rim tier — ≤2% of area, rims only, never faces (coal-not-torch: the bright part
     // is the RIM over a dark face). It is the creature's light-catch, so it carries the top of
     // the ladder; a dark creature with no catch is unphotographable (DRAGON-DESIGN §6.7).
-    rim: mk(0xc6b8a4, 0.44, 0.14),
+    rim: mk(0xbdb6ac, 0.44, 0.14),   // RL7: R-B 17, HSV sat 0.090 (<=0.10)
     // The seam channel: DARKER than the darkest plate, so a seam pixel can never read brighter
     // than the plate it divides (director's target 6 — recessed, never proud).
     seam: mk(0x1e1e20, 0.92),
@@ -471,7 +574,7 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
       const sd = (i % 2) ? 1 : -1;
       // 0 = dorsal midline → ~1.25rad = upper flank. Biased toward the deck.
       const th = 0.12 + 1.15 * ((i * 0.3547) % 1);
-      const lift = S(0.016);
+      const lift = S(0.05);   // RL1: >=0.05u or it casts no shadow step at all
       const nx = sd * Math.sin(th), ny = Math.cos(th);
       const cx = sd * Math.sin(th) * st.rx + nx * lift;
       const cy = st.cy + Math.cos(th) * st.ry + ny * lift;
@@ -484,14 +587,17 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
       // plate reads as laid ON the body rather than floating parallel to it.
       const c1 = P(-a * 0.82, -b, -lift * 0.5), c2 = P(a * 0.82, -b, -lift * 0.5);
       const c3 = P(a, b, 0), c4 = P(-a, b, 0);
-      byTier[i % 3].push([c1, c2, c3], [c1, c3, c4]);
+      // VALUE BY ROLE (RL3): the tier follows WHERE the plate sits, not its loop index. th is the
+      // angle up from the dorsal midline, so it is literally the structural role.
+      const role = th < 0.55 ? 0 : th < 1.0 ? 1 : 2;    // dorsal / flank / lower flank
+      byTier[role].push([c1, c2, c3], [c1, c3, c4]);
       // RIM — the caught edge along the trailing lip, lifted a hair further proud so it takes the
       // key light while the plate face stays dark. This is the coal-not-torch law in geometry.
       const r1 = P(a, b, 0), r2 = P(-a, b, 0);
       const r3 = P(-a * 0.94, b - S(0.022), lift * 0.6), r4 = P(a * 0.94, b - S(0.022), lift * 0.6);
       rims.push([r1, r2, r3], [r1, r3, r4]);
     }
-    const tierMats = [M.char, M.scorch, M.ashLit];
+    const tierMats = [M.char, M.scorch, M.ashLit];   // dorsal field / flank / ventral
     byTier.forEach((tris, t) => { if (tris.length) push(tierMats[t], ...tris); });
     if (rims.length) push(M.rim, ...rims);
   }
@@ -548,8 +654,31 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
   // ── THE RANK SUITE, through ONE per-material accumulator (the Tempest pattern) ───────────────
   // Seven ranks, ~5 extra meshes. Tagged 'rank' as a group so the structural probe can still
   // isolate the 'hull' loft for its proportion measurements.
+  let serrTops = [];
   if ((model.slagRanks ?? 0) > 0) {
-    addDorsalScutes(push, at, S, M, Math.round(model.slagRanks * 15));   // R1 — the outline break
+    // R1 — THE SLAG SERRATION, occiput -> hip. The broken rail (~60% duty, lit runs of 2-4
+    // intervals, 1-2 dark between) is the load-bearing split from Tempest's continuous crest
+    // ribbon; at the committed 0.156u pitch a 1-2 interval gap is 3-7px, so it resolves.
+    const litRun = (i) => ((i * 2 + 1) % 7) < 4;
+    const nVane = Math.max(4, Math.round(16 * model.slagRanks));
+    serrTops = addSlagSerration(push, at, S, M, { n: nVane, z0: -1.90, z1: 0.60, litRun });
+    // AFT-BODY VANES (hip -> tail root) — the torso module owns this stretch under §8's tip-floor
+    // schedule: pitch ~0.32u, height decaying 0.18u -> 0.04u at x0.9103 per interval (the ratio is
+    // DERIVED from the endpoints over 16 intervals, not chosen). The old x0.66-per-vane law was a
+    // 2-3 element follower rule and put vane 6 under the 0.02u delete line - a dead crest.
+    {
+      const H0 = S(0.18), RATIO = 0.9103, PITCH = S(0.32);
+      let z = S(0.60) + PITCH;
+      for (let i = 1; z <= S(1.70); i++, z += PITCH) {
+        const st = at(z), H = H0 * Math.pow(RATIO, i), w = S(0.040);
+        const yTop = st.cy + st.ry, foot = S(0.130);
+        push(M.char,
+          [[0, yTop + H, z + foot * 0.15], [-w, yTop, z - foot * 0.65], [w, yTop, z - foot * 0.65]],
+          [[0, yTop + H, z + foot * 0.15], [w, yTop, z - foot * 0.65], [w * 0.72, yTop, z + foot * 0.35]],
+          [[0, yTop + H, z + foot * 0.15], [-w * 0.72, yTop, z + foot * 0.35], [-w, yTop, z - foot * 0.65]]);
+        serrTops.push({ z, y: yTop + H, w });
+      }
+    }
     addBellyDeck(push, at, S, M, 7);                                     // R2 — ventral plates + gutters
     addFurnaceSocket(push, S, M, 0, TORSO_Y - S(0.30), S(-0.78), S(0.13));  // R3 — the hero void
     addLappedArmor(push, at, S, M);                                      // R4 — the two muscle masses
@@ -697,6 +826,14 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
     halfWidthAt: (z) => at(z).rx * 0.96,
     bodyMidY: TORSO_Y,
     motifAnchor,
+    // ADDITIVE key (audit C4): crest top = hull top + local vane height. §8's tail crest seeds its
+    // first vane from serrationTopAt(anchor.z) so "height-matched" is built FROM the contract
+    // instead of duplicated constants. Nullable — a creature without a serration simply omits it.
+    serrationTopAt: (z) => {
+      let best = null;
+      for (const t of serrTops) if (best === null || Math.abs(t.z - z) < Math.abs(best.z - z)) best = t;
+      return best ? best.y : (TORSO_Y + at(z).cy + at(z).ry);
+    },
   };
 
   // coreGlow MUST be null, never a colour (the documented Solar crash, dragonVesper.js:319-321).
