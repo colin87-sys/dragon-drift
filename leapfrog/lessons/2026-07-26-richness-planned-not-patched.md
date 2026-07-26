@@ -4,7 +4,7 @@
 the richness"; independent critic: **1.9/5 FAIL** vs the Thunderhead Tempest bar), we
 rewrote `reforged/FIRE-WYVERN-BUILDSHEET.md` so the sheet itself would have prevented all
 five rounds: §2 gained a REVERSAL (the bare-spine law revoked → THE SLAG SERRATION,
-0.15–0.30u blade-vanes occiput→tail-root, continuous with the tail crest), §4 was
+0.13–0.33u blade-vanes occiput→tail, continuous with the tail crest), §4 was
 rewritten around a Tempest-style R1–R6 rank suite with numeric relief floors, a new §4b
 RICHNESS LAWS (RL1–RL7) applies to every later part, and §11 gained a render-space value
 gate + structure-vs-noise warning + crop-framing assert.
@@ -15,7 +15,8 @@ gate + structure-vs-noise warning + crop-framing assert.
    forced a crocodile lozenge; the builder honoured it for five rounds. When a build
    keeps failing the same way, audit the LAWS it obeys before the code that obeys them.
 2. **Relief is bought in world units and judged in pixels.** At ~21px/u chase scale,
-   0.008–0.016u standoffs are sub-pixel decals. Tempest's floors: vanes ~0.37u, plate
+   0.008–0.016u standoffs are sub-pixel decals. Tempest's floors: vanes built ≈0.28u
+   (formula ceiling 0.337u — measure the BUILT geometry, not the formula), plate
    standoff 0.055+cup, deck lift 0.05. Anything under 0.02u: delete, never tune.
 3. **Every raised form owes a paired dark recess** (perimeter walls, under-gaps, gutter
    walls) or it reads as a camo patch.
