@@ -708,7 +708,7 @@ export const DRAGONS = {
       anvilScale: 1.0, wingSpan: 4.26, spanScale: 1.0, skullLen: 0.42, headScale: 1.0,
       // I1 torso dials (nullable, default-off in dragonFornax.js). slagSeams carves the lava-lake
       // network as UNLIT recessed channels; gen-3 hairlines are ultra-only and device-scoped.
-      slagSeams: 1, slagSeamGen3: 1,
+      slagSeams: 1, slagSeamGen3: 1, slagDeckRim: 1,
       wristT: 0.30,        // top of the house 0.2-0.3 band — the planform split from Vesper's 0.21.
                            // I2 flapstrip must confirm the wrist FOLD still reads at 0.30 before
                            // this locks; the fold outranks the differentiator (audit round 2).
