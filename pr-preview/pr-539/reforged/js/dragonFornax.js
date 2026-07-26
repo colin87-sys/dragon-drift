@@ -140,16 +140,25 @@ function fornaxMats(def) {
     m.envMapIntensity = 0.25;
     return m;
   };
+  // ⚠ THE ENDPOINTS ARE AIMED AT THE RENDER, NOT AT THE MATERIAL (DRAGON-DESIGN §3.2 — the
+  // recorded Vesper failure: four tiers spanning 0.02 luminance were invisible, and re-aiming the
+  // lerp at a lit steel-slate spread them 0.05→0.14 so all four read). Round 1 of this build
+  // repeated that mistake exactly: the sourced charcoal albedo (0.02-0.045 linear) is right for
+  // the DARK FIELD, but applying it near-uniformly rendered the whole creature between 5 and 30
+  // out of 255 against a 213 sky — measured, not guessed. Charcoal is a material fact; a value
+  // LADDER is a rendering decision, and only the darkest tier owes the band.
   return {
-    // linear ≈ 0.023 — the dark field. Cool-neutral (R−B = 2/255).
+    // linear ≈ 0.023 — the dark field, and the only tier bound by the sourced charcoal band.
+    // Cool-neutral. This one stays put: "darkest object" is an identity law.
     char: mk(def.body ?? 0x2a2a2c, 0.86),
-    // linear ≈ 0.042 — scorch mid, still inside the char band.
-    scorch: mk(0x3a3a3d, 0.80),
-    // linear ≈ 0.091 — the ash-lit facet that catches top light on the dorsal deck.
-    ashLit: mk(0x55555a, 0.72),
-    // linear ≈ 0.156 — the plate-rim tier. Kept to ≤2% of area (rims only, never faces):
-    // the coal-not-torch law says the bright part is the RIM over a dark face.
-    rim: mk(0x6e6a66, 0.60, 0.10),
+    // The lit tiers climb well clear of the field so the ladder survives being lit. Greying the
+    // BODY is banned; lifting the LIT FACETS is the prescribed fix — the dark field is untouched.
+    scorch: mk(0x4a4a50, 0.80),
+    ashLit: mk(0x76767e, 0.72),
+    // The plate-rim tier — ≤2% of area, rims only, never faces (coal-not-torch: the bright part
+    // is the RIM over a dark face). It is the creature's light-catch, so it carries the top of
+    // the ladder; a dark creature with no catch is unphotographable (DRAGON-DESIGN §6.7).
+    rim: mk(0xa39d94, 0.55, 0.12),
     // The seam channel: DARKER than the darkest plate, so a seam pixel can never read brighter
     // than the plate it divides (director's target 6 — recessed, never proud).
     seam: mk(0x1e1e20, 0.92),
@@ -291,7 +300,7 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
         rail.push([a[0] * 0.5 + b[0] * 0.5, a[1] * 0.5 + b[1] * 0.5, z]);
       }
       const tris = [];
-      const hw = S(0.018);
+      const hw = S(0.030);   // widened: at round-1 width the catch was sub-pixel at chase distance
       for (let i = 0; i < rail.length - 1; i++) {
         const A = rail[i], B = rail[i + 1];
         const AL = [A[0] - hw, A[1], A[2]], AR = [A[0] + hw, A[1], A[2]];
