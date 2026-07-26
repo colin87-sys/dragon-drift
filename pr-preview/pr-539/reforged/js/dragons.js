@@ -705,7 +705,10 @@ export const DRAGONS = {
     // real wing at I2; what is here now is only what the blockout reads.
     model: {
       scale: 1.12, tailSegments: 6, neckSegments: 4, flapBias: 0.9, flapAmp: 0.68,
-      anvilScale: 1.0, wingSpan: 1.62, spanScale: 1.0, skullLen: 0.42, headScale: 1.0,
+      anvilScale: 1.0, wingSpan: 4.26, spanScale: 1.0, skullLen: 0.42, headScale: 1.0,
+      // I1 torso dials (nullable, default-off in dragonFornax.js). slagSeams carves the lava-lake
+      // network as UNLIT recessed channels; gen-3 hairlines are ultra-only and device-scoped.
+      slagSeams: 1, slagSeamGen3: 1,
       wristT: 0.30,        // top of the house 0.2-0.3 band — the planform split from Vesper's 0.21.
                            // I2 flapstrip must confirm the wrist FOLD still reads at 0.30 before
                            // this locks; the fold outranks the differentiator (audit round 2).
@@ -724,14 +727,18 @@ export const DRAGONS = {
     // silently flatten. The real STOKING ladder (seam generations, digit count, ember counts,
     // horn followers) lands at I5 by SUBTRACTION from the apex, never addition toward it.
     forms: [
+      // Body value DARKENS up the ladder (more char each rung) — an inverted-but-monotonic signal,
+      // which is legal so long as it is asserted monotonic. Every rung stays inside the sourced
+      // charcoal albedo band, linear 0.02-0.045: 0x34→0.034, 0x2f→0.028, 0x2c→0.025, 0x2a→0.023.
+      // Below that band the hull crushes to the flat-black poverty the playbook bans.
       { spanScale: 0.72, emberHaunch: 0, wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 1.0,
-        colors: { body: 0x201d1f, belly: 0x2a2529, wingOuter: 0x201d1f, eye: 0xffd9a0 } },
+        colors: { body: 0x34343a, belly: 0x3c3c42, wingOuter: 0x34343a, eye: 0xffd9a0 } },
       { spanScale: 0.84, emberHaunch: 1, wingParts: 2, midAmp: 0.20, tipAmp: 0.28, glidePow: 1.4,
-        colors: { body: 0x1d1a1d, belly: 0x272227, wingOuter: 0x1d1a1d, eye: 0xffd9a0 } },
+        colors: { body: 0x2f2f34, belly: 0x38383e, wingOuter: 0x2f2f34, eye: 0xffd9a0 } },
       { spanScale: 0.93, emberHaunch: 1, wingParts: 3, midAmp: 0.26, tipAmp: 0.42, glidePow: 1.9,
-        colors: { body: 0x1a181b, belly: 0x242026, wingOuter: 0x1a181b, eye: 0xffdcaa } },
+        colors: { body: 0x2c2c30, belly: 0x34343a, wingOuter: 0x2c2c30, eye: 0xffdcaa } },
       { spanScale: 1.0, emberHaunch: 1, wingParts: 3, midAmp: 0.30, tipAmp: 0.52, glidePow: 2.4,
-        colors: { body: 0x171518, belly: 0x221e24, wingOuter: 0x171518, eye: 0xffe0b4 } },
+        colors: { body: 0x2a2a2c, belly: 0x322e34, wingOuter: 0x2a2a2c, eye: 0xffe0b4 } },
     ],
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
     hasStyle: true,
@@ -748,8 +755,8 @@ export const DRAGONS = {
     // Char albedo is COOL and never pure black (ref §7: charcoal albedo ~0.04, linear 0.02-0.045).
     // All the warmth is EMITTED, never painted into the diffuse — that is the difference between
     // a banked furnace and a dragon someone tinted orange.
-    body: 0x171518, belly: 0x221e24,
-    wingInner: 0x1a1512, wingOuter: 0x171518,
+    body: 0x2a2a2c, belly: 0x322e34,
+    wingInner: 0x262629, wingOuter: 0x2a2a2c,
     // horn/scales set explicitly: they feed hornMat/scalesMat in dragonModel.js and an absent
     // field reaches `color: undefined` (harmless-but-noisy, and it works by luck rather than
     // intent). Char horn now, cool like the hide — the temper-oxide band is a DIFFUSE close-range
