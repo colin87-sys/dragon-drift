@@ -57,9 +57,19 @@ const SLAG_PROFILE = [
 // which tier: the two chine + two lower-flank columns are the largest, so they carry the darkest
 // char (~55-60%); the belly and shoulder bevels carry the scorch mid (~28%); the narrow dorsal
 // deck carries the ash-lit facet (~12%) where top-light actually lands.
-function slagBand(M, k) {
-  if (k === 0 || k === 9) return M.ashLit;                    // dorsal deck — the lit facet
-  if (k === 1 || k === 8) return M.scorch;                    // shoulder bevel
+// `i` is the station index, so a tier can vary ALONG the body as well as around it. Round 2 keyed
+// only on the column, which made the dorsal deck one uninterrupted ash-lit strake nose-to-tail —
+// all the creature's brightness pooled into a single continuous band that read as a polished
+// sheet-metal stripe rather than as lit PLATES. Breaking the deck into discrete lit patches is
+// what turns a highlight into a plate field.
+//
+// The break pattern is a deterministic index hash, never `Math.random` (a build must be
+// reproducible frame to frame), and it is deliberately UNEVEN — an alternating on/off would be
+// the picket-fence tell in value instead of in geometry.
+function slagBand(M, k, i = 0) {
+  const lit = ((i * 7 + 3) % 5) < 3;                          // ~60% duty, irregular period
+  if (k === 0 || k === 9) return lit ? M.ashLit : M.scorch;   // dorsal deck — broken lit plates
+  if (k === 1 || k === 8) return lit ? M.scorch : M.char;     // shoulder bevel picks up the break
   if (k === 4 || k === 5) return M.scorch;                    // belly — lifted so it never crushes to black
   return M.char;                                              // chine + lower flank — the dark field
 }
@@ -76,7 +86,7 @@ function slagLoft(stations, profile, matFor, cap = true) {
     const a = stations[i], b = stations[i + 1];
     for (let k = 0; k < N; k++) {
       const k1 = (k + 1) % N;
-      push(matFor(k), [P(a, k), P(b, k1), P(b, k)], [P(a, k), P(a, k1), P(b, k1)]);
+      push(matFor(k, i), [P(a, k), P(b, k1), P(b, k)], [P(a, k), P(a, k1), P(b, k1)]);
     }
   }
   if (cap) {
@@ -84,7 +94,7 @@ function slagLoft(stations, profile, matFor, cap = true) {
     const fc = [0, f.cy, f.z], lc = [0, l.cy, l.z];
     for (let k = 0; k < N; k++) {
       const k1 = (k + 1) % N;
-      push(matFor(k), [fc, P(f, k1), P(f, k)], [lc, P(l, k), P(l, k1)]);
+      push(matFor(k, 0), [fc, P(f, k1), P(f, k)], [lc, P(l, k), P(l, k1)]);
     }
   }
   const g = new THREE.Group();
@@ -153,12 +163,20 @@ function fornaxMats(def) {
     char: mk(def.body ?? 0x2a2a2c, 0.86),
     // The lit tiers climb well clear of the field so the ladder survives being lit. Greying the
     // BODY is banned; lifting the LIT FACETS is the prescribed fix — the dark field is untouched.
-    scorch: mk(0x4a4a50, 0.80),
-    ashLit: mk(0x76767e, 0.72),
+    //
+    // ⚠ THEY ARE WARM-NEUTRAL, AND THE ROUGHNESS DROPS AS THEY CLIMB. Round 2's lit tiers were
+    // cool-neutral like the field, and under this rig (hemisphere 0xbfdcff, rim 0x7fb8ff) every
+    // lit facet rendered STEEL-BLUE — the creature read as gunmetal, drifting toward the Azure
+    // lane rather than ash over char. The cool law binds the DARK FIELD only; ash from a fire is
+    // warm grey, so the lit end of the ladder is where the identity's temperature lives before
+    // I4's embers arrive. Lower roughness on the lit tiers lets them actually CATCH the key —
+    // albedo alone had run out of headroom (round 2 lifted the hexes and the render barely moved).
+    scorch: mk(0x54504c, 0.72),
+    ashLit: mk(0x94897c, 0.60),
     // The plate-rim tier — ≤2% of area, rims only, never faces (coal-not-torch: the bright part
     // is the RIM over a dark face). It is the creature's light-catch, so it carries the top of
     // the ladder; a dark creature with no catch is unphotographable (DRAGON-DESIGN §6.7).
-    rim: mk(0xa39d94, 0.55, 0.12),
+    rim: mk(0xc6b8a4, 0.44, 0.14),
     // The seam channel: DARKER than the darkest plate, so a seam pixel can never read brighter
     // than the plate it divides (director's target 6 — recessed, never proud).
     seam: mk(0x1e1e20, 0.92),
@@ -196,7 +214,7 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
     { z: S(1.50), rx: S(0.19), ry: S(0.17), cy: S(0.155) },
     { z: S(1.70), rx: S(0.11), ry: S(0.10), cy: S(0.150) },   // tail root
   ];
-  group.add(tagPart(slagLoft(body, SLAG_PROFILE, (k) => slagBand(M, k)), 'hull'));
+  group.add(tagPart(slagLoft(body, SLAG_PROFILE, (k, i) => slagBand(M, k, i)), 'hull'));
 
   // NECK — 8 stations, a SHALLOW S. Ref §2: 8-9 cervicals, "slightly sinuous"; the joint COUNT is
   // the tell, not the length (birds run 14-15 and a deep S, and a deep S here would read bird).
@@ -219,7 +237,7 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
     { z: S(-2.60), rx: S(0.158), ry: S(0.174), cy: S(0.236) },   // top 0.410
     { z: S(-2.76), rx: S(0.140), ry: S(0.158), cy: S(0.245) },   // top 0.403 — head carried high
   ];
-  group.add(tagPart(slagLoft(neck, SLAG_PROFILE, (k) => slagBand(M, k), false), 'neck'));
+  group.add(tagPart(slagLoft(neck, SLAG_PROFILE, (k, i) => slagBand(M, k, i + 3), false), 'neck'));
 
   // Surface point on the hull, pushed a hair proud so a seam never z-fights the plate it divides.
   const all = body.concat(neck).sort((a, b) => a.z - b.z);

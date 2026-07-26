@@ -39,6 +39,15 @@
     const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
     const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
     const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+    // DARK-IDENTITY KICKER rig — ported from tools/tiershots.html, which has had it since the
+    // Vesper arc while this harness never did. A near-black hull returns ~nothing from the default
+    // rim and is unphotographable, so a dark dragon gets judged as a cutout and every surface
+    // deliverable on it gets scored on faith. We OUTLINE it with edge light plus a faint floor
+    // bounce, never GREY it (the warm key is untouched and the hull stays a black cutout).
+    // Gated on luminance(def.body) < 0.05 → every non-dark dragon renders byte-identically.
+    const kickL = new THREE.DirectionalLight(0xbfe0ff, 0); kickL.position.set(2.4, 1.2, -3.5); scene.add(kickL);
+    const bounceL = new THREE.DirectionalLight(0x2050e8, 0); bounceL.position.set(-1.5, -2.2, -2.6); scene.add(bounceL);
+    const _lum = (h) => { const r = (h >> 16 & 255) / 255, g = (h >> 8 & 255) / 255, b = (h & 255) / 255; return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 
     const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a };
 
@@ -143,6 +152,12 @@
       const def = ascendedDef(DRAGONS[key], tier, 0);
       built = buildDragonModel(def, { preview: true });   // preview: hide the gameplay aim marker
       built.def = def;
+      // Engage the kicker only for a near-black hull, and tint the floor bounce to the dragon's
+      // OWN accent so a fire creature never gets outlined in another identity's colour.
+      const night = _lum((DRAGONS[key] && DRAGONS[key].body) ?? 0xffffff) < 0.05;
+      kickL.intensity = night ? 2.8 : 0;
+      bounceL.intensity = night ? 0.6 : 0;
+      if (night && DRAGONS[key] && DRAGONS[key].accentHue != null) bounceL.color.setHex(DRAGONS[key].accentHue);
       scene.add(built.group);
       curKey = key; curTier = tier;
       return built;
