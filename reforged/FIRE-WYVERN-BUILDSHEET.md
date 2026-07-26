@@ -108,9 +108,11 @@ hull whose tallest dorsal event is a 0.052u scute cannot break its own outline, 
 Tempest breaks a comparable body with vanes built to ≈**0.284u** (formula ceiling 0.337u —
 corrected figures, audit C1; the earlier "~0.37u" was a misquote). Recorded as a
 director's reversal like the spade and the tuck (do not resurrect): **the dorsal midline
-now carries THE SLAG SERRATION** — forged blade-vanes **0.13–0.33u** (the §4-R1 formula's
-exact range — quoted the same everywhere), rhythm **tall-tall-short period 3**,
-**occiput→tail**, kinked and swept aft like struck slag shards (build numbers §4-R1).
+now carries THE SLAG SERRATION** — forged blade-vanes, **Hmax 0.13–0.33u** (the §4-R1
+formula's exact tall-vane range — quoted the same everywhere; short vanes sit below by
+design), rhythm **tall-tall-short period 3**, **occiput→hip at the fr schedule, decaying
+beyond per §8's tip-floor law**, kinked and swept aft like struck slag shards (build
+numbers §4-R1).
 **⚠ Collision guard (audit C1): the reversal put Fornax's spine in TEMPEST's lane** — at
 180px "dark hull + serrated spine + continuous pale ridge line" IS Tempest's read, and hue
 alone cannot split two dark frames. The serration therefore commits three split axes in
@@ -118,9 +120,10 @@ alone cannot split two dark frames. The serration therefore commits three split 
 vs strict alternation; a BROKEN ~60%-duty rail at I1 vs Tempest's continuous
 ridge-ribbon), gated by the NEW §12 Tempest tile and the §2 table's dorsal-line row.
 Reconciliation with §8: one rank, one owner per region — **R1's fr schedule ends at the
-HIP; §8's ×0.66-per-vane decay law owns hip→tip**, through the tail-root and out to the
-firebrand; height continuity is built from the published **`serrationTopAt(z)`** contract
-key (§4), never from duplicated constants. Precedence: the occipital horn pair stays the
+HIP; §8's tip-floor decay schedule (H 0.18u→0.04u, ×0.91/vane, 17 vanes at 0.32u pitch)
+owns hip→tip**, through the tail-root and out to the firebrand; height continuity is
+built from the published **`serrationTopAt(z)`** contract key (§4), never from
+duplicated constants. Precedence: the occipital horn pair stays the
 DOMINANT of the whole dorsal line (§6 — ≥1.5× the tallest vane); "twin swept horns" now
 read over serration, not over bare sky.
 
@@ -137,7 +140,7 @@ earlier table was written from build-sheet titles and misdescribed Vesper):**
 | Limb plan | 6 (dragon) | 6 | wings + two TUCKED hind legs, NO forelimb builder (`dragonVesper.js:274-278`) — already a de facto wyvern silhouette | 6 | 6 | **4 by identity law, with ABDUCTED (not tucked) legs — the roster's only abducted-leg flyer** |
 | Wing | vault-bays + lances | feather ranks | FIVE-finger bat fan from a carpal knuckle, dominant finger 0, propatagium, thumb claw, root gusset, cowl plates; tall arch (`archRise 0.4`) + DEEP cups (`wingCup 0.35`), `wristT 0.21` (`dragonVesper.js:358-374,413`; `dragons.js:601-603,613`) | storm membrane | feather blades | **4-digit fan on a LOW WIDE crescent: `archRise 0.12`, TAUT FLAT bays (sag ≤0.10 bay-chord vs Vesper's 0.35 cups), `wristT 0.30` — planform + bay language, not mechanism (§5)** |
 | Surface | gold regalia | plumage | knapped glass | storm polish | — | **lava-lake char plates, T-junction seams** |
-| Dorsal line (NEW row, audit C1 — the axis the reversal collides on) | crown ring, not a spine rank | plume train | low dorsal nubs | **serrated vane rank + CONTINUOUS charged ridge-ribbon threaded through crest tips (`crestPts`, `dragonTempest.js:282,306-320`); symmetric tent-spikes (`stormSpike`), strict tall/short alternation; built Hmax ≈0.284u** | — | **asymmetric struck-shard vanes (apex 0.60–0.70 aft, lead slope ≥3× trail), tall-tall-short period-3 rhythm, BROKEN pale rail ~60% duty at I1 (fuses continuous only under THE STOKE); Hmax 0.33u** |
+| Dorsal line (NEW row, audit C1 — the axis the reversal collides on) | crown ring, not a spine rank | plume train | low dorsal nubs | **serrated vane rank + CONTINUOUS charged ridge-ribbon threaded through crest tips (`crestPts`, `dragonTempest.js:282,306-320`); symmetric tent-spikes (`stormSpike`), strict tall/short alternation; built Hmax ≈0.284u** | — | **BROKEN pale rail ~60% duty at I1 (fuses continuous only under THE STOKE) — the chase split; tall-tall-short period-3 rhythm; asymmetric struck-shard vanes (apex 0.60–0.70 aft, lead slope ≥3× trail — turntable scale, §11); Hmax 0.33u** |
 | Motif | ring + gem | coal arc rim/tip | starlit seam (cold) | arc crown | — | **THE STOKE — interior seam ignition, tail-ward** |
 | Glow lane | violet 262° | warm triad rim/tip | ion blue 223° | storm | pale ice | **blackbody amber ~25°, interior-leak, withheld** |
 | Darkness lane | — | — | COLD unlit black | — | — | **warm-keyed CHAR (cool albedo, emitted warmth)** |
@@ -254,19 +257,31 @@ ASSIGNMENT and the BRIGHT TIER — all now numbered laws here and generalised in
   - **R1 THE SLAG SERRATION** (dorsal — the §2 reversal). Replaces the 0.052u→0.02u scute
     rank. Height **H = (0.30|0.17)·fr + 0.06** with **fr decaying 0.9→0.4 occiput→HIP
     (z 0.60)** → band **0.13–0.33u** (this formula IS the relief band; every quote of the
-    band elsewhere is this range). From the hip aft, §8's ×0.66 law owns the rank — one
-    owner per region, never both (audit C4). **Corrected Tempest figures (audit C1):**
+    band elsewhere is this range). **Binding reading (v2.2): the band binds each
+    station's rank-Hmax — the TALL vanes, which compute 0.18–0.33u.** The period-3 short
+    vanes compute 0.128–0.213u and sit below the floor BY DESIGN; they are bound only by
+    RL1's 0.02u delete line — say this so nobody "fixes" them taller. **Pitch (committed
+    v2.2 — the broken rail is the load-bearing split, and a split needs a resolvable
+    gap): 15–17 vanes occiput→hip, pitch 0.14–0.16u** (2.5u run / 16 intervals ≈ 0.156u;
+    a 1–2-interval dark gap = 0.14–0.32u ≈ 3–7px at 21px/u). From the hip aft, §8's
+    tip-floor schedule owns the rank — one owner per region, never both (audit C4). **Corrected Tempest figures (audit C1):**
     Tempest's `(0.31|0.185)·fr + 0.058` ceilings at 0.337u, but its vanes only build at
     z ≥ −0.95 where fr ≈ 0.73 → tallest BUILT vane ≈ **0.284u**
     (`dragonTempest.js:286-297`). Our 0.33u sits ABOVE Tempest's built max — **height is
     NOT the split axis**; the horns stay dominant by §6's ≥1.5× law, not by shrinking
-    vanes. **THE SPLIT AXES vs Tempest's R1 (committed — gated by the §12 Tempest tile):**
-    **(a) profile — asymmetric struck shard**: apex offset **0.60–0.70** of the fore-aft
+    vanes. **THE SPLIT AXES vs Tempest's R1 (committed — gated by the §12 Tempest tile; ranked
+    honestly by where they read, v2.2):**
+    **(a) profile — asymmetric struck shard** — apex offset **0.60–0.70** of the fore-aft
     footprint AFT, leading-face slope **≥3×** the trailing-face slope (Tempest's
-    `stormSpike` is a symmetric tent); **(b) rhythm — tall-tall-short, period 3**, seeded
-    jitter (Tempest alternates strict period 2); **(c) the rail is BROKEN at I1**: the
+    `stormSpike` is a symmetric tent). **TURNTABLE/TIER-CARD SCALE ONLY** (v2.2 honesty
+    demotion: on a 2–3px footprint the apex offset moves 0.3–0.5px at chase distance —
+    listed in §11's turntable-only list; never present this as a chase axis);
+    **(b) rhythm — tall-tall-short, period 3**, seeded jitter (Tempest alternates strict
+    period 2) — weakly chase-real: ~6–8px double-peaks vs Tempest's 3–4px sawtooth;
+    **(c) the rail is BROKEN at I1 — THE load-bearing chase-distance split**: the
     pale bone-ash tip-rail (RL5) runs in irregular lit segments of **2–4 vane intervals**
-    separated by 1–2 dark — **~60% duty, never continuous** (a continuous pale
+    separated by 1–2 dark (0.14–0.32u ≈ 3–7px at the committed pitch — resolvable) —
+    **~60% duty, never continuous** (a continuous pale
     ridge-ribbon threaded through vane tips IS Tempest's `crestPts` read,
     `dragonTempest.js:282,306-320`); it fuses continuous only while THE STOKE runs at I4
     — withheld completeness, on-lane. Kinked + swept, short fore-aft footprint; `char`
@@ -323,8 +338,13 @@ before believing it.**
 
 - **RL1 — RELIEF FLOOR.** Relief is bought in world units and judged in pixels. Floors:
   silhouette-breaking ranks **0.13–0.33u** (≈3–7px; the §4-R1 formula is the law — this
-  band is its exact range, stated identically in §2/§4/here, audit C3; ladder rungs scale
-  within it — f0's 0.14u clears the 0.13 floor); any plate standoff / deck lift / card
+  band is its exact range, stated identically in §2/§4/here, audit C3). **Binding
+  reading (v2.2, so the floor is checkable): the band binds each station's RANK-Hmax —
+  the tall vanes, 0.18–0.33u — not every element.** Period-3 short vanes (0.128–0.213u
+  at apex) sit below it by design and are bound only by the 0.02u delete line; ladder
+  rungs scale the Hmax envelope (f0 Hmax 0.14u clears the floor; its short vanes ~0.05u
+  are LEGAL under this reading — under an every-vane reading they would not be, which is
+  why the reading is stated). Any plate standoff / deck lift / card
   stand-proud **≥0.05u** (~1px shadow step); absolute floor **0.03u** for any raised
   element. Anything under **0.02u is sub-pixel at range — delete or merge it, never tune
   it.** A rank that breaks no silhouette and casts no visible shadow does not exist.
@@ -338,16 +358,27 @@ before believing it.**
   C2 — the absolutist v2 wording banned the shipped fix for a failure it exists to
   prevent).** Role map: dorsal field = `char`, flank = `scorch`, ventral = `ash`; bright
   ONLY on rims, crest rails, blade leading edges; belly tiers by radial distance from the
-  keel. An index expression must never SCATTER elements across role tiers — cross-tier
-  index picks at 0.05–0.2u element size are mid-frequency noise, i.e. camouflage (the
-  five-round failure). But PURE role banding rebuilds the opposite bug: it pooled all
-  brightness into one continuous deck stripe (the recorded round-2 "sheet-metal" band),
-  and `slagBand`'s `((i*7+3)%5)<3` duty-hash (`dragonFornax.js:69-75`) is the shipped
-  cure — **explicitly EXEMPT**. Sanctioned index use: value jitter WITHIN a tier, or a
-  duty break dropping an element exactly ONE step DARKER toward the field — never
-  brighter, never ≥2 tiers. (Tempest itself perturbs on index atop a role base: `u%2`
-  `:373`, `+(i%2)·0.7` `:229`, `u%3` `:300` — the evidence never supported an absolute
-  ban.) Bounded by the §11 anti-pooling assert.
+  keel. The two regimes are SCALE-SEPARATED — that is what dissolves the v2.1
+  self-contradiction (a sanctioned darker-break on a 0.1u element was simultaneously
+  condemned as camouflage two sentences earlier): **elements IN the 0.05–0.2u camo band
+  admit NO index picks in ANY direction** — index value at that scale is mid-frequency
+  noise, i.e. camouflage (the five-round failure). ABOVE that band, PURE role banding
+  rebuilds the opposite bug — it pooled all brightness into one continuous deck stripe
+  (the recorded round-2 "sheet-metal" band), and `slagBand`'s duty-hash
+  (`dragonFornax.js:69-75`) is the shipped cure — **explicitly EXEMPT as a mechanism**.
+  Sanctioned index use: value jitter WITHIN a tier, or a duty break dropping an element
+  exactly ONE step DARKER toward the field — never brighter, never ≥2 tiers — under
+  three bounds (v2.2): **(i)** duty breaks apply ONLY to elements above the 0.05–0.2u
+  camo band (station-scale facets — field-ward breaks read as shadow/wear; camo-scale
+  breaks read as mottle); **(ii)** IRREGULAR duty — never strict alternation or any even
+  on/off metronome (the picket-fence tell `slagBand`'s own comment warns against);
+  **(iii)** minimum lit run ≥2 stations. ⚠ COMPUTED (v2.2): the shipped hash
+  `((i*7+3)%5)<3` yields the period-5 pattern F,T,T,F,T — it satisfies (i) and (ii) but
+  has SINGLETON lit runs, violating (iii); the exemption covers the mechanism, and the
+  rebuild owes the one-line retune (e.g. `((i*2+1)%7)<4`: period-7, duty 4/7, lit runs
+  of 2, gaps 1–2 — computed to satisfy all three). (Tempest itself perturbs on index
+  atop a role base: `u%2` `:373`, `+(i%2)·0.7` `:229`, `u%3` `:300` — the evidence never
+  supported an absolute ban.) Bounded by the §11 anti-pooling assert.
 - **RL4 — THE BRIGHT TIER IS STROKES, NOT CONFETTI (bounded both ways).** The brightest
   values are LINES — rails through vane tips, deck-edge rails, blade leading edges.
   Lines read as anatomy; scattered 0.022u rim slivers read as white specks. Any bright
@@ -369,9 +400,12 @@ before believing it.**
   evidence — it is the exact ambiguity that let five failed rounds "pass".
 - **RL7 — HUE UNDER THE RIG (numeric band committed, audit C5).** The studio rig is blue
   (hemisphere `0xbfdcff`, rim `0x7fb8ff`); warm-TAN albedo renders khaki and reads
-  military. Lit tiers are warm-GREY, band: **8 ≤ R−B ≤ 20, saturation ≤ 0.07** — both
-  sanctioned hexes comply (`0x8f8a84` R−B 11, `0xbdb6ac` R−B 17); the loose v2 "a couple
-  of steps" wording is superseded by this band. The `char` field stays cool-neutral
+  military. Lit tiers are warm-GREY, band: **8 ≤ R−B ≤ 20, saturation ≤ 0.10 in HSV,
+  computed as (max−min)/max** — the formula is named because HSV and HSL disagree (HSL
+  gives 0.114 for the rim hex). Both sanctioned hexes COMPUTED, not asserted (v2.2 — the
+  first commit said ≤0.07 and failed both hexes it certified): `0x8f8a84` → R−B 11,
+  sat 11/143 = **0.077**; `0xbdb6ac` → R−B 17, sat 17/189 = **0.090**. The loose v2
+  "a couple of steps" wording is superseded by this band. The `char` field stays cool-neutral
   (identity law 7) — RL7 binds the LIT tiers only. Probed in §11's lit-tier hue probe
   (the fire-region channel-order probe never sees these pixels — a law without a probe is
   how the steel-blue round shipped).
@@ -527,14 +561,28 @@ could ACT).
   idiom, ref §1) — and since the §2 reversal the crest is **the CONTINUATION of §4-R1,
   not a second rank**. Ownership is exclusive (audit C4 — the v2 draft gave R1's fr
   schedule and this law dual authority over z 0.60→1.70, which is unbuildable): **R1's
-  fr schedule ends at the HIP (z 0.60); the ×0.66-per-vane decay law owns hip→tip**,
-  through the torso's aft body, across the tail root and out to the firebrand (house
-  §3.6 — rows run to their anatomical end). Pitch committed: **0.24u at the hip,
-  contracting ×0.94 per interval** (≈11–12 vanes over the 4.03u tail). The tail module
-  seeds its first vane from the attach contract's **`serrationTopAt(anchor.z)`** (§4,
-  additive key) — "height-matched" is a contract read, never a duplicated constant
+  fr schedule ends at the HIP (z 0.60); ONE schedule owns hip→tip** (house §3.6 — rows
+  run to their anatomical end). That schedule, re-committed v2.2 after BOTH v2.1 numbers
+  failed arithmetic:
+  **Height — decay to a TIP FLOOR: H 0.18u at the hip → 0.04u at the tip, ×0.91 per
+  vane** (the ratio is DERIVED, not free: (0.04/0.18)^(1/16) ≈ 0.91). The v2.1 "×0.66
+  per vane" was ref §6.3's per-element law for 2–3-element follower ranks; over 11+
+  vanes it computes to 0.18·0.66⁴ ≈ **0.034u at the tail root** — a dead sub-2px crest
+  that deleted §1's "rolling ridge crest" claim in arithmetic while asserting it in
+  prose.
+  **Pitch — near-constant 0.32u: 17 vanes / 16 intervals over the 5.13u hip→tip run**
+  (1.10u torso aft-body + 4.03u tail module; 16 × 0.32 = 5.12u ✓; every broken-rail
+  dark gap ≥0.32u ≈ 7px — resolvable). The v2.1 "0.24u ×0.94" series converges to
+  0.24/0.06 = **4.00u as n→∞** and spans only ≈2.0u at its own 11–12 vanes — it died
+  halfway down the tail in the same sentence that ran it to the firebrand.
+  **The TORSO module builds the aft-body vanes** (hip→tail-root, z 0.60–1.70, ~3–4
+  vanes — stated explicitly, audit: implied before, owned by nobody). The tail module
+  CONTINUES the schedule, seeding from the attach contract's **`serrationTopAt(anchor.z)`**
+  (§4, additive key) — "height-matched" is a contract read, never a duplicated constant
   (`buildFirebrandTail` receives only `anchor {y,z}` today; the key is the missing
-  channel). Same blade language (asymmetric struck shards, period-3 rhythm), same
+  channel). Under the corrected schedule `serrationTopAt(z=1.70)` returns hull-top +
+  **≈0.13u** (0.18·0.91^3.4 — ~3px, a LIVE crest at the handoff; under v2.1's numbers it
+  returned +0.034u, and "height-matched" was satisfied trivially by a dead crest). Same blade language (asymmetric struck shards, period-3 rhythm), same
   under-gap recess per vane (RL2), same pale leading edge (RL5), same broken-rail duty
   (§4-R1c). If the tail crest and the torso serration ever read as two systems at the
   handoff, the tail conforms to §4-R1, not vice versa.
@@ -544,8 +592,7 @@ could ACT).
   stub builds `(tailLength ?? 1) * 2.6` in ABSOLUTE units (`dragonFornax.js:819`) =
   2.6u = only **1.68×** the torso. The sheet's dial is in torso multiples; I3 must
   rebase the code (or ship `tailLength: 1.55`) — the number does not silently become
-  1.68×.
-  the **fattest segments sit just aft of the hip** (ref §2), tapering ×3 (§1 axes).
+  1.68×. The **fattest segments sit just aft of the hip** (ref §2), tapering ×3 (§1 axes).
   Radius FLOOR raised for the judged projection (AAA tell #11 — rear-chase foreshortens;
   world-space girth ≠ silhouette girth).
 - **Rig:** house 4-joint `isBone` chain, bespoke dials — vertical undulation up-biased
@@ -635,8 +682,10 @@ a `fornax` block in `tests/starters.mjs`.
   raised element count, per rank.
 - **ANTI-POOLING assert (RL3/RL4's bound — audit C2: median AND spread both pass a
   pooled band, so the render gate alone re-admits the round-2 sheet-metal stripe):** max
-  contiguous same-tier bright (ashLit/rim) run ≤ **4 consecutive stations** on any
-  column, AND bright tiers ≤ **20%** of any single region's (dorsal/flank/ventral) area.
+  contiguous same-tier bright (ashLit/rim) run ≤ **4 consecutive stations on any column
+  AND ≤ 4 consecutive columns on any station-ring** (v2.2 symmetry fix: a transverse
+  pooled band — all columns lit at the same stations — evades a per-column-only cap),
+  AND bright tiers ≤ **20%** of any single region's (dorsal/flank/ventral) area.
 - **INDEX-MATERIAL FIREWALL (RL3, broadened — audit):** static check on `dragonFornax.js`
   — flag ANY material-selection expression whose selector references the loop index,
   **however expressed**: modulo, hash, comparison, ternary (`i===0?ashLit:scorch` at
@@ -646,8 +695,9 @@ a `fornax` block in `tests/starters.mjs`.
   firewall.
 - **LIT-TIER HUE PROBE (RL7 — closes the probe gap that shipped the steel-blue round):**
   the channel-order probe below covers FIRE-REGION pixels only; additionally assert
-  **8 ≤ R−B ≤ 20** on lit-tier (`ashLit`/rim) masked pixels of the capture, same
-  CA-off + dither-off mode, ±2/255 tolerance.
+  **8 ≤ R−B ≤ 20 and HSV saturation ≤ 0.10** ((max−min)/max — HSV, NOT HSL; the two
+  disagree by up to 0.03 on these hexes) on lit-tier (`ashLit`/rim) masked pixels of the
+  capture, same CA-off + dither-off mode, ±2/255 tolerance.
 - **CROP FRAMING (capture harness):** every crop camera must target BUILT geometry, never
   a stub — assert per panel: masked part coverage ≥5% of crop pixels and pixel stddev >0.
   (Two of six panels shipped as solid black rectangles framing an I3 box stub — the owner
@@ -705,8 +755,10 @@ low/high devices never see them) · temper-oxide band · eye placement detail (c
 gets only brow silhouette) · gape/breath + throat distension (Surge camera + shop) ·
 tail-prop tripod stance (shop idle) · **bay-depth value banding** (§5) · **the thumb
 claw** (§5) · **digit/knuckle countability** (the gameplay read is the 3-bay scallop
-silhouette, §5) · **THE CHIPPED BROW** (§6 — ~2–3px from the chase cam). Everything ELSE
-in this sheet must survive the rear-chase frame.
+silhouette, §5) · **THE CHIPPED BROW** (§6 — ~2–3px from the chase cam) · **serration
+vane-profile asymmetry** (§4-R1a, v2.2 demotion — a 0.60–0.70 apex offset on a 2–3px
+footprint moves 0.3–0.5px at chase scale; the chase-distance Tempest splits are rail
+duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
 
 ## 12. The gate + named residuals
 
@@ -720,9 +772,11 @@ in this sheet must survive the rear-chase frame.
   vs cold glass), **Tempest (NEW, audit C1 — dorsal-silhouette collision: the §2
   reversal put Fornax's spine in Tempest's lane, and the v2 gate could not see it — the
   table never gated the dorsal line and this tile list omitted Tempest entirely. The
-  tile must split on vane profile (struck shard vs symmetric tent-spike), rhythm
-  (period-3 vs strict alternation), rail duty (broken ~60% vs continuous ridge-ribbon —
-  the load-bearing split at 180px), and lane hue).** Standing veto: *"does any part read as a shipped dragon — or as
+  tile must split on **rail duty** (broken ~60% vs continuous ridge-ribbon — THE
+  load-bearing split at 180px), **rhythm** (period-3 vs strict alternation — weakly
+  chase-real, ~6–8px double-peaks), **lane hue**, and — at turntable range only, per the
+  §11 list — **vane profile** (struck shard vs symmetric tent-spike; 0.3–0.5px at chase,
+  v2.2 demotion)).** Standing veto: *"does any part read as a shipped dragon — or as
   Smaug/Drogon/Rathalos?"* (kit-coherence, §2).
 - **Cheap-tell registry sweep** (AAA §2) run as a checklist on captures before every
   critic spawn; §2 failure modes named aloud at every render.
@@ -743,10 +797,13 @@ in this sheet must survive the rear-chase frame.
 - **NO SPADE TAIL** — firebrand terminus + dorsal-ridge silhouette carry (ref §1). Any
   "add the barb back" pass reopens the kitsch the reference pass closed.
 - **THE SLAG SERRATION** — the bare spine is revoked (§2 reversal, 1.9/5 audit); the
-  dorsal midline carries 0.13–0.33u blade-vanes occiput→tail, continuous with the tail
-  crest, horns dominant above. The §4-R1 split axes (asymmetric struck shards, period-3
-  rhythm, BROKEN ~60%-duty rail at I1) are PART of the settlement — dropping any of them
-  rebuilds the Tempest collision, and dropping the rank rebuilds the crocodile lozenge.
+  dorsal midline carries blade-vanes at 0.13–0.33u Hmax **occiput→hip, decaying beyond
+  per §8's tip-floor schedule** (v2.2 — the earlier "occiput→tail" overreached: every
+  tail vane sits below 0.13u by design), continuous with the tail crest, horns dominant
+  above. The §4-R1 split axes (BROKEN ~60%-duty rail at I1 — the chase split; period-3
+  rhythm; struck-shard profile at turntable scale) are PART of the settlement — dropping
+  any of them rebuilds the Tempest collision, and dropping the rank rebuilds the
+  crocodile lozenge.
 - **ABDUCTED legs, plated-reptilian feet** — never tucked, never trailing, never
   bird-scaled (ref §3 camera logic + ref §1 cockatrice guard overrule period canon).
 - **Torso inflated / span honest, 5.5:1** — the sanctioned cheat (ref §2); the honest
@@ -796,9 +853,20 @@ in this sheet must survive the rear-chase frame.
   "~0.37u"); the serration's Tempest collision closed with three committed split axes +
   a §12 Tempest tile + a §2 dorsal-line row; RL3 restated (role sets tier, index
   perturbs within — `slagBand` exempt) + anti-pooling assert; relief band unified
-  0.13–0.33u; §8 handoff made buildable (`serrationTopAt(z)` additive contract key,
-  ×0.66 owns hip→tip, pitch 0.24u ×0.94); RL7 numeric hue band + lit-tier probe; §0/§4/§8
-  figures synced to shipped code (stats, cost, span definition, tail unit bug). See §13.
+  0.13–0.33u; §8 handoff made buildable (`serrationTopAt(z)` additive contract key —
+  though this round's schedule numbers were arithmetically wrong, see v2.2); RL7 numeric
+  hue band + lit-tier probe; §0/§4/§8 figures synced to shipped code (stats, cost, span
+  definition, tail unit bug). See §13.
+- **v2.2 (re-audit of v2.1 — C4/C5 re-opened on arithmetic; every number now computed
+  before assertion).** Tail schedule re-committed (pitch 0.32u near-constant, 17 vanes
+  over the 5.13u hip→tip run; height 0.18u→0.04u tip floor, ×0.91 derived — the v2.1
+  series died halfway down the tail and its decay left a dead 0.034u crest); RL7 sat
+  bound ≤0.10 HSV with the formula named (0.07 failed both certified hexes); RL3
+  scale-separated + three duty-break bounds (with a computed flag: `slagBand` violates
+  the min-run bound and owes a one-line retune); torso vane pitch committed (15–17 @
+  0.14–0.16u); profile split-axis demoted to turntable; relief band's binding reading
+  stated (rank-Hmax); anti-pooling made transverse-symmetric; SETTLED band scoped to
+  occiput→hip. See §13.
 
 ---
 
@@ -995,11 +1063,14 @@ verbatim.**
 - **C3 — relief band unified to 0.13–0.33u** (the R1 formula's exact range) in §2, §4b
   RL1, and SETTLED; §10's f0 0.14u clears the corrected floor.
 - **C4 — the handoff was unbuildable** (dual schedule authority over z 0.60→1.70; no
-  contract channel for terminal height). Fixed: fr owns occiput→hip, ×0.66 owns hip→tip;
-  tail pitch 0.24u ×0.94; additive `serrationTopAt(z)` contract key published (additive
-  keys don't break the freeze).
-- **C5 — RL7 committed to numbers:** 8 ≤ R−B ≤ 20, saturation ≤ 0.07; §11 gains a
-  lit-tier hue probe (the steel-blue class had a law but no probe).
+  contract channel for terminal height). Fixed: fr owns occiput→hip; additive
+  `serrationTopAt(z)` contract key published (additive keys don't break the freeze).
+  ⚠ This round's schedule numbers ("×0.66 owns hip→tip; pitch 0.24u ×0.94") were both
+  arithmetically impossible — superseded by the v2.2 entry below.
+- **C5 — RL7 committed to numbers:** 8 ≤ R−B ≤ 20 plus a saturation bound; §11 gains a
+  lit-tier hue probe (the steel-blue class had a law but no probe). ⚠ The bound this
+  round committed (≤0.07) failed both hexes it certified — corrected to ≤0.10 HSV in
+  v2.2 below.
 - **C6 — figures synced:** §0 stats 1.06/1.02 + cost 2400 (shipped def); span:total-body
   DEFINED (span ÷ nose-to-tail ≈ 1.14, the old "2.3" was span ÷ torso-chain); §8's tail
   dial flagged as a latent unit bug (code builds 2.6 ABSOLUTE = 1.68× torso; dial is in
@@ -1008,3 +1079,38 @@ verbatim.**
 The meta-lesson, recorded for the ledger: a reversal that imports the bar's mechanism
 imports the bar's identity — every fix borrowed from a roster dragon must arrive with
 its OWN split axis and a gate tile against the donor, in the same edit.
+
+---
+
+**v2.2 CORRECTIONS ROUND — re-audit of v2.1, 2026-07-26. Verdict:
+SOUND-WITH-CORRECTIONS; C1/C2/C6 cleared, C4/C5 re-opened on arithmetic. Four fixes
+applied, every number computed before assertion (the specific failure of the prior
+round).**
+
+- **C4 closed — the tail schedule was impossible two independent ways.** The 0.24u
+  ×0.94 pitch series converges to 4.00u (< the 4.03u tail) and spanned ≈2.0u at its own
+  11–12 vanes; ×0.66 height decay computed to a 0.034u dead crest at the tail root
+  (sub-2px — deleting §1's "rolling ridge crest" in arithmetic). Re-committed:
+  **near-constant pitch 0.32u, 17 vanes/16 intervals over the 5.13u hip→tip run
+  (16×0.32 = 5.12 ✓); height 0.18u→0.04u tip floor, ratio derived (0.04/0.18)^(1/16) ≈
+  ×0.91**; the torso module explicitly owns the aft-body vanes; `serrationTopAt(1.70)`
+  now returns +≈0.13u — a live crest, closing the trivially-satisfiable handoff.
+- **C5 closed — the saturation bound failed both hexes it certified.** ≤0.07 vs
+  computed HSV sats 0.077 (`0x8f8a84`) and 0.090 (`0xbdb6ac`). Now **≤0.10, formula
+  named (HSV, (max−min)/max — HSL gives 0.114 for the rim hex)**, both hexes computed
+  in the law, probe updated.
+- **C2 residual closed — RL3's regimes scale-separated** (camo band 0.05–0.2u admits NO
+  index picks; duty breaks live above it) + three bounds: station-scale only, irregular
+  duty, min lit run ≥2. **Director's computed correction to the audit:** the claim that
+  `slagBand` "already satisfies" all three is FALSE for (iii) — the shipped hash's
+  period-5 pattern F,T,T,F,T has singleton lit runs. Bounds adopted anyway (they are
+  right); the exemption covers the mechanism; the rebuild owes a one-line retune
+  (e.g. `((i*2+1)%7)<4` — computed: duty 4/7, lit runs of 2, gaps 1–2).
+- **Split-axis honesty:** torso vane pitch finally committed (15–17 vanes occiput→hip,
+  0.14–0.16u — the broken rail's gaps are 3–7px, resolvable, so §12's "load-bearing
+  split" now rests on a number that exists); axis (a) profile demoted to the §11
+  turntable-only list (0.3–0.5px at chase); (b) rhythm labelled weakly chase-real.
+- **Consistency:** SETTLED's band scoped to occiput→hip Hmax; the relief band's binding
+  reading stated (rank-Hmax, tall vanes 0.18–0.33u — an every-vane reading would fail
+  f0's short vanes and the apex's own 0.128u short vanes); anti-pooling run cap made
+  transverse-symmetric (per column AND per station-ring).
