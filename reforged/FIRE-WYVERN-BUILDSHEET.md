@@ -278,7 +278,13 @@ ASSIGNMENT and the BRIGHT TIER — all now numbered laws here and generalised in
     listed in §11's turntable-only list; never present this as a chase axis);
     **(b) rhythm — tall-tall-short, period 3**, seeded jitter (Tempest alternates strict
     period 2) — weakly chase-real: ~6–8px double-peaks vs Tempest's 3–4px sawtooth;
-    **(c) the rail is BROKEN at I1 — THE load-bearing chase-distance split**: the
+    **(c) the rail is BROKEN at I1 — ⚠ CORRECTED v2.3 after the 3.6/5 gate: the DUTY CYCLE IS NOT
+    VISIBLE.** Built and rendered, lit-rim vs unlit-ash leading faces are too close in rendered
+    value to read as "runs of 2 with dark gaps" at any distance. The split from Tempest is REAL
+    but for a different reason than this sheet claimed: Fornax reads as **discrete pale-tipped
+    serration** against Tempest's **continuous ribbon**. Keep the duty cycle (it costs nothing and
+    fuses at I4 as designed) but **stop billing it as the load-bearing read** — the load-bearing
+    split is the per-vane pale CAP vs a connected ribbon. Original spec follows: the
     pale bone-ash tip-rail (RL5) runs in irregular lit segments of **2–4 vane intervals**
     separated by 1–2 dark (0.14–0.32u ≈ 3–7px at the committed pitch — resolvable) —
     **~60% duty, never continuous** (a continuous pale
@@ -326,6 +332,15 @@ ASSIGNMENT and the BRIGHT TIER — all now numbered laws here and generalised in
   first vane from `serrationTopAt(anchor.z)`, so "height-matched" is built FROM the
   contract, never from duplicated constants (audit C4: `buildFirebrandTail` receives only
   `anchor {y,z}` today — without this key the handoff was unbuildable as written).
+
+> **⚠ BINDING DEFERRAL → I2 (from the 3.6/5 gate).** The mid-back **wing-mount massif** swallows
+> 3–4 serration intervals and is the hero view's one remaining dead zone. It was deferred out of
+> the torso round because I2 rebuilds that slab when the wing mounts to it — reshaping it twice
+> is waste. **The condition, so the deferral cannot evaporate: this is an I2 ACCEPTANCE CRITERION,
+> not a note.** If I2 lands and the mid-back still reads as a featureless black box interrupting
+> the serration, that is an I2 GATE FAILURE, not a torso debt. Same round also owes: consolidating
+> the pale flank flecks (they read as debris once the rail wires were deleted) and warming the
+> bluish belly panel into the RL7 ladder.
 
 ## 4b. RICHNESS LAWS (every part — I2's wing and I3's head/tail INHERIT these; never
 re-derive them per part)

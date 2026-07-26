@@ -334,7 +334,9 @@ function addFlankShingles(push, at, S, M, perRow) {
   for (const side of [1, -1]) {
     for (const [th, cnt] of [[0.95, perRow], [1.28, perRow - 1]]) {
       for (let i = 0; i < cnt; i++) {
-        const z = S(-1.05) + (S(1.25) - S(-1.05)) * (i / (cnt - 1 || 1));
+        // Rows start AFT of the wing root (-0.72, was -1.05): the foremost cards used to sit on
+        // the shoulder where, with the rail wires gone, they read as isolated pale debris.
+        const z = S(-0.72) + (S(1.25) - S(-0.72)) * (i / (cnt - 1 || 1));
         const st = at(z);
         const nx = side * Math.sin(th), ny = Math.cos(th);
         const xh = side * Math.sin(th) * st.rx, yh = st.cy + Math.cos(th) * st.ry;
@@ -796,13 +798,15 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
       ankle.rotation.x = THREE.MathUtils.degToRad(115 - 90);
       ankle.userData.legRole = 'ankle';
       knee.add(ankle);
+      // Toes shortened + splayed less now the limb folds: at the tucked angle the old length read
+      // as broken twigs stuck to the sternum, sitting right on the clean lower silhouette.
       for (let t = -1; t <= 1; t++) {
         const toe = slagLoft([
           { z: 0, rx: S(0.030), ry: S(0.026), cy: 0 },
-          { z: S(0.115), rx: S(0.017), ry: S(0.015), cy: 0 },
+          { z: S(0.072), rx: S(0.019), ry: S(0.017), cy: 0 },
         ], SLAG_PROFILE, () => M.char);
         toe.rotation.x = Math.PI / 2;
-        toe.rotation.z = t * 0.42;
+        toe.rotation.z = t * 0.30;
         toe.position.set(t * S(0.035), -S(0.02), -S(0.02));
         ankle.add(toe);
       }
