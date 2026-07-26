@@ -709,6 +709,10 @@ export const DRAGONS = {
       // I1 torso dials (nullable, default-off in dragonFornax.js). slagSeams carves the lava-lake
       // network as UNLIT recessed channels; gen-3 hairlines are ultra-only and device-scoped.
       slagSeams: 1, slagSeamGen3: 1, slagDeckRim: 1,
+      // GEOMETRIC DETAIL RANKS — the richness lever. Vesper carries five such ranks (knapPlates 18,
+      // dorsalNubs, haunchFlakes, glassStreak, covertRow); rounds 1-3 of this hull carried ZERO and
+      // told the plate identity with value bands alone, which is the recorded "density gap".
+      slagPlates: 22, slagCowl: 1, slagHaunchScales: 1,
       wristT: 0.30,        // top of the house 0.2-0.3 band — the planform split from Vesper's 0.21.
                            // I2 flapstrip must confirm the wrist FOLD still reads at 0.30 before
                            // this locks; the fold outranks the differentiator (audit round 2).
@@ -731,13 +735,13 @@ export const DRAGONS = {
       // which is legal so long as it is asserted monotonic. Every rung stays inside the sourced
       // charcoal albedo band, linear 0.02-0.045: 0x34→0.034, 0x2f→0.028, 0x2c→0.025, 0x2a→0.023.
       // Below that band the hull crushes to the flat-black poverty the playbook bans.
-      { spanScale: 0.72, emberHaunch: 0, wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 1.0,
+      { spanScale: 0.72, emberHaunch: 0, slagPlates: 0, wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 1.0,
         colors: { body: 0x34343a, belly: 0x3c3c42, wingOuter: 0x34343a, eye: 0xffd9a0 } },
-      { spanScale: 0.84, emberHaunch: 1, wingParts: 2, midAmp: 0.20, tipAmp: 0.28, glidePow: 1.4,
+      { spanScale: 0.84, emberHaunch: 1, slagPlates: 7, wingParts: 2, midAmp: 0.20, tipAmp: 0.28, glidePow: 1.4,
         colors: { body: 0x2f2f34, belly: 0x38383e, wingOuter: 0x2f2f34, eye: 0xffd9a0 } },
-      { spanScale: 0.93, emberHaunch: 1, wingParts: 3, midAmp: 0.26, tipAmp: 0.42, glidePow: 1.9,
+      { spanScale: 0.93, emberHaunch: 1, slagPlates: 14, wingParts: 3, midAmp: 0.26, tipAmp: 0.42, glidePow: 1.9,
         colors: { body: 0x2c2c30, belly: 0x34343a, wingOuter: 0x2c2c30, eye: 0xffdcaa } },
-      { spanScale: 1.0, emberHaunch: 1, wingParts: 3, midAmp: 0.30, tipAmp: 0.52, glidePow: 2.4,
+      { spanScale: 1.0, emberHaunch: 1, slagPlates: 22, wingParts: 3, midAmp: 0.30, tipAmp: 0.52, glidePow: 2.4,
         colors: { body: 0x2a2a2c, belly: 0x322e34, wingOuter: 0x2a2a2c, eye: 0xffe0b4 } },
     ],
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
