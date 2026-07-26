@@ -206,9 +206,15 @@ function addSlagSerration(push, at, S, M, opts) {
     // the trailing face rakes — a struck shard rather than a symmetric tent.
     const zLead = z - foot * 0.65, zTrail = z + foot * 0.35, zApex = z + foot * 0.15;
     const apex = [0, yTop + H, zApex];
-    push(M.char,
-      [apex, [-w, yTop, zLead], [w, yTop, zLead]],            // leading face (steep)
-      [apex, [w, yTop, zLead], [w * 0.72, yTop, zTrail]],     // starboard rake
+    // VALUE STRUCTURE AT VANE SCALE — the critic's core finding: Tempest reads as carved because
+    // every form carries core→bloom→dark at EVERY scale, while these vanes were char-on-char and
+    // vanished wherever the hull (not sky) backed them. Each vane now spans three tiers by itself:
+    // a pale LEADING EDGE on lit runs (bone-ash), a mid-tier body, and its dark under-gap recess.
+    const lit = litRun ? litRun(i) : false;
+    push(lit ? M.rim : M.ashLit,
+      [apex, [-w, yTop, zLead], [w, yTop, zLead]]);           // leading face — the caught edge
+    push(M.scorch,
+      [apex, [w, yTop, zLead], [w * 0.72, yTop, zTrail]],     // starboard rake (mid tier)
       [apex, [-w * 0.72, yTop, zTrail], [-w, yTop, zLead]],   // port rake
       [apex, [w * 0.72, yTop, zTrail], [-w * 0.72, yTop, zTrail]]);
     // RL2 — the under-gap recess: a dark step sunk INTO the hull at the vane's base, so the vane
@@ -218,26 +224,12 @@ function addSlagSerration(push, at, S, M, opts) {
       [[-w * 1.15, yTop - S(0.028), zLead], [w * 1.15, yTop - S(0.004), zTrail], [-w * 1.15, yTop - S(0.004), zTrail]]);
     tops.push({ z, y: yTop + H, w });
   }
-  // (c) THE BROKEN RAIL — the load-bearing split from Tempest, whose crest ribbon is CONTINUOUS.
-  // Pale bone-ash segments of 2–4 vane intervals with 1–2 dark between (~60% duty). It fuses whole
-  // only when THE STOKE runs at I4 — withheld completeness, which turns the distinctiveness
-  // problem into an expression of the identity rather than a tweak.
-  if (litRun) {
-    for (let i = 0; i < tops.length - 1; i++) {
-      if (!litRun(i)) continue;
-      const a = tops[i], b = tops[i + 1];
-      // Half-width 0.013u was 0.55px TOTAL — the load-bearing distinctiveness split rendered as
-      // nothing. 0.05u half-width = 2.1px, and the ribbon is lifted a hair above the vane tips so
-      // the tips cannot occlude it from a rear-high camera.
-      const rw = S(0.05), lift = S(0.012);
-      push(M.rim,
-        [[-rw, a.y + lift, a.z], [rw, a.y + lift, a.z], [rw, b.y + lift, b.z]],
-        [[-rw, a.y + lift, a.z], [rw, b.y + lift, b.z], [-rw, b.y + lift, b.z]],
-        // a thin vertical fillet down each side so the rail reads as a capping ridge, not a decal
-        [[rw, a.y + lift, a.z], [rw, a.y - S(0.02), a.z], [rw, b.y + lift, b.z]],
-        [[-rw, a.y + lift, a.z], [-rw, b.y + lift, b.z], [-rw, a.y - S(0.02), a.z]]);
-    }
-  }
+  // (c) THE BROKEN RAIL — now carried by the PER-VANE pale leading edges above, not by spans
+  // between vane tips. The span version connected apexes of unequal height (0.33u tall → 0.14u
+  // short), so the ribbon floated in mid-air detached from any surface and rendered as white
+  // threads — "spider silk", and at the shoulder it composed a scribbled glyph. Widening it only
+  // made the artifact visible. The broken-vs-continuous split from Tempest survives intact: the
+  // lit RUNS are what differ, and a per-vane cap is the mechanism the crops proved legible.
   return tops;
 }
 
@@ -756,7 +748,12 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
     for (const side of [1, -1]) {
       const hip = new THREE.Group();
       hip.position.set(side * S(0.34), TORSO_Y - S(0.06), S(0.62));
+      // Abduct 45° stays (ref §3 — it is what puts geometry in the wing–tail wedge), but the limb
+      // now FOLDS up along the belly in glide instead of hanging. Straight-down limbs are the
+      // landing-gear tell (DRAGON-DESIGN failure #7), and the critic flagged them as the second
+      // thing the owner would mock after the rail artifact.
       hip.rotation.z = side * THREE.MathUtils.degToRad(45);      // hip abduct 45° (band 35-55)
+      hip.rotation.x = THREE.MathUtils.degToRad(-38);            // thigh swept UP toward the belly
       hip.userData.legRole = 'hip';
 
       const thighLen = S(0.40);
@@ -772,7 +769,7 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
       // director caught). Interior angle 82° (band 70-95): the shank swings forward under the body.
       const knee = new THREE.Group();
       knee.position.y = -thighLen;
-      knee.rotation.x = THREE.MathUtils.degToRad(-(180 - 82)) * 0.42;   // partial fold at rest
+      knee.rotation.x = THREE.MathUtils.degToRad(-(180 - 82)) * 0.86;   // deep fold — shank tucks forward, not down
       knee.userData.legRole = 'knee';
       hip.add(knee);
 
