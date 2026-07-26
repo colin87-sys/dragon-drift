@@ -135,6 +135,138 @@ function seamStrip(pts, halfW, mat) {
   return flatTriMesh(tris, mat);
 }
 
+// ── THE RANK SUITE ──────────────────────────────────────────────────────────────────────────────
+// Structure copied from the roster's premium bar, the Thunderhead Tempest, whose torso carries
+// SEVEN named ranks (`dragonTempest.js#buildCumulonimbusTorso`: R1 dorsal scutes, R2 belly deck,
+// R3 the carved storm-heart socket, R4 lapped armour, R5 flank shingle rows, R7 throat gorget,
+// plus the spine circuit and sternum veins) — all funnelled through ONE per-material accumulator
+// so seven ranks still cost ~12 draw calls.
+//
+// Rounds 1-4 of this hull had none of that. It was a lofted tube with value stripes and hairline
+// seams, and no amount of albedo tuning could buy depth that isn't in the geometry. The honest
+// caveat: roughly half of Tempest's read is its NEAR-WHITE storm circuit, and Fornax's equivalent
+// — the seam network — stays unlit until I4 by its own withheld-light law. So these ranks must
+// carry the whole richness on shadow and edge alone at I1.
+//
+// Each adder takes the shared `push` so a new rank never adds a draw call.
+
+// R1 — DORSAL SCUTE RANK, withers→tail-root. Low armoured scutes, not spikes: the sheet keeps the
+// sky above the spine unbroken for the tail's crest and I3's horns, so these ride the deck and
+// break the outline only in profile. Dominant + decay with a deliberate irregular step.
+function addDorsalScutes(push, at, S, M, n) {
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1 || 1);
+    const z = S(-1.20) + (S(1.45) - S(-1.20)) * t;
+    const st = at(z);
+    const h = S(0.052) * (1 - 0.55 * t) * (1 + 0.18 * ((i * 5) % 3 === 0 ? 1 : -1));  // decay + jitter
+    const w = S(0.075) * (1 - 0.35 * t);
+    const yTop = st.cy + st.ry;
+    const zc = z, zb = z - S(0.055);
+    push(i % 3 === 0 ? M.ashLit : M.scorch,
+      [[0, yTop + h, zc], [-w, yTop - S(0.006), zb], [w, yTop - S(0.006), zb]],
+      [[0, yTop + h, zc], [w, yTop - S(0.006), zb], [w * 0.5, yTop - S(0.004), zc + S(0.05)]],
+      [[0, yTop + h, zc], [-w * 0.5, yTop - S(0.004), zc + S(0.05)], [-w, yTop - S(0.006), zb]]);
+  }
+}
+
+// R2 — BELLY DECK: raised ventral plates separated by RECESSED gutters. The gutters are the ventral
+// half of the seam network and the channel THE STOKE runs along at I4, so the geometry has to exist
+// now even though it reads only as shadow.
+function addBellyDeck(push, at, S, M, n) {
+  for (let i = 0; i < n; i++) {
+    const z = S(-1.15) + (S(0.95) - S(-1.15)) * (i / (n - 1 || 1));
+    const st = at(z);
+    const yB = st.cy - st.ry;
+    const w = st.rx * 0.42, d = S(0.085);
+    push(M.scorch,
+      [[-w, yB - S(0.010), z - d], [w, yB - S(0.010), z - d], [w * 0.86, yB - S(0.016), z + d]],
+      [[-w, yB - S(0.010), z - d], [w * 0.86, yB - S(0.016), z + d], [-w * 0.86, yB - S(0.016), z + d]]);
+    // the gutter aft of each plate — seated INTO the hull so it reads as a cut, not a rib
+    push(M.seam,
+      [[-w * 0.7, yB + S(0.004), z + d], [w * 0.7, yB + S(0.004), z + d], [w * 0.7, yB + S(0.004), z + d + S(0.028)]],
+      [[-w * 0.7, yB + S(0.004), z + d], [w * 0.7, yB + S(0.004), z + d + S(0.028)], [-w * 0.7, yB + S(0.004), z + d + S(0.028)]]);
+  }
+}
+
+// R3 — THE FURNACE SOCKET at the sternum. Fornax's answer to the storm-heart: a carved void with a
+// raised rim, a sunk floor and cowl vanes shading it. The whole point of the identity is that the
+// fire is INSIDE and leaks out of openings, so the opening must be real geometry — a rim casting a
+// shadow over a recessed floor. Unlit at I1; at I4 the floor is where the core sits.
+function addFurnaceSocket(push, S, M, cx, cy, cz, r) {
+  const N = 9;
+  for (let i = 0; i < N; i++) {
+    const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+    const p = (a, rr, y) => [cx + Math.cos(a) * rr, cy + y, cz + Math.sin(a) * rr * 0.72];
+    // raised rim ring
+    push(M.rim, [p(a0, r, S(0.012)), p(a1, r, S(0.012)), p(a1, r * 0.80, S(0.004))],
+                [p(a0, r, S(0.012)), p(a1, r * 0.80, S(0.004)), p(a0, r * 0.80, S(0.004))]);
+    // sunk floor — the void the rim shades
+    push(M.seam, [p(a0, r * 0.80, S(0.004)), p(a1, r * 0.80, S(0.004)), [cx, cy - S(0.030), cz]]);
+  }
+  // cowl vanes — two shading blades over the socket's upper lip, so it reads as sheltered
+  for (const sd of [1, -1]) {
+    push(M.char, [[cx + sd * r * 0.55, cy + S(0.020), cz - r * 0.35],
+                  [cx + sd * r * 1.05, cy + S(0.008), cz + r * 0.15],
+                  [cx + sd * r * 0.45, cy - S(0.012), cz - r * 0.10]]);
+  }
+}
+
+// R4 — LAPPED ARMOUR over the two muscle masses (shoulder girdle + haunch). Overlapping cards, per
+// the sheet's "overlap > weld on every plate joint".
+function addLappedArmor(push, at, S, M) {
+  for (const side of [1, -1]) {
+    const runs = [[S(-1.20), 3, S(0.115)], [S(-0.95), 3, S(0.125)], [S(0.52), 2, S(0.100)], [S(0.80), 2, S(0.090)]];
+    for (const [z0, cnt, sz] of runs) {
+      for (let i = 0; i < cnt; i++) {
+        const z = z0 + i * sz * 1.35;
+        const st = at(z);
+        const th = 0.55 + 0.28 * i;
+        const nx = side * Math.sin(th), ny = Math.cos(th);
+        const x = side * Math.sin(th) * st.rx + nx * S(0.014);
+        const y = st.cy + Math.cos(th) * st.ry + ny * S(0.014);
+        const tx = side * Math.cos(th), ty = -Math.sin(th);
+        const s = sz * (1 - 0.16 * i);
+        const P = (u, v) => [x + tx * u, y + ty * u, z + v];
+        push(i === 0 ? M.ashLit : M.scorch,
+          [P(-s, -s * 0.8), P(s, -s * 0.6), P(s * 0.8, s)],
+          [P(-s, -s * 0.8), P(s * 0.8, s), P(-s * 0.85, s * 0.9)]);
+      }
+    }
+  }
+}
+
+// R5 — FLANK SHINGLE ROWS: two lines of small cupped cards per side over the smooth flank wall,
+// the rank that keeps the mid-body from being a bare panel between the two muscle masses.
+function addFlankShingles(push, at, S, M, perRow) {
+  for (const side of [1, -1]) {
+    for (const [th, cnt] of [[0.95, perRow], [1.28, perRow - 1]]) {
+      for (let i = 0; i < cnt; i++) {
+        const z = S(-1.05) + (S(1.25) - S(-1.05)) * (i / (cnt - 1 || 1));
+        const st = at(z);
+        const nx = side * Math.sin(th), ny = Math.cos(th);
+        const x = side * Math.sin(th) * st.rx + nx * S(0.008);
+        const y = st.cy + Math.cos(th) * st.ry + ny * S(0.008);
+        const s = S(0.052), d = S(0.062);
+        push(i % 2 ? M.char : M.scorch,
+          [[x, y + s, z - d], [x, y - s, z - d * 0.7], [x + nx * S(0.014), y, z + d]]);
+      }
+    }
+  }
+}
+
+// R6 — THROAT GORGET: banded collar plates under the jaw line, the rank that stops the neck reading
+// as a smooth pipe. Pale-ish diffuse so the throat separates from the hull in shadow.
+function addGorget(push, at, S, M, n) {
+  for (let i = 0; i < n; i++) {
+    const z = S(-2.62) + i * S(0.17);
+    const st = at(z);
+    const yB = st.cy - st.ry, w = st.rx * 0.68;
+    push(i % 2 ? M.scorch : M.ashLit,
+      [[-w, yB + S(0.004), z], [w, yB + S(0.004), z], [w * 0.82, yB - S(0.012), z + S(0.085)]],
+      [[-w, yB + S(0.004), z], [w * 0.82, yB - S(0.012), z + S(0.085)], [-w * 0.82, yB - S(0.012), z + S(0.085)]]);
+  }
+}
+
 // --- The four-tier char value ladder ----------------------------------------
 // The AAA value-structure law: a deliberately dark hero is CARVED OUT OF VALUES, never a flat
 // silhouette. Four diffuse tiers, and — the finding that reversed the sheet's own first draft —
@@ -321,6 +453,14 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
   // The scatter is a deterministic golden-ratio walk (never Math.random — the build must be
   // byte-reproducible), biased to the dorsal deck and upper flank because that is what the
   // rear-high camera actually sees.
+  // ── ONE PER-MATERIAL ACCUMULATOR FOR EVERY DETAIL RANK ──────────────────────────────────────
+  // The Tempest pattern, applied properly: plates, rims, cowl, haunch scutes and the R1-R6 rank
+  // suite all funnel through one `push`, so the whole detail budget materialises as ~6 meshes
+  // instead of ~6 per rank. Adding a rank must never cost a draw call — that is what makes
+  // richness affordable on a 60fps mobile target.
+  const dByMat = new Map();
+  const push = (mat, ...tris) => { let a = dByMat.get(mat); if (!a) dByMat.set(mat, a = []); for (const t of tris) a.push(t); };
+
   const plateN = Math.round(model.slagPlates ?? 0);
   if (plateN > 0) {
     const byTier = [[], [], []];        // char / scorch / ashLit — the field itself carries the ladder
@@ -352,8 +492,8 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
       rims.push([r1, r2, r3], [r1, r3, r4]);
     }
     const tierMats = [M.char, M.scorch, M.ashLit];
-    byTier.forEach((tris, t) => { if (tris.length) group.add(tagPart(flatTriMesh(tris, tierMats[t]), 'plate')); });
-    if (rims.length) group.add(tagPart(flatTriMesh(rims, M.rim), 'plate'));
+    byTier.forEach((tris, t) => { if (tris.length) push(tierMats[t], ...tris); });
+    if (rims.length) push(M.rim, ...rims);
   }
 
   // DECK-EDGE RIM — the fourth tier, and until round 2 it was a material defined with a law in its
@@ -402,10 +542,21 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
         rimTris.push([[x * 1.05, yTop, zc + w * 0.3], [x * 1.05, yLow, zc + w * 0.5], [x * 1.02, (yTop + yLow) * 0.5, zc + w * 0.58]]);
         w *= 0.66; zc += S(0.26);
       }
-      group.add(tagPart(flatTriMesh(tris, M.scorch), 'cowl'));
-      group.add(tagPart(flatTriMesh(rimTris, M.rim), 'cowl'));
+      push(M.scorch, ...tris); push(M.rim, ...rimTris);
     }
   }
+  // ── THE RANK SUITE, through ONE per-material accumulator (the Tempest pattern) ───────────────
+  // Seven ranks, ~5 extra meshes. Tagged 'rank' as a group so the structural probe can still
+  // isolate the 'hull' loft for its proportion measurements.
+  if ((model.slagRanks ?? 0) > 0) {
+    addDorsalScutes(push, at, S, M, Math.round(model.slagRanks * 15));   // R1 — the outline break
+    addBellyDeck(push, at, S, M, 7);                                     // R2 — ventral plates + gutters
+    addFurnaceSocket(push, S, M, 0, TORSO_Y - S(0.30), S(-0.78), S(0.13));  // R3 — the hero void
+    addLappedArmor(push, at, S, M);                                      // R4 — the two muscle masses
+    addFlankShingles(push, at, S, M, 9);                                 // R5 — the mid-body wall
+    addGorget(push, at, S, M, 4);                                        // R6 — the throat collar
+  }
+
   if ((model.slagHaunchScales ?? 0) > 0) {
     for (const side of [1, -1]) {
       // A short decaying file of thick scutes over the haunch — the hip's own rank, deliberately
@@ -420,8 +571,15 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
         const y = st.cy + st.ry * (0.42 - 0.12 * i);
         tris.push([[x, y + s, zc - s], [x, y - s, zc - s * 0.6], [x * 1.06, y, zc + s]]);
       }
-      group.add(tagPart(flatTriMesh(tris, M.char), 'haunchScale'));
+      push(M.char, ...tris);
     }
+  }
+
+  // Materialise the whole detail budget: one mesh per material, regardless of rank count.
+  if (dByMat.size) {
+    const detail = new THREE.Group();
+    for (const [mat, tris] of dByMat) detail.add(flatTriMesh(tris, mat));
+    group.add(tagPart(detail, 'rank'));
   }
 
   // ROOT SWELLS — the humerus root must visibly OUTMASS the femur root (~1.4×). That ordering is
