@@ -191,15 +191,24 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
 
   // NECK — 8 stations, a SHALLOW S. Ref §2: 8-9 cervicals, "slightly sinuous"; the joint COUNT is
   // the tell, not the length (birds run 14-15 and a deep S, and a deep S here would read bird).
+  // ⚠ The first station sits INBOARD of the hull's chest-prow cap (z −1.45), not outboard of it.
+  // At −1.50 with the neck loft uncapped there was a 0.05u slit straight through the chest — a
+  // full-height crack of background visible in the side render and a matching pair of pinholes at
+  // the neck base from above. "ONE dominant forged mass" cannot survive a silhouette that is
+  // literally severed at the throat, and no probe in the harness can see a hole.
+  //
+  // The S is expressed in the TOPLINE (cy + ry), not just the centreline: the outline sags through
+  // the mid-neck and lifts again toward the skull. A dip that exists only in cy while cy+ry falls
+  // monotonically is an S nobody can see — which is what round 1 shipped.
   const neck = [
-    { z: S(-1.50), rx: S(0.26), ry: S(0.30), cy: S(0.200) },
-    { z: S(-1.68), rx: S(0.24), ry: S(0.275), cy: S(0.225) },
-    { z: S(-1.86), rx: S(0.22), ry: S(0.250), cy: S(0.240) },
-    { z: S(-2.04), rx: S(0.205), ry: S(0.230), cy: S(0.235) },
-    { z: S(-2.22), rx: S(0.19), ry: S(0.210), cy: S(0.215) },
-    { z: S(-2.40), rx: S(0.17), ry: S(0.190), cy: S(0.190) },
-    { z: S(-2.58), rx: S(0.15), ry: S(0.170), cy: S(0.170) },
-    { z: S(-2.76), rx: S(0.13), ry: S(0.150), cy: S(0.160) },
+    { z: S(-1.38), rx: S(0.265), ry: S(0.300), cy: S(0.200) },   // top 0.500 — buried in the prow
+    { z: S(-1.62), rx: S(0.245), ry: S(0.268), cy: S(0.205) },   // top 0.473
+    { z: S(-1.86), rx: S(0.225), ry: S(0.238), cy: S(0.200) },   // top 0.438
+    { z: S(-2.06), rx: S(0.208), ry: S(0.214), cy: S(0.196) },   // top 0.410  ← sag
+    { z: S(-2.26), rx: S(0.192), ry: S(0.200), cy: S(0.205) },   // top 0.405  ← trough
+    { z: S(-2.44), rx: S(0.176), ry: S(0.188), cy: S(0.220) },   // top 0.408  ← lift
+    { z: S(-2.60), rx: S(0.158), ry: S(0.174), cy: S(0.236) },   // top 0.410
+    { z: S(-2.76), rx: S(0.140), ry: S(0.158), cy: S(0.245) },   // top 0.403 — head carried high
   ];
   group.add(tagPart(slagLoft(neck, SLAG_PROFILE, (k) => slagBand(M, k), false), 'neck'));
 
@@ -240,10 +249,15 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
     // GEN-1 TRANSVERSE ×3 — shoulder, mid-back, hip. Each is an ARC over the dorsal deck from
     // chine to chine, so it crosses the dorsal midline (the STOKE must be routable tail-ward)
     // and T's into a longitudinal seam at BOTH ends. 3 arcs × 2 ends = 6 T-junctions, 0 Y.
+    // ⚠ The column walk goes k2 → k1 → k0 → k9 → k8 → k7: chine, up over the shoulder bevel,
+    // ACROSS THE DORSAL DECK, and down the far side. The ascending walk k2..k7 looks equivalent
+    // and is not — it runs chine → lower flank → BELLY → lower flank → chine, i.e. the ventral
+    // route, which puts the entire seam identity on the one surface the rear-high camera never
+    // sees and leaves the deck blank. (Critic round 1 caught exactly this: the code contradicted
+    // this comment.) Same T-junctions at the chines either way; only the visible route changes.
+    const DORSAL_ARC = [2, 1, 0, 9, 8, 7];
     for (const z of [S(-0.95), S(-0.10), S(0.62)]) {
-      const arc = [];
-      for (let k = 2; k <= 7; k++) arc.push(surf(z, k));
-      group.add(tagPart(seamStrip(arc, w * 4, M.seam), 'seam'));
+      group.add(tagPart(seamStrip(DORSAL_ARC.map((k) => surf(z, k)), w * 4, M.seam), 'seam'));
     }
     // GEN-2 ×4 — shorter flank seams branching off a gen-1 longitudinal and running down toward
     // the belly, subdividing the big chine plates. Deterministic offsets (never Math.random) so
@@ -260,6 +274,31 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
       for (const [z0, k0] of [[-1.20, 1], [-0.50, 1], [0.05, 8], [0.85, 8]]) {
         group.add(tagPart(seamStrip([surf(S(z0), k0), surf(S(z0 + 0.18), k0 + 1)], w * 0.5, M.seam), 'seam'));
       }
+    }
+  }
+
+  // DECK-EDGE RIM — the fourth tier, and until round 2 it was a material defined with a law in its
+  // comment and applied to nothing, which made the "four-tier ladder" claim false in the file that
+  // asserted it. It lives where the coal-not-torch law says brightness belongs: the RIM over a
+  // dark face, never the face itself. Two thin strips trace the dorsal deck's outer edge (the
+  // k0/k1 and k9/k8 boundary) down the hull — the exact line rear-high light grazes — held to a
+  // sliver of surface area so it reads as a caught edge rather than a painted stripe.
+  if ((model.slagDeckRim ?? 0) > 0) {
+    for (const [ka, kb] of [[0, 1], [9, 8]]) {
+      const rail = [];
+      for (let z = S(-2.60); z <= S(1.45); z += S(0.17)) {
+        const a = surf(z, ka), b = surf(z, kb);
+        rail.push([a[0] * 0.5 + b[0] * 0.5, a[1] * 0.5 + b[1] * 0.5, z]);
+      }
+      const tris = [];
+      const hw = S(0.018);
+      for (let i = 0; i < rail.length - 1; i++) {
+        const A = rail[i], B = rail[i + 1];
+        const AL = [A[0] - hw, A[1], A[2]], AR = [A[0] + hw, A[1], A[2]];
+        const BL = [B[0] - hw, B[1], B[2]], BR = [B[0] + hw, B[1], B[2]];
+        tris.push([AL, BR, BL], [AL, AR, BR]);
+      }
+      group.add(tagPart(flatTriMesh(tris, M.rim), 'rim'));
     }
   }
 

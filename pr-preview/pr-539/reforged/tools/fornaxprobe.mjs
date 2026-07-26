@@ -150,12 +150,38 @@ check(fwdPct >= 65 && fwdPct <= 75, 'hull mass is forward-loaded (side-view proj
 // --- 6. SHOULDER vs HIP WIDTH -------------------------------------------------
 // "shoulder width >=1.25x hip width" — from directly behind, the torso must read as a
 // forward-heavy trapezoid rather than a tube.
-const widthNear = (z0) => {
-  const band = verts.filter((v) => Math.abs(v.z - z0) < 0.12);
+// HULL + ROOT SWELLS ONLY. Measuring every vertex let the wing stub's arm bone into the shoulder
+// band and reported 2.23x when the hull-only truth was ~1.29x — a flattering number that would
+// have quietly graded I2's wing geometry as if it were I1's torso. A probe that measures the
+// wrong parts is worse than no probe: it manufactures confidence.
+const hullVerts = [];
+root.traverse((o) => {
+  const part = o.userData.fornaxPart;
+  if (!o.isMesh || !o.geometry?.attributes?.position) return;
+  if (part !== 'hull' && part !== 'shoulderRoot' && part !== 'hipRoot') return;
+  const p = o.geometry.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); hullVerts.push(v.clone()); }
+});
+const widthNear = (z0, src = hullVerts) => {
+  const band = src.filter((v) => Math.abs(v.z - z0) < 0.12);
   return band.length ? 2 * Math.max(...band.map((v) => Math.abs(v.x))) : 0;
 };
 const wShoulder = widthNear(-0.95), wHip = widthNear(0.60);
-check(wHip > 0 && wShoulder / wHip >= 1.20, 'shoulder outmasses hip (>=1.20x width)', `${wShoulder.toFixed(2)} / ${wHip.toFixed(2)} = ${(wShoulder / wHip).toFixed(2)}x`);
+check(wHip > 0 && wShoulder / wHip >= 1.25, 'shoulder outmasses hip (>=1.25x width, HULL only)', `${wShoulder.toFixed(2)} / ${wHip.toFixed(2)} = ${(wShoulder / wHip).toFixed(2)}x`);
+
+// THE NECK/HULL JOIN — round 1 shipped a 0.05u slit straight through the chest, visible as a
+// full-height crack in the side render, and every numeric target still passed. Geometry probes
+// measure what is THERE; they are blind to a hole. This checks the join explicitly: the neck's
+// aft-most station must sit INBOARD of the hull's chest-prow cap so the two lofts overlap.
+const CHEST_PROW_Z = -1.45;
+const neckVerts = [];
+root.traverse((o) => {
+  if (!o.isMesh || o.userData.fornaxPart !== 'neck' || !o.geometry?.attributes?.position) return;
+  const p = o.geometry.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); neckVerts.push(v.clone()); }
+});
+const neckAft = neckVerts.length ? Math.max(...neckVerts.map((v) => v.z)) : -Infinity;
+check(neckAft > CHEST_PROW_Z, 'neck root OVERLAPS the hull (no slit at the throat)', `neck aft z ${neckAft.toFixed(3)} vs chest prow ${CHEST_PROW_Z}`);
 
 // --- 7. NO VENTRAL KEEL BLADE -------------------------------------------------
 // Flight muscle is 20-25% of body mass and real soarers have SHALLOW keels — the sheet's first
