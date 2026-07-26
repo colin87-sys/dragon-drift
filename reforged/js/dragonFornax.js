@@ -304,6 +304,58 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
     }
   }
 
+  // ── THE CHAR-PLATE FIELD ────────────────────────────────────────────────────────────────────
+  // The armour is LITERAL STRUCK GEOMETRY, not a value band painted on a smooth tube. Vesper hit
+  // this exact failure and its own source records the fix: "the 'knapping' identity is literal
+  // STRUCK GEOMETRY (it was told by value bands alone — the holistic-gate density gap)". Rounds
+  // 1-3 here repeated it — a lofted hull with striped columns and hairline seams has no depth to
+  // catch light, so it renders as a cutout no matter how the tiers are tuned. Richness is ORGANISED
+  // RANKS of geometry; ours are plates + their rims + the deck edge + the seam net.
+  //
+  // These are heat-shield plates, so they are FEW and LARGE (ref §7: few long seams bounding large
+  // plates — many small cells is the mud-crack/dead-rock read), overlapping rather than welded
+  // (sheet §4: "overlap > weld on every plate joint"), each lifted proud of the hull so it casts
+  // its own edge shadow, and each carrying a thin RIM strip along its aft edge — which is finally
+  // the honest home for the rim tier: a caught edge over a dark face, never a painted stripe.
+  //
+  // The scatter is a deterministic golden-ratio walk (never Math.random — the build must be
+  // byte-reproducible), biased to the dorsal deck and upper flank because that is what the
+  // rear-high camera actually sees.
+  const plateN = Math.round(model.slagPlates ?? 0);
+  if (plateN > 0) {
+    const byTier = [[], [], []];        // char / scorch / ashLit — the field itself carries the ladder
+    const rims = [];
+    for (let i = 0; i < plateN; i++) {
+      const z = S(-1.30) + (S(1.45) - S(-1.30)) * ((i * 0.6180339887) % 1);
+      const st = at(z);
+      const sd = (i % 2) ? 1 : -1;
+      // 0 = dorsal midline → ~1.25rad = upper flank. Biased toward the deck.
+      const th = 0.12 + 1.15 * ((i * 0.3547) % 1);
+      const lift = S(0.016);
+      const nx = sd * Math.sin(th), ny = Math.cos(th);
+      const cx = sd * Math.sin(th) * st.rx + nx * lift;
+      const cy = st.cy + Math.cos(th) * st.ry + ny * lift;
+      // Surface tangents: around the hull, and along it.
+      const tx = sd * Math.cos(th), ty = -Math.sin(th);
+      const a = S(0.10 + 0.055 * ((i * 0.71) % 1));   // half-width across the flank
+      const b = S(0.15 + 0.075 * ((i * 0.37) % 1));   // half-length along the body
+      const P = (u, v, out = 0) => [cx + tx * u + nx * out, cy + ty * u + ny * out, z + v];
+      // A cupped quad: the leading corners sit tighter to the hull than the trailing ones, so the
+      // plate reads as laid ON the body rather than floating parallel to it.
+      const c1 = P(-a * 0.82, -b, -lift * 0.5), c2 = P(a * 0.82, -b, -lift * 0.5);
+      const c3 = P(a, b, 0), c4 = P(-a, b, 0);
+      byTier[i % 3].push([c1, c2, c3], [c1, c3, c4]);
+      // RIM — the caught edge along the trailing lip, lifted a hair further proud so it takes the
+      // key light while the plate face stays dark. This is the coal-not-torch law in geometry.
+      const r1 = P(a, b, 0), r2 = P(-a, b, 0);
+      const r3 = P(-a * 0.94, b - S(0.022), lift * 0.6), r4 = P(a * 0.94, b - S(0.022), lift * 0.6);
+      rims.push([r1, r2, r3], [r1, r3, r4]);
+    }
+    const tierMats = [M.char, M.scorch, M.ashLit];
+    byTier.forEach((tris, t) => { if (tris.length) group.add(tagPart(flatTriMesh(tris, tierMats[t]), 'plate')); });
+    if (rims.length) group.add(tagPart(flatTriMesh(rims, M.rim), 'plate'));
+  }
+
   // DECK-EDGE RIM — the fourth tier, and until round 2 it was a material defined with a law in its
   // comment and applied to nothing, which made the "four-tier ladder" claim false in the file that
   // asserted it. It lives where the coal-not-torch law says brightness belongs: the RIM over a
@@ -326,6 +378,49 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
         tris.push([AL, BR, BL], [AL, AR, BR]);
       }
       group.add(tagPart(flatTriMesh(tris, M.rim), 'rim'));
+    }
+  }
+
+  // ── SHOULDER COWL + HAUNCH SCALES ───────────────────────────────────────────────────────────
+  // Two more ranks, because a hull with one rank of detail reads as a decal and a hull with five
+  // reads as a creature. Both are dominant + decay (never equal-pitch — ref §6: no natural display
+  // rank is evenly spaced, and the one comb-like system in the literature is asymmetric 7-vs-8).
+  if ((model.slagCowl ?? 0) > 0) {
+    for (const side of [1, -1]) {
+      // The cowl: 3 overlapping lames sweeping back off the shoulder yoke, each ~0.66 of the last
+      // — the armour that would have to exist for a wing to hinge under it.
+      const tris = [], rimTris = [];
+      let w = S(0.30), zc = S(-1.10);
+      for (let n = 0; n < 3; n++) {
+        const st = at(zc);
+        const yTop = st.cy + st.ry * 0.86, yLow = st.cy + st.ry * 0.10;
+        const x = side * (st.rx * 0.92 + S(0.012));
+        tris.push(
+          [[x, yTop, zc - w * 0.5], [x, yLow, zc - w * 0.35], [x * 1.04, yLow, zc + w * 0.5]],
+          [[x, yTop, zc - w * 0.5], [x * 1.04, yLow, zc + w * 0.5], [x * 1.04, yTop, zc + w * 0.3]],
+        );
+        rimTris.push([[x * 1.05, yTop, zc + w * 0.3], [x * 1.05, yLow, zc + w * 0.5], [x * 1.02, (yTop + yLow) * 0.5, zc + w * 0.58]]);
+        w *= 0.66; zc += S(0.26);
+      }
+      group.add(tagPart(flatTriMesh(tris, M.scorch), 'cowl'));
+      group.add(tagPart(flatTriMesh(rimTris, M.rim), 'cowl'));
+    }
+  }
+  if ((model.slagHaunchScales ?? 0) > 0) {
+    for (const side of [1, -1]) {
+      // A short decaying file of thick scutes over the haunch — the hip's own rank, deliberately
+      // ±1 asymmetric between sides so the pair never reads stamped.
+      const tris = [];
+      const n = side === 1 ? 4 : 3;
+      for (let i = 0; i < n; i++) {
+        const zc = S(0.42) + S(0.17) * i;
+        const st = at(zc);
+        const s = S(0.075) * Math.pow(0.78, i);
+        const x = side * (st.rx * 0.80 + S(0.010));
+        const y = st.cy + st.ry * (0.42 - 0.12 * i);
+        tris.push([[x, y + s, zc - s], [x, y - s, zc - s * 0.6], [x * 1.06, y, zc + s]]);
+      }
+      group.add(tagPart(flatTriMesh(tris, M.char), 'haunchScale'));
     }
   }
 
