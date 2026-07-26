@@ -628,3 +628,35 @@ rear-chase read it cannot deliver. Standing residual for I1: the distinctiveness
 decided in the shop turntable, where the shared kit vocabulary (thumb claw + propatagium +
 cowl plates) is fully visible — §12's Vesper side-by-side tile is the control for exactly
 that.
+
+---
+
+**I1 GATE — char-plate anvil. Round 1: 3.6/5 REVISE → Round 2: 4.3/5 PASS (same critic, resumed).**
+
+Round 1 found two defects the 15/15 machine probe could not see, plus one false claim:
+- **The silhouette was severed at the throat** — hull chest-prow cap at z −1.45, neck aft station
+  at −1.50, uncapped: a 0.05u slit through the chest. A geometry probe measures what is THERE;
+  absence is not a value it can read. Fixed by burying the neck root at −1.38, plus a permanent
+  join assert.
+- **The seam network was ventral** — `for (k = 2; k <= 7)` walks chine→flank→BELLY→flank→chine,
+  under a comment promising a dorsal arc. The whole seam identity, and I4's STOKE path, sat on the
+  surface the chase camera never sees. Now walks `[2,1,0,9,8,7]`.
+- **`M.rim` was defined and never applied** — the four-tier ladder was three. Now traces the deck
+  edge as a caught rim over a dark face (confirmed round 2 as conservative, NOT the LED tell).
+
+Also corrected: the probe reported shoulder:hip 2.23× because the wing stub's arm bone fell in the
+sampling band; hull-only truth is **1.28×**. Measurements now filter on `userData.fornaxPart`.
+
+**The blue-black question — resolved as a NON-issue by measurement, not by agreement.** Fornax char
+is B−R **+2** (neutral); Vesper's hide is *painted* B−R **+13**. Fornax's rendered blue is entirely
+sky bounce (mean B−R +0.9…+2.9 at game angles; sunlit facets go warm +6; the blue vanishes under
+the gold sky). **Do not warm the albedo** — it would leave the sourced charcoal band and drift into
+the Ember surface-warm lane. If cruise ever feels too cold the levers are scene key/fill or I4's
+amber, never the diffuse.
+
+**ATTACH CONTRACT IS NOW FROZEN.** I3's `brandSkull` and `firebrandTail` mount through it.
+
+Watch items carried to I2/I3: rim rails and dorsal arcs cross at six points at identical proudness
+(no z-fight in four static views — re-check in motion); seam width may need one step at real chase
+distance (**widen, never brighten**); `brandSkull` must be sized against the real neck terminus
+(0.32) rather than I0's box (0.24).
