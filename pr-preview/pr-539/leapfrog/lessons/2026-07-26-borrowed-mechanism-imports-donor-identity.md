@@ -12,11 +12,13 @@ two dark frames.
 **What we learned.**
 1. **A borrowed mechanism imports the donor's identity.** Every fix copied from a roster
    dragon must arrive WITH its own split axis and a gate tile against the donor, in the
-   same edit — Fornax committed three: asymmetric struck-shard vane profile (apex
-   0.60–0.70 aft, lead slope ≥3× trail) vs the symmetric tent-spike; tall-tall-short
-   period-3 rhythm vs strict alternation; a BROKEN ~60%-duty rail at I1 that fuses
-   continuous only under THE STOKE (withheld completeness — the split doubled as
-   identity).
+   same edit — Fornax committed three, ranked by where they actually read (compute the
+   pixels before ranking): a BROKEN ~60%-duty rail at I1 that fuses continuous only
+   under THE STOKE (THE chase-distance split — withheld completeness, the split doubled
+   as identity); tall-tall-short period-3 rhythm vs strict alternation (weakly
+   chase-real, ~6–8px double-peaks); asymmetric struck-shard vane profile vs the
+   symmetric tent-spike (turntable scale only — an apex offset on a 2–3px footprint
+   moves 0.3–0.5px at chase).
 2. **The distinctiveness gate can only see axes it has rows for.** The §2 table had no
    dorsal-line row and §12's calibration tiles omitted Tempest entirely, so the
    collision was structurally invisible to the sheet's own gate. When a reversal opens a
