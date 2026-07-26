@@ -21,22 +21,37 @@ if (!files.length) {
   process.exit(2);
 }
 
+// ⚠ MEASURE THE TORSO, NOT THE FRAME. Measuring every dark pixel put the giant I2 wing-plank
+// stubs and the I0 box head into the sample and reported a median of 14 when the torso's own
+// median was 21.6 — a later increment's placeholder grading an earlier increment's surface. This
+// is the THIRD time this build measured the wrong thing (vertex count instead of area, material
+// space instead of render space, whole frame instead of the part under test). The pattern is the
+// lesson: always state which PART a number describes before trusting it.
+//
+// The torso is isolated geometrically — it is the region with the tallest columns of creature
+// pixels; wing planks are wide but vertically thin, so a column-height threshold separates them
+// without needing per-pixel part tags in an already-flattened PNG.
 const PY = `
 import sys
 from PIL import Image
 for path in sys.argv[1:]:
     im = Image.open(path).convert('RGB')
-    px = list(im.getdata())
+    W, H = im.size
     lum = lambda p: 0.2126*p[0] + 0.7152*p[1] + 0.0722*p[2]
-    vals = [lum(p) for p in px]
-    # The backdrop is the modal bright value; the creature is everything well below it.
-    bg = sorted(vals)[int(len(vals)*0.75)]
-    cre = sorted(v for v in vals if v < bg - 40)
-    if not cre:
+    L = [[lum(im.getpixel((x, y))) for y in range(H)] for x in range(W)]
+    flat = sorted(v for col in L for v in col)
+    bg = flat[int(len(flat)*0.75)]
+    thr = bg - 40
+    cols = [sum(1 for v in col if v < thr) for col in L]
+    peak = max(cols) if cols else 0
+    if peak == 0:
         print(f"{path}\\tNO CREATURE PIXELS FOUND (bg~{bg:.0f})")
         continue
-    p = lambda q: cre[int(len(cre)*q)]
-    print(f"{path}\\tbg {bg:.0f}\\tcreature n={len(cre)}\\tp10 {p(.10):.1f}\\tp50 {p(.50):.1f}\\tp90 {p(.90):.1f}\\tspread {p(.90)-p(.10):.1f}\\tmax {cre[-1]:.1f}")
+    xs = [x for x, c in enumerate(cols) if c > peak*0.55]
+    x0, x1 = min(xs), max(xs)+1
+    body = sorted(v for x in range(x0, x1) for v in L[x] if v < thr)
+    p = lambda q: body[int(len(body)*q)]
+    print(f"{path}\\tbg {bg:.0f}\\tTORSO n={len(body)} (x {x0}-{x1})\\tp10 {p(.10):.1f}\\tp50 {p(.50):.1f}\\tp90 {p(.90):.1f}\\tspread {p(.90)-p(.10):.1f}\\tmax {body[-1]:.1f}")
 `;
 
 const out = execFileSync('python3', ['-c', PY, ...files], { encoding: 'utf8' });
