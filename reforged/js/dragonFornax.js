@@ -185,11 +185,20 @@ function addSlagSerration(push, at, S, M, opts) {
   const tops = [];
   for (let i = 0; i <= n; i++) {
     const t = i / n;
-    const z = S(z0) + (S(z1) - S(z0)) * t;
+    // ±12% deterministic pitch jitter — an evenly spaced file is a picket fence however varied
+    // the heights are. Never Math.random: the build must be byte-reproducible.
+    const jit = 1 + 0.12 * (((i * 5 + 2) % 7) / 3 - 1);
+    const z = S(z0) + (S(z1) - S(z0)) * t * jit;
     const st = at(z);
     const fr = 0.9 - 0.5 * t;                       // occiput → hip
+    // Period-3 tall-tall-SHORT, but the DELTA has to read at 7px. Round 1 of the serration used
+    // 0.30 vs 0.17 — a 36% drop that rendered as a uniform bristly comb, i.e. the picket-fence
+    // tell the anatomy research promoted to an observed law (no natural display rank is
+    // equal-pitch; the one comb-like system is asymmetric 7-vs-8). 0.30 vs 0.09 gives 0.33u vs
+    // 0.14u at the occiput — 7px against 3px, a rhythm instead of a file. The short vanes sit
+    // below the §4b band by design; they answer only to the 0.02u delete line.
     const tall = (i % 3) !== 2;                     // period-3: tall, tall, short
-    const H = S((tall ? 0.30 : 0.17) * fr + 0.06);
+    const H = S((tall ? 0.30 : 0.09) * fr + 0.06);
     const foot = S(0.150);                          // fore-aft footprint
     const w = S(0.052) * (1 - 0.28 * t);            // half-width — a BLADE, not a cone
     const yTop = st.cy + st.ry;
@@ -217,10 +226,16 @@ function addSlagSerration(push, at, S, M, opts) {
     for (let i = 0; i < tops.length - 1; i++) {
       if (!litRun(i)) continue;
       const a = tops[i], b = tops[i + 1];
-      const rw = S(0.013);
+      // Half-width 0.013u was 0.55px TOTAL — the load-bearing distinctiveness split rendered as
+      // nothing. 0.05u half-width = 2.1px, and the ribbon is lifted a hair above the vane tips so
+      // the tips cannot occlude it from a rear-high camera.
+      const rw = S(0.05), lift = S(0.012);
       push(M.rim,
-        [[-rw, a.y, a.z], [rw, a.y, a.z], [rw, b.y, b.z]],
-        [[-rw, a.y, a.z], [rw, b.y, b.z], [-rw, b.y, b.z]]);
+        [[-rw, a.y + lift, a.z], [rw, a.y + lift, a.z], [rw, b.y + lift, b.z]],
+        [[-rw, a.y + lift, a.z], [rw, b.y + lift, b.z], [-rw, b.y + lift, b.z]],
+        // a thin vertical fillet down each side so the rail reads as a capping ridge, not a decal
+        [[rw, a.y + lift, a.z], [rw, a.y - S(0.02), a.z], [rw, b.y + lift, b.z]],
+        [[-rw, a.y + lift, a.z], [-rw, b.y + lift, b.z], [-rw, a.y - S(0.02), a.z]]);
     }
   }
   return tops;
