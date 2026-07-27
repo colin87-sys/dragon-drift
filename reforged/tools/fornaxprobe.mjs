@@ -207,7 +207,12 @@ check(lowest < bellyWaist, 'legs hang below the belly line (they exist in silhou
 // cost four meshes, not four per station — batching by material is what makes a value ladder free.
 let meshes = 0, tris = 0;
 root.traverse((o) => { if (o.isMesh) { meshes++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
-check(meshes <= 60, 'mesh count stays batched (not one mesh per station)', `${meshes} meshes, ${Math.round(tris)} tris`);
+// Threshold raised 60 -> 72 when the wing landed, and stated rather than quietly nudged: this
+// check exists to catch a PER-STATION explosion (a 17-station x 10-column loft would be ~170
+// meshes), not to cap a creature's part count. The torso's 7 ranks batch to ~5 meshes, each wing
+// to ~6, the saddle to 3 across both sides. If this number needs raising again, the question to
+// ask is whether a NEW part appeared or whether batching broke.
+check(meshes <= 72, 'mesh count stays batched (not one mesh per station)', `${meshes} meshes, ${Math.round(tris)} tris`);
 
 // --- 10. TRANSPARENT-DRAWABLE CENSUS ------------------------------------------
 // The real perf constraint on this roster is overdraw, not triangles (<=8 transparent drawables).
