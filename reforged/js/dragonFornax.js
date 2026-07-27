@@ -972,13 +972,29 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   // amplitude as "a percent or two" and the top ortho still read as a manta crescent, correctly.
   // Nothing you draw on a surface can alter its outline; the outline is where the surface ENDS.
   // Irregular by construction: one deep bite flanked by small nicks, at uneven intervals.
+  // ⚠ FINGER POINTS, then scallops between them — over the WHOLE span, tip included. The first
+  // version bailed out wherever chord fell below a threshold, so the outer 40% kept a smooth
+  // crescent and the ortho silhouette read "manta with a chewed armpit". The outboard edge is
+  // exactly where the priority camera looks, so that is the half that had to break.
+  // The battens terminate INTO these points (§W2b), which is what makes the wing read as membrane
+  // stretched between fingers instead of a blade with tick-marks applied to it.
+  const FING = [0.42, 0.62, 0.80, 0.94];               // trailing-edge points, fraction of XT
+  const BAYD = [0.135, 0.095, 0.145];                  // per-bay scallop depth — uneven on purpose
   const biteAt = (qx) => {
-    const u = qx / XT, k = Math.floor(u * 13);
-    const g = (k * 7 + ((k * k) % 5)) % 11;
-    if (chordAt(qx) < S(0.22)) return 0;                  // the tip has no chord left to bite
-    if (g < 2) return 0.155;                              // the deep slab break
-    if (g < 5) return 0.055;                              // its flanking nicks
-    return 0;
+    const u = qx / XT;
+    if (u < FING[0]) {
+      // inboard: irregular cracked slab — one deep break flanked by nicks, uneven intervals
+      const k = Math.floor(u * 13), g = (k * 7 + ((k * k) % 5)) % 11;
+      if (chordAt(qx) < S(0.20)) return 0;
+      return g < 2 ? 0.155 : (g < 5 ? 0.055 : 0);
+    }
+    for (let i = 0; i < FING.length - 1; i++) {
+      if (u >= FING[i] && u <= FING[i + 1]) {
+        const t = (u - FING[i]) / (FING[i + 1] - FING[i]);
+        return BAYD[i % BAYD.length] * Math.sin(Math.PI * t);   // 0 at each finger, deep mid-bay
+      }
+    }
+    return u > FING[FING.length - 1] ? 0.06 * Math.sin(Math.PI * Math.min(1, (u - FING[3]) / (1 - FING[3]))) : 0;
   };
   const hemT = (qx) => 1 - biteAt(qx);
   const memPt = (qx, t) => [qx, leY(qx) + camber(qx, t), leZ(qx) + chordAt(qx) * t];
@@ -1220,7 +1236,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       }
       // THE ELBOW NODE — a closed wedge, the joint the eye needs to see the arm bend about
       {
-        const E = LE[1], r = R0 * 0.72, by = leY(E[1]) + camber(E[1], 0);
+        const E = LE[1], r = R0 * 0.94, by = leY(E[1]) + camber(E[1], 0);   // +30%: the kink has to read at ~180px
         const b = R0 * E[3] * 0.5 * (1 - Math.pow(E[1] / WX, 3));
         const c = [E[1], E[2] + b];
         const ring = [[c[0] + r * 1.25, c[1] + r * 0.30], [c[0] - r * 0.55, c[1] + r * 1.30],
@@ -1243,15 +1259,19 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // reads at distance and the panel junction lands ON a ridge instead of looking like a seam
     // between two sheets. This is the "fingers show through the skin" read from the dorsal view.
     {
-      const RID = [[0.30, 0.86], [0.52, 0.72], [0.74, 0.55]];   // [chord fraction at root, at tip]
-      for (const [tA, tB] of RID) {
-        const NR = 10;
+      // Each ridge runs from near the wrist out to one of the trailing-edge FINGER POINTS and
+      // terminates AT it (t -> 1), so the ridge and the point are one feature. Ending them short
+      // is what made them read as uniform applied tape rather than fingers under skin — so the
+      // spans and the chord starts are deliberately uneven too.
+      const RID = [[0.26, FING[1]], [0.44, FING[2]], [0.62, FING[3]]];   // [chord frac at root, finger x]
+      for (const [tA, fx] of RID) {
+        const NR = 10, XEnd = XT * fx;
         for (let k = 0; k < NR; k++) {
           const u0 = k / NR, u1 = (k + 1) / NR;
-          const X0 = WX * 0.15 + (XT - WX * 0.15) * u0, X1 = WX * 0.15 + (XT - WX * 0.15) * u1;
-          const T0 = tA + (tB - tA) * u0, T1 = tA + (tB - tA) * u1;
+          const X0 = WX * 0.15 + (XEnd - WX * 0.15) * u0, X1 = WX * 0.15 + (XEnd - WX * 0.15) * u1;
+          const T0 = (tA + (1 - tA) * u0) * hemT(X0), T1 = (tA + (1 - tA) * u1) * hemT(X1);
           const push = (X0 + X1) / 2 < WX ? pushA : pushH;
-          const H = S(0.150) * (1 - u0 * 0.62);   // 1.6px was paint; this is relief                 // tapers outboard with the finger
+          const H = S(0.150) * (1 - u0 * 0.45);   // 1.6px was paint; this is relief                 // tapers outboard with the finger
           const W = chordAt(X0) * 0.045 + S(0.01);
           const P0 = memPt(X0, T0), P1 = memPt(X1, T1);
           const c0 = [P0[0], P0[1] + H, P0[2]], c1 = [P1[0], P1[1] + H * 0.9, P1[2]];
@@ -1325,9 +1345,13 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         const len = KN * (1.0 - ci * 0.15), w = KN * (0.20 - ci * 0.035);
         const dx = c[0], dz = c[1], dn = Math.hypot(dx, dz) || 1;
         const ex = BX + (dx / dn) * len, ez = BZ + (dz / dn) * len;
-        pushH(ci === 0 ? M.ashLit : M.scorch,
-          [[BX - w, BY + KN * 0.35, BZ], [BX + w, BY + KN * 0.35, BZ], [ex, BY + KN * 0.12, ez]]);
-        pushH(M.seam, [[BX - w * 1.7, BY + KN * 0.10, BZ], [BX + w * 1.7, BY + KN * 0.10, BZ], [ex, BY - KN * 0.02, ez]]);
+        // ⚠ CLOSED pyramids, not open triangle pairs. Two unjoined triangles read as a detached
+        // sliver from any angle that sees their edge — the last of the "floating shard" family
+        // this file kept producing (crust ribbons, collar triangles, now these).
+        const b0 = [BX - w, BY + KN * 0.16, BZ], b1 = [BX + w, BY + KN * 0.16, BZ];
+        const bt = [BX, BY + KN * 0.46, BZ], tp = [ex, BY + KN * 0.20, ez];
+        pushH(ci === 0 ? M.ashLit : M.scorch, [b0, b1, tp], [b0, tp, bt], [b1, bt, tp]);
+        pushH(M.seam, [b0, bt, b1]);
       });
     }
 
