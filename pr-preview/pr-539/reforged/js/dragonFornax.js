@@ -913,8 +913,8 @@ const FX_CHORD = [
   ['elbow',   0.355, 1.947],
   ['wrist',   0.940, 1.678],
   ['knuckle', 1.650, 1.299],
-  ['wp1end',  2.527, 0.767],
-  ['neartip', 3.321, 0.234],
+  ['wp1end',  2.527, 0.820],
+  ['neartip', 3.321, 0.290],
   ['tip',     3.948, 0.000],
 ];
 const FX_WRIST_I = 3;                  // index of 'wrist' in FX_LE — the ONE fold point
@@ -1029,6 +1029,26 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       }
     }
 
+    // ── W1b THE ROOT WELD ───────────────────────────────────────────────────────────────────────
+    // ⚠ A CONSTANT-DEPTH skirt does not close the junction, and the first attempt proved it: the
+    // root chord runs straight at the shoulder's x while the TORSO TAPERS AFT, so the rear two
+    // thirds of the root edge float outboard of a narrowing hull — daylight between the sail and
+    // the back, the definitive "bolted on" tell, and the critic's #1 finding twice running.
+    // The weld therefore dives FURTHER inboard toward the trailing edge (where the body is
+    // thinnest) and drops in Y, so the root buries in the flank along its whole length. Ref §4.9.7:
+    // "if the wing can be deleted and leave a clean torso, it is a sticker."
+    {
+      const DEEP = S(0.58);
+      const rootX = (t) => -DEEP * (0.25 + 0.75 * t);
+      const drop = (t) => -S(0.05) - S(0.20) * t;
+      for (let j = 0; j < NCH; j++) {
+        const t0 = j / NCH, t1 = (j + 1) / NCH;
+        const B = memPt(0, t0), C = memPt(0, t1);
+        const A = [rootX(t0), B[1] + drop(t0), B[2]], D = [rootX(t1), C[1] + drop(t1), C[2]];
+        pushA(j === 0 ? M.scorch : wingMat, [A, B, C], [A, C, D]);
+      }
+    }
+
     // ── W2 THE SPAR ─────────────────────────────────────────────────────────────────────────────
     // A 4-sided prism walked along the LE polyline with a TAPERING radius (1.00/0.62/0.38/0.22/0.10
     // at shoulder/elbow/wrist/mid-hand/tip). A CONSTANT-radius spar reads as a BAR however elegantly
@@ -1127,6 +1147,33 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       }
     }
 
+    // ── W2b THE BATTEN RIDGES ───────────────────────────────────────────────────────────────────
+    // The membrane interior was one flat value — ~70% of what the chase camera stares at, with no
+    // relief crossing it, so the wing read as "arm with a sail glued behind". Three ridges radiate
+    // from the wrist across the membrane, each a shallow tent with its own lit facet, so structure
+    // reads at distance and the panel junction lands ON a ridge instead of looking like a seam
+    // between two sheets. This is the "fingers show through the skin" read from the dorsal view.
+    {
+      const RID = [[0.30, 0.86], [0.52, 0.72], [0.74, 0.55]];   // [chord fraction at root, at tip]
+      for (const [tA, tB] of RID) {
+        const NR = 10;
+        for (let k = 0; k < NR; k++) {
+          const u0 = k / NR, u1 = (k + 1) / NR;
+          const X0 = WX * 0.15 + (XT - WX * 0.15) * u0, X1 = WX * 0.15 + (XT - WX * 0.15) * u1;
+          const T0 = tA + (tB - tA) * u0, T1 = tA + (tB - tA) * u1;
+          const push = (X0 + X1) / 2 < WX ? pushA : pushH;
+          const H = S(0.075) * (1 - u0 * 0.72);                 // tapers outboard with the finger
+          const W = chordAt(X0) * 0.045 + S(0.01);
+          const P0 = memPt(X0, T0), P1 = memPt(X1, T1);
+          const c0 = [P0[0], P0[1] + H, P0[2]], c1 = [P1[0], P1[1] + H * 0.9, P1[2]];
+          const a0 = memPt(X0, T0 - 0.05), b0 = memPt(X0, T0 + 0.05);
+          const a1 = memPt(X1, T1 - 0.05), b1 = memPt(X1, T1 + 0.05);
+          push(M.scorch, [a0, c0, c1], [a0, c1, a1]);           // lit facet, faces the light
+          push(M.seam,   [c0, b0, b1], [c0, b1, c1]);           // shadow facet + its own dark side
+        }
+      }
+    }
+
     // ── W3 THE PROPATAGIUM ──────────────────────────────────────────────────────────────────────
     // The cheapest single fix available to a wing that reads as scaffolding, and non-negotiable:
     // a free membrane sheet filling the shoulder–elbow–wrist triangle, bowed FORWARD of the bones.
@@ -1201,16 +1248,33 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // clean cupped scallops. (The old "taut flat bays + notch floor" identity is deleted — a
     // straight trailing edge is not an identity, it is a cheap tell.)
     {
+      // ⚠ CRACKED-SLAB SCALLOPS, not a smooth sweep. The top silhouette was reading as a manta /
+      // B-2 — and silhouette is the ONLY channel that survives to gameplay distance, so a smooth
+      // trailing edge meant the slag identity lived only at crop range. These are irregular,
+      // chunky, asymmetric bites at asymmetric intervals, like cooled crust snapping: the depth
+      // and the interval BOTH vary, because an even scallop row is a logo, not an animal.
+      // A 5-term walk (not a sine, not a period-2 alternation) keeps the rhythm unpredictable.
       const NH = 40;
+      let run = 0;
       for (let i = 0; i < NH; i++) {
         const x0 = (XT * i) / NH, x1 = (XT * (i + 1)) / NH;
         const push = (x0 + x1) / 2 < WX ? pushA : pushH;
         const A = memPt(x0, 1), B = memPt(x1, 1);
-        const torn = ((i * 3 + 1) % 5) < 2;                    // irregular, never a metronome
-        const bite = torn ? chordAt((x0 + x1) / 2) * 0.06 : 0;
-        const mid2 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2 - bite];
+        const c = chordAt((x0 + x1) / 2);
+        // slab index: irregular grouping, so bites arrive in 1s and 2s at uneven spacing
+        const g = ((i * 3 + ((i * i) % 5)) % 7);
+        const torn = g < 3 && c > S(0.20);
+        run = torn ? run + 1 : 0;
+        // depth varies slab to slab (0.10-0.26 of local chord) — never one repeated notch
+        const bite = torn ? c * (0.10 + 0.16 * (((i * 5 + 3) % 4) / 3)) : 0;
+        const mid2 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2 + S(0.01), (A[2] + B[2]) / 2 - bite];
         push(M.seam, [A, B, mid2]);
-        if (torn) push(M.scorch, [[A[0], A[1] + S(0.008), A[2]], mid2, [B[0], B[1] + S(0.008), B[2]]]);
+        if (torn) {
+          // the snapped face catches light on ONE side of the bite, never symmetrically
+          push(M.scorch, [[A[0], A[1] + S(0.012), A[2]], mid2, [B[0], B[1] + S(0.004), B[2]]]);
+          if (run === 1) push(M.ashLit, [[A[0], A[1] + S(0.018), A[2]], mid2,
+                                         [A[0] + (B[0] - A[0]) * 0.35, A[1] + S(0.014), A[2] + (B[2] - A[2]) * 0.35]]);
+        }
       }
     }
 
