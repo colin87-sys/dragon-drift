@@ -1147,6 +1147,56 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       }
     }
 
+    // ── W2a THE ARM MASS — deltoid swell + elbow node ───────────────────────────────────────────
+    // ⚠ Plates on a bar do not make a limb. The critic's standing note: "the plates dressed the
+    // bar; they did not change its mass" — the arm still read as a uniform beam into a wrist step,
+    // with no upper-arm swell out of the shoulder and no elbow node. Muscle mass is what says the
+    // wing can PULL rather than merely hold shape, and the thickness ladder (humerus 1.00 ->
+    // forearm 0.80) only describes BONE. This is the flesh over it.
+    // Everything here builds UP and AFT of the leading edge — a forward breach would re-take the
+    // silhouette from the propatagium, which is the trap that has already caught the spar, the
+    // crust plates, the wrist boss and the claws in this file.
+    {
+      const SH0 = LE[0], EL = LE[1], FA = LE[2];
+      const seg = [[SH0, EL, 1.00, 0.72], [EL, FA, 0.72, 0.42]];   // [from, to, r0, r1] of R0
+      for (const [P, Q, f0, f1] of seg) {
+        const dx = Q[1] - P[1], dz = Q[2] - P[2], dn = Math.hypot(dx, dz) || 1;
+        const nx = -dz / dn, nz = dx / dn;
+        const bA = R0 * P[3] * 0.5 * (1 - Math.pow(P[1] / WX, 3));
+        const bB = R0 * Q[3] * 0.5 * (1 - Math.pow(Q[1] / WX, 3));
+        const rA = R0 * f0 * 1.75, rB = R0 * f1 * 1.75;            // flesh is FATTER than the bone
+        const yA = leY(P[1]) + camber(P[1], 0), yB = leY(Q[1]) + camber(Q[1], 0);
+        // a swollen lozenge seated on the spar: crown, aft flank, and a dark undercut
+        const crownA = [P[1], yA + rA * 1.05, P[2] + nz * rA * 0.45 + bA];
+        const crownB = [Q[1], yB + rB * 1.05, Q[2] + nz * rB * 0.45 + bB];
+        const aftA = [P[1] + nx * rA * 1.5, yA + rA * 0.15, P[2] + nz * rA * 1.5 + bA];
+        const aftB = [Q[1] + nx * rB * 1.5, yB + rB * 0.15, Q[2] + nz * rB * 1.5 + bB];
+        const fwdA = [P[1] - nx * rA * 0.25, yA + rA * 0.30, P[2] - nz * rA * 0.25 + bA];
+        const fwdB = [Q[1] - nx * rB * 0.25, yB + rB * 0.30, Q[2] - nz * rB * 0.25 + bB];
+        pushA(M.scorch, [fwdA, crownA, crownB], [fwdA, crownB, fwdB]);        // lit shoulder of the mass
+        pushA(M.ashLit, [crownA, aftA, aftB], [crownA, aftB, crownB]);        // the crest catches
+        pushA(M.seam,   [aftA, [P[1] + nx * rA * 0.9, yA - rA * 0.45, P[2] + nz * rA * 0.9 + bA],
+                         [Q[1] + nx * rB * 0.9, yB - rB * 0.45, Q[2] + nz * rB * 0.9 + bB]],
+                        [aftA, [Q[1] + nx * rB * 0.9, yB - rB * 0.45, Q[2] + nz * rB * 0.9 + bB], aftB]);
+      }
+      // THE ELBOW NODE — a closed wedge, the joint the eye needs to see the arm bend about
+      {
+        const E = LE[1], r = R0 * 0.72, by = leY(E[1]) + camber(E[1], 0);
+        const b = R0 * E[3] * 0.5 * (1 - Math.pow(E[1] / WX, 3));
+        const c = [E[1], E[2] + b];
+        const ring = [[c[0] + r * 1.25, c[1] + r * 0.30], [c[0] - r * 0.55, c[1] + r * 1.30],
+                      [c[0] - r * 1.10, c[1] + r * 0.10], [c[0] - r * 0.35, c[1] - r * 0.95]];
+        const apex = [c[0] - r * 0.10, by + r * 1.85, c[1] + r * 0.25];
+        for (let k = 0; k < 4; k++) {
+          const k1 = (k + 1) % 4;
+          pushA(k === 1 ? M.ashLit : M.scorch,
+            [[ring[k][0], by + r * 0.40, ring[k][1]], [ring[k1][0], by + r * 0.40, ring[k1][1]], apex]);
+        }
+        pushA(M.seam, [[ring[2][0], by + r * 0.40, ring[2][1]], [ring[3][0], by + r * 0.40, ring[3][1]],
+                       [c[0], by - r * 0.50, c[1]]]);
+      }
+    }
+
     // ── W2b THE BATTEN RIDGES ───────────────────────────────────────────────────────────────────
     // The membrane interior was one flat value — ~70% of what the chase camera stares at, with no
     // relief crossing it, so the wing read as "arm with a sail glued behind". Three ridges radiate
