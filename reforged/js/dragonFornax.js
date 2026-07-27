@@ -863,22 +863,71 @@ registerTorso('slagAnvilTorso', buildSlagAnvilTorso);
 // ≤0.10 chord) and — critically — THE NOTCH FLOOR: digit tips project ≥0.15 bay chord beyond the
 // between-tip membrane line, so the taut bays cannot collapse into the plane wing at chase
 // distance (audit round 2). None of that exists yet.
+// --- WINGS: THE UNDERLIT CRESCENT (buildsheet §5 v2.4) -----------------------
+// ⚠ REBUILT after the owner rejected the I2 wing. The old build fanned the membrane from a single
+// wrist hub with NO humerus and NO forearm — geometrically a pterosaur with the arm deleted, which
+// is why it read as a spoke. The root cause was a GAP IN THE SHEET (it specified differentiators vs
+// Vesper and mechanisms, never a wing), now closed by ref §4.9 PLANFORM + buildsheet §5.1-5.4.
+//
+// THE LAW THAT ORDERS THIS FILE: the membrane is an OUTPUT of the arm-and-hand skeleton, never an
+// input. Skeleton first (LE polyline), then chord, then membrane. Any code that authors a membrane
+// outline and hangs bones on it is running the method backwards.
+//
+// Topology: PTEROSAUR SPAR (overturns the former SETTLED "bat fan" — its premise, "a single spar
+// degenerates to the paper-dart read", misattributed to spar count a failure caused by the missing
+// arm). Wrist at 0.242 L, ONE 155° chevron vertex, concave-everywhere trailing edge, zero bays.
+
+// Solved leading-edge skeleton, wing-local units at wingSpan 4.26 (origin = shoulder, +x outboard,
+// +z aft). Straight-line shoulder→tip L = 4.26; the tip's LATERAL reach is x = 3.810 — the two are
+// NOT interchangeable, and conflating them puts chord stations past the wingtip.
+// ⚠ Outer sweep is 25°, NOT the 31° first solved. The spec's forward-offset band is stated for
+// the VISIBLE leading edge, but a bone chain is authored as a centreline — and the spar's own
+// forward cheek sits ~0.012 L ahead of it. Solving the skeleton to the top of the band put the
+// visible edge over the ceiling. Author the centreline WELL inside the band you want to measure:
+// spar cheek + propatagium bulge together add ~0.026 L, so a 0.099 centreline measured 0.125 —
+// passing by 0.0002, which is not a pass, it is a coincidence. 25° also opens the wrist corner
+// to 161°, mid-band instead of sitting on the floor.
+// ⚠ THE FOURTH COLUMN IS Y, AND IT IS NOT OPTIONAL. Authored without it (x/z only) this wing
+// rendered as a razor line from the rear — 31% wide, 9% tall — because a flat horizontal membrane
+// is edge-on to a behind-and-above camera. Ref §4.9.10: "dihedral and sweep read strongly from
+// behind, span barely at all." The planform is the view the player NEVER gets on its own; the
+// gull curve is what converts it into a shape. Glide rise, as a fraction of L above the shoulder:
+// elbow +0.035, wrist +0.085 (the apex), tip +0.065 — a shallow M, not a straight V.
+// Inboard dihedral works out at 17.9° (sourced gull cap is 20°), outboard -1.7° (band 0 to -5°).
+const FX_LE = [
+  ['shoulder', 0.000,  0.000, 1.00, 0.000],
+  ['elbow',    0.414, -0.043, 0.62, 0.149],   // humerus rakes FORWARD (-6°); the kink hides under the propatagium
+  ['forearm',  1.041,  0.022, 0.42, 0.340],
+  ['wrist',    1.124,  0.031, 0.38, 0.362],   // ⟵ THE CHEVRON APEX. 0.247 L. Whole break at ONE vertex, 161°.
+  ['mcIV',     1.636,  0.270, 0.30, 0.347],
+  ['wp1',      2.537,  0.690, 0.22, 0.320],
+  ['wp2',      3.232,  1.044, 0.17, 0.298],
+  ['wp3',      3.691,  1.342, 0.13, 0.285],
+  ['tip',      3.948,  1.599, 0.10, 0.277],   // +45° tip hook, curving posteriorly (Itip < 1)
+];
+// Chord stations: eta is a fraction of SEMI-span, so it maps to LATERAL x. Outer two chords are
+// RETAPERED off the raw pterosaur table (0.203→0.180, 0.102→0.055 of b) to hold trailing-edge
+// concavity through the tip hook — applied raw they push the TE convex, which is a bird signature.
+const FX_CHORD = [
+  ['root',    0.000, 2.164],
+  ['elbow',   0.355, 1.947],
+  ['wrist',   0.940, 1.678],
+  ['knuckle', 1.650, 1.299],
+  ['wp1end',  2.527, 0.767],
+  ['neartip', 3.321, 0.234],
+  ['tip',     3.948, 0.000],
+];
+const FX_WRIST_I = 3;                  // index of 'wrist' in FX_LE — the ONE fold point
+
 function buildUnderlitCrescentWings(def, model, attach, giM) {
-  // ── I2: THE UNDERLIT CRESCENT ────────────────────────────────────────────────────────────────
-  // The hero. Built to the I2 pre-assess, every number carrying its pixel size at ~21px/u (the
-  // dragon spans ~180px from the chase cam, each wing ~75-85px). Anything under 2px is NOT billed
-  // as a play read — that false billing is exactly what the torso's rail shipped with.
-  //
-  // LOW WIDE crescent, four digits, taut bays: the split from Vesper (tall arch, deep 0.35 cups,
-  // five fingers) and from Tempest (continuous pale ribbon, glowing fork prongs). Notch depth comes
-  // from BONE PROJECTION, never membrane drape — a taut bay with no bone projection collapses to
-  // the plane wing, which is the one silhouette this game bans on sight.
   const group = new THREE.Group();
   const spineMats = [];
   const M = fornaxMats(def);
   const S = (v) => v * (model.anvilScale ?? 1);
-  const halfSpan = (model.wingSpan ?? 4.26) * (model.spanScale ?? 1);
-  const H = S(halfSpan);
+  const S2 = S((model.wingSpan ?? 4.26) * (model.spanScale ?? 1)) / 4.26;  // spec is authored at 4.26
+  const LE = FX_LE.map(([n, x, z, r, y]) => [n, S2 * x, S2 * z, r, S2 * y]);
+  const CH = FX_CHORD.map(([n, x, c]) => [n, S2 * x, S2 * c]);
+  const XT = LE[LE.length - 1][1];
 
   // Top membrane stays BLACK: the rig's unconditional boost term multiplies wingMembraneEmissive,
   // so without a registered black the wing tops light on every boost — outside Surge entirely.
@@ -887,10 +936,38 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     metalness: 0.02, side: THREE.DoubleSide,
   });
 
+  // leading-edge z at a lateral station (the skeleton IS the function — no sine bow anywhere)
+  const leZ = (qx) => {
+    for (let i = 0; i < LE.length - 1; i++) {
+      const a = LE[i][1], b = LE[i + 1][1];
+      if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return LE[i][2] + t * (LE[i + 1][2] - LE[i][2]); }
+    }
+    return LE[LE.length - 1][2];
+  };
+  // the gull curve — same polyline, the Y column
+  const leY = (qx) => {
+    for (let i = 0; i < LE.length - 1; i++) {
+      const a = LE[i][1], b = LE[i + 1][1];
+      if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return LE[i][4] + t * (LE[i + 1][4] - LE[i][4]); }
+    }
+    return LE[LE.length - 1][4];
+  };
+  const chordAt = (qx) => {
+    for (let i = 0; i < CH.length - 1; i++) {
+      const a = CH[i][1], b = CH[i + 1][1];
+      if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return CH[i][2] + t * (CH[i + 1][2] - CH[i][2]); }
+    }
+    return 0;
+  };
+  // CAMBER — dynamic in life, one static cruise value here: 0.10 chord, deepest at 40% chord.
+  // From behind-and-above this is not decoration: a top-viewed FLAT plane shades uniformly and
+  // dies. Curvature IS the value gradient across the wing top.
+  const camber = (qx, t) => chordAt(qx) * 0.10 * Math.sin(Math.PI * Math.pow(Math.max(0, Math.min(1, t)), 0.8));
+  const memPt = (qx, t) => [qx, leY(qx) + camber(qx, t), leZ(qx) + chordAt(qx) * t];
+
   const pivots = {}, wingElements = [];
-  // Saddle triangles accumulate across BOTH sides (they are static body-frame geometry), so the
-  // massif rework costs 3 meshes total rather than 3 per wing.
   const sadAcc = { s: [], r: [], w: [] };
+
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
     const rootC = attach.wingRoot(1);
@@ -901,147 +978,215 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
 
-    // wristT 0.30 — top of the house band. The hand carries 70% of the wing, so the fold has real
-    // mass to move; flapstrip must confirm the dogleg still reads before this locks (the fold
-    // outranks the differentiator).
-    const wristT = model.wristT ?? 0.30;
-    const KX = H * wristT;
-    const ARCH = S(0.15);                       // 3px — the LOW read; Vesper renders ~0.5u
-    const leadY = (x) => ARCH * Math.sin(Math.PI * Math.min(1, x / H));
-    const K = [KX, leadY(KX), S(0.02)];
+    // Two accumulators so the ARM (shoulder→wrist) rides `mid` and the HAND (wrist→tip) rides
+    // `tip`. That split is what makes the fold ONE dramatic hinge at the wrist — the pterosaur
+    // fold grammar, and the roster split from Vesper's soft multi-joint curl.
+    const accA = new Map(), accH = new Map();
+    const pushA = (mat, ...tris) => { let a = accA.get(mat); if (!a) accA.set(mat, a = []); for (const t of tris) a.push(t); };
+    const pushH = (mat, ...tris) => { let a = accH.get(mat); if (!a) accH.set(mat, a = []); for (const t of tris) a.push(t); };
+    const WX = LE[FX_WRIST_I][1];
+    const R0 = S(0.115);            // spar base radius — shared by the spar and the propatagium blend
 
-    const acc = new Map();
-    const push = (mat, ...tris) => { let arr = acc.get(mat); if (!arr) acc.set(mat, arr = []); for (const t of tris) arr.push(t); };
-
-    // ── W1 THE DIGIT RANK — 4 blade-spars, D1 dominant, x0.66 decay ────────────────────────────
-    // 2.98 / 1.86 / 1.23 / 0.81u = 63/39/26/17px. Lengths are load-bearing; COUNTABILITY is not —
-    // at 180px the digits are not countable and the sheet lists that as turntable-only.
-    const DIG = [
-      { len: H - KX, dir: [1.00, 0.00], w: S(0.070) },
-      { len: (H - KX) * 0.625, dir: [0.80, 0.60], w: S(0.052) },
-      { len: (H - KX) * 0.413, dir: [0.55, 0.84], w: S(0.040) },
-      { len: (H - KX) * 0.272, dir: [0.30, 0.95], w: S(0.030) },
-    ];
-    const tips = DIG.map((d) => {
-      const n = Math.hypot(d.dir[0], d.dir[1]);
-      const x = KX + (d.dir[0] / n) * d.len, z = K[2] + (d.dir[1] / n) * d.len;
-      return [x, leadY(x), z];
-    });
-
-    // ── W6 THE SCALLOP HEM + THE NOTCH FLOOR ───────────────────────────────────────────────────
-    // Bay cusps are pulled toward the wrist by max(0.15 x bay chord, 0.12u) — 2.5-5px. This is the
-    // geometry guard: the membrane stays TAUT (our identity vs Vesper's cups) while the SILHOUETTE
-    // stays scalloped (the read). Depth comes from where the bone tips project, not from drape.
-    const hem = [];
-    for (let i = 0; i < tips.length - 1; i++) {
-      const A = tips[i], B = tips[i + 1];
-      const chord = Math.hypot(B[0] - A[0], B[2] - A[2]);
-      const depth = Math.max(0.15 * chord, S(0.12));
-      const mx = (A[0] + B[0]) / 2, mz = (A[2] + B[2]) / 2;
-      const dx = KX - mx, dz = K[2] - mz, dn = Math.hypot(dx, dz) || 1;
-      hem.push(A, [mx + (dx / dn) * depth, leadY(mx) * 0.92, mz + (dz / dn) * depth]);
-    }
-    hem.push(tips[tips.length - 1]);
-
-    // handwing membrane (39% of area) — fan from the wrist to the scalloped hem
-    for (let i = 0; i < hem.length - 1; i++) push(wingMat, [[KX, leadY(KX), K[2]], hem[i], hem[i + 1]]);
-    // armwing (52%) — root to wrist, and the rigid forward sheet (propatagium, ~9%)
-    const RB = [S(-0.10), S(0.02), S(0.30)];
-    push(wingMat,
-      [RB, [KX, leadY(KX), K[2]], hem[0]],
-      [RB, hem[hem.length - 1], [KX, leadY(KX), K[2]]]);
-    // W2 — the propatagium forward sheet. Both real lineages actively stiffen the leading edge; a
-    // wing whose leading edge is just the membrane edge is wrong in both.
-    push(M.scorch, [RB, [KX, leadY(KX), K[2] - S(0.16)], [KX, leadY(KX), K[2]]]);
-
-    // spar bodies + their CHANNELS (W1 recess): a darkest-tier gutter each side of every spar, so
-    // bones read as filaments in channels rather than flat bright tape on a sheet.
-    DIG.forEach((d, i) => {
-      const T = tips[i], PROUD = S(0.10);        // 2.1px stand-proud
-      const ax = (T[0] - KX), az = (T[2] - K[2]), an = Math.hypot(ax, az) || 1;
-      const px = -az / an * d.w, pz = ax / an * d.w;
-      const A = [KX, leadY(KX), K[2]];
-      push(i === 0 ? M.scorch : M.scorch,
-        [[A[0] + px, A[1] + PROUD, A[2] + pz], [A[0] - px, A[1] + PROUD, A[2] - pz], T],
-        [[A[0] + px, A[1] + PROUD, A[2] + pz], T, [T[0] + px * 0.3, T[1] + PROUD * 0.4, T[2] + pz * 0.3]]);
-      for (const sgn of [1, -1]) {
-        push(M.seam,
-          [[A[0] + px * sgn * 1.9, A[1] + PROUD * 0.25, A[2] + pz * sgn * 1.9],
-           [A[0] + px * sgn * 1.1, A[1], A[2] + pz * sgn * 1.1], T]);
+    // ── W1 THE MEMBRANE ─────────────────────────────────────────────────────────────────────────
+    // Spanwise strips, each subdivided along the chord so the camber is a real curved surface and
+    // not a flat quad. ZERO interior bays — a single spar has none; scallops on one mean we have
+    // drawn a bat. The trailing edge is concave EVERYWHERE (12–35% of local chord) because
+    // tensioned skin cannot be straight between two anchors.
+    // NSPAN is deliberately fine: a hard-swept curved planform sampled at 24 stations leaves the
+    // leading edge visibly faceted, and it under-samples it below the planform probe's bin
+    // resolution — bins land between strip boundaries, the measured LE develops phantom gaps, and
+    // the kink detector reads those gaps as a 32° spike. Geometry resolution must exceed probe
+    // resolution or the harness measures its own sampling error.
+    const NSPAN = 48, NCH = 5;
+    for (let i = 0; i < NSPAN; i++) {
+      const x0 = (XT * i) / NSPAN, x1 = (XT * (i + 1)) / NSPAN;
+      const push = (x0 + x1) / 2 < WX ? pushA : pushH;
+      for (let j = 0; j < NCH; j++) {
+        const t0 = j / NCH, t1 = (j + 1) / NCH;
+        const a = memPt(x0, t0), b = memPt(x1, t0), c = memPt(x1, t1), d = memPt(x0, t1);
+        // value banding by chord depth: the sheet near the spar catches, the deep sheet stays dark
+        const mat = j === 0 ? M.scorch : wingMat;
+        push(mat, [a, b, c], [a, c, d]);
       }
-      // D1 alone carries a pale spar cap (value on EDGES, never patches)
-      if (i === 0) push(M.rim, [[A[0] + px * 0.5, A[1] + PROUD * 1.15, A[2] + pz * 0.5],
-                                [A[0] - px * 0.5, A[1] + PROUD * 1.15, A[2] - pz * 0.5], T]);
-    });
-
-    // ── W2 THE LEADING-EDGE PALE RAIL — BROKEN ~60% duty ───────────────────────────────────────
-    // Cap 0.10u (2.1px), lit runs of 2-4 segments with 0.15-0.35u gaps (3-7px, resolvable). NEVER
-    // continuous root->tip: that is Tempest's crest ribbon, and a borrowed mechanism without its
-    // own split axis imports the donor's identity.
-    const NSEG = 14, CAP = S(0.10);
-    for (let i = 0; i < NSEG; i++) {
-      if (((i * 2 + 1) % 7) >= 4) continue;      // the sanctioned duty family: irregular, min run 2
-      const x0 = (H * i) / NSEG, x1 = (H * (i + 1)) / NSEG;
-      push(M.rim,
-        [[x0, leadY(x0) + S(0.012), K[2] - CAP * 0.5], [x1, leadY(x1) + S(0.012), K[2] - CAP * 0.5],
-         [x1, leadY(x1) + S(0.012), K[2] + CAP * 0.5]],
-        [[x0, leadY(x0) + S(0.012), K[2] - CAP * 0.5], [x1, leadY(x1) + S(0.012), K[2] + CAP * 0.5],
-         [x0, leadY(x0) + S(0.012), K[2] + CAP * 0.5]]);
     }
 
-    // ── W3 THE KNUCKLE ROW — carpal wedge + per-digit base wedges, each over a dark socket ──────
-    const KN = S(0.16);
-    push(M.ashLit,
-      [[KX - KN * 0.6, leadY(KX), K[2] - KN * 0.5], [KX + KN * 0.6, leadY(KX), K[2] - KN * 0.5],
-       [KX, leadY(KX) + KN * 0.8, K[2] + KN * 0.2]]);
-    push(M.rim, [[KX - KN * 0.28, leadY(KX) + KN * 0.62, K[2]], [KX + KN * 0.28, leadY(KX) + KN * 0.62, K[2]],
-                 [KX, leadY(KX) + KN * 0.86, K[2] + KN * 0.18]]);
-    push(M.seam, [[KX - KN * 0.7, leadY(KX) - S(0.02), K[2] + KN * 0.6], [KX + KN * 0.7, leadY(KX) - S(0.02), K[2] + KN * 0.6],
-                  [KX, leadY(KX) + KN * 0.2, K[2] + KN * 0.9]]);
-
-    // W6 — the connected trailing hem band, one darkest-tier stroke tracing the whole scallop
-    const HEMW = S(0.15);
-    for (let i = 0; i < hem.length - 1; i++) {
-      const A = hem[i], B = hem[i + 1];
-      const ax = B[0] - A[0], az = B[2] - A[2], an = Math.hypot(ax, az) || 1;
-      const nx = -az / an * HEMW, nz = ax / an * HEMW;
-      push(M.seam, [A, B, [B[0] + nx, B[1], B[2] + nz]], [A, [B[0] + nx, B[1], B[2] + nz], [A[0] + nx, A[1], A[2] + nz]]);
+    // ── W2 THE SPAR ─────────────────────────────────────────────────────────────────────────────
+    // A 4-sided prism walked along the LE polyline with a TAPERING radius (1.00/0.62/0.38/0.22/0.10
+    // at shoulder/elbow/wrist/mid-hand/tip). A CONSTANT-radius spar reads as a BAR however elegantly
+    // it is curved — that is the failure most likely to survive a correct planform. The top ridge is
+    // the dorsal structure our behind-and-above camera actually looks at.
+    for (let i = 0; i < LE.length - 1; i++) {
+      const A = LE[i], B = LE[i + 1];
+      const push = (A[1] < WX - 1e-6) ? pushA : pushH;
+      const ra = R0 * A[3], rb = R0 * B[3];
+      const dx = B[1] - A[1], dz = B[2] - A[2], dn = Math.hypot(dx, dz) || 1;
+      const nx = -dz / dn, nz = dx / dn;                       // in-plane normal
+      // ⚠ INBOARD, THE BONE SITS BEHIND THE MEMBRANE. Ref §4.9.8: "the arm must sit INSIDE a
+      // membrane curve, not BE the edge" — a wing whose humerus is the leading edge looks like
+      // scaffolding. The humerus is the FATTEST element, so without this bias its forward face
+      // (0.5r ≈ 0.058u at the shoulder) out-runs the propatagium bow, which is ~0 at the shoulder
+      // by construction. The spar then owns the inboard silhouette and flattens the propatagium
+      // arc into a straight line — measurably: inboard forward camber collapsed to 1.5% of L
+      // against a 2% floor. Bias the centreline aft by its own forward radius, tapering to 0 at
+      // the wrist (outboard, the bone IS legitimately the leading edge).
+      const bias = (P) => (P[1] < WX ? R0 * P[3] * 0.5 * (1 - P[1] / WX) : 0);
+      const ring = (P, r) => { const q = bias(P); return [
+        [P[1] + nx * r, leY(P[1]) + camber(P[1], 0) + r * 0.85, P[2] + nz * r + q],       // top ridge
+        [P[1] + nx * r * 1.15, leY(P[1]) + camber(P[1], 0), P[2] + nz * r * 1.15 + q],    // aft cheek
+        [P[1] + nx * r, leY(P[1]) + camber(P[1], 0) - r * 0.7, P[2] + nz * r + q],        // underside
+        [P[1] - nx * r * 0.5, leY(P[1]) + camber(P[1], 0), P[2] - nz * r * 0.5 + q],      // forward face
+      ]; };
+      const RA = ring(A, ra), RB = ring(B, rb);
+      for (let k = 0; k < 4; k++) {
+        const k1 = (k + 1) % 4;
+        // NO pale rail running along the spar: a bright dashed line down a bone is cheap-tell #1
+        // (flat bright tape). The pale tier is spent on the JOINTS instead — the wrist boss and
+        // the phalanx knuckles — so value marks STRUCTURE rather than tracing an outline.
+        push(k === 2 ? M.seam : M.scorch, [RA[k], RB[k1], RB[k]], [RA[k], RA[k1], RB[k1]]);
+      }
+      // knuckle collar at each phalanx joint outboard of the wrist — a proud ring over a dark step
+      if (i >= FX_WRIST_I && i < LE.length - 2) {
+        const r = R0 * B[3];
+        push(M.ashLit, [[B[1] + nx * r * 1.25, leY(B[1]) + r * 0.95, B[2] + nz * r * 1.25],
+                        [B[1] - nx * r * 0.7, leY(B[1]) + r * 0.55, B[2] - nz * r * 0.7],
+                        [B[1] + nx * r * 0.2, leY(B[1]) + r * 1.25, B[2] + nz * r * 0.2 + r * 0.5]]);
+      }
     }
 
-    // W-glow — the dropped underglow copy, DARK at I2. Bespoke material outside wingMat so the
-    // shared rig cannot light it, and so I4 lights only the underside (wing tops stay silhouette).
+    // ── W3 THE PROPATAGIUM ──────────────────────────────────────────────────────────────────────
+    // The cheapest single fix available to a wing that reads as scaffolding, and non-negotiable:
+    // a free membrane sheet filling the shoulder–elbow–wrist triangle, bowed FORWARD of the bones.
+    // The arm must sit INSIDE a membrane curve, not BE the edge. Its bulge is modest (8–10.5% of
+    // hand-wing chord) — a subtle scallop of skin, NOT a big triangular sail. It also hides the
+    // elbow kink under skin, exactly as in life.
+    {
+      // ⚠ 8–10.5% of the HAND-WING chord, NOT of the chord at the wrist. Scaling it off the wrist
+      // chord (the bigger number) inflates the bulge ~2× and pushes the VISIBLE leading edge past
+      // the 0.125 L deviation ceiling — the probe caught exactly that. Hand-wing chord = the mean
+      // chord outboard of the wrist.
+      // 13% is a DECLARED stylization above the sourced 8–10.5% standard band (which tops out at
+      // 18% in some species). The standard band leaves the inboard arc too shallow to read at our
+      // ~21px/u scale — it measured 1.8% inboard camber against the 2% floor — and this is the
+      // one element carrying "there is an arm here" from the chase camera.
+      const BULGE = chordAt((WX + XT) / 2) * 0.13;
+      // ⚠ The bow must LAND ON the hand-wing leading edge, not return to the bone line. The spar's
+      // forward cheek sits ~0.05u ahead of the centreline, so a propatagium that tapers to zero at
+      // the wrist steps the silhouette inward and then back out — which reads as a sharp corner
+      // (the probe measured 148° against a 155° floor) and costs the inboard forward camber that
+      // is the whole tell of "there is an arm here". Anatomically the propatagium merges into the
+      // hand-wing edge; geometrically that means blending to the cheek offset, not to zero.
+      const CHEEK = R0 * LE[FX_WRIST_I][3] * 1.15;
+      const NP = 12, prev = [];
+      for (let i = 0; i <= NP; i++) {
+        const t = i / NP, x = WX * t;
+        const bow = BULGE * Math.sin(Math.PI * Math.pow(t, 0.75)) + CHEEK * t * t;
+        prev.push([[x, leY(x) + camber(x, 0) + S(0.01), leZ(x) - bow], [x, leY(x) + camber(x, 0), leZ(x)]]);
+      }
+      for (let i = 0; i < NP; i++) {
+        pushA(M.scorch, [prev[i][0], prev[i + 1][0], prev[i + 1][1]], [prev[i][0], prev[i + 1][1], prev[i][1]]);
+      }
+    }
+
+    // ── W4 THE WRIST BOSS (the Smaug move) ──────────────────────────────────────────────────────
+    // 3 short free clawed fingers clustered at the chevron apex, carrying NO membrane. Decoration
+    // on the spar, not a topology compromise — membrane-bearing half-fingers with mini-bays would
+    // rebuild the fan's rig cost for detail below the pixel floor. Readable mass on the apex is
+    // what makes a forward wrist read HEAVY rather than graceful, and it lands exactly where a
+    // behind-and-above camera looks.
+    {
+      const W = LE[FX_WRIST_I], BX = W[1], BZ = W[2], BY = leY(BX) + camber(BX, 0);
+      const KN = S(0.19);
+      // the armoured knuckle block itself, over a dark socket
+      // ⚠ The boss builds UP and AFT, never forward. Aimed forward it breaches the leading edge and
+      // becomes the silhouette — the probe read that as a 152° wrist against a 155° floor. Up is
+      // also where the mass actually pays: a behind-and-above camera sees the wing's TOP.
+      pushH(M.ashLit,
+        [[BX - KN * 0.55, BY + KN * 0.20, BZ - KN * 0.05], [BX + KN * 0.75, BY + KN * 0.10, BZ + KN * 0.10], [BX + KN * 0.10, BY + KN * 1.05, BZ + KN * 0.40]]);
+      pushH(M.rim,
+        [[BX - KN * 0.18, BY + KN * 0.86, BZ + KN * 0.20], [BX + KN * 0.34, BY + KN * 0.80, BZ + KN * 0.26], [BX + KN * 0.10, BY + KN * 1.10, BZ + KN * 0.42]]);
+      pushH(M.seam,
+        [[BX - KN * 0.7, BY - S(0.02), BZ + KN * 0.5], [BX + KN * 0.8, BY - S(0.02), BZ + KN * 0.4], [BX + KN * 0.1, BY + KN * 0.25, BZ + KN * 0.8]]);
+      // ⚠ Claws point OUTBOARD, never forward past the propatagium edge. Aimed forward (the
+      // obvious choice) they become the leading edge themselves and give the wing a lumpy front —
+      // the probe reads that as a 31° "wrist" spike and the eye reads it as damage. Max forward
+      // component here is ~0.04u against a ~0.08u propatagium bulge, so they stay tucked behind it.
+      const CLAW = [[0.85, 0.25], [0.95, 0.02], [0.80, -0.18]];
+      CLAW.forEach((c, ci) => {
+        const len = KN * (1.0 - ci * 0.15), w = KN * (0.20 - ci * 0.035);
+        const dx = c[0], dz = c[1], dn = Math.hypot(dx, dz) || 1;
+        const ex = BX + (dx / dn) * len, ez = BZ + (dz / dn) * len;
+        pushH(ci === 0 ? M.ashLit : M.scorch,
+          [[BX - w, BY + KN * 0.35, BZ], [BX + w, BY + KN * 0.35, BZ], [ex, BY + KN * 0.12, ez]]);
+        pushH(M.seam, [[BX - w * 1.7, BY + KN * 0.10, BZ], [BX + w * 1.7, BY + KN * 0.10, BZ], [ex, BY - KN * 0.02, ez]]);
+      });
+    }
+
+    // ── W5 THE TORN HEM ─────────────────────────────────────────────────────────────────────────
+    // The roster split from Vesper is EDGE CHARACTER, not cup depth: cracked, notched, battle-torn
+    // slag with the underglow bleeding through the tears. Damage as identity, against Vesper's
+    // clean cupped scallops. (The old "taut flat bays + notch floor" identity is deleted — a
+    // straight trailing edge is not an identity, it is a cheap tell.)
+    {
+      const NH = 40;
+      for (let i = 0; i < NH; i++) {
+        const x0 = (XT * i) / NH, x1 = (XT * (i + 1)) / NH;
+        const push = (x0 + x1) / 2 < WX ? pushA : pushH;
+        const A = memPt(x0, 1), B = memPt(x1, 1);
+        const torn = ((i * 3 + 1) % 5) < 2;                    // irregular, never a metronome
+        const bite = torn ? chordAt((x0 + x1) / 2) * 0.06 : 0;
+        const mid2 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2 - bite];
+        push(M.seam, [A, B, mid2]);
+        if (torn) push(M.scorch, [[A[0], A[1] + S(0.008), A[2]], mid2, [B[0], B[1] + S(0.008), B[2]]]);
+      }
+    }
+
+    // ── W6 THE UNDERGLOW DROP ───────────────────────────────────────────────────────────────────
+    // Bespoke material OUTSIDE wingMat so the shared rig cannot light it (three.js emissive is not
+    // per-face-side, so a DoubleSide emissive membrane would light BOTH faces and break law 5).
+    // DARK at I2; I4 lights the underside only, and the wing tops stay silhouette.
     const memGlow = new THREE.MeshStandardMaterial({
       color: def.wingInner ?? 0x262629, emissive: 0x000000, flatShading: true, roughness: 0.7, metalness: 0,
       side: THREE.DoubleSide, transparent: true, opacity: 0.9,
     });
     memGlow.userData.baseEmissive = def.accentHue ?? 0xff8912; memGlow.userData.baseIntensity = 0;
-    const dropTris = [];
-    for (let i = 0; i < hem.length - 1; i++) {
-      dropTris.push([[KX, leadY(KX) - S(0.05), K[2]], [hem[i][0], hem[i][1] - S(0.05), hem[i][2]],
-                     [hem[i + 1][0], hem[i + 1][1] - S(0.05), hem[i + 1][2]]]);
+    const dropA = [], dropH = [];
+    for (let i = 0; i < NSPAN; i++) {
+      const x0 = (XT * i) / NSPAN, x1 = (XT * (i + 1)) / NSPAN;
+      const D = (x0 + x1) / 2 < WX ? dropA : dropH;
+      const lo = (p) => [p[0], p[1] - S(0.05), p[2]];
+      D.push([lo(memPt(x0, 0.12)), lo(memPt(x1, 0.12)), lo(memPt(x1, 1))],
+             [lo(memPt(x0, 0.12)), lo(memPt(x1, 1)), lo(memPt(x0, 1))]);
     }
-    const arm = new THREE.Group();
-    const hand = new THREE.Group();
+
+    const arm = new THREE.Group(), hand = new THREE.Group();
+    const K = [LE[FX_WRIST_I][1], leY(LE[FX_WRIST_I][1]) + camber(LE[FX_WRIST_I][1], 0), LE[FX_WRIST_I][2]];
     // Tag by ROLE so the structural probe can tell a recess channel from a plate — an untagged
     // seam material counts as the darkest "plate" and fails the albedo-band law spuriously.
-    for (const [mat, tris] of acc) {
-      const m = flatTriMesh(tris, mat);
-      m.userData.fornaxPart = (mat === M.seam) ? 'seam' : 'wing';
-      hand.add(m);
+    for (const [mat, tris] of accA) {
+      const m = flatTriMesh(tris, mat); m.userData.fornaxPart = (mat === M.seam) ? 'seam' : 'wing'; arm.add(m);
     }
-    const gm = flatTriMesh(dropTris, memGlow); gm.userData.fornaxPart = 'wing'; hand.add(gm);
+    for (const [mat, tris] of accH) {
+      // the hand rides `tip`, which is offset to the wrist — so hand geometry is authored in wing
+      // space and pulled back by the −anchor below. Authoring it pre-shifted is the classic bug.
+      const m = flatTriMesh(tris, mat); m.userData.fornaxPart = (mat === M.seam) ? 'seam' : 'wing'; hand.add(m);
+    }
+    if (dropA.length) { const g = flatTriMesh(dropA, memGlow); g.userData.fornaxPart = 'wing'; arm.add(g); }
+    if (dropH.length) { const g = flatTriMesh(dropH, memGlow); g.userData.fornaxPart = 'wing'; hand.add(g); }
+
     mid.add(arm);
     tip.position.set(K[0], K[1], K[2]);
-    hand.position.set(-K[0], -K[1], -K[2]);
+    hand.position.set(-K[0], -K[1], -K[2]);      // −anchor: the house wrist compensation
     tip.add(hand);
 
     if (side === -1) { const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(pivot); group.add(lmirror); }
     else group.add(pivot);
 
-    // ── W5 THE SHOULDER SADDLE — the massif killer. STATIC (body frame), not on the flapping pivot.
+    // ── W7 THE SHOULDER SADDLE — the massif killer. STATIC (body frame), not on the flapping pivot.
     // Binding I2 acceptance criterion: if the mid-back still reads as a featureless black box after
     // this, I2 fails its gate. Three lapped scapular lames at 0.055u standoff + 0.035u cup with
-    // full perimeter recess walls, carving the dead deck into structure the arm grows out of.
+    // full perimeter recess walls, carving the dead deck into structure the arm grows out of. This
+    // is also the §5.3 FAIRING: if the wing can be deleted and leave a clean torso, it is a sticker
+    // — and from behind-and-above the player looks straight down into that junction.
     {
       const sad = [];
       let w = S(0.30), zc = S(-1.16);
@@ -1052,12 +1197,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         w *= 0.66; zc += S(0.24);
       }
       const stris = [], rtris = [], wtris = [];
-      for (const L of sad) {
-        const { x, y, zc: z, w: ww, CUP } = L;
+      for (const Lm of sad) {
+        const { x, y, zc: z, w: ww } = Lm;
         stris.push([[x, y + S(0.10), z - ww * 0.5], [x, y - S(0.10), z - ww * 0.35], [x * 1.06, y - S(0.02), z + ww * 0.5]],
                    [[x, y + S(0.10), z - ww * 0.5], [x * 1.06, y - S(0.02), z + ww * 0.5], [x * 1.06, y + S(0.06), z + ww * 0.3]]);
         rtris.push([[x * 1.07, y + S(0.06), z + ww * 0.3], [x * 1.07, y - S(0.02), z + ww * 0.5], [x * 1.03, y + S(0.02), z + ww * 0.58]]);
-        // perimeter recess walls (0 -> standoff) so each lame throws a shadow step and laps the next
         wtris.push([[x, y + S(0.10), z - ww * 0.5], [side * S(0.40), y + S(0.10), z - ww * 0.5], [side * S(0.40), y - S(0.10), z - ww * 0.35]],
                    [[x, y + S(0.10), z - ww * 0.5], [side * S(0.40), y - S(0.10), z - ww * 0.35], [x, y - S(0.10), z - ww * 0.35]]);
       }
@@ -1066,11 +1210,16 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
 
     const sfx = side === 1 ? 'R' : 'L';
     const marker = new THREE.Object3D();
-    marker.position.set(H, leadY(H), K[2]);
+    const T = LE[LE.length - 1];
+    marker.position.set(T[1], leY(T[1]) + camber(T[1], 0), T[2]);
     hand.add(marker);
     pivots['wingPivot' + sfx] = pivot; pivots['wingMid' + sfx] = mid; pivots['wingTip' + sfx] = tip;
     pivots['tipMarker' + sfx] = marker;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * H, root.y + leadY(H), root.z + K[2]], length: H, tipObj: marker });
+    wingElements.push({
+      root: [root.x, root.y, root.z],
+      tip: [root.x + side * T[1], root.y + leY(T[1]) + camber(T[1], 0), root.z + T[2]],
+      length: Math.hypot(T[1], T[2]), tipObj: marker,
+    });
   }
   if (sadAcc.s.length) {
     group.add(tagPart(flatTriMesh(sadAcc.s, M.scorch), 'saddle'));
