@@ -1050,6 +1050,24 @@ duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
 
 ## 13. AUDIT LOG
 
+### I2 WING — owner rejection → rebuild (v2.4)
+
+| Round | Verdict | What it turned on |
+|---|---|---|
+| **Owner, I2 r1** | **REJECT** — "not an acceptable shape… not even close" | Membrane fanned from one hub; no humerus, no forearm. |
+| **Diagnosis** | The SHEET, not the build | §5 specified only Vesper-deltas + mechanisms. A builder could follow it exactly and still ship a spoke. Ref §4 had the same hole. |
+| **Fable art director** | PTEROSAUR SPAR, 5/5 confidence | Mass not dexterity; bat fan is Vesper's word. |
+| **Fable adjudicator** (clean-room, on the SETTLED conflict) | **OVERTURN**, 5/5 | The lock's premise — "one spar ⇒ paper dart" — misattributes to spar count a failure caused by the missing arm. |
+| **Machine, r1** | planform 12/12 · structural 16/16 | …and the wing still rendered from the rear as a razor line: **the planform is an x/z table and nothing checked Y.** Added §4.9.4b + P11. |
+| **Fable critic, r1** | **3.2/5 — FAIL** | Shape accepted. Wing top "an almost featureless black field"; shoulder slit; doubled slat; wrist gap; shard debris. |
+| **Machine, r2** | planform **13/13** · structural **16/16** · wingsym 0.000 · tricount OK | Slag crust rank, closed bosses, root skirt, drop inset, wrist overlap. |
+| **Fable critic, r2** | *pending* | — |
+
+**Standing residuals from critic r1, not yet discharged:** the arm still reads as a uniform bar
+(no upper-arm mass, no elbow swell), and wing-level distinctiveness — nothing about the membrane
+yet says *slag* rather than *dark flier*. Both carry into the next round.
+
+
 **Round 1 — independent technical-art audit, 2026-07-25. Verdict: REVISE, 3.4/5, five
 blocking defects. House protocol followed: ranked fixes applied verbatim, no argument;
 same auditor re-confirms.**
