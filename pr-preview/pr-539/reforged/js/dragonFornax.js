@@ -895,7 +895,7 @@ registerTorso('slagAnvilTorso', buildSlagAnvilTorso);
 // elbow +0.035, wrist +0.085 (the apex), tip +0.065 — a shallow M, not a straight V.
 // Inboard dihedral works out at 17.9° (sourced gull cap is 20°), outboard -1.7° (band 0 to -5°).
 const FX_LE = [
-  ['shoulder', 0.000,  0.000, 1.00, 0.000],
+  ['shoulder', 0.000,  0.000, 1.00, -0.055],  // root dips toward the flank — closes the side-profile slit
   ['elbow',    0.414, -0.043, 0.62, 0.149],   // humerus rakes FORWARD (-6°); the kink hides under the propatagium
   ['forearm',  1.041,  0.022, 0.42, 0.340],
   ['wrist',    1.124,  0.031, 0.38, 0.362],   // ⟵ THE CHEVRON APEX. 0.247 L. Whole break at ONE vertex, 161°.
@@ -938,6 +938,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
 
   // leading-edge z at a lateral station (the skeleton IS the function — no sine bow anywhere)
   const leZ = (qx) => {
+    if (qx <= LE[0][1]) return LE[0][2];      // ⚠ clamp: the root skirt runs to NEGATIVE x
     for (let i = 0; i < LE.length - 1; i++) {
       const a = LE[i][1], b = LE[i + 1][1];
       if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return LE[i][2] + t * (LE[i + 1][2] - LE[i][2]); }
@@ -946,6 +947,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   };
   // the gull curve — same polyline, the Y column
   const leY = (qx) => {
+    if (qx <= LE[0][1]) return LE[0][4];      // ⚠ clamp: the root skirt runs to NEGATIVE x
     for (let i = 0; i < LE.length - 1; i++) {
       const a = LE[i][1], b = LE[i + 1][1];
       if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return LE[i][4] + t * (LE[i + 1][4] - LE[i][4]); }
@@ -953,6 +955,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     return LE[LE.length - 1][4];
   };
   const chordAt = (qx) => {
+    if (qx <= CH[0][1]) return CH[0][2];          // ⚠ clamp: the root skirt runs to NEGATIVE x
     for (let i = 0; i < CH.length - 1; i++) {
       const a = CH[i][1], b = CH[i + 1][1];
       if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return CH[i][2] + t * (CH[i + 1][2] - CH[i][2]); }
@@ -985,7 +988,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     const pushA = (mat, ...tris) => { let a = accA.get(mat); if (!a) accA.set(mat, a = []); for (const t of tris) a.push(t); };
     const pushH = (mat, ...tris) => { let a = accH.get(mat); if (!a) accH.set(mat, a = []); for (const t of tris) a.push(t); };
     const WX = LE[FX_WRIST_I][1];
-    const R0 = S(0.115);            // spar base radius — shared by the spar and the propatagium blend
+    // ⚠ 0.115 gave a top ridge standing 0.029u proud — 0.6px, under the sheet's own 0.02u relief
+    // floor, and exactly why the critic read the wing top as "an almost featureless black field".
+    // Geometric relief has to exist BEFORE light arrives; "light is withheld" excuses colour and
+    // glow, never zero relief.
+    const R0 = S(0.20);             // spar base radius — shared by the spar and the propatagium blend
 
     // ── W1 THE MEMBRANE ─────────────────────────────────────────────────────────────────────────
     // Spanwise strips, each subdivided along the chord so the camber is a real curved surface and
@@ -998,9 +1005,21 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // the kink detector reads those gaps as a 32° spike. Geometry resolution must exceed probe
     // resolution or the harness measures its own sampling error.
     const NSPAN = 48, NCH = 5;
+    // ⚠ THE ROOT SKIRT. The membrane used to start exactly at the shoulder joint, which sits well
+    // above the flank — so in side profile there was a clean horizontal SLIT between the sail and
+    // the back, and the wings read as bolted on rather than grown. Ref §4.9.7: the anchor is a
+    // LINE, and "if the wing can be deleted and leave a clean torso, it is a sticker". Run the
+    // strips to negative x so the root buries inside the hull and the torso occludes the join.
+    const ROOTIN = S(0.26);
     for (let i = 0; i < NSPAN; i++) {
-      const x0 = (XT * i) / NSPAN, x1 = (XT * (i + 1)) / NSPAN;
-      const push = (x0 + x1) / 2 < WX ? pushA : pushH;
+      const x0 = -ROOTIN + ((XT + ROOTIN) * i) / NSPAN, x1 = -ROOTIN + ((XT + ROOTIN) * (i + 1)) / NSPAN;
+      // ⚠ OVERLAP, never butt. The arm strips ride `mid` and the hand strips ride `tip`, so a butt
+      // joint at the wrist opens a wedge the moment the wing flexes — visible in the bank pose.
+      // Strips within one span-step of the wrist are emitted on BOTH groups so the surfaces
+      // interpenetrate through the whole fold instead of parting.
+      const mx0 = (x0 + x1) / 2;
+      const near = Math.abs(mx0 - WX) < (XT / NSPAN) * 1.5;
+      const push = (m, ...t) => { (mx0 < WX ? pushA : pushH)(m, ...t); if (near) (mx0 < WX ? pushH : pushA)(m, ...t); };
       for (let j = 0; j < NCH; j++) {
         const t0 = j / NCH, t1 = (j + 1) / NCH;
         const a = memPt(x0, t0), b = memPt(x1, t0), c = memPt(x1, t1), d = memPt(x0, t1);
@@ -1029,7 +1048,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       // arc into a straight line — measurably: inboard forward camber collapsed to 1.5% of L
       // against a 2% floor. Bias the centreline aft by its own forward radius, tapering to 0 at
       // the wrist (outboard, the bone IS legitimately the leading edge).
-      const bias = (P) => (P[1] < WX ? R0 * P[3] * 0.5 * (1 - P[1] / WX) : 0);
+      // Cubic, not linear: a linear taper gives back half the compensation by mid-arm, and with a
+      // thicker spar that is enough for the bone to out-run the propatagium again (inboard camber
+      // fell back to 1.4% of L). Hold the bias across the arm and release it only near the wrist,
+      // where the bone legitimately becomes the leading edge.
+      const bias = (P) => (P[1] < WX ? R0 * P[3] * 0.5 * (1 - Math.pow(P[1] / WX, 3)) : 0);
       const ring = (P, r) => { const q = bias(P); return [
         [P[1] + nx * r, leY(P[1]) + camber(P[1], 0) + r * 0.85, P[2] + nz * r + q],       // top ridge
         [P[1] + nx * r * 1.15, leY(P[1]) + camber(P[1], 0), P[2] + nz * r * 1.15 + q],    // aft cheek
@@ -1044,12 +1067,63 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         // the phalanx knuckles — so value marks STRUCTURE rather than tracing an outline.
         push(k === 2 ? M.seam : M.scorch, [RA[k], RB[k1], RB[k]], [RA[k], RA[k1], RB[k1]]);
       }
-      // knuckle collar at each phalanx joint outboard of the wrist — a proud ring over a dark step
+      // ── THE SLAG CRUST — the wing top's relief rank ────────────────────────────────────────
+      // Crust plates standing proud of the spar ridge, each with a pale struck crest and a dark
+      // under-gap. This is the torso's rank language carried onto the wing: value marks STRUCTURE
+      // (core -> bloom -> dark on every plate), and it is what the behind-and-above camera is
+      // actually pointed at. Broken period-7 duty so the crests never read as a metronome.
+      {
+        const NP = 3;
+        for (let j = 0; j < NP; j++) {
+          const t0 = j / NP, t1 = (j + 1) / NP;
+          const Pt = (t) => [A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t, R0 * (A[3] + (B[3] - A[3]) * t)];
+          const p0 = Pt(t0), p1 = Pt(t1 - 0.12);
+          const y0 = leY(p0[0]) + camber(p0[0], 0), y1 = leY(p1[0]) + camber(p1[0], 0);
+          const H0 = p0[2] * 1.55, H1 = p1[2] * 1.55;               // crest stands 1.55r above centre
+          const w0 = p0[2] * 0.55, w1 = p1[2] * 0.55;
+          // ⚠ the plate's own half-width has to clear the bone line too, or the CRUST becomes the
+          // inboard leading edge and re-flattens the propatagium arc — the same trap as the spar
+          // itself, one layer out. Inboard, seat the whole plate aft of the centreline.
+          const q0 = bias([null, p0[0], 0, 0]) + (p0[0] < WX ? w0 : 0);
+          const q1 = bias([null, p1[0], 0, 0]) + (p1[0] < WX ? w1 : 0);
+          // Broken duty expressed as CREST HEIGHT, not as a second pale material. Two pale tiers
+          // on the wing would cost a mesh per accumulator per side AND let the wing compete with
+          // the dorsal serration, which the sheet requires to stay dominant. So the wing tops out
+          // at ashLit; rim stays a torso tier. Duty is period-7 and irregular either way.
+          const lit = ((i * 3 + j * 2 + 1) % 7) < 3;
+          const crest = lit ? 1.0 : 0.62;
+          const o0 = [p0[0] + nx * w0, p0[1] + nz * w0 + q0], o1 = [p1[0] + nx * w1, p1[1] + nz * w1 + q1];
+          const iA = [p0[0] - nx * w0, p0[1] - nz * w0 + q0], iB = [p1[0] - nx * w1, p1[1] - nz * w1 + q1];
+          // outboard flank of the plate + its inboard flank (two lit-facing planes, one dark)
+          push(M.scorch, [[o0[0], y0 + H0 * 0.35, o0[1]], [o1[0], y1 + H1 * 0.35, o1[1]], [o1[0], y1 + H1, o1[1]]],
+                         [[o0[0], y0 + H0 * 0.35, o0[1]], [o1[0], y1 + H1, o1[1]], [o0[0], y0 + H0, o0[1]]]);
+          push(M.seam,   [[iA[0], y0 + H0 * 0.35, iA[1]], [iB[0], y1 + H1, iB[1]], [iB[0], y1 + H1 * 0.35, iB[1]]],
+                         [[iA[0], y0 + H0 * 0.35, iA[1]], [iA[0], y0 + H0, iA[1]], [iB[0], y1 + H1, iB[1]]]);
+          // the struck crest — pale, on EDGES only, never a patch (AAA tell #1)
+          push(M.ashLit,
+            [[o0[0], y0 + H0 * crest, o0[1]], [o1[0], y1 + H1 * crest, o1[1]], [iB[0], y1 + H1 * crest, iB[1]]],
+            [[o0[0], y0 + H0 * crest, o0[1]], [iB[0], y1 + H1 * crest, iB[1]], [iA[0], y0 + H0 * crest, iA[1]]]);
+          // under-gap recess: the shadow step that makes the plate read as LAPPED, not painted
+          push(M.seam, [[o1[0], y1 + H1 * 0.35, o1[1]], [iB[0], y1 + H1 * 0.35, iB[1]],
+                        [(o1[0] + iB[0]) / 2, y1 - p1[2] * 0.15, (o1[1] + iB[1]) / 2]]);
+        }
+      }
+      // knuckle boss at each phalanx joint outboard of the wrist — a CLOSED wedge seated on the
+      // spar, not a lone floating triangle (the critic read those as placeholder shards)
       if (i >= FX_WRIST_I && i < LE.length - 2) {
-        const r = R0 * B[3];
-        push(M.ashLit, [[B[1] + nx * r * 1.25, leY(B[1]) + r * 0.95, B[2] + nz * r * 1.25],
-                        [B[1] - nx * r * 0.7, leY(B[1]) + r * 0.55, B[2] - nz * r * 0.7],
-                        [B[1] + nx * r * 0.2, leY(B[1]) + r * 1.25, B[2] + nz * r * 0.2 + r * 0.5]]);
+        const r = R0 * B[3], by = leY(B[1]) + camber(B[1], 0), q = bias(B);
+        const c = [B[1], B[2] + q];
+        const ring2 = [[c[0] + nx * r * 1.5, c[1] + nz * r * 1.5], [c[0] - nx * r * 1.1, c[1] - nz * r * 1.1],
+                       [c[0] + nx * r * 0.2 - nz * r * 1.2, c[1] + nz * r * 0.2 + nx * r * 1.2],
+                       [c[0] + nx * r * 0.2 + nz * r * 1.2, c[1] + nz * r * 0.2 - nx * r * 1.2]];
+        const apex = [c[0], by + r * 2.0, c[1]];
+        for (let k = 0; k < 4; k++) {
+          const k1 = (k + 1) % 4;
+          push(k === 0 ? M.ashLit : M.scorch,
+            [[ring2[k][0], by + r * 0.5, ring2[k][1]], [ring2[k1][0], by + r * 0.5, ring2[k1][1]], apex]);
+        }
+        push(M.seam, [[ring2[1][0], by + r * 0.5, ring2[1][1]], [ring2[2][0], by + r * 0.5, ring2[2][1]],
+                      [c[0], by - r * 0.35, c[1]]]);
       }
     }
 
@@ -1102,7 +1176,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       // also where the mass actually pays: a behind-and-above camera sees the wing's TOP.
       pushH(M.ashLit,
         [[BX - KN * 0.55, BY + KN * 0.20, BZ - KN * 0.05], [BX + KN * 0.75, BY + KN * 0.10, BZ + KN * 0.10], [BX + KN * 0.10, BY + KN * 1.05, BZ + KN * 0.40]]);
-      pushH(M.rim,
+      pushH(M.ashLit,
         [[BX - KN * 0.18, BY + KN * 0.86, BZ + KN * 0.20], [BX + KN * 0.34, BY + KN * 0.80, BZ + KN * 0.26], [BX + KN * 0.10, BY + KN * 1.10, BZ + KN * 0.42]]);
       pushH(M.seam,
         [[BX - KN * 0.7, BY - S(0.02), BZ + KN * 0.5], [BX + KN * 0.8, BY - S(0.02), BZ + KN * 0.4], [BX + KN * 0.1, BY + KN * 0.25, BZ + KN * 0.8]]);
@@ -1149,13 +1223,18 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       side: THREE.DoubleSide, transparent: true, opacity: 0.9,
     });
     memGlow.userData.baseEmissive = def.accentHue ?? 0xff8912; memGlow.userData.baseIntensity = 0;
+    // ⚠ The drop must stay INSIDE the membrane's silhouette. At 0.05u below and running to the
+    // trailing edge it showed from the rear chase as a second parallel slat with sky between it
+    // and the membrane — the critic read that as split geometry, and it is: two edges where the
+    // creature has one. Halve the drop and inset it at both ends so it can never breach the
+    // outline. It stays a separate surface (I4 lights the underside only) without being one.
     const dropA = [], dropH = [];
     for (let i = 0; i < NSPAN; i++) {
       const x0 = (XT * i) / NSPAN, x1 = (XT * (i + 1)) / NSPAN;
       const D = (x0 + x1) / 2 < WX ? dropA : dropH;
-      const lo = (p) => [p[0], p[1] - S(0.05), p[2]];
-      D.push([lo(memPt(x0, 0.12)), lo(memPt(x1, 0.12)), lo(memPt(x1, 1))],
-             [lo(memPt(x0, 0.12)), lo(memPt(x1, 1)), lo(memPt(x0, 1))]);
+      const lo = (p) => [p[0], p[1] - S(0.025), p[2]];
+      D.push([lo(memPt(x0, 0.20)), lo(memPt(x1, 0.20)), lo(memPt(x1, 0.94))],
+             [lo(memPt(x0, 0.20)), lo(memPt(x1, 0.94)), lo(memPt(x0, 0.94))]);
     }
 
     const arm = new THREE.Group(), hand = new THREE.Group();
