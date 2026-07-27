@@ -116,8 +116,8 @@ tier. 72/72, and the design improved.
 
 ## The critic rounds: three laws about GEOMETRY vs DECORATION
 
-Four harsh-critic rounds (3.2 → 3.4 → 3.6 → …) produced three findings that are worth more than
-the wing they came from. All three are the same mistake in different clothes: **treating a
+Five harsh-critic rounds (**3.2 → 3.4 → 3.6 → 3.9 → 4.2 PASS**) produced three findings that are
+worth more than the wing they came from. All three are the same mistake in different clothes: **treating a
 decoration as if it were the structure.**
 
 ### 1. The outline is where the surface ENDS
@@ -154,6 +154,15 @@ protruding forward of the bone line: the spar itself, the crust plates, the wris
 and nearly the arm mass. **Anything added near the leading edge must be checked against the
 propatagium bow**, because the arm sitting *inside* a membrane curve is the whole difference
 between a limb and scaffolding — and it is one careless `+nx * r` away every time.
+
+### The round that mattered most was the one that named the CEILING
+
+The passing round did not just score; it said *"do not spend another unlit round on this wing —
+the remaining 0.3–0.5 lives in the rear-chase membrane read, which is what the lighting increment
+exists to solve."* That is the most useful sentence in five rounds of critique, because a critic
+that only ever lists more fixes will grind forever. **Ask the critic explicitly whether the
+remaining gap is worth another round or whether the work is at its practical ceiling for the
+increment** — and get the residuals recorded as *carried forward*, not as failures.
 
 ## A gate can be wrong in the honest direction too
 
