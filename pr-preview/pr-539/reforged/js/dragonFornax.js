@@ -1131,7 +1131,12 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // §4.7's root gusset: the whole trailing line tapers/cups from the last fingertip down to the
     // hip in ONE continuous concave curve — a straight inboard bar is the plane whisper at the root.
     const B = [-S(0.10), K[1] - S(0.62), S(1.55)];                     // hip anchor, wing-local
-    const Tlast = spars[NF - 1][NS];
+    // ⚠ THE SEPARATION NOTCH. The plagiopatagium must NOT start at the last fingertip, or the last
+    // bay and the body sheet blend into one continuous curve and the digit stops reading as a
+    // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
+    // along the last finger cuts a deep V between the hand and the arm sheet, which is also the
+    // bay the planform probe measured as the shallowest (6% against a 10% floor).
+    const Tlast = lerp3(K, spars[NF - 1][NS], 0.58);
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
