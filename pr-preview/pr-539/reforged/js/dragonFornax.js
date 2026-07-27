@@ -864,74 +864,218 @@ registerTorso('slagAnvilTorso', buildSlagAnvilTorso);
 // between-tip membrane line, so the taut bays cannot collapse into the plane wing at chase
 // distance (audit round 2). None of that exists yet.
 function buildUnderlitCrescentWings(def, model, attach, giM) {
+  // ── I2: THE UNDERLIT CRESCENT ────────────────────────────────────────────────────────────────
+  // The hero. Built to the I2 pre-assess, every number carrying its pixel size at ~21px/u (the
+  // dragon spans ~180px from the chase cam, each wing ~75-85px). Anything under 2px is NOT billed
+  // as a play read — that false billing is exactly what the torso's rail shipped with.
+  //
+  // LOW WIDE crescent, four digits, taut bays: the split from Vesper (tall arch, deep 0.35 cups,
+  // five fingers) and from Tempest (continuous pale ribbon, glowing fork prongs). Notch depth comes
+  // from BONE PROJECTION, never membrane drape — a taut bay with no bone projection collapses to
+  // the plane wing, which is the one silhouette this game bans on sight.
   const group = new THREE.Group();
   const spineMats = [];
-  const halfSpan = (model.wingSpan ?? 1.55) * (model.spanScale ?? 1);
+  const M = fornaxMats(def);
+  const S = (v) => v * (model.anvilScale ?? 1);
+  const halfSpan = (model.wingSpan ?? 4.26) * (model.spanScale ?? 1);
+  const H = S(halfSpan);
 
-  // I0 membrane material: DARK and NON-EMISSIVE. The top membrane stays black through the whole
-  // build — `wingMembraneEmissive: 0x000000` on the def is what stops the shared rig's
-  // unconditional boost term (dragon.js:1970-1990) lighting the wing TOPS on every boost, which
-  // would break the dark-top law outside Surge entirely (audit B3).
-  // Cool char, inside the sourced albedo band — NOT warm-tinted. A warm membrane would paint the
-  // heat into the diffuse, which is precisely the Ember-starter lane this creature must not
-  // collide with: on Fornax every warm photon is EMITTED at I4, never painted.
+  // Top membrane stays BLACK: the rig's unconditional boost term multiplies wingMembraneEmissive,
+  // so without a registered black the wing tops light on every boost — outside Surge entirely.
   const wingMat = new THREE.MeshStandardMaterial({
-    color: def.wingInner ?? 0x262629, emissive: 0x000000, flatShading: true, roughness: 0.82,
-    metalness: 0.02, side: THREE.DoubleSide, transparent: true, opacity: 0.94,
+    color: def.wingOuter ?? 0x2a2a2c, emissive: 0x000000, flatShading: true, roughness: 0.84,
+    metalness: 0.02, side: THREE.DoubleSide,
   });
 
   const pivots = {}, wingElements = [];
+  // Saddle triangles accumulate across BOTH sides (they are static body-frame geometry), so the
+  // massif rework costs 3 meshes total rather than 3 per wing.
+  const sadAcc = { s: [], r: [], w: [] };
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
-    // Build CANONICAL (+X) for BOTH sides and reflect the LEFT with an OUTER wrapper. The
-    // wingParts poser writes IDENTICAL L/R rotations and relies on an outer reflection to make
-    // them symmetric; `pivot.scale.x = -1` is flip-then-rotate and desyncs .y/.z (wingsymprobe
-    // Δ0.000 → ~3.0). This is the single most-recorded motion bug in the house ledger.
     const rootC = attach.wingRoot(1);
     const pivot = new THREE.Group();
     pivot.position.set(rootC.x, rootC.y, rootC.z);
     pivot.userData.wingRole = 'pivot';
-
-    // 3-segment cascade: pivot = shoulder, mid = forearm (lagged curl), tip = the HAND folding at
-    // the wrist. The hand carries the WHOLE connected membrane so the fold never tears it — any
-    // geometry spanning the joint must keep all its vertices on one side of it.
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
 
-    // Carpal knuckle. wristT 0.30 is the sheet's differentiator against Vesper's 0.21 — but it
-    // sits at the TOP of the house 0.2-0.3 band, and pulling the wrist INBOARD is what makes the
-    // fold read (ref §4.4). I2's flapstrip must confirm the fold survives at 0.30 before the dial
-    // locks; if it doesn't, the wrist moves inboard and archRise carries the planform split alone.
+    // wristT 0.30 — top of the house band. The hand carries 70% of the wing, so the fold has real
+    // mass to move; flapstrip must confirm the dogleg still reads before this locks (the fold
+    // outranks the differentiator).
     const wristT = model.wristT ?? 0.30;
-    const K = [halfSpan * wristT, 0.04, 0.02];
+    const KX = H * wristT;
+    const ARCH = S(0.15);                       // 3px — the LOW read; Vesper renders ~0.5u
+    const leadY = (x) => ARCH * Math.sin(Math.PI * Math.min(1, x / H));
+    const K = [KX, leadY(KX), S(0.02)];
 
+    const acc = new Map();
+    const push = (mat, ...tris) => { let arr = acc.get(mat); if (!arr) acc.set(mat, arr = []); for (const t of tris) arr.push(t); };
+
+    // ── W1 THE DIGIT RANK — 4 blade-spars, D1 dominant, x0.66 decay ────────────────────────────
+    // 2.98 / 1.86 / 1.23 / 0.81u = 63/39/26/17px. Lengths are load-bearing; COUNTABILITY is not —
+    // at 180px the digits are not countable and the sheet lists that as turntable-only.
+    const DIG = [
+      { len: H - KX, dir: [1.00, 0.00], w: S(0.070) },
+      { len: (H - KX) * 0.625, dir: [0.80, 0.60], w: S(0.052) },
+      { len: (H - KX) * 0.413, dir: [0.55, 0.84], w: S(0.040) },
+      { len: (H - KX) * 0.272, dir: [0.30, 0.95], w: S(0.030) },
+    ];
+    const tips = DIG.map((d) => {
+      const n = Math.hypot(d.dir[0], d.dir[1]);
+      const x = KX + (d.dir[0] / n) * d.len, z = K[2] + (d.dir[1] / n) * d.len;
+      return [x, leadY(x), z];
+    });
+
+    // ── W6 THE SCALLOP HEM + THE NOTCH FLOOR ───────────────────────────────────────────────────
+    // Bay cusps are pulled toward the wrist by max(0.15 x bay chord, 0.12u) — 2.5-5px. This is the
+    // geometry guard: the membrane stays TAUT (our identity vs Vesper's cups) while the SILHOUETTE
+    // stays scalloped (the read). Depth comes from where the bone tips project, not from drape.
+    const hem = [];
+    for (let i = 0; i < tips.length - 1; i++) {
+      const A = tips[i], B = tips[i + 1];
+      const chord = Math.hypot(B[0] - A[0], B[2] - A[2]);
+      const depth = Math.max(0.15 * chord, S(0.12));
+      const mx = (A[0] + B[0]) / 2, mz = (A[2] + B[2]) / 2;
+      const dx = KX - mx, dz = K[2] - mz, dn = Math.hypot(dx, dz) || 1;
+      hem.push(A, [mx + (dx / dn) * depth, leadY(mx) * 0.92, mz + (dz / dn) * depth]);
+    }
+    hem.push(tips[tips.length - 1]);
+
+    // handwing membrane (39% of area) — fan from the wrist to the scalloped hem
+    for (let i = 0; i < hem.length - 1; i++) push(wingMat, [[KX, leadY(KX), K[2]], hem[i], hem[i + 1]]);
+    // armwing (52%) — root to wrist, and the rigid forward sheet (propatagium, ~9%)
+    const RB = [S(-0.10), S(0.02), S(0.30)];
+    push(wingMat,
+      [RB, [KX, leadY(KX), K[2]], hem[0]],
+      [RB, hem[hem.length - 1], [KX, leadY(KX), K[2]]]);
+    // W2 — the propatagium forward sheet. Both real lineages actively stiffen the leading edge; a
+    // wing whose leading edge is just the membrane edge is wrong in both.
+    push(M.scorch, [RB, [KX, leadY(KX), K[2] - S(0.16)], [KX, leadY(KX), K[2]]]);
+
+    // spar bodies + their CHANNELS (W1 recess): a darkest-tier gutter each side of every spar, so
+    // bones read as filaments in channels rather than flat bright tape on a sheet.
+    DIG.forEach((d, i) => {
+      const T = tips[i], PROUD = S(0.10);        // 2.1px stand-proud
+      const ax = (T[0] - KX), az = (T[2] - K[2]), an = Math.hypot(ax, az) || 1;
+      const px = -az / an * d.w, pz = ax / an * d.w;
+      const A = [KX, leadY(KX), K[2]];
+      push(i === 0 ? M.scorch : M.scorch,
+        [[A[0] + px, A[1] + PROUD, A[2] + pz], [A[0] - px, A[1] + PROUD, A[2] - pz], T],
+        [[A[0] + px, A[1] + PROUD, A[2] + pz], T, [T[0] + px * 0.3, T[1] + PROUD * 0.4, T[2] + pz * 0.3]]);
+      for (const sgn of [1, -1]) {
+        push(M.seam,
+          [[A[0] + px * sgn * 1.9, A[1] + PROUD * 0.25, A[2] + pz * sgn * 1.9],
+           [A[0] + px * sgn * 1.1, A[1], A[2] + pz * sgn * 1.1], T]);
+      }
+      // D1 alone carries a pale spar cap (value on EDGES, never patches)
+      if (i === 0) push(M.rim, [[A[0] + px * 0.5, A[1] + PROUD * 1.15, A[2] + pz * 0.5],
+                                [A[0] - px * 0.5, A[1] + PROUD * 1.15, A[2] - pz * 0.5], T]);
+    });
+
+    // ── W2 THE LEADING-EDGE PALE RAIL — BROKEN ~60% duty ───────────────────────────────────────
+    // Cap 0.10u (2.1px), lit runs of 2-4 segments with 0.15-0.35u gaps (3-7px, resolvable). NEVER
+    // continuous root->tip: that is Tempest's crest ribbon, and a borrowed mechanism without its
+    // own split axis imports the donor's identity.
+    const NSEG = 14, CAP = S(0.10);
+    for (let i = 0; i < NSEG; i++) {
+      if (((i * 2 + 1) % 7) >= 4) continue;      // the sanctioned duty family: irregular, min run 2
+      const x0 = (H * i) / NSEG, x1 = (H * (i + 1)) / NSEG;
+      push(M.rim,
+        [[x0, leadY(x0) + S(0.012), K[2] - CAP * 0.5], [x1, leadY(x1) + S(0.012), K[2] - CAP * 0.5],
+         [x1, leadY(x1) + S(0.012), K[2] + CAP * 0.5]],
+        [[x0, leadY(x0) + S(0.012), K[2] - CAP * 0.5], [x1, leadY(x1) + S(0.012), K[2] + CAP * 0.5],
+         [x0, leadY(x0) + S(0.012), K[2] + CAP * 0.5]]);
+    }
+
+    // ── W3 THE KNUCKLE ROW — carpal wedge + per-digit base wedges, each over a dark socket ──────
+    const KN = S(0.16);
+    push(M.ashLit,
+      [[KX - KN * 0.6, leadY(KX), K[2] - KN * 0.5], [KX + KN * 0.6, leadY(KX), K[2] - KN * 0.5],
+       [KX, leadY(KX) + KN * 0.8, K[2] + KN * 0.2]]);
+    push(M.rim, [[KX - KN * 0.28, leadY(KX) + KN * 0.62, K[2]], [KX + KN * 0.28, leadY(KX) + KN * 0.62, K[2]],
+                 [KX, leadY(KX) + KN * 0.86, K[2] + KN * 0.18]]);
+    push(M.seam, [[KX - KN * 0.7, leadY(KX) - S(0.02), K[2] + KN * 0.6], [KX + KN * 0.7, leadY(KX) - S(0.02), K[2] + KN * 0.6],
+                  [KX, leadY(KX) + KN * 0.2, K[2] + KN * 0.9]]);
+
+    // W6 — the connected trailing hem band, one darkest-tier stroke tracing the whole scallop
+    const HEMW = S(0.15);
+    for (let i = 0; i < hem.length - 1; i++) {
+      const A = hem[i], B = hem[i + 1];
+      const ax = B[0] - A[0], az = B[2] - A[2], an = Math.hypot(ax, az) || 1;
+      const nx = -az / an * HEMW, nz = ax / an * HEMW;
+      push(M.seam, [A, B, [B[0] + nx, B[1], B[2] + nz]], [A, [B[0] + nx, B[1], B[2] + nz], [A[0] + nx, A[1], A[2] + nz]]);
+    }
+
+    // W-glow — the dropped underglow copy, DARK at I2. Bespoke material outside wingMat so the
+    // shared rig cannot light it, and so I4 lights only the underside (wing tops stay silhouette).
+    const memGlow = new THREE.MeshStandardMaterial({
+      color: def.wingInner ?? 0x262629, emissive: 0x000000, flatShading: true, roughness: 0.7, metalness: 0,
+      side: THREE.DoubleSide, transparent: true, opacity: 0.9,
+    });
+    memGlow.userData.baseEmissive = def.accentHue ?? 0xff8912; memGlow.userData.baseIntensity = 0;
+    const dropTris = [];
+    for (let i = 0; i < hem.length - 1; i++) {
+      dropTris.push([[KX, leadY(KX) - S(0.05), K[2]], [hem[i][0], hem[i][1] - S(0.05), hem[i][2]],
+                     [hem[i + 1][0], hem[i + 1][1] - S(0.05), hem[i + 1][2]]]);
+    }
     const arm = new THREE.Group();
-    const armBone = blockout(halfSpan * wristT, 0.07, 0.10, wingMat);
-    armBone.position.set(halfSpan * wristT * 0.5, 0.02, 0.01);
-    arm.add(armBone);
-    mid.add(arm);                       // arm rides the forearm
-
     const hand = new THREE.Group();
-    const handSheet = blockout(halfSpan * (1 - wristT), 0.03, 0.62, wingMat);
-    handSheet.position.set(halfSpan * wristT + halfSpan * (1 - wristT) * 0.5, 0.04, 0.14);
-    hand.add(handSheet);
-    tip.position.set(K[0], K[1], K[2]);       // fold axis = the carpal knuckle
-    hand.position.set(-K[0], -K[1], -K[2]);   // −anchor → assembled REST pose byte-identical
+    // Tag by ROLE so the structural probe can tell a recess channel from a plate — an untagged
+    // seam material counts as the darkest "plate" and fails the albedo-band law spuriously.
+    for (const [mat, tris] of acc) {
+      const m = flatTriMesh(tris, mat);
+      m.userData.fornaxPart = (mat === M.seam) ? 'seam' : 'wing';
+      hand.add(m);
+    }
+    const gm = flatTriMesh(dropTris, memGlow); gm.userData.fornaxPart = 'wing'; hand.add(gm);
+    mid.add(arm);
+    tip.position.set(K[0], K[1], K[2]);
+    hand.position.set(-K[0], -K[1], -K[2]);
     tip.add(hand);
 
     if (side === -1) { const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(pivot); group.add(lmirror); }
     else group.add(pivot);
 
-    const s = side === 1 ? 'R' : 'L';
-    // The FX marker rides the FOLDING group (hand), not the body — otherwise trails emit from
-    // where the wingtip used to be. It must also duplicate the geometry's own profile.
+    // ── W5 THE SHOULDER SADDLE — the massif killer. STATIC (body frame), not on the flapping pivot.
+    // Binding I2 acceptance criterion: if the mid-back still reads as a featureless black box after
+    // this, I2 fails its gate. Three lapped scapular lames at 0.055u standoff + 0.035u cup with
+    // full perimeter recess walls, carving the dead deck into structure the arm grows out of.
+    {
+      const sad = [];
+      let w = S(0.30), zc = S(-1.16);
+      for (let n = 0; n < 3; n++) {
+        const OFF = S(0.055), CUP = S(0.035);
+        const x = side * (S(0.40) + OFF), y = TORSO_Y + S(0.26);
+        sad.push({ x, y, zc, w, OFF, CUP });
+        w *= 0.66; zc += S(0.24);
+      }
+      const stris = [], rtris = [], wtris = [];
+      for (const L of sad) {
+        const { x, y, zc: z, w: ww, CUP } = L;
+        stris.push([[x, y + S(0.10), z - ww * 0.5], [x, y - S(0.10), z - ww * 0.35], [x * 1.06, y - S(0.02), z + ww * 0.5]],
+                   [[x, y + S(0.10), z - ww * 0.5], [x * 1.06, y - S(0.02), z + ww * 0.5], [x * 1.06, y + S(0.06), z + ww * 0.3]]);
+        rtris.push([[x * 1.07, y + S(0.06), z + ww * 0.3], [x * 1.07, y - S(0.02), z + ww * 0.5], [x * 1.03, y + S(0.02), z + ww * 0.58]]);
+        // perimeter recess walls (0 -> standoff) so each lame throws a shadow step and laps the next
+        wtris.push([[x, y + S(0.10), z - ww * 0.5], [side * S(0.40), y + S(0.10), z - ww * 0.5], [side * S(0.40), y - S(0.10), z - ww * 0.35]],
+                   [[x, y + S(0.10), z - ww * 0.5], [side * S(0.40), y - S(0.10), z - ww * 0.35], [x, y - S(0.10), z - ww * 0.35]]);
+      }
+      sadAcc.s.push(...stris); sadAcc.r.push(...rtris); sadAcc.w.push(...wtris);
+    }
+
+    const sfx = side === 1 ? 'R' : 'L';
     const marker = new THREE.Object3D();
-    marker.position.set(halfSpan, 0.04, 0.02);
+    marker.position.set(H, leadY(H), K[2]);
     hand.add(marker);
-    pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
-    pivots['tipMarker' + s] = marker;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + 0.04, root.z + 0.02], length: halfSpan, tipObj: marker });
+    pivots['wingPivot' + sfx] = pivot; pivots['wingMid' + sfx] = mid; pivots['wingTip' + sfx] = tip;
+    pivots['tipMarker' + sfx] = marker;
+    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * H, root.y + leadY(H), root.z + K[2]], length: H, tipObj: marker });
+  }
+  if (sadAcc.s.length) {
+    group.add(tagPart(flatTriMesh(sadAcc.s, M.scorch), 'saddle'));
+    group.add(tagPart(flatTriMesh(sadAcc.r, M.rim), 'saddle'));
+    group.add(tagPart(flatTriMesh(sadAcc.w, M.seam), 'seam'));
   }
   return { group, spineMats, wingMat, parts: { ...pivots, wingElements } };
 }
