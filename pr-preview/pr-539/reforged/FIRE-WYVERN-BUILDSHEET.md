@@ -425,33 +425,41 @@ before believing it.**
   (the fire-region channel-order probe never sees these pixels — a law without a probe is
   how the steel-blue round shipped).
 
-## 5. Wings — the HERO: THE UNDERLIT CRESCENT (**pterosaur spar**, wing-as-arm)
+## 5. Wings — the HERO: THE UNDERLIT CRESCENT (**fingered fan**, wing-as-arm)
 
-> **⚠ v2.4 REWRITE.** The wing shipped at I2 was rejected on sight by the owner. The root
-> cause was **a gap in THIS SHEET, not a build error** — the section below used to specify
-> only how Fornax *differs from Vesper* (`archRise`, `wristT`, bay sag) and mechanisms
-> (notch floor, propatagium %, the DoubleSide trap), and **never once said what a wing
-> IS**: no arm chain, no body attachment line, no chord distribution, no leading-edge
-> sweep. A builder could follow every number here perfectly and still produce a membrane
-> fanning from one hub — which is exactly what happened. `DRAGON-ANATOMY-REFERENCE.md`
-> had the identical hole and now carries **§4.9 PLANFORM**; this section is Fornax's
-> instantiation of it. **Where the two disagree, ref §4.9 wins.**
+> **⚠ v2.5.** v2.4 rewrote this section onto a PTEROSAUR SPAR. The owner rejected that build on
+> sight — *"whatever plane wings u got"* — and was right: `DRAGON-DESIGN.md` §2 lists
+> **"the plane / delta-kite wing" as failure #1, KILL ON SIGHT**, including *"convex scallop lobes
+> whose valleys never cut inward"*, which is exactly what a single spar with a chord-function
+> trailing edge produces. **The house WING kit (`DRAGON-DESIGN.md` §4) is mandatory and outranks
+> both the anatomy reference and any research finding.** Reference implementation:
+> `buildOneStormforkWing` (`dragonTempest.js`) — the roster's best wing.
+>
+> **The process failure that caused it, recorded so it does not recur:** the Fable adjudication
+> that overturned the fan was given a brief that never mentioned the house kit existed or that the
+> plane wing is a named kill-on-sight failure. It ruled correctly on what it was shown. **An
+> adjudicator's confidence is bounded by the completeness of its brief — 5/5 on an incomplete
+> brief is not 5/5 on the question.**
 
-**TOPOLOGY: PTEROSAUR SPAR — ⚠ this OVERTURNS the former SETTLED entry "Bat fan, 4
-digits, dominant D1."** Two independent Fable passes (art director + a clean-room
-adjudicator, both 5/5) overturned it on the same grounds: the lock's stated premise —
-*"a single spar degenerates to the paper-dart read"* — is **a misdiagnosis**. The paper
-dart comes from a straight trailing edge, a planar zero-camber membrane, and no joint
-break in the leading edge. **It does not come from spar count**, and a fan carrying those
-three defects is a dart with extra spokes. The failure that actually produced our dart
-was **the missing arm**. Reversal recorded in SETTLED and the CHANGELOG; ref §4.1's
-verdict is superseded in the same pass.
+**TOPOLOGY: FINGERED FAN — 4 radiating digits off the carpal knuckle, dominant + decay.**
+Finger 0 is the longest and IS the wingtip; the rest fan aft, shorter, drooping aft-and-down.
+Azimuths **26° / 42° / 60° / 76°** aft of the wrist, lengths **1.00 / 0.86 / 0.64 / 0.44** —
+following the house reference's shallow decay rather than a steep per-rank 0.66, because too steep
+and the fingertips bunch inboard, the bay cusps overrun the next tip, and the scalloped free edge
+collapses into one broad hump (the plane wing again). Deterministic jitter on azimuth (±3°) and
+length (±6%) so the rank reads as a hand, not a comb (§2.4's picket-fence failure).
 
-Why the spar for *this* creature: Fornax is **mass, not dexterity**. A five-bone bending
-hand is Vesper's word; one enormous wing-finger off an armoured wrist is a crane boom —
-correct for slag. And at the measured ~180 px chase span the thing the old sheet was
-protecting (3 scallop cusps vs 1 long concave edge) is **sub-2 px and does not read**, so
-it could never have carried the roster split anyway.
+**THE BAY MEMBRANES — the cup is the whole point.** Each bay is lofted onto the two bracketing
+bones' samples, so **every membrane edge IS a bone node** and the sheet cannot float off. Cups at
+**0.46 / 0.40 / 0.33**, pulled FULLY toward the knuckle in both X and Z, sampled at ≥4 segments
+(2 segments polylines into scissor-cut V teeth — §2.12). Deeper than the house table because our
+fan is 4 fingers rather than 5, so each bay must cut harder to read. Weakening the X component to
+keep cusps neatly "between" tips produces shallow bumps instead of notches — the deep V that reads
+as fingers comes from the cusp travelling a long way back toward the wrist.
+
+**Retained from the v2.4 spar work** (all of it topology-independent and all of it still correct):
+the arm chain and its gull curve (§5.1), the propatagium, the shoulder→hip attachment, the slag
+crust rank on the arm, the arm mass and elbow node, and the planform gate.
 
 ### 5.1 THE SKELETON (build this FIRST — the membrane is an output, never an input)
 
@@ -961,13 +969,18 @@ duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
   bird-scaled (ref §3 camera logic + ref §1 cockatrice guard overrule period canon).
 - **Torso inflated / span honest, 5.5:1** — the sanctioned cheat (ref §2); the honest
   13–15:1 wyvern is unrideable and the deep keel blade is anatomy fiction.
-- ~~**Bat fan, 4 digits, dominant D1** — not the pterosaur spar (ref §4).~~
-  **⚠ OVERTURNED v2.4 — now PTEROSAUR SPAR (§5).** Kept visible rather than deleted,
-  because *why* it fell is the reusable lesson: the lock's premise ("a single spar
-  degenerates to the paper-dart read") **misattributed to spar count a failure actually
-  caused by the missing arm**. Two independent Fable passes, both 5/5. A SETTLED entry
-  whose stated premise is shown to be false is not protected by being settled — but the
-  bar is exactly that: **falsify the premise, don't re-argue the taste.**
+- **FINGERED FAN, 4 radiating digits, dominant + decay** — the house WING kit
+  (`DRAGON-DESIGN.md` §4), NOT the pterosaur spar. ⚠ **This entry was overturned once and then
+  RESTORED, and the round trip is the lesson.** The overturn argued that the lock's premise
+  ("a single spar degenerates to the paper-dart read") was falsified by anatomy research. The
+  premise was indeed loosely worded — but the *conclusion* was right for reasons the research
+  could not see, because `DRAGON-DESIGN.md` §2 lists **"the plane / delta-kite wing" as failure
+  #1, KILL ON SIGHT**, and defines it to include *"convex scallop lobes whose valleys never cut
+  inward"*. A single spar with a chord-function trailing edge is that failure by definition.
+  The owner rejected the spar build on sight: *"whatever plane wings u got"*.
+  **THE RULE THIS ADDS:** falsifying a SETTLED entry's stated premise is necessary but **NOT
+  sufficient** — you must also check whether a house playbook independently mandates the same
+  conclusion. A badly-argued lock can still be a correct lock.
 - **THE WING SKELETON IS THE SPEC** (v2.4, §5.1) — arm chain, wrist at 0.242 L, 155°
   chevron at one vertex, 0.113 L forward wrist offset, concave-everywhere trailing edge,
   propatagium, shoulder→hip seam. Never author a membrane outline and hang bones on it.
