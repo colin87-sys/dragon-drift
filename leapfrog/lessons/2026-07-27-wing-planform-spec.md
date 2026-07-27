@@ -32,6 +32,34 @@ left is what you actually specified.
 
 ---
 
+## ⚠ THE BIGGEST LESSON, ADDED AFTER THE OWNER REJECTED THE REBUILD
+
+**I built a wing the repo's own playbook lists as failure #1, kill on sight.**
+
+`DRAGON-DESIGN.md` §2: *"the plane / delta-kite wing … convex scallop lobes whose valleys never
+cut inward are still this failure."* §4 gives the fix — the fingered kit, radiating finger-bones
+off the carpal knuckle, membrane cupping INWARD. Vesper and Tempest are built on it. I built a
+single-spar wing with a chord-function trailing edge, which is that failure by definition, and
+did it while `CLAUDE.md` explicitly says to read `DRAGON-DESIGN.md` FIRST for dragon work.
+
+**How it happened, and this is the transferable part.** I asked an independent model to adjudicate
+bat-fan vs pterosaur-spar. My brief described the anatomy, the camera, the roster-differentiation
+problem — and never mentioned that the repo *has* a proven fingered-wing kit, or that the plane
+wing is a named kill-on-sight failure. Two passes came back 5/5 for the spar. They ruled correctly
+on what they were shown.
+
+> **An adjudicator's confidence is bounded by the completeness of its brief. 5/5 on an incomplete
+> brief is not 5/5 on the question.** Before delegating a decision, list what the repo already
+> decided about it and put that IN the brief — especially the things that would argue against the
+> answer you are drifting toward.
+
+And the corollary, which cost the most:
+
+> **Research does not outrank a shipped playbook.** Four research agents and a reference section
+> are evidence about *the world*. A house kit proven on two shipped creatures is evidence about
+> *this product*. When they disagree, the playbook wins, and the research goes in as a refinement
+> *inside* the kit — not as a replacement for it.
+
 ## Second gotcha: a SETTLED entry can be wrong, and the bar is falsification
 
 SETTLED said *"Bat fan, 4 digits, dominant D1 — not the pterosaur spar"*, justified by
@@ -43,7 +71,14 @@ Two independent Fable passes overturned it at 5/5, and the fix that mattered (bu
 identical under either topology.
 
 > **Rule: a SETTLED entry is protected against re-arguing the TASTE, not against falsifying the
-> PREMISE.** If you can show the stated reason is factually wrong, it reopens. If you just prefer
+> PREMISE.** If you can show the stated reason is factually wrong, it reopens.
+>
+> ⚠ **AMENDED, the hard way: falsifying the premise is NECESSARY BUT NOT SUFFICIENT.** This lock's
+> stated reason ("one spar ⇒ paper dart") *was* loosely worded — and the conclusion was still
+> right, because a house playbook independently mandated it for reasons the premise never
+> mentioned. **A badly-argued lock can still be a correct lock.** Before overturning: falsify the
+> premise AND check that no playbook, failure registry, or shipped reference independently
+> requires the same answer. If you just prefer
 > the other option, it does not. Record the reversal *with the falsified premise visible* — the
 > struck-through entry is more useful than a clean one, because the failure mode ("misattributed a
 > real failure to the wrong cause") is what recurs.
