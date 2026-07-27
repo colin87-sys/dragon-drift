@@ -1036,7 +1036,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
       const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.45, b[2]];
       push(M.scorch, [aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);       // shadowed sides
-      const f = 0.34, u = S(0.006);
+      const f = 0.20, u = S(0.010);   // narrow crest: a wide flat cap IS the flat-tape-bone tell
       const cL = [a[0] + px * wB * f, a[1] + lift * 0.62 + u, a[2] + pz * wB * f];
       const cR = [a[0] - px * wB * f, a[1] + lift * 0.62 + u, a[2] - pz * wB * f];
       const dT = [b[0], b[1] + lift * 0.30 + u, b[2]];
@@ -1067,7 +1067,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const kn = 0.58, bow = (i === 0 ? 0.055 : 0.17) * clen;   // finger 0 bows LEAST: it is the leading edge, and P2 has a ceiling
       const pfx = cdz / clen, pfz = -cdx / clen, yj = (i === 0 ? -0.015 : (i % 2 ? 1 : -1) * 0.045) * Ln;
       const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tipP[1] - K[1]) * kn + yj, K[2] + cdz * kn + pfz * bow];
-      const wB = R0 * (0.42 - 0.05 * i), wM = wB * 0.62, lift = R0 * (0.80 - 0.09 * i);
+      const wB = R0 * (0.46 - 0.06 * i), wM = wB * 0.48, lift = R0 * (1.05 - 0.11 * i);   // fatter root, harder taper, taller ridge
       boneRidge(pushH, K, Bm, wB, wM, lift, i === 0);
       boneRidge(pushH, Bm, tipP, wM, S(0.010), lift * 0.65, i === 0);
       // knuckle housing — a proud welded boss at the kink (skip finger 0: keeps the leading edge clean)
@@ -1076,7 +1076,15 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         pushH(M.ashLit, [[Bm[0] - r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0] + r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0], Bm[1] + r * 1.7, Bm[2] + r]]);
         pushH(M.seam, [[Bm[0] - r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0] + r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0], Bm[1] - r * 0.4, Bm[2] + r * 0.3]]);
       }
-      const s = []; for (let k = 0; k <= NS; k++) { const t = k / NS; s.push(t <= 0.58 ? lerp3(K, Bm, t / 0.58) : lerp3(Bm, tipP, (t - 0.58) / 0.42)); }
+      // ⚠ The membrane stops SHORT of the bone tip (0.86), so every finger projects a free spike
+      // past the sheet — Tempest does this on all four and it is what makes digits read as
+      // separate digits at silhouette scale instead of smearing into a serration.
+      const MEMEND = 0.86;
+      const s = [];
+      for (let k = 0; k <= NS; k++) {
+        const t = (k / NS) * MEMEND;
+        s.push(t <= 0.58 ? lerp3(K, Bm, t / 0.58) : lerp3(Bm, tipP, (t - 0.58) / 0.42));
+      }
       spars.push(s);
     }
     const F0 = spars[0][NS];                                          // the wingtip = finger 0's tip
@@ -1086,7 +1094,12 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // (2 segments polylines into scissor-cut V teeth — failure #12). Every membrane edge IS a bone
     // node, so the sheet cannot float off the skeleton. Aft bays sag harder so the SIDE profile
     // scallops between fingers instead of collapsing into one flat sail.
-    const CUP = [0.46, 0.40, 0.33];   // deeper than the house table: our fan is 4 fingers, not 5, so each bay must cut harder to read
+    // ⚠ Deep, and NOT tapering inboard. The house table decays the cut outboard→inboard because it
+    // has 5 fingers and the inboard bays are small anyway; with 4 fingers that decay left the
+    // mid-span trailing edge as one plain convex lobe — the exact residue the playbook names
+    // ("convex scallop lobes whose valleys never cut inward are STILL this failure"). Every bay
+    // has to cut, or the failure survives at mid-span even once it is dead at the tips.
+    const CUP = [0.52, 0.50, 0.46];
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
