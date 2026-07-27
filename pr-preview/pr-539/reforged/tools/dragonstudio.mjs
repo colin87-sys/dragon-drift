@@ -82,7 +82,12 @@ for (let form = 0; form <= maxTier; form++) {
 
   // Crop sheet (pale): whole-dragon fill · wing fill · head fill (subject ≥60%), then the 4×
   // detail crops (wing leading edge · head/eye) for emissive/edge judgment (the bossgate 4× law).
-  const CROPS = [
+  // ⚠ §11: crop cameras must frame BUILT geometry. A creature mid-increment has stub parts, and a
+  // panel aimed at a stub renders a solid black rectangle — Fornax's two head panels wasted a
+  // THIRD of the evidence at every torso gate, flagged twice by the critic before it was fixed.
+  // Declare which parts are real per key; anything unlisted keeps the default sheet.
+  const STUBBED = { fornax: ['head'] };   // head lands at I3; drop it when brandSkull is built
+  const DEFAULT_CROPS = [
     { part: 'whole', zoom: 1, label: 'whole' },
     { part: 'wing',  zoom: 1, label: 'wing' },
     { part: 'head',  zoom: 1, label: 'head' },
@@ -90,6 +95,13 @@ for (let form = 0; form <= maxTier; form++) {
     { part: 'head',  zoom: 2.2, label: 'head/eye 2.2×' },   // 4× put the camera INSIDE the head shell (gate r12 dir 1); 2.2× keeps it outside with the eye readable
     { part: 'whole', zoom: 1, label: 'whole (dark)', bg: 'dark' },
   ];
+  // Substitute a stubbed part's panels with torso crops at the same zooms — the gate keeps six
+  // panels of real evidence instead of four plus two black rectangles.
+  const SUB = { head: 'torso' };
+  const stub = STUBBED[key] || [];
+  const CROPS = DEFAULT_CROPS.map((c) => (stub.includes(c.part)
+    ? { ...c, part: SUB[c.part] || 'whole', label: `${SUB[c.part] || 'whole'}${c.zoom !== 1 ? ` ${c.zoom}×` : ''} (sub: ${c.part} is a stub)` }
+    : c));
   await page.evaluate((c) => window.dsSheetInit(c[0], c[1], c[2]), [3, 2, 460]);
   for (let i = 0; i < CROPS.length; i++) {
     const cr = CROPS[i];
