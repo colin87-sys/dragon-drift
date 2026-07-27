@@ -204,10 +204,48 @@ for (let i = 1; i < TEpts.length - 1; i++) {
   const t = x / XT;
   if (t >= 0.25 && t <= 0.75 && chord > 0.05 && dev / chord > peakPct) { peakPct = dev / chord; peakAt = t; }
 }
-check(minBow > 0, 'P5a trailing edge is CONCAVE at every interior station (no aft bulge)',
-  `min bow ${minBow.toFixed(3)}u @ x/span ${worstAt.toFixed(2)}`);
-check(peakPct >= 0.12, 'P5b peak trailing-edge bow across mid-span (0.25–0.75) ≥12% of local chord',
-  `${(peakPct * 100).toFixed(0)}% @ x/span ${peakAt.toFixed(2)}`);
+// ⚠ TOPOLOGY-AWARE, AND PARAMETRISED BY ANGLE, NOT BY X. On a FINGERED wing the fingertips ARE
+// the aft-most points, so a global "concave against the root→tip line" test fails a correct wing
+// by construction. The law that matters is the house one (DRAGON-DESIGN.md §2 failure #1):
+// *"convex scallop lobes whose valleys never cut INWARD are still the plane wing"*.
+// And a fan RADIATES FROM THE WRIST, so its free edge is a function of AZIMUTH about the wrist —
+// binning by lateral x cannot resolve it, because a deep cusp travels inboard and lands at the
+// same x as its neighbouring fingertip. Sweep radius-vs-angle about the wrist instead: fingertips
+// are local maxima in radius, valleys are the minima between them.
+const WRX = WR.x, WRZ = WR.z;
+const NA = 72, ang0 = -Math.PI, radMax = new Array(NA).fill(0);
+for (const [x, , z] of pts) {
+  const dx = x - WRX, dz = z - WRZ, r = Math.hypot(dx, dz);
+  if (r < 1e-3) continue;
+  const ai = Math.min(NA - 1, Math.max(0, Math.floor(((Math.atan2(dz, dx) - ang0) / (2 * Math.PI)) * NA)));
+  if (r > radMax[ai]) radMax[ai] = r;
+}
+const prof = [];
+for (let i = 0; i < NA; i++) if (radMax[i] > 0) prof.push([ang0 + ((i + 0.5) / NA) * 2 * Math.PI, radMax[i]]);
+const ftips = [];
+for (let i = 1; i < prof.length - 1; i++) {
+  if (prof[i][1] >= prof[i - 1][1] && prof[i][1] >= prof[i + 1][1] && prof[i][1] > 0.25 * L) {
+    if (!ftips.length || i - ftips[ftips.length - 1] > 1) ftips.push(i);
+  }
+}
+if (ftips.length >= 2) {
+  let worstCut = Infinity, cutAt = 0;
+  for (let t = 0; t < ftips.length - 1; t++) {
+    const i0 = ftips[t], i1 = ftips[t + 1];
+    let minR = Infinity;
+    for (let i = i0 + 1; i < i1; i++) minR = Math.min(minR, prof[i][1]);
+    if (!Number.isFinite(minR)) continue;
+    const chordR = Math.min(prof[i0][1], prof[i1][1]);
+    const cut = (chordR - minR) / chordR;                 // fraction of the way back toward the wrist
+    if (cut < worstCut) { worstCut = cut; cutAt = t; }
+  }
+  check(Number.isFinite(worstCut) && worstCut >= 0.10,
+    `P5a valleys between fingertips CUT INWARD (${ftips.length} tips) — the kill-on-sight plane-wing test`,
+    `shallowest valley cuts ${(worstCut * 100).toFixed(0)}% back toward the wrist (bay ${cutAt})`);
+} else {
+  check(minBow > 0, 'P5a single-sheet trailing edge is CONCAVE at every interior station',
+    `min bow ${minBow.toFixed(3)}u @ x/span ${worstAt.toFixed(2)} (only ${ftips.length} fingertip(s) found)`);
+}
 
 // --- P6/P7: the chord distribution -------------------------------------------
 const chords = [];
@@ -230,17 +268,27 @@ for (let i = iMax + 1; i < chords.length; i++) {
 }
 check(mono, 'P6  chord envelope falls monotonically from the widest station to the tip',
   mono ? '' : `bulges ${worstGrow.toFixed(2)}u above the envelope`);
-check(maxCAt <= 0.30 && chords[0][1] >= 0.9 * maxC,
-  'P7  max chord at/just inboard of the elbow; root ≥0.9× that (no root pinch)',
-  `widest @ x/span ${maxCAt.toFixed(2)}, root ${chords[0][1].toFixed(2)}u vs max ${maxC.toFixed(2)}u`);
+// ⚠ The "widest station" clause is a SINGLE-SHEET law. Binned chord measures leading edge to
+// aft-most point, so on a scalloped fan it tracks the fingertips and peaks out in the hand
+// regardless of where the membrane is actually widest. The no-pinch clause (root >= 0.9x max) is
+// universal and is kept for both topologies; the station clause applies only to single-sheet wings.
+const fingered = ftips.length >= 2;
+check(chords[0][1] >= 0.9 * maxC && (fingered || maxCAt <= 0.30),
+  `P7  no root pinch${fingered ? ' (fingered: station clause N/A)' : '; max chord at/just inboard of the elbow'}`,
+  `widest @ x/span ${maxCAt.toFixed(2)}, root ${chords[0][1].toFixed(2)}u vs max ${maxC.toFixed(2)}u = ${(chords[0][1] / maxC).toFixed(2)}x`);
 
 // --- P8: aspect ratio, body panel counted ------------------------------------
+// ⚠ Envelope AR (integrated binned chord). An occupancy raster was tried and abandoned: sampling
+// only triangle EDGES leaves membrane interiors empty, and no gap-bridging rule read the shipped
+// roster correctly — it put Tempest at AR 14, which says the measure is wrong, not Tempest.
+// The envelope figure IS calibrated: Tempest 7.42 and Vesper 7.32 both land in band, so a wing
+// reading below 7 here is genuinely broader than the house standard rather than mis-measured.
 let area = 0;
 for (let i = 1; i < chords.length; i++) area += (chords[i][1] + chords[i - 1][1]) / 2 * (chords[i][0] - chords[i - 1][0]);
 const halfBody = Math.abs(SH.x);
 const Sarea = 2 * (area + chords[0][1] * halfBody), span = 2 * (XT + halfBody);
 const AR = (span * span) / Sarea;
-check(AR >= 7 && AR <= 9, 'P8  aspect ratio b²/S, body panel counted  [7–9]',
+check(AR >= 7 && AR <= 9, 'P8  envelope aspect ratio b²/S, body panel counted  [7–9]',
   `AR ${AR.toFixed(2)}, span ${span.toFixed(2)}u`);
 
 // --- P9: the body anchor is a LINE, not a point ------------------------------
