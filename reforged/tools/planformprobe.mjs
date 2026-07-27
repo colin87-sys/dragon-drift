@@ -213,6 +213,7 @@ for (let i = 1; i < TEpts.length - 1; i++) {
 // same x as its neighbouring fingertip. Sweep radius-vs-angle about the wrist instead: fingertips
 // are local maxima in radius, valleys are the minima between them.
 const WRX = WR.x, WRZ = WR.z;
+const K2 = [WRX, WRZ];
 const NA = 72, ang0 = -Math.PI, radMax = new Array(NA).fill(0);
 for (const [x, , z] of pts) {
   const dx = x - WRX, dz = z - WRZ, r = Math.hypot(dx, dz);
@@ -228,20 +229,40 @@ for (let i = 1; i < prof.length - 1; i++) {
     if (!ftips.length || i - ftips[ftips.length - 1] > 1) ftips.push(i);
   }
 }
+if (process.env.FDBG) {
+  console.log('    [tips] ' + ftips.map(i => (prof[i][0]*180/Math.PI).toFixed(0)+'deg r='+prof[i][1].toFixed(2)).join('  '));
+  for (let t = 0; t < ftips.length - 1; t++) {
+    let mn = Infinity, ma = 0;
+    for (let i = ftips[t]+1; i < ftips[t+1]; i++) if (prof[i][1] < mn) { mn = prof[i][1]; ma = prof[i][0]*180/Math.PI; }
+    const cr = Math.min(prof[ftips[t]][1], prof[ftips[t+1]][1]);
+    console.log(`    [bay ${t}] between ${(prof[ftips[t]][0]*180/Math.PI).toFixed(0)}deg and ${(prof[ftips[t+1]][0]*180/Math.PI).toFixed(0)}deg, min r=${mn.toFixed(2)} @${ma.toFixed(0)}deg, chordR=${cr.toFixed(2)}, cut=${((cr-mn)/cr*100).toFixed(0)}%`);
+  }
+}
 if (ftips.length >= 2) {
+  // ⚠ Measure the valley against the TIP-TO-TIP LINE, not against the shorter tip's radius. A
+  // radius proxy understates the cut badly whenever adjacent fingers differ in length (ours run
+  // 1.00/0.86/0.64/0.44), because a valley can sit far inboard of the straight line joining two
+  // tips while still being barely below the shorter one — it read 6% where the true cut is much
+  // deeper. The playbook's wording is literally "valleys cut inward", i.e. inward of the line.
+  const P2D = (i) => [K2[0] + prof[i][1] * Math.cos(prof[i][0]), K2[1] + prof[i][1] * Math.sin(prof[i][0])];
   let worstCut = Infinity, cutAt = 0;
   for (let t = 0; t < ftips.length - 1; t++) {
-    const i0 = ftips[t], i1 = ftips[t + 1];
-    let minR = Infinity;
-    for (let i = i0 + 1; i < i1; i++) minR = Math.min(minR, prof[i][1]);
-    if (!Number.isFinite(minR)) continue;
-    const chordR = Math.min(prof[i0][1], prof[i1][1]);
-    const cut = (chordR - minR) / chordR;                 // fraction of the way back toward the wrist
+    const A2 = P2D(ftips[t]), B2 = P2D(ftips[t + 1]);
+    const ex = B2[0] - A2[0], ez = B2[1] - A2[1], elen = Math.hypot(ex, ez) || 1;
+    let deepest = 0;
+    for (let i = ftips[t] + 1; i < ftips[t + 1]; i++) {
+      const P = P2D(i);
+      // inward = toward the wrist side of the tip-to-tip line
+      const d = Math.abs((P[0] - A2[0]) * ez - (P[1] - A2[1]) * ex) / elen;
+      const side = ((P[0] - A2[0]) * ez - (P[1] - A2[1]) * ex) * ((K2[0] - A2[0]) * ez - (K2[1] - A2[1]) * ex);
+      if (side > 0 && d > deepest) deepest = d;      // only count deviation on the WRIST side
+    }
+    const cut = deepest / elen;
     if (cut < worstCut) { worstCut = cut; cutAt = t; }
   }
   check(Number.isFinite(worstCut) && worstCut >= 0.10,
     `P5a valleys between fingertips CUT INWARD (${ftips.length} tips) — the kill-on-sight plane-wing test`,
-    `shallowest valley cuts ${(worstCut * 100).toFixed(0)}% back toward the wrist (bay ${cutAt})`);
+    `shallowest valley cuts ${(worstCut * 100).toFixed(0)}% of its tip-to-tip span (bay ${cutAt})`);
 } else {
   check(minBow > 0, 'P5a single-sheet trailing edge is CONCAVE at every interior station',
     `min bow ${minBow.toFixed(3)}u @ x/span ${worstAt.toFixed(2)} (only ${ftips.length} fingertip(s) found)`);
