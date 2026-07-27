@@ -425,56 +425,171 @@ before believing it.**
   (the fire-region channel-order probe never sees these pixels — a law without a probe is
   how the steel-blue round shipped).
 
-## 5. Wings — the HERO: THE UNDERLIT CRESCENT (bat fan, wing-as-arm)
+## 5. Wings — the HERO: THE UNDERLIT CRESCENT (**pterosaur spar**, wing-as-arm)
 
-**Topology decision (ref §4): bat fan over pterosaur spar** — four digits give 3 interior
-bays + 3 knuckles; a single spar degenerates to the paper-dart read. **Honesty note
-(audit B4):** at gameplay distance the whole dragon spans ~180px and individual digits
-are NOT countable (Vesper's shipped five read only as a jagged dark trailing edge) — the
-feature that survives gameplay distance is the **scalloped 3-bay trailing-edge
-silhouette**; digit/knuckle countability is a turntable-scale read, marked in §11. All
-modern wyvern precedent agrees (ref §1 — Weta rebuilt Smaug onto two limbs so the wings
-could ACT).
+> **⚠ v2.4 REWRITE.** The wing shipped at I2 was rejected on sight by the owner. The root
+> cause was **a gap in THIS SHEET, not a build error** — the section below used to specify
+> only how Fornax *differs from Vesper* (`archRise`, `wristT`, bay sag) and mechanisms
+> (notch floor, propatagium %, the DoubleSide trap), and **never once said what a wing
+> IS**: no arm chain, no body attachment line, no chord distribution, no leading-edge
+> sweep. A builder could follow every number here perfectly and still produce a membrane
+> fanning from one hub — which is exactly what happened. `DRAGON-ANATOMY-REFERENCE.md`
+> had the identical hole and now carries **§4.9 PLANFORM**; this section is Fornax's
+> instantiation of it. **Where the two disagree, ref §4.9 wins.**
 
-- **Digits:** 4, **dominant leading digit D1 = 1.6× the others** (ref §4 band 1.5–1.8);
-  D2–D4 decay at **×0.66 per rank** (adopting ref §6's 0.62–0.70 decay constant as the
-  house decay), fanning aft with contracting spacing. Fat in-plane wedges, never needles
-  (house §2.4).
-- **Planform differentiation vs Vesper (audit B1 — COMMITTED numbers, the real axis):**
-  the fingered-fan MECHANISM already ships on Vesper, so Fornax differentiates on
-  planform + bay language. **LOW WIDE crescent** against Vesper's tall scallop: carpal
-  arch **`archRise 0.12`** (Vesper ships 0.4), **`wristT 0.30`** (top of the house
-  0.2–0.3 band; Vesper ships 0.21 — longer arm, more distal knuckle), and **TAUT FLAT
-  bays**: trailing-edge bay sag **≤0.10 of bay chord** (Vesper cups at 0.35) — shallow,
-  near-straight scallop arcs that read as membrane under TENSION, not drape. Side by
-  side: Vesper is a tall deep-cupped hand, Fornax a low taut sail.
-- **⚠ THE NOTCH FLOOR (audit round 2 — the taut bay must not become the PLANE WING).**
-  Taut bays differentiate us from Vesper but put the rear-chase sentence at risk: at the
-  measured ~180 px chase span a ≤0.10-chord notch is only **3–4 px**, and a trailing edge
-  that shallow collapses to a straight-edged delta — the kill-on-sight plane wing
-  (`DRAGON-DESIGN.md` §2.1), which would gut the very silhouette claim the sentence rests
-  on. **The notch depth therefore comes from BONE PROJECTION, not membrane drape:** each
-  digit tip projects **≥0.15 of bay chord beyond the between-tip membrane line**. The
-  membrane stays taut (our identity); the SILHOUETTE stays scalloped (the read). Asserted
-  in §11 — this is a floor, not a target, and it outranks the taut-bay number if they ever
-  conflict.
-- **Stiffened leading edge (NEW, ref §4):** both real lineages actively stiffen it — the
-  leading edge gets a **forward sheet** (propatagium analog) ahead of the arm, ~**9% of
-  wing area**; armwing ~**52%**, handwing ~**39%** (ref §4 — equal-width bays ARE the
-  plane wing). Leading edge is RIGID; **only the trailing edge flutters** (ref §5 — a
-  rippling leading edge is a fabrication tell; enforce in the wobble mask).
-- **Planform:** aspect ratio **7.5** (ref §4 target 7–9; <6 reads flapper, ~15 sailplane).
-  Wing loading in the 30–80 N/m² band (ref §4) — informs how heavy the flap reads (§9).
-- **Camber:** drives off airspeed — **0.14 chord slow ↔ 0.06 chord fast** (fast end
-  corrected into the ref §4.4/§5.5 cruise band of 0.06–0.10c; the 0.14 slow end is a
-  declared high-lift exaggeration ABOVE the cruise band, launch/flare only), deepest sag
-  at **40% chord** (ref §5). One dial (`camberMix`) lerped by speed; membrane arcs ≥4
-  segments, cup toward the knuckle (house §4.3).
-- **Wing-as-arm articulation:** house `wingParts` cascade + medial wrist (`wristT`
-  **0.30**, committed in the planform bullet) + rigid-hand wrist fold + −anchor + outer-wrapper mirror (house §5, non-
-  negotiables). Thumb-claw at the carpal knuckle — the wyvern's HAND read, and the walk
-  pose (wing-knuckle gait) in the turntable. Shoulder: scapular slag-cowl plates in the
-  torso's seam language, static in the body frame.
+**TOPOLOGY: PTEROSAUR SPAR — ⚠ this OVERTURNS the former SETTLED entry "Bat fan, 4
+digits, dominant D1."** Two independent Fable passes (art director + a clean-room
+adjudicator, both 5/5) overturned it on the same grounds: the lock's stated premise —
+*"a single spar degenerates to the paper-dart read"* — is **a misdiagnosis**. The paper
+dart comes from a straight trailing edge, a planar zero-camber membrane, and no joint
+break in the leading edge. **It does not come from spar count**, and a fan carrying those
+three defects is a dart with extra spokes. The failure that actually produced our dart
+was **the missing arm**. Reversal recorded in SETTLED and the CHANGELOG; ref §4.1's
+verdict is superseded in the same pass.
+
+Why the spar for *this* creature: Fornax is **mass, not dexterity**. A five-bone bending
+hand is Vesper's word; one enormous wing-finger off an armoured wrist is a crane boom —
+correct for slag. And at the measured ~180 px chase span the thing the old sheet was
+protecting (3 scallop cusps vs 1 long concave edge) is **sub-2 px and does not read**, so
+it could never have carried the roster split anyway.
+
+### 5.1 THE SKELETON (build this FIRST — the membrane is an output, never an input)
+
+`L` = shoulder joint → wingtip = **`wingSpan` 4.26 u**. Sweep Λ is measured **aft of the
+lateral axis**; negative rakes forward. Fractions are of L.
+
+| Segment | length | Λ | cumulative station |
+|---|---|---|---|
+| humerus | **0.095** | **−6°** | 0.083 |
+| forearm | **0.144** | **+6°** | 0.223 |
+| carpus | **0.019** | **+6°** | **0.242 ⟵ THE WRIST** |
+| metacarpal IV | **0.129** | **+31°** | 0.375 |
+| wing phalanx 1 | **0.227** | **+31°** | 0.611 |
+| wing phalanx 2 | **0.178** | **+33°** | 0.795 |
+| wing phalanx 3 | **0.125** | **+39°** | 0.921 |
+| wing phalanx 4 | **0.083** | **+51°** | 1.000 (tip hook) |
+
+Solved leading-edge vertices, **in units, wing-local (origin = shoulder, +x outboard, +z aft)**.
+⚠ `L` is the **straight-line** shoulder→tip (4.26); the tip's **lateral reach is x = 3.810**, and
+the two are not interchangeable — conflating them puts chord stations past the wingtip.
+
+| | shoulder | elbow | forearm | **wrist** | mcIV | wp1 | wp2 | wp3 | **tip** |
+|---|---|---|---|---|---|---|---|---|---|
+| **x** | 0.000 | 0.414 | 1.041 | **1.124** | 1.636 | 2.537 | 3.232 | 3.691 | **3.948** |
+| **z** | 0.000 | −0.043 | 0.022 | **0.031** | 0.270 | 0.690 | 1.044 | 1.342 | **1.599** |
+| **y** | 0.000 | 0.149 | 0.340 | **0.362** | 0.347 | 0.320 | 0.298 | 0.285 | **0.277** |
+
+⚠ **The `y` row is the GULL CURVE and it is NOT optional (ref §4.9.4b).** Built without it — as
+this sheet's first draft was, an x/z table only — the wing rendered from the rear as a **razor
+line, 31% wide and 9% tall**, because a flat horizontal membrane is edge-on to the shipped camera.
+Rise is +0.035 L at the elbow, **+0.085 L at the wrist (apex)**, +0.065 L at the tip: a shallow M,
+never a straight V. Inboard dihedral works out at **17.9°** (sourced cap 20°), outboard **−1.7°**
+(band 0 to −5°). **Camber rides on top of this; it does not replace it** — camber is a chordwise
+bulge, the gull is a spanwise rise, and a build needs both.
+
+⚠ **Sweep is 25° outboard, not the 31° first solved.** The forward-offset band is stated for the
+VISIBLE leading edge, but a bone chain is authored as a CENTRELINE — the spar's forward face plus
+the propatagium bulge together sit ~0.026 L ahead of it. Solving the centreline to the top of the
+band measured 0.125 against a 0.125 ceiling: a coincidence, not a pass. **Author the centreline
+well inside the band you intend to measure.**
+
+- **THE KEY NUMBER — max forward deviation of the leading edge from the shoulder→tip
+  chord = 0.113 L (0.48 u), peaking AT THE WRIST (station 0.242).** Ref §4.9 band is
+  **0.085–0.125**. The rejected wing had **0.035** — under half the threshold at which the
+  eye stops reading "straight". *This one assertion would have caught the failure on turn one.*
+- **Included angle at the wrist = 155°** (ref band 155–168°, reject >170°). The **whole
+  break sits at ONE vertex** — the carpus deliberately follows the forearm heading (+6°)
+  rather than splitting the break into two half-steps. **Chevron, not arc:** an arc reads
+  *feather*, an angle reads *structure under load*. This is why `archRise`/`leadY` — the
+  old single sine bow — is **deleted**, not retuned.
+- **Elbow break is real but modest** (−6° → +6° = a 12° kink at station 0.083), consistent
+  with the sourced near-rigid pterosaur arm (shoulder 5°, wrist 5°, elbow 10° of flexion).
+  It is **hidden under the propatagium** (§5.3) exactly as in life.
+- **Leading-edge radius TAPERS** `1.00 / 0.62 / 0.38 / 0.22 / 0.10` at
+  shoulder/elbow/wrist/mid-hand/tip. A constant-radius spar **reads as a bar however
+  curved** — this is the failure most likely to survive a correct planform.
+- **Thickness ladder** humerus 1.00 → forearm 0.80 → mcIV 0.50 → wp1 0.40 → wp2+ 0.28,
+  tapering to a point, thicker at each element's proximal end.
+
+### 5.2 THE PLANFORM (chord + trailing edge)
+
+**Author the trailing edge as a concave curve; let chord fall out.** Ref §4.9.5 chords are
+streamwise and calibrated for a lightly swept leading edge — applied naively to our
++51° tip hook they push the trailing edge **convex** near the tip, which is a bird
+signature and banned. The outer two stations below are therefore **retapered** from the
+raw pterosaur table (0.203 → 0.180, 0.102 → 0.055) to hold concavity through the hook;
+that also gives the tapering, posteriorly-hooked tip (Itip < 1) that reads *fast predator*.
+
+Stations are **lateral x** (η is a fraction of semi-span, so it maps to x, never to along-chord L).
+
+| Station | x (u) | chord (u) | TE z (u) | fwd bow vs root-TE→tip line | % of local chord |
+|---|---|---|---|---|---|
+| **root / flank** | 0.000 | **2.164** | 2.164 | 0 | — |
+| **elbow** | 0.343 | **1.947** | 1.911 | 0.230 u | 12% |
+| **wrist** | 0.907 | **1.678** | 1.686 | 0.416 u | 25% |
+| **knuckle** | 1.592 | **1.299** | 1.605 | **0.450 u ⟵ deepest** | 35% |
+| wp1 end | 2.438 | **0.767** | 1.581 | 0.418 u | 54% |
+| near tip | 3.204 | **0.234** | 1.552 | 0.395 u | — |
+| tip | 3.810 | **0.000** | 1.906 | 0 | — |
+
+- **Trailing edge is CONCAVE at every interior station** (min 12% of local chord) — one
+  long cupped sweep from the body to the tip, bowing **inward toward the bones**.
+  **ZERO interior bays** — a single spar has none, and scallops on one mean we have drawn
+  a bat. This **kills the old "TAUT FLAT bays ≤0.10 sag" identity and the NOTCH FLOOR
+  that propped it up**: tensioned skin physically cannot be straight between anchors, and
+  a straight trailing edge is not an identity, it is a cheap tell.
+- **Chord falls monotonically**; **max chord is at the root/elbow, never a pinch at the
+  root** (that pinch is the spoon-wing / armpit-hole failure).
+- **Aspect ratio 7.14** with the body panel counted (sheet target 7.5, ref band 7–9).
+  **Full span 8.11 u** — consistent with the house ~8.5 u / ~180 px scale anchor.
+- **Camber unchanged and still required:** 0.14 chord slow ↔ 0.06–0.10 fast, deepest at
+  40% chord, ≥4 segments per arc. **A top-viewed flat plane shades uniformly and dies** —
+  from our camera, curvature *is* the value gradient.
+
+### 5.3 ATTACHMENT — a LINE, not a point
+
+- **Bonded seam runs shoulder `z −0.95` → hip `z +0.60` = 1.55 u**, i.e. the full trunk.
+  Ref §4.9.7: *if your root seam is shorter than the torso, it is wrong.* Hip (not ankle)
+  is the sanctioned choice here because **abducted legs are SETTLED** and must stay free.
+- The **root chord is 2.16 u — longer than the seam.** The trailing edge continues **aft**
+  of the hip as a **free corner at z ≈ +1.21**, which is how the chord exceeds the seam
+  without pinning membrane to a moving leg. This is the fix for the armpit hole.
+- **Fairing:** the torso's seam/plate grammar carries across the join and fades out over
+  the shoulder — no hard silhouette seam. **If the wing can be deleted and leave a clean
+  torso, it is a sticker** — and from behind-and-above the player looks *straight down into
+  that junction*, so it is more exposed here than in profile. The W5 scapular saddle lames
+  already carry this and stay static in the body frame.
+- **PROPATAGIUM — the cheapest single fix, and non-negotiable.** A free membrane sheet
+  fills the shoulder–elbow–wrist triangle and bows **forward of the bones**, ~9% of wing
+  area, forward bulge **8–10.5% of hand-wing chord** (a subtle skin scallop, **not a big
+  triangular sail**). **The arm must sit INSIDE a membrane curve, not BE the edge** — an
+  arm that *is* the leading edge reads as scaffolding. It also hides the elbow kink, as in
+  life. Omitting it is cited as the single most common dragon-wing mistake.
+- **Wrist mass (the Smaug move):** 2–3 short free clawed fingers clustered at the wrist as
+  an **armoured knuckle boss**, carrying **no membrane**. This is decoration on the spar,
+  not a topology compromise — membrane-bearing half-fingers with mini-bays would
+  reintroduce the fan's rig cost for detail below the pixel floor. It puts readable mass
+  on the chevron apex, which is what makes a forward wrist read **heavy** rather than
+  graceful, and it lands exactly where the behind-above camera looks.
+
+### 5.4 What replaces the deleted Vesper differentiators
+
+`archRise 0.12`, `wristT 0.30`-as-a-fan-hub, taut bays and the notch floor are **gone**.
+Fornax now splits from Vesper on axes that survive gameplay distance:
+
+1. **Wrist station 0.24 vs Vesper's ~0.47** — a large, readable shift in *where the leading
+   edge breaks*, visible in the planform the chase cam actually sees.
+2. **Fold grammar** — ONE dramatic hinge at the mcIV knuckle vs Vesper's soft multi-joint
+   curl. Completely different animation even foreshortened. (§9 / `FLAP-DESIGN.md`.)
+3. **Leading-edge structural mass** — a thick armoured tapering spar, read on the wing
+   TOP, which is the surface this camera is pointed at.
+4. **Edge character** — the trailing hem is **cracked, notched, battle-torn slag** with
+   ember bleed through the tears. *Damage as identity*, against Vesper's clean cupped
+   scallops.
+- **Retained non-negotiables:** house `wingParts` pivot→mid→tip cascade, **−anchor** wrist
+  compensation, **OUTER `lmirror` wrapper** (never `pivot.scale.x = -1`). Leading edge is
+  RIGID; **only the trailing edge flutters** (a rippling leading edge is a fabrication tell).
+  **Span ratio 0.70** mid-upstroke ÷ mid-downstroke — constant span reads as a rigid airframe.
 - **THE STOKE surface (REVISED — audit B3, the DoubleSide trap):** three.js emissive is
   NOT per-face-side — a DoubleSide emissive membrane lights BOTH faces and breaks law 5.
   So, explicitly: **the underside glow is a SEPARATE dropped sub-mesh** (the bay copied
@@ -675,6 +790,29 @@ math) · `flapstrip` + named-pivot amplitude table · `tiershots` · `gameshots`
 a `fornax` block in `tests/starters.mjs`.
 
 **Bespoke asserts:**
+- **⚠ PLANFORM GATE P1–P10 (v2.4 — blocks every wing sign-off).** Tool:
+  **`tools/planformprobe.mjs`**, measuring the BUILT leading- and trailing-edge polylines
+  in wing-local space, never the dials. Mirrors ref §4.9.12, with the pterosaur bands:
+
+  | # | Assertion | Fornax pass band |
+  |---|---|---|
+  | P1 | wrist station along L | **0.22–0.28** (built: 0.242) |
+  | P2 | **max forward LE deviation from the shoulder→tip chord ÷ L** | **0.085–0.125** (built: 0.113) |
+  | P3 | spanwise station of that maximum | within **±0.06 of the wrist** |
+  | P4 | included angle at the wrist, in plan | **155–168°** (built: 155°) |
+  | P5 | TE deviation from the root-TE→tip line, every interior station | **forward everywhere**, ≥12% of local chord |
+  | P6 | chord distribution | **monotonically decreasing** |
+  | P7 | max chord station; root ≥ 0.9 × elbow chord | at/just inboard of the elbow |
+  | P8 | aspect ratio `b²/S`, body panel counted | **7–9** (built: 7.14) |
+  | P9 | root seam length ÷ trunk length | **≥ 1.0** (built: 1.55/1.55 = 1.0) |
+  | P10 | arm segments before the first membrane vertex; inboard LE bows forward | **≥2 groups, ≥2% of L** |
+  | P11 | rear-view vertical extent ÷ L (the gull) | **≥0.06** |
+
+  **P2 is the highest-value assertion in the harness — it alone would have caught the
+  rejected wing on turn one** (it measured 0.035 against a 0.085 floor). ⚠ P3's band is
+  **topology-dependent**: the bow peaks at the *wrist*, so a bat build (k≈0.49) peaks near
+  mid-span and a spar build (k≈0.24) peaks at a quarter. A band calibrated for one is
+  wrong for the other — the probe reads the wrist station and derives P3 from it.
 - **⚠ RENDER-SPACE VALUE GATE (torso audit — blocks every torso/part sign-off).** Tool:
   **`tools/valuegate.mjs`** (build it with the torso rebuild; the gate does not exist
   until the tool does). It captures the studio frame, isolates the part by a
@@ -823,7 +961,16 @@ duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
   bird-scaled (ref §3 camera logic + ref §1 cockatrice guard overrule period canon).
 - **Torso inflated / span honest, 5.5:1** — the sanctioned cheat (ref §2); the honest
   13–15:1 wyvern is unrideable and the deep keel blade is anatomy fiction.
-- **Bat fan, 4 digits, dominant D1** — not the pterosaur spar (ref §4).
+- ~~**Bat fan, 4 digits, dominant D1** — not the pterosaur spar (ref §4).~~
+  **⚠ OVERTURNED v2.4 — now PTEROSAUR SPAR (§5).** Kept visible rather than deleted,
+  because *why* it fell is the reusable lesson: the lock's premise ("a single spar
+  degenerates to the paper-dart read") **misattributed to spar count a failure actually
+  caused by the missing arm**. Two independent Fable passes, both 5/5. A SETTLED entry
+  whose stated premise is shown to be false is not protected by being settled — but the
+  bar is exactly that: **falsify the premise, don't re-argue the taste.**
+- **THE WING SKELETON IS THE SPEC** (v2.4, §5.1) — arm chain, wrist at 0.242 L, 155°
+  chevron at one vertex, 0.113 L forward wrist offset, concave-everywhere trailing edge,
+  propatagium, shoulder→hip seam. Never author a membrane outline and hang bones on it.
 - **R≥G≥B everywhere; no painted white; blue only as diffuse temper-oxide** (ref §7).
 - **Wing tops never emissive** — the silhouette survives THE STOKE.
 - **Eyes at 0.20 orbit; the glare is the brow bone** (ref §6) — do not inflate the eyes
@@ -846,6 +993,22 @@ duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
 
 ## CHANGELOG
 
+- **v2.4 (THE WING REWRITE — owner rejection of the I2 wing).** §5 replaced end to end.
+  Root cause was **a gap in this sheet**: the old §5 specified only differentiators vs
+  Vesper (`archRise`, `wristT`, bay sag) and mechanisms (notch floor, propatagium %, the
+  DoubleSide trap) and **never specified a wing** — no arm chain, no attachment line, no
+  chord distribution, no leading-edge sweep. Four Opus research passes (segments, membrane
+  planform, sweep, craft/failure-registry) fed a new **ref §4.9 PLANFORM** section, which
+  closed the identical hole in `DRAGON-ANATOMY-REFERENCE.md` (it had settled bat-vs-
+  pterosaur topology and area shares but never wing geometry, so every future winged
+  creature would have inherited the same failure). Changes: **topology flipped to the
+  pterosaur spar** (SETTLED entry overturned — premise falsified, not re-argued);
+  full skeleton station table; forward wrist offset **0.035 → 0.113 L**; single-vertex
+  **155° chevron** replacing the sine `archRise` bow; trailing edge **concave everywhere**
+  (12–37% of local chord), which **deletes the taut-bay identity and the notch floor**;
+  chord table with outer stations retapered to hold concavity through the tip hook;
+  shoulder→hip bonded seam with a free aft corner; propatagium and wrist knuckle-boss made
+  non-negotiable; ref §4.1's "build the fan" verdict superseded. New §11 assertions P1–P10.
 - **v0 (art-direction lock, post-reference synthesis).** Direction BANKED confirmed;
   three reference-forced reversals applied (spade → firebrand + dorsal ridge; tucked →
   abducted; keel blade → shallow muscle wrap + 5.5:1 sanctioned-cheat torso); rear-chase

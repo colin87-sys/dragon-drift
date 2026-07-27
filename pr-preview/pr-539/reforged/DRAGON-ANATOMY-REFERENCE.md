@@ -631,14 +631,34 @@ flyer-correct choice — and it is also the cheap one.
 | Damage redundancy | **High** — 4 spars; losing one bay does not collapse the wing `[D]` | **Low** — single point of failure, compensated by the 3-layer fibre net `[S]` | High — feathers individually replaceable |
 | **Feature count in silhouette** | **4 spars → 3 interior bays + 3 knuckles** | **1 spar → 1 bay, 0 interior knuckles** | n/a (feather logic) |
 
-**THE VERDICT — build the fan `[D, forced by the sourced feature counts]`.** Silhouette legibility
-scales with **countable repeated features**, and a rear-chase camera sees *only* silhouette. A
-multi-digit fan makes the leading edge necessarily **knuckled** at each MCP joint and the trailing
-edge necessarily **scalloped** into one concave bay per finger. A single-spar wing degenerates at
-distance into two smooth curves and one straight bone — the paper-dart read. The fan also **folds
-legibly** (a fan closing: bays overlap progressively, the outline loses one feature at a time),
-whereas a single spar rotating about its own axis produces almost no outline change until it
-crosses the silhouette edge and then **snaps** — a binary read instead of a continuous one.
+**THE VERDICT — ⚠ SUPERSEDED 2026-07-27. The original verdict ("build the fan; a single spar
+degenerates into the paper-dart read") attributed the paper-dart failure to SPAR COUNT. That is a
+misdiagnosis, and it cost the Fornax wing a full rebuild.** The paper dart is caused by three
+properties, none of which is spar count:
+
+1. a **straight or taut trailing edge** (a spread membrane's trailing line is never straight —
+   §4.9), 2. a **planar, zero-camber membrane**, and 3. **no joint break in the leading edge**.
+
+A fan with those three defects is still a dart — it is a dart with extra spokes. A single spar
+that kills all three (kinked leading edge, concave trailing edge, cambered sail) does not read as
+a dart in any published reference or any named film wyvern. **The failure that actually produces
+the dart is the MISSING ARM** (§4.9): a membrane fanning from a hub with no humerus and no forearm
+is a flat radial sheet *by construction*, whatever is drawn on it.
+
+**The corrected law:** spar count is a **creature-level identity choice** (fan = dexterous, hand-like;
+spar = heavy, structural, siege-like), not a correctness gate. What IS a correctness gate is §4.9 —
+the arm chain, the leading-edge kink, and the concave trailing edge — and it binds **both**
+topologies equally. Silhouette legibility still favours the fan *at turntable scale*; at gameplay
+distance (a ~180 px creature, rear-chase, span foreshortened) the difference between three scallop
+cusps and one long concave edge is **sub-2 px and does not read** — so it cannot carry a roster
+split. What carries the split at that distance: **wrist station** (0.24 vs 0.47 of wing length is a
+large, visible shift in where the leading edge breaks), **fold behaviour in motion** (one dramatic
+hinge vs a multi-joint curl), and **leading-edge structural mass**, which is on the wing TOP where
+a behind-and-above camera looks.
+
+**Historical note (kept deliberately):** the fan verdict below was written before the planform
+research, when §4 settled topology and area shares but never wing *geometry*. Do not re-derive the
+superseded reasoning from it.
 
 **What the spar gives that the fan does not `[S]`:** enormous span from one element (>2/3 of wing
 length), and a deep uninterrupted sail. **Better for a stationary heraldic pose than for motion.**
@@ -814,6 +834,296 @@ shoulders like a bird's.** More dramatic *and* more correct.
 - Wind-tunnel work found pterosaurs **less efficient and slower** than previously assumed, adapted
   to **low-speed** flight; glide angle for large pterodactyloids **1–2°**, best-glide cruise
   ~4–16 m/s across the clade — modelled, not measured.
+
+---
+
+### §4.9 PLANFORM — the wing's actual SHAPE (added 2026-07-27)
+
+⚠ **Why this section exists.** §4.1–§4.8 settled topology, area shares, digit decay and fold
+behaviour — and never once said what a wing *looks* like. Every winged creature built from this
+file inherited that hole. The Fornax wing shipped as a membrane fanning from a single hub with **no
+upper arm and no forearm**, was rejected on sight, and the root cause was that neither this file nor
+the creature's buildsheet contained an arm chain, a chord distribution, a body attachment line, or a
+leading-edge sweep. This section is that missing geometry. **It is normative for every winged
+creature in the repo and it binds both topologies.**
+
+#### §4.9.1 THE ONE-LINE LAW
+
+> A membrane wing is **~50% arm / ~50% hand** in a bat and **~25% arm / ~75% hand** in a pterosaur.
+> **In neither case is the arm a stub.** A membrane radiating from one point is a pterosaur with the
+> arm deleted, and it reads as a spoke, an umbrella, or a kite — never as a limb. `[D, forced by the sourced segment tables]`
+
+#### §4.9.2 SEGMENT CHAIN — the arm is five bones, none of them tiny
+
+Fractions of **L = shoulder joint → wingtip** straight-line distance.
+
+| Segment | **Bat** | **Pterosaur** | Tag |
+|---|---|---|---|
+| humerus | 0.19 | 0.095 | `[D]` bat checked against a closing span reconstruction |
+| radius / forearm | 0.28 | 0.144 | `[S]` bat (*Pteropus vampyrus*, 180–220 mm) |
+| carpus (wrist block) | 0.01 | 0.019 | `[D]` |
+| metacarpal | 0.19 (mcIII) | 0.129 (mcIV) | `[S]` bat; `[D]` pterosaur |
+| phalanx 1 | 0.14 | 0.227 | `[S]` bat; `[D]` pterosaur |
+| phalanx 2 | 0.19 | 0.178 | `[S]` bat; `[D]` pterosaur |
+| phalanx 3 / 4 | — | 0.125 / 0.083 | `[D]` |
+| **WRIST STATION** | **0.47–0.50** | **0.22–0.28** | `[S]` bat; `[S]` pterosaur across a 6× size range |
+
+**Bat modelling ratio — memorise this one:** humerus : forearm : metacarpal : ph1 : ph2 =
+**1.0 : 1.5 : 1.0 : 0.7 : 1.0** `[D from sourced mm]`. Five segments, none dominant, none vestigial.
+
+**Thickness ladder** (diameter, humerus = 1.00): `1.00 → 0.75–0.85 → 0.45–0.55 → 0.35–0.45 →
+0.25–0.30`, tapering to a point. The taper is **smooth and continuous**, including *within* each
+bone (every element is thicker at its proximal end) `[S, direction]` `[D, ratios]`. The upper arm
+visibly outmasses the forearm; the forearm very visibly outmasses the fingers.
+
+#### §4.9.3 THE ELBOW — the single most important silhouette note in this file
+
+**A bat's elbow is bent 15–40° off straight even at FULL cruise spread** `[D, self-consistent with
+the sourced segment lengths]`. **A straight elbow is the umbrella-spoke failure mode.** The dog-leg
+is what makes the eye read *limb* instead of *spoke*.
+
+Pterosaurs are the opposite and the numbers are sourced: shoulder **5°**, wrist **5°**, elbow **10°**
+of available flexion `[S]` — a deployed spar that snaps open and stays open, with almost all folding
+at **one** joint, the knuckle at the base of the wing finger `[S]`. **So: animate a bat as a soft
+multi-joint curl, a pterosaur as one dramatic fold point.** Do not mix the two.
+
+**Camera note:** in-plane kinks (elbow, wrist) are the articulation that reads **best** from a
+behind-and-above camera, because that camera sees the planform. It is *vertical* articulation
+(dihedral, droop) that foreshortens away. The instinct to skip the elbow because "the span
+foreshortens" is backwards.
+
+#### §4.9.4 LEADING-EDGE SWEEP AND THE FORWARD WRIST OFFSET
+
+**THE KEY NUMBER:** the wrist sits **FORWARD of the straight shoulder→tip chord by 0.085–0.125 × L**
+`[D, bounded by sourced sweep anchors]`. Below ~0.06 the eye reads the leading edge as *straight* and
+the wing dies as a flat delta.
+
+Reusable formula — `offset/L = k(1−k)(tan Λ_outer − tan Λ_inner)`, where **k = the wrist station**.
+Because k differs by topology, **the peak of the bow sits at the wrist**, not at mid-span:
+bat k≈0.49 → peak at ~0.49 L; pterosaur k≈0.24 → peak at ~0.24 L. A verification band calibrated for
+one topology is wrong for the other — state which you built to.
+
+| Run | Sweep aft of the lateral axis | Tag |
+|---|---|---|
+| shoulder → elbow | **−6° to +5°** (may rake *forward*) | `[D]` |
+| elbow → wrist | **+6° to +12°** | `[D]` |
+| wrist → tip | **+28° to +32°** | `[D]` |
+| outermost 0.12 L | **+15–25° extra** (the tip hook) | `[S, direction]` |
+
+**Sourced bounds:** swift handwing Λ = **50°** is the upper limit before a wing reads as a jet `[S]`.
+**Sign matters:** sweep must **increase** outboard. Sweep *decreasing* outboard is the aeronautical
+crescent wing — real, but it reads as a manta or an aircraft, not a limbed animal.
+
+**Included angle at the wrist in plan: 155–168°. Reject > 170°** (reads straight). Put the whole
+break at **one** vertex — a carpus segment that splits it into two half-steps softens the chevron
+into an arc, and an arc reads *feather* where an angle reads *structure under load*. Pile visible
+mass on the break (knuckle boss, armour, thickening); that is what makes a forward wrist read
+**heavy** rather than graceful.
+
+**Leading-edge radius must taper** — `1.00 / 0.62 / 0.38 / 0.22 / 0.10` at shoulder / elbow / wrist /
+mid-hand / tip `[D]`. A constant-radius spar **reads as a bar however elegantly it is curved.**
+
+#### §4.9.4b THE VERTICAL PROFILE — the gull curve (the half of the wing a planform cannot hold)
+
+⚠ **This subsection was added after §4.9 shipped without it and a wing built to the rest of §4.9
+still failed.** A planform is an x/z table. Authored with no Y column, the Fornax wing rendered from
+the rear as a **razor line — 31% wide, 9% tall** — because a flat horizontal membrane is *edge-on*
+to a behind-and-above camera. The planform is the view the player never gets on its own; the gull
+curve is what turns it into a shape. **A wing spec without a Y column is half a spec.**
+
+Glide-pose rise **above the shoulder**, as a fraction of L:
+
+| Station | rise | Tag |
+|---|---|---|
+| shoulder | 0 | — |
+| elbow | **+0.035 L** | `[D]` |
+| **wrist** ⟵ apex | **+0.085 L** | `[D]` |
+| tip | **+0.065 L** | `[D]` |
+
+- The result is a **shallow M / gull**, *not* a straight V — the tip sits **below** the wrist.
+- **Inboard dihedral 8–15°** (sourced gull analysis caps dihedral at **20°** `[S]`);
+  **outboard 0 to −5°**. Gulls combine positive dihedral *with* slight forward shoulder sweep —
+  it is a package, not two independent dials.
+- **The M is GLIDE-ONLY.** The downstroke is a **monotonic C** to about **−0.42 L** at the tip,
+  with no M at all `[D]`. A wing that keeps its gull through the downstroke reads as a fixed airframe.
+- **Span ratio 0.70** (mid-upstroke span ÷ mid-downstroke span) `[S]` — see §4.9.11.
+
+**Camber rides ON TOP of this curve, it does not replace it.** Camber is a chordwise bulge of
+6.5–9% `[S]` (repo cruise band 0.06–0.10 c); the gull is a spanwise rise of 8.5% of L. They are
+different axes and a build needs both — camber alone leaves the rear silhouette flat.
+
+#### §4.9.5 CHORD DISTRIBUTION — chord ÷ full span `b`, by station
+
+η = fraction of **semi**-span from the body midline. Scale every chord by `(7.0 / AR_target)` for the
+bat column and `(9.0 / AR_target)` for the pterosaur column.
+
+| Station | Bat η | Bat c/b | Pterosaur η | Pterosaur c/b |
+|---|---|---|---|---|
+| flank / wing root | 0.04–0.05 | **0.19–0.22** | 0.055 | **0.19–0.21** |
+| **elbow** ⟵ *widest* | 0.20–0.24 | **0.20–0.22** | 0.14 | 0.17–0.19 |
+| wrist | 0.46–0.50 | 0.15–0.18 | **0.28** | 0.14–0.17 |
+| knuckle | ~0.52 | — | 0.45 | 0.11–0.13 |
+| mid-hand / wp1 end | 0.70–0.75 | 0.09–0.11 | 0.66 | 0.07–0.09 |
+| near tip | 0.88–0.92 | 0.04–0.05 | 0.85 | 0.035–0.045 |
+| tip | 1.00 | → 0 | 1.00 | → 0 |
+| *(check)* mean | — | 0.140 ⇒ **AR 7.1** ✔ | — | 0.111 ⇒ **AR 9.0** ✔ |
+
+`[D, from sourced bone lengths and a sourced AR ≈ 7.0 planform; both columns close to within 2%]`
+
+**Maximum chord sits AT OR JUST INBOARD OF THE ELBOW**, and falls **monotonically** to the tip.
+**Root chord ≈ elbow chord — never a pinch at the root.** A root narrower than the elbow is the
+"spoon wing / armpit hole" failure.
+
+⚠ **These chords are streamwise and are calibrated for a lightly swept leading edge. Applied
+naively to a hard-swept planform they will push the trailing edge CONVEX near the tip** (the hook
+drags the leading edge aft faster than the chord shrinks). Author the trailing edge as a concave
+curve first (§4.9.6), let chord fall out, and use this table as the **check**, not the input.
+
+#### §4.9.6 THE TRAILING EDGE — concave everywhere, no exceptions
+
+> **"The trailing edge is concave, causing spreading of the digits to result in an antero-posterior
+> tensioning of the membrane."** `[S]`
+
+**This concavity is the entire reason a wing looks taut instead of like a hanging sheet.** It runs
+as one long cupped sweep from the body anchor to the tip, bowing **inward toward the bones**.
+
+- **There is no convex trailing edge anywhere on a membrane wing** `[S]`. A convex (aft-bulging)
+  trailing edge is a **bird** signature — a fan of overlapping secondaries. Drawing one on a
+  membrane wing is a lineage error, not a style choice.
+- **Depth:** bow forward by **15–25% of local chord** at mid-span `[S, for inter-fingertip scallops]`;
+  never less than ~12%.
+- **A straight trailing edge is not an identity, it is a cheap tell.** Tensioned skin physically
+  cannot be straight between two anchors, and the eye knows this even when the viewer cannot say why.
+  "Taut" as a design direction must be expressed as *shallow concavity*, never as *straight*.
+- **Scallops between digits** (fan topology only): shallow **arcs**, not notches — depth ~5–15% of
+  bay width at cruise spread `[D; the measured ratio is unknown]`. Deep symmetric semicircular
+  notches between every finger are a **logo, not an animal**, and they fight the very tension that
+  makes a spread wing read taut. **A single-spar wing has ZERO bays** — scallops on one mean you have
+  drawn a bat.
+
+#### §4.9.7 THE BODY ANCHOR IS A LINE, NOT A POINT
+
+The membrane is an outgrowth of the **flank**; it joins the body **along the sides** and runs to the
+side of the body and leg **as far as the ankle or foot** `[S]`. **No bat stops at the hip or knee**
+`[S]`. In pterosaurs, every completely preserved membrane shows **ankle** attachment `[S]`.
+
+- **Anchor length ≈ 80–95% of head-body length ≈ 1.6–1.9 × trunk length** `[D]`.
+  **If your root seam is shorter than the torso, it is wrong.**
+- **Sanctioned repo choice:** shoulder→**hip** (safe; keeps abducted legs free) or shoulder→**ankle**
+  (maximum "one animal" read, but couples leg pose to wing shape) `[D]`. Anchoring at the armpit is
+  the **"glued at one point" / bat-sticker** failure — and it is *more* visible from a
+  behind-and-above camera than in profile, because the viewer looks straight down into the junction.
+- The bonded seam may stop at the hip while the trailing edge continues **aft** of it as a free
+  corner — that is how the root chord exceeds the seam length without pinning the membrane to the leg.
+- **The junction needs a fairing**: bats hide it under neck fur; pterosaurs evolved a **muscular
+  wing-root fairing** `[S]`. In-engine: carry the body's surfacing grammar across the join, fading
+  out over the shoulder, with no hard silhouette seam. **If the wing can be deleted and leave a clean
+  torso, it is a sticker.**
+
+#### §4.9.8 THE PROPATAGIUM — half the leading edge has no bone in it
+
+| Span segment | What the leading edge IS | Bat | Pterosaur |
+|---|---|---|---|
+| shoulder → wrist | **free membrane** bowed forward *ahead of* the bones | **~48%** | ~25% |
+| wrist → tip | **bone** | ~52% | ~75% |
+
+`[S, structure]` `[D, fractions]`
+
+**The arm must sit INSIDE a membrane curve, not BE the edge.** A wing whose humerus and forearm
+*are* the leading edge looks like scaffolding. A propatagial sheet filling the shoulder–elbow–wrist
+triangle and bowing ahead of it looks like an animal — and it **hides the elbow kink** under skin,
+which is exactly what real wings do `[S]`. Its forward bulge is modest: **8–10.5% of hand-wing
+chord** (max 18%) `[S]` — a subtle scallop of skin, **not a big triangular sail**.
+
+Both real membrane lineages independently evolved a dedicated leading-edge tensioner `[S]`, so this
+is the cheapest single fix available to any wing that reads as scaffolding.
+
+#### §4.9.9 CONSTRUCTION ORDER — the method, and the way we ran it backwards
+
+Every instructional source agrees on one spine `[S, multiple independent]`:
+
+1. **Gesture line** for the leading edge — a zig-zag or shallow M, **never a straight line**.
+2. **The arm chain on it** — humerus, then forearm, two clearly different segments with a visible bend.
+3. **Joint volumes** — ovals at shoulder, elbow, wrist. *The step beginners skip; the step that makes
+   the wing a solid rather than an outline.*
+4. **The hand** — digit(s) from the wrist, **knuckles marked as joints**, never straight sticks.
+5. **Membrane LAST**, panel by panel, strung **knuckle to knuckle** — not one silhouette outline.
+6. **Occlusion + tension pass.**
+
+> **THE LOAD-BEARING INVERSION: the membrane is an OUTPUT of the arm-and-hand skeleton, never an
+> input. Any pipeline that authors a membrane silhouette and then decorates it with bones is running
+> the method backwards.** `[D, from unanimous sourced ordering]`
+
+A spec written as *"a set of ratios that produce a membrane silhouette"* is precisely the
+anti-pattern every instructor warns against. **Write the skeleton; let the membrane fall out.**
+
+#### §4.9.10 THE BEHIND-AND-ABOVE VIEW (the repo's shipped camera)
+
+Mostly `[D]`, and decisive:
+
+1. **Side profile is exactly the view the player never gets.** A wing designed by drawing a side
+   elevation is designed for the wrong camera. **Chord depth and the dorsal surface carry the read;
+   span foreshortens away.**
+2. **The dorsal surface must carry structure** — finger ridges tenting the skin, the arm ridge along
+   the leading edge, the propatagium sweep from neck to wrist. **A wing that is a smooth quad from the
+   top has no information at all in this camera.**
+3. **Membrane camber must be visible as a curved surface from above.** A top-viewed flat plane shades
+   uniformly and dies; curvature is what produces a light-to-dark gradient across the wing.
+4. **Depth ordering, not outline, sells attachment** — near wing over the body, far wing occluded.
+5. **Dihedral and sweep read strongly from behind; span barely at all.**
+6. Interacts with the known **depth-projection trap** (`FLAP-DESIGN.md`): a correct wrist fold goes
+   invisible near the top of the upstroke from this camera; the fix is in-plane apex-sweep.
+
+#### §4.9.11 MEMBRANE BEHAVIOUR
+
+- **Spandex, not cloth** `[S]`: taut when the digits splay, and it **retracts into itself** when
+  relaxed. **The edges do not fold up like fabric — there is no pleated folding.** `[S]`
+- **Splay = taut; fold = slack.** That is the whole vocabulary `[S]`.
+- **Wrinkles are rare, subdued, interior, and belong to the flank panel only** — never along the edge.
+- **Camber is dynamic, not a fixed shape** `[S]`: slow/climbing = deeper sag and more area; fast
+  cruise = flatter, tauter, smaller. Muscle-induced camber gives **+36% lift** over a rigid airfoil `[S]`.
+- **Span ratio 0.70** — mid-upstroke span ÷ mid-downstroke span `[S]`. **Constant span reads as a
+  rigid airframe.**
+
+#### §4.9.12 §4.9 VERIFICATION GATE (headless, cheap — run it on every winged build)
+
+| # | Assertion | Pass band |
+|---|---|---|
+| P1 | Wrist station along L | bat **0.47–0.50** · pterosaur **0.22–0.28** |
+| P2 | Max forward deviation of the leading edge from the shoulder→tip chord, ÷ L | **0.085–0.125** |
+| P3 | Spanwise station of that maximum | **within ±0.06 of the wrist station** |
+| P4 | Included angle at the wrist, in plan | **155–168°** |
+| P5 | Trailing-edge deviation from the root-TE→tip line, at every interior station | **forward (concave) everywhere**; ≥12% of local chord |
+| P6 | Chord distribution | **monotonically decreasing** from the elbow to the tip |
+| P7 | Max chord station | **at or just inboard of the elbow**; root chord ≥ 0.9 × elbow chord |
+| P8 | Aspect ratio `b²/S`, body panel included | **7–9** |
+| P9 | Root seam length ÷ trunk length | **≥ 1.0** |
+| P10 | Arm segments present before the first membrane vertex | **≥ 2** (humerus + forearm) |
+| P11 | **Rear-view vertical extent** of the wing ÷ L (the gull, §4.9.4b) | **≥ 0.06** — a flat wing is edge-on to the shipped camera |
+
+**P2 alone would have caught the Fornax failure on turn one.** It is the single highest-value
+assertion in this file, and no wing should ship without it.
+
+#### §4.9.13 What §4.9 rules out
+
+1. Fanning a membrane from a single hub adjacent to the body — **the umbrella / kite / spoke**.
+2. Authoring the membrane **outline first** and hanging bones on it afterwards.
+3. A **straight** leading edge, or a forward bow under 0.06 L (too small to be a statement).
+4. A **smooth sine arc** where the break belongs — arcs read feather, angles read structure.
+5. A **straight or convex** trailing edge, at any spread state, under any "taut" identity.
+6. Deep symmetric semicircular notches between every finger (a logo, not an animal).
+7. Scallops on a **single-spar** wing (that is a bat wearing a pterosaur's skeleton).
+8. **Omitting the propatagium** — cited as the single most common dragon-wing mistake `[S]`.
+9. A **stub** upper arm, or any wing where the arm is not at least ~25% of L.
+10. A **straight elbow** at cruise spread.
+11. A root chord **pinched** narrower than the elbow chord (the spoon wing).
+12. A root seam **shorter than the torso**, or anchored at the armpit as a point.
+13. A **constant-radius** leading-edge spar (reads as a bar however curved).
+14. **Constant span** through the flap cycle.
+15. Reviewing or gating a wing **in side elevation** when the shipped camera is behind-and-above.
+15b. Authoring a wing as an **x/z planform with no Y column** — flat wings vanish from the rear (§4.9.4b).
+16. Adding **spikier fingers** in place of more membrane.
+17. Treating **spar count** as a correctness gate rather than an identity choice (§4.1, superseded).
 
 ---
 
