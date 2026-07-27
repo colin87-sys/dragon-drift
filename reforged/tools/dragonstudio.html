@@ -165,6 +165,26 @@
     // Bounding box of a named target: whole model, the wing subtrees, or the head.
     function targetBox(part) {
       const parts = built.parts || {};
+      // TORSO target — added so a gate never spends a panel on an unbuilt part. §11 requires crop
+      // cameras to frame BUILT geometry; a creature mid-increment (Fornax's head is an I3 stub)
+      // otherwise renders solid-black panels and a third of the gate evidence is wasted. Prefers
+      // explicit part tags, falls back to the hull's central z-slice.
+      if (part === 'torso') {
+        const meshes = [];
+        built.group.traverse((o) => {
+          if (!o.isMesh) return;
+          const tag = o.userData && (o.userData.fornaxPart || o.userData.bodyPart);
+          if (tag && ['hull', 'rank', 'plate', 'cowl', 'neck', 'shoulderRoot', 'hipRoot'].includes(tag)) meshes.push(o);
+        });
+        if (meshes.length) {
+          const b = new THREE.Box3();
+          for (const o of meshes) b.union(new THREE.Box3().setFromObject(o));
+          return _box.copy(b);
+        }
+        const wb = new THREE.Box3().setFromObject(built.group), c = new THREE.Vector3(), sz = new THREE.Vector3();
+        wb.getCenter(c); wb.getSize(sz);
+        return _box.setFromCenterAndSize(c, new THREE.Vector3(sz.x * 0.35, sz.y, sz.z * 0.6));
+      }
       if (part === 'head' && parts.head) {
         // Frame the FACE, not the crest/horns: crest feathers (ExtrudeGeometry) tower over the
         // crown and rear horns/tips sweep back, so boxing the whole head group centres the fit
