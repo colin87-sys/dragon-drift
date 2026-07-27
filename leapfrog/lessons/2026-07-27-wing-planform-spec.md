@@ -112,6 +112,61 @@ tier. 72/72, and the design improved.
   behind-and-above view notes, and a 17-item "what this rules out" — normative for **every** winged
   creature, both topologies.
 
+---
+
+## The critic rounds: three laws about GEOMETRY vs DECORATION
+
+Four harsh-critic rounds (3.2 → 3.4 → 3.6 → …) produced three findings that are worth more than
+the wing they came from. All three are the same mistake in different clothes: **treating a
+decoration as if it were the structure.**
+
+### 1. The outline is where the surface ENDS
+
+Asked to break a "smooth manta/B-2" trailing edge into cracked slag, the first attempt drew the
+bites as **additive dark triangles on the membrane** — while the membrane still ran smoothly to
+full chord. The critic measured the amplitude as "a percent or two" and said the silhouette was
+unchanged. It was right: **nothing you draw on a surface can alter its outline.** The fix was to
+make the trailing edge a *function of station* that genuinely cuts chord.
+
+> Test any silhouette claim on the **orthographic silhouette render**, never on a lit 3/4 view —
+> a lit render shows the decals and hides that the outline never moved.
+
+### 2. A raised element that does not visibly MEET its surface is debris
+
+The crust plates were correct on top and open underneath — three-sided ribbons hovering over the
+spar with no end caps and no skirt down to it. From most angles they read as a cloud of detached
+pale chips, which the critic called "the worst thing in the set" and "z-fighting shrapnel". The top
+face was never the problem. **Cap both ends and skirt every proud element down to the surface it
+grows from**, or it reads as debris however good its crest is.
+
+### 3. Never close a seam with COPLANAR duplicates
+
+Fixing a gap where two rig groups meet, the obvious move — emit the same triangles on both groups
+— closes the gap when the joint flexes and **z-fights at rest**, rendering as a flickering line
+*through* the membrane. The critic read it as sky through the sail: the same class of failure it
+had just flagged, reintroduced by the fix for it. **Sink the duplicate** so it sits strictly behind
+the primary surface until the fold actually parts them.
+
+### And the standing trap this file now carries
+
+Five separate elements have now taken the inboard silhouette away from the propatagium by
+protruding forward of the bone line: the spar itself, the crust plates, the wrist boss, the claws,
+and nearly the arm mass. **Anything added near the leading edge must be checked against the
+propatagium bow**, because the arm sitting *inside* a membrane curve is the whole difference
+between a limb and scaffolding — and it is one careless `+nx * r` away every time.
+
+## A gate can be wrong in the honest direction too
+
+P6 asserted "chord falls monotonically", comparing each station to its neighbour. A genuinely
+cracked trailing edge dips at a bite and returns to the envelope — which that test reads as "chord
+grew outboard", failing a wing for having the texture the design asked for. The law is about the
+planform having no outboard **bulge**, so P6 now tests against a **running maximum**: a bite dips
+below the envelope, a bulge exceeds it.
+
+> Widening a target to make work pass is cheating. **Correcting a target that measures the wrong
+> quantity is not** — but the two are easy to confuse from the outside, so the honest move is to
+> state which one you are doing and why the corrected test still catches the original failure.
+
 ## One more, on authoring against a measurement
 
 The forward-offset band is stated for the **visible** leading edge; a bone chain is authored as a
