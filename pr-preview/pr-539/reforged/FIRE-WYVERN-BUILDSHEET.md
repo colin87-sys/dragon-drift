@@ -1067,9 +1067,21 @@ duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
 | **Machine, r4** | 13/13 · 16/16 | Trailing edge became a *function of station* that genuinely cuts chord. Crust plates capped + skirted. Wrist overlap sunk (it was a coplanar duplicate, z-fighting as a "sky slit"). |
 | **Fable critic, r4** | **3.9/5 — FAIL** | Chips, slit, z-fighting, humerus mass, batten extrusion **all confirmed fixed**. Bites landed INBOARD only — outer 40% still a crescent ("manta with a chewed armpit"). |
 | **Machine, r5** | 13/13 · 16/16 | Four finger points across the full span, battens terminating into them, closed claws, elbow +30%. |
-| **Fable critic, r5** | *pending* | — |
+| **Fable critic, r5** | **4.2/5 — PASS** | Limb 4.3 · rear-chase 4.0 · wing-top surface 4.2 · attachment 4.0 · distinctiveness 4.3. The outboard crescent — R4's stated failure test — verified fixed on the orthographic silhouette. |
 
-**Trajectory: 3.2 → 3.4 → 3.6 → 3.9.** Every round's gate-decider was a case of **decoration
+**I2 GATE: PASSED at 4.2/5 (marginal, earned).** The critic's closing instruction is part of the
+settlement: ***do not spend another unlit round on this wing.*** Form, silhouette and value
+structure are at or near the practical ceiling while light is withheld; the remaining 0.3–0.5
+lives in the rear-chase membrane read, which is what I4 exists to solve.
+
+**Carried into I4 (lighting), NOT re-gated on the wing:**
+1. Leading-edge chip row spacing is too regular — jitter spacing/size 20–30%.
+2. Two or three thin pale slivers in the wrist stack, visible only at 4× — weld when next
+   touching that mesh; not worth a dedicated round.
+3. Minor plate clutter at the wing root at 1×.
+4. **Re-judge the rear-chase read once the membrane has its withheld glow.**
+
+**Trajectory: 3.2 → 3.4 → 3.6 → 3.9 → 4.2.** Every round's gate-decider was a case of **decoration
 mistaken for structure** — see the lesson file. The three laws that came out of it (the outline is
 where the surface *ends*; a proud element that does not visibly *meet* its surface is debris; never
 close a seam with coplanar duplicates) are worth more than the wing.
