@@ -966,6 +966,21 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   // From behind-and-above this is not decoration: a top-viewed FLAT plane shades uniformly and
   // dies. Curvature IS the value gradient across the wing top.
   const camber = (qx, t) => chordAt(qx) * 0.10 * Math.sin(Math.PI * Math.pow(Math.max(0, Math.min(1, t)), 0.8));
+  // ⚠ THE TRAILING EDGE IS A FUNCTION OF STATION, not a row of decals. The first attempt drew the
+  // cracked-slab bites as additive dark triangles sitting ON the membrane — so the membrane still
+  // ran smoothly to full chord and the SILHOUETTE never changed at all. The critic measured the
+  // amplitude as "a percent or two" and the top ortho still read as a manta crescent, correctly.
+  // Nothing you draw on a surface can alter its outline; the outline is where the surface ENDS.
+  // Irregular by construction: one deep bite flanked by small nicks, at uneven intervals.
+  const biteAt = (qx) => {
+    const u = qx / XT, k = Math.floor(u * 13);
+    const g = (k * 7 + ((k * k) % 5)) % 11;
+    if (chordAt(qx) < S(0.22)) return 0;                  // the tip has no chord left to bite
+    if (g < 2) return 0.155;                              // the deep slab break
+    if (g < 5) return 0.055;                              // its flanking nicks
+    return 0;
+  };
+  const hemT = (qx) => 1 - biteAt(qx);
   const memPt = (qx, t) => [qx, leY(qx) + camber(qx, t), leZ(qx) + chordAt(qx) * t];
 
   const pivots = {}, wingElements = [];
@@ -1019,10 +1034,20 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       // interpenetrate through the whole fold instead of parting.
       const mx0 = (x0 + x1) / 2;
       const near = Math.abs(mx0 - WX) < (XT / NSPAN) * 1.5;
-      const push = (m, ...t) => { (mx0 < WX ? pushA : pushH)(m, ...t); if (near) (mx0 < WX ? pushH : pushA)(m, ...t); };
+      // ⚠ The duplicate must NOT be coplanar. Emitting the same triangles on both groups closes
+      // the gap when the wing flexes but Z-FIGHTS at rest, which renders as a flickering line
+      // across the sail interior — read by the critic as sky through the membrane. Sink the
+      // duplicate slightly so it is strictly behind the primary surface at rest and only shows
+      // when the fold actually parts them.
+      const SINK = S(0.018);
+      const push = (m, ...t) => {
+        (mx0 < WX ? pushA : pushH)(m, ...t);
+        if (near) (mx0 < WX ? pushH : pushA)(m, ...t.map((tri) => tri.map((v) => [v[0], v[1] - SINK, v[2]])));
+      };
       for (let j = 0; j < NCH; j++) {
         const t0 = j / NCH, t1 = (j + 1) / NCH;
-        const a = memPt(x0, t0), b = memPt(x1, t0), c = memPt(x1, t1), d = memPt(x0, t1);
+        const a = memPt(x0, t0 * hemT(x0)), b = memPt(x1, t0 * hemT(x1)),
+              c = memPt(x1, t1 * hemT(x1)), d = memPt(x0, t1 * hemT(x0));
         // value banding by chord depth: the sheet near the spar catches, the deep sheet stays dark
         const mat = j === 0 ? M.scorch : wingMat;
         push(mat, [a, b, c], [a, c, d]);
@@ -1114,18 +1139,32 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
           const crest = lit ? 1.0 : 0.62;
           const o0 = [p0[0] + nx * w0, p0[1] + nz * w0 + q0], o1 = [p1[0] + nx * w1, p1[1] + nz * w1 + q1];
           const iA = [p0[0] - nx * w0, p0[1] - nz * w0 + q0], iB = [p1[0] - nx * w1, p1[1] - nz * w1 + q1];
-          // outboard flank of the plate + its inboard flank (two lit-facing planes, one dark)
-          push(M.scorch, [[o0[0], y0 + H0 * 0.35, o0[1]], [o1[0], y1 + H1 * 0.35, o1[1]], [o1[0], y1 + H1, o1[1]]],
-                         [[o0[0], y0 + H0 * 0.35, o0[1]], [o1[0], y1 + H1, o1[1]], [o0[0], y0 + H0, o0[1]]]);
-          push(M.seam,   [[iA[0], y0 + H0 * 0.35, iA[1]], [iB[0], y1 + H1, iB[1]], [iB[0], y1 + H1 * 0.35, iB[1]]],
-                         [[iA[0], y0 + H0 * 0.35, iA[1]], [iA[0], y0 + H0, iA[1]], [iB[0], y1 + H1, iB[1]]]);
+          // ⚠ SEAT AND CAP EVERY PLATE. These were open 3-sided ribbons hovering over the spar
+          // with no end caps and no skirt down to the surface — so from most angles they read as
+          // a cloud of detached pale chips around the shoulder, which the critic called the worst
+          // thing in the set and "z-fighting shrapnel". A raised element that does not visibly
+          // MEET the surface it sits on is debris, however correct its top face is.
+          const B0 = y0 + H0 * 0.35, B1 = y1 + H1 * 0.35;        // where the plate meets the spar
+          const T0 = y0 + H0 * crest, T1 = y1 + H1 * crest;
+          push(M.scorch, [[o0[0], B0, o0[1]], [o1[0], B1, o1[1]], [o1[0], T1, o1[1]]],
+                         [[o0[0], B0, o0[1]], [o1[0], T1, o1[1]], [o0[0], T0, o0[1]]]);
+          push(M.seam,   [[iA[0], B0, iA[1]], [iB[0], T1, iB[1]], [iB[0], B1, iB[1]]],
+                         [[iA[0], B0, iA[1]], [iA[0], T0, iA[1]], [iB[0], T1, iB[1]]]);
           // the struck crest — pale, on EDGES only, never a patch (AAA tell #1)
           push(M.ashLit,
-            [[o0[0], y0 + H0 * crest, o0[1]], [o1[0], y1 + H1 * crest, o1[1]], [iB[0], y1 + H1 * crest, iB[1]]],
-            [[o0[0], y0 + H0 * crest, o0[1]], [iB[0], y1 + H1 * crest, iB[1]], [iA[0], y0 + H0 * crest, iA[1]]]);
-          // under-gap recess: the shadow step that makes the plate read as LAPPED, not painted
-          push(M.seam, [[o1[0], y1 + H1 * 0.35, o1[1]], [iB[0], y1 + H1 * 0.35, iB[1]],
-                        [(o1[0] + iB[0]) / 2, y1 - p1[2] * 0.15, (o1[1] + iB[1]) / 2]]);
+            [[o0[0], T0, o0[1]], [o1[0], T1, o1[1]], [iB[0], T1, iB[1]]],
+            [[o0[0], T0, o0[1]], [iB[0], T1, iB[1]], [iA[0], T0, iA[1]]]);
+          // END CAPS — both ends closed, so the plate is a solid, not a ribbon
+          push(M.scorch, [[o0[0], B0, o0[1]], [o0[0], T0, o0[1]], [iA[0], T0, iA[1]]],
+                         [[o0[0], B0, o0[1]], [iA[0], T0, iA[1]], [iA[0], B0, iA[1]]]);
+          push(M.seam,   [[o1[0], B1, o1[1]], [iB[0], T1, iB[1]], [o1[0], T1, o1[1]]],
+                         [[o1[0], B1, o1[1]], [iB[0], B1, iB[1]], [iB[0], T1, iB[1]]]);
+          // SKIRT down to the spar centre-line, so the plate visibly grows out of the bone
+          const sy0 = y0 - p0[2] * 0.10, sy1 = y1 - p1[2] * 0.10;
+          push(M.seam, [[o0[0], B0, o0[1]], [o1[0], B1, o1[1]], [p1[0], sy1, p1[1] + q1]],
+                       [[o0[0], B0, o0[1]], [p1[0], sy1, p1[1] + q1], [p0[0], sy0, p0[1] + q0]],
+                       [[iA[0], B0, iA[1]], [p0[0], sy0, p0[1] + q0], [p1[0], sy1, p1[1] + q1]],
+                       [[iA[0], B0, iA[1]], [p1[0], sy1, p1[1] + q1], [iB[0], B1, iB[1]]]);
         }
       }
       // knuckle boss at each phalanx joint outboard of the wrist — a CLOSED wedge seated on the
@@ -1212,7 +1251,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
           const X0 = WX * 0.15 + (XT - WX * 0.15) * u0, X1 = WX * 0.15 + (XT - WX * 0.15) * u1;
           const T0 = tA + (tB - tA) * u0, T1 = tA + (tB - tA) * u1;
           const push = (X0 + X1) / 2 < WX ? pushA : pushH;
-          const H = S(0.075) * (1 - u0 * 0.72);                 // tapers outboard with the finger
+          const H = S(0.150) * (1 - u0 * 0.62);   // 1.6px was paint; this is relief                 // tapers outboard with the finger
           const W = chordAt(X0) * 0.045 + S(0.01);
           const P0 = memPt(X0, T0), P1 = memPt(X1, T1);
           const c0 = [P0[0], P0[1] + H, P0[2]], c1 = [P1[0], P1[1] + H * 0.9, P1[2]];
@@ -1309,7 +1348,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       for (let i = 0; i < NH; i++) {
         const x0 = (XT * i) / NH, x1 = (XT * (i + 1)) / NH;
         const push = (x0 + x1) / 2 < WX ? pushA : pushH;
-        const A = memPt(x0, 1), B = memPt(x1, 1);
+        const A = memPt(x0, hemT(x0)), B = memPt(x1, hemT(x1));
         const c = chordAt((x0 + x1) / 2);
         // slab index: irregular grouping, so bites arrive in 1s and 2s at uneven spacing
         const g = ((i * 3 + ((i * i) % 5)) % 7);
@@ -1317,7 +1356,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         run = torn ? run + 1 : 0;
         // depth varies slab to slab (0.10-0.26 of local chord) — never one repeated notch
         const bite = torn ? c * (0.10 + 0.16 * (((i * 5 + 3) % 4) / 3)) : 0;
-        const mid2 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2 + S(0.01), (A[2] + B[2]) / 2 - bite];
+        const mid2 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2 + S(0.01), (A[2] + B[2]) / 2 - bite * 0.35];
         push(M.seam, [A, B, mid2]);
         if (torn) {
           // the snapped face catches light on ONE side of the bite, never symmetrically
@@ -1347,8 +1386,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const x0 = (XT * i) / NSPAN, x1 = (XT * (i + 1)) / NSPAN;
       const D = (x0 + x1) / 2 < WX ? dropA : dropH;
       const lo = (p) => [p[0], p[1] - S(0.025), p[2]];
-      D.push([lo(memPt(x0, 0.20)), lo(memPt(x1, 0.20)), lo(memPt(x1, 0.94))],
-             [lo(memPt(x0, 0.20)), lo(memPt(x1, 0.94)), lo(memPt(x0, 0.94))]);
+      D.push([lo(memPt(x0, 0.20 * hemT(x0))), lo(memPt(x1, 0.20 * hemT(x1))), lo(memPt(x1, 0.90 * hemT(x1)))],
+             [lo(memPt(x0, 0.20 * hemT(x0))), lo(memPt(x1, 0.90 * hemT(x1))), lo(memPt(x0, 0.90 * hemT(x0)))]);
     }
 
     const arm = new THREE.Group(), hand = new THREE.Group();

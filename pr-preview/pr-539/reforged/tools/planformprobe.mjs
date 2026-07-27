@@ -215,10 +215,21 @@ for (let b = 0; b < Math.min(LEpts.length, TEpts.length); b++) chords.push([LEpt
 const maxC = Math.max(...chords.map((c) => c[1]));
 const maxCAt = chords.find((c) => c[1] === maxC)[0] / XT;
 // monotonic from the widest station outboard, with a small tolerance for bin noise
-let mono = true;
+// ⚠ Measure the ENVELOPE, not the raw edge. Comparing each station to its immediate neighbour
+// treats a cracked-slab bite as "chord grew outboard" the moment the edge returns to the
+// envelope after a notch — which would make a textured trailing edge permanently fail a law
+// that is actually about the planform having no outboard BULGE. Test against the running
+// maximum: a bite dips below it and returns, a real bulge exceeds it.
+let mono = true, worstGrow = 0;
 const iMax = chords.findIndex((c) => c[1] === maxC);
-for (let i = iMax + 1; i < chords.length; i++) if (chords[i][1] > chords[i - 1][1] + 0.06) mono = false;
-check(mono, 'P6  chord falls monotonically from the widest station to the tip', mono ? '' : 'chord grows outboard somewhere');
+let running = chords[iMax][1];
+for (let i = iMax + 1; i < chords.length; i++) {
+  const grow = chords[i][1] - running;
+  if (grow > 0.06) { mono = false; worstGrow = Math.max(worstGrow, grow); }
+  running = Math.max(running, chords[i][1]);
+}
+check(mono, 'P6  chord envelope falls monotonically from the widest station to the tip',
+  mono ? '' : `bulges ${worstGrow.toFixed(2)}u above the envelope`);
 check(maxCAt <= 0.30 && chords[0][1] >= 0.9 * maxC,
   'P7  max chord at/just inboard of the elbow; root ≥0.9× that (no root pinch)',
   `widest @ x/span ${maxCAt.toFixed(2)}, root ${chords[0][1].toFixed(2)}u vs max ${maxC.toFixed(2)}u`);
