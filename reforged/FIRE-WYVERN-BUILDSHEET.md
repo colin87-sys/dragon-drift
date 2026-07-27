@@ -1061,11 +1061,18 @@ duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
 | **Machine, r1** | planform 12/12 · structural 16/16 | …and the wing still rendered from the rear as a razor line: **the planform is an x/z table and nothing checked Y.** Added §4.9.4b + P11. |
 | **Fable critic, r1** | **3.2/5 — FAIL** | Shape accepted. Wing top "an almost featureless black field"; shoulder slit; doubled slat; wrist gap; shard debris. |
 | **Machine, r2** | planform **13/13** · structural **16/16** · wingsym 0.000 · tricount OK | Slag crust rank, closed bosses, root skirt, drop inset, wrist overlap. |
-| **Fable critic, r2** | *pending* | — |
+| **Fable critic, r2** | **3.4/5 — FAIL** | Doubled slat fixed. Shoulder slit NOT fixed (root chord ran at constant lateral offset while the torso tapers aft). Membrane interior one flat tone. |
+| **Machine, r3** | 13/13 · 16/16 | Root weld (progressive inboard dive), batten ridges, cracked-slab trailing edge. Outer chord widened — **bounded by P8**, which rejected AR 6.82 and 6.92 against the 7.0 floor. |
+| **Fable critic, r3** | **3.6/5 — FAIL** | Root weld landed. Debris chips "the worst thing in the set". Trailing-edge bites measured "a percent or two" — **they were additive triangles ON the membrane, so the outline never moved**. |
+| **Machine, r4** | 13/13 · 16/16 | Trailing edge became a *function of station* that genuinely cuts chord. Crust plates capped + skirted. Wrist overlap sunk (it was a coplanar duplicate, z-fighting as a "sky slit"). |
+| **Fable critic, r4** | **3.9/5 — FAIL** | Chips, slit, z-fighting, humerus mass, batten extrusion **all confirmed fixed**. Bites landed INBOARD only — outer 40% still a crescent ("manta with a chewed armpit"). |
+| **Machine, r5** | 13/13 · 16/16 | Four finger points across the full span, battens terminating into them, closed claws, elbow +30%. |
+| **Fable critic, r5** | *pending* | — |
 
-**Standing residuals from critic r1, not yet discharged:** the arm still reads as a uniform bar
-(no upper-arm mass, no elbow swell), and wing-level distinctiveness — nothing about the membrane
-yet says *slag* rather than *dark flier*. Both carry into the next round.
+**Trajectory: 3.2 → 3.4 → 3.6 → 3.9.** Every round's gate-decider was a case of **decoration
+mistaken for structure** — see the lesson file. The three laws that came out of it (the outline is
+where the surface *ends*; a proud element that does not visibly *meet* its surface is debris; never
+close a seam with coplanar duplicates) are worth more than the wing.
 
 
 **Round 1 — independent technical-art audit, 2026-07-25. Verdict: REVISE, 3.4/5, five
