@@ -645,8 +645,18 @@ a dart in any published reference or any named film wyvern. **The failure that a
 the dart is the MISSING ARM** (§4.9): a membrane fanning from a hub with no humerus and no forearm
 is a flat radial sheet *by construction*, whatever is drawn on it.
 
-**The corrected law:** spar count is a **creature-level identity choice** (fan = dexterous, hand-like;
-spar = heavy, structural, siege-like), not a correctness gate. What IS a correctness gate is §4.9 —
+⚠ **AND THE CORRECTION TO THE CORRECTION (same day, after the owner rejected the spar build).**
+The paragraph above is right about anatomy and **wrong about this repo**. `DRAGON-DESIGN.md` §2
+lists **"the plane / delta-kite wing" as failure #1, KILL ON SIGHT**, and defines it to include
+*"convex scallop lobes whose valleys never cut inward"* — which a single spar with a
+chord-function trailing edge is, by definition. **`DRAGON-DESIGN.md` §4's fingered kit outranks
+this file** for any wing built in this repo: radiating finger-bones off the carpal knuckle,
+membrane cupping INWARD between fingertips, dominant + decay. Read §4.9 for the arm, the gull,
+the attachment line and the propatagium; read `DRAGON-DESIGN.md` §4 for the HAND.
+
+**The corrected law:** in general anatomy spar count is a creature-level identity choice (fan =
+dexterous, hand-like; spar = heavy, structural, siege-like) — **but in THIS repo the fingered kit
+is mandatory**, because the shipped roster and its failure registry are built on it. What IS a correctness gate is §4.9 —
 the arm chain, the leading-edge kink, and the concave trailing edge — and it binds **both**
 topologies equally. Silhouette legibility still favours the fan *at turntable scale*; at gameplay
 distance (a ~180 px creature, rear-chase, span foreshortened) the difference between three scallop
