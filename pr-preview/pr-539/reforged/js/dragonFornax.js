@@ -896,30 +896,52 @@ registerTorso('slagAnvilTorso', buildSlagAnvilTorso);
 // gull curve is what converts it into a shape. Glide rise, as a fraction of L above the shoulder:
 // elbow +0.035, wrist +0.085 (the apex), tip +0.065 — a shallow M, not a straight V.
 // Inboard dihedral works out at 17.9° (sourced gull cap is 20°), outboard -1.7° (band 0 to -5°).
-const FX_LE = [
-  ['shoulder', 0.000,  0.000, 1.00, -0.055],  // root dips toward the flank — closes the side-profile slit
-  ['elbow',    0.414, -0.043, 0.62, 0.149],   // humerus rakes FORWARD (-6°); the kink hides under the propatagium
-  ['forearm',  1.041,  0.022, 0.42, 0.340],
-  ['wrist',    1.124,  0.031, 0.38, 0.362],   // ⟵ THE CHEVRON APEX. 0.247 L. Whole break at ONE vertex, 161°.
-  ['mcIV',     1.636,  0.270, 0.30, 0.347],
-  ['wp1',      2.537,  0.690, 0.22, 0.320],
-  ['wp2',      3.232,  1.044, 0.17, 0.298],
-  ['wp3',      3.691,  1.342, 0.13, 0.285],
-  ['tip',      3.948,  1.599, 0.10, 0.277],   // +45° tip hook, curving posteriorly (Itip < 1)
-];
-// Chord stations: eta is a fraction of SEMI-span, so it maps to LATERAL x. Outer two chords are
-// RETAPERED off the raw pterosaur table (0.203→0.180, 0.102→0.055 of b) to hold trailing-edge
-// concavity through the tip hook — applied raw they push the TE convex, which is a bird signature.
+// ── THE LEADING EDGE IS A CONTINUOUS FUNCTION, NOT A CHAIN OF STRAIGHT BONES ────────────────
+// ⚠ This replaces a 9-vertex polyline whose leading finger left the wrist as a STRAIGHT bone at a
+// fixed 26° azimuth. That is the shape error the owner named: the edge has to be
+// **convex from the body out to the wrist, then concave from the wrist to the tip**, and the
+// leading finger must be the CONTINUATION of that curve — not a separate spar bolted to its end.
+//
+// `DRAGON-DESIGN.md` §4.1: "Knuckled leading edge, never a straight bar. Two curves compose it:
+// a gull ARCH in Y (rise to a carpal apex ~t 0.35–0.45, ease to the tip) and an OGEE in Z (bow
+// forward mid-span, sweep hard aft to the tip)." The shipped reference is `vesperArmZ`:
+//   armZ(t) = -0.10 + 0.44*hs*t^1.12 - 0.15*hs*sin(PI*t)
+// The `- sin(PI*t)` term IS the ogee — it pulls the edge forward around mid-span, so the run out
+// to the wrist reads convex and everything past it reads concave. The wrist sits ON this curve
+// (K = LE(wristT)) and the wingtip is LE(1), which is what makes the leading finger read as one
+// continuous swept limb instead of a spoke.
+const FX_SPAN = 3.95;          // lateral reach of the tip, authored units
+const FX_WRIST_T = 0.30;       // carpal apex — MEDIAL (house band 0.2–0.3): short arm, long hand
+const FX_ARCH = 0.34;          // gull rise at the apex, x hs
+// Z ogee: forward bow inboard, hard aft sweep outboard.
+// ⚠ The forward bow must peak AT THE WRIST, not at mid-span. A plain sin(PI*t) peaks at t=0.5,
+// which put the apex at 0.42 while the wrist sat at 0.265 — so the edge was still convex well
+// past the carpal joint and the concave phase started too late. Both shipped house wings put
+// their forward apex within ~0.02 of the wrist (Tempest 0.296 vs 0.277; Vesper 0.132 vs 0.163).
+// Warping the bow by t^BOWP with BOWP = ln(0.5)/ln(wristT) moves the peak onto the wrist exactly.
+const FX_BOWP = Math.log(0.5) / Math.log(0.40);   // 0.40 not 0.30: FX_WRIST_T is a fraction of LATERAL span, the probe reads along-chord, and the peak landed 0.06 inboard of the joint
+const fxArmZ = (t, hs) => -0.10 + 0.44 * hs * Math.pow(t, 1.12) - 0.20 * hs * Math.sin(Math.PI * Math.pow(t, FX_BOWP));
+// Y gull: rise to the carpal apex, then ease down to the tip (never a straight V).
+const fxArmY = (t, hs, w) => {
+  const arch = t <= w ? Math.sin((t / w) * Math.PI / 2) * 0.30 : 0.30 - (t - w) * 0.14;
+  return hs * (0.02 * t + FX_ARCH * arch) - hs * 0.014;
+};
+// Leading-edge radius taper along the same parameter (a constant-radius spar reads as a bar).
+const fxArmR = (t) => 1.00 - 0.90 * Math.pow(t, 0.75);
+
+// Chord (leading edge -> trailing edge) as a function of span, used by the camber term and the
+// shoulder fill. Widest inboard-of-mid, then carried OUT through the hand before resolving — the
+// art-director note that Fornax's hand looked "starved and vestigial" versus Tempest's.
 const FX_CHORD = [
   ['root',    0.000, 2.164],
   ['elbow',   0.355, 1.947],
-  ['wrist',   0.940, 1.678],
-  ['knuckle', 1.650, 1.299],
-  ['wp1end',  2.527, 0.820],
-  ['neartip', 3.321, 0.290],
-  ['tip',     3.948, 0.000],
+  ['wrist',   0.940, 1.780],
+  ['knuckle', 1.650, 1.480],
+  ['wp1end',  2.527, 1.020],
+  ['neartip', 3.321, 0.430],
+  ['tip',     3.950, 0.000],
 ];
-const FX_WRIST_I = 3;                  // index of 'wrist' in FX_LE — the ONE fold point
+const FX_WRIST_I = Math.round(0.30 * 12);   // sample index of the carpal apex on the sampled curve
 
 function buildUnderlitCrescentWings(def, model, attach, giM) {
   const group = new THREE.Group();
@@ -927,46 +949,36 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const M = fornaxMats(def);
   const S = (v) => v * (model.anvilScale ?? 1);
   const S2 = S((model.wingSpan ?? 4.26) * (model.spanScale ?? 1)) / 4.26;  // spec is authored at 4.26
-  const LE = FX_LE.map(([n, x, z, r, y]) => [n, S2 * x, S2 * z, r, S2 * y]);
-  const CH = FX_CHORD.map(([n, x, c]) => [n, S2 * x, S2 * c]);
-  const XT = LE[LE.length - 1][1];
-
-  // Top membrane stays BLACK: the rig's unconditional boost term multiplies wingMembraneEmissive,
-  // so without a registered black the wing tops light on every boost — outside Surge entirely.
-  // ⚠ The membrane's deepest value tier CANNOT be M.seam. The part tagger infers role from
-  // material (seam => recess) and the planform probe excludes recesses, so using seam as a
-  // membrane tier deleted the trailing half of every bay from the measurement — the probe then
-  // reported "no fingertips detected" on a wing that has four. A material that means two things
-  // makes the harness blind exactly where the art is.
+  // ⚠ The membrane's deepest value tier CANNOT be M.seam: the part tagger infers role from
+  // material (seam => recess) and the planform probe excludes recesses, so seam-as-a-membrane-tier
+  // deletes the trailing half of every bay from the measurement.
   const memDeep = new THREE.MeshStandardMaterial({
-    // 0x28282b, not darker: it must stay inside the char albedo band (>=0.020 linear) AND leave
-    // the seam tier >=0.03 sRGB below it, or it becomes the darkest "plate" and breaks both laws.
     color: 0x28282b, emissive: 0x000000, flatShading: true, roughness: 0.86, metalness: 0.02,
     side: THREE.DoubleSide,
   });
+  // Top membrane stays BLACK: the rig's unconditional boost term multiplies wingMembraneEmissive,
+  // so without a registered black the wing tops light on every boost — outside Surge entirely.
   const wingMat = new THREE.MeshStandardMaterial({
     color: def.wingOuter ?? 0x2a2a2c, emissive: 0x000000, flatShading: true, roughness: 0.84,
     metalness: 0.02, side: THREE.DoubleSide,
   });
+  const HS = S2 * FX_SPAN;
+  const LEt = (t) => [t * HS, fxArmY(t, HS, FX_WRIST_T), fxArmZ(t, HS)];
+  const XT = HS;
+  // Sample the curve densely; the arm bones, the crust and the propatagium all ride these samples
+  // so every part of the wing is on ONE leading edge rather than on its own approximation of it.
+  const NLE = 12;   // ⚠ the crust rank emits 3 plates PER SAMPLE — 32 samples blew the tri budget
+  const LE = [];
+  for (let i = 0; i <= NLE; i++) { const t = i / NLE; const P = LEt(t); LE.push([`t${i}`, P[0], P[2], Math.max(0.10, fxArmR(t)), P[1]]); }
+  const atX = (qx, col) => {
+    const t = Math.max(0, Math.min(1, qx / HS));
+    const P = LEt(t);
+    return col === 2 ? P[2] : P[1];
+  };
+  const leZ = (qx) => atX(qx, 2);
+  const leY = (qx) => atX(qx, 4);
 
-  // leading-edge z at a lateral station (the skeleton IS the function — no sine bow anywhere)
-  const leZ = (qx) => {
-    if (qx <= LE[0][1]) return LE[0][2];      // ⚠ clamp: the root skirt runs to NEGATIVE x
-    for (let i = 0; i < LE.length - 1; i++) {
-      const a = LE[i][1], b = LE[i + 1][1];
-      if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return LE[i][2] + t * (LE[i + 1][2] - LE[i][2]); }
-    }
-    return LE[LE.length - 1][2];
-  };
-  // the gull curve — same polyline, the Y column
-  const leY = (qx) => {
-    if (qx <= LE[0][1]) return LE[0][4];      // ⚠ clamp: the root skirt runs to NEGATIVE x
-    for (let i = 0; i < LE.length - 1; i++) {
-      const a = LE[i][1], b = LE[i + 1][1];
-      if (qx >= a - 1e-6 && qx <= b + 1e-6) { const t = (qx - a) / (b - a || 1); return LE[i][4] + t * (LE[i + 1][4] - LE[i][4]); }
-    }
-    return LE[LE.length - 1][4];
-  };
+  const CH = FX_CHORD.map(([n, x, c]) => [n, S2 * x, S2 * c]);
   const chordAt = (qx) => {
     if (qx <= CH[0][1]) return CH[0][2];          // ⚠ clamp: the root skirt runs to NEGATIVE x
     for (let i = 0; i < CH.length - 1; i++) {
@@ -1048,18 +1060,42 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // Finger 0 is the longest and IS the wingtip (§4.2); the rest fan aft, shorter, drooping
     // aft-and-DOWN (never up-curl). Azimuth and length carry deterministic jitter so the rank reads
     // as an organic hand, not a comb of equal strips.
+    // Length decay follows the house reference rather than a steep 0.66-per-rank: too steep and the
+    // fingertips bunch inboard, the bay cusps overrun the next tip, and the scalloped free edge
+    // collapses into ONE broad hump — which is the plane wing again.
+    // ⚠ THE FAN IS RELATIVE TO THE LEADING EDGE, NOT TO THE BODY AXIS. Absolute azimuths were the
+    // bug: once the leading edge sweeps aft as an ogee, fingers authored at fixed angles from +x
+    // end up pointing FORWARD of it and the hand stops agreeing with the arm. Vesper derives
+    // phi0 = atan2(F0 - K) and rakes each finger aft from THERE, so the whole hand inherits the
+    // curve's direction — which is what makes every line in the wing agree on one flow.
+    const LENF = [1.00, 0.86, 0.70, 0.52];      // dominant + decay (house ladder)
+    const SPANAFT = 1.16;                        // total aft rake of the fan, radians
+    const DROOP = [0.05, 0.17, 0.28, 0.39];
+    const NF = LENF.length, NS = 4;
     const jit = (i, amp) => { const h = Math.sin((i + 1) * 78.233 + 2.7) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; };
-    // Length decay follows the house reference (Tempest [1.00,0.92,0.74,0.55]) rather than a steep
-    // 0.66-per-rank: too steep and the fingertips bunch inboard, the bay cusps overrun the next tip,
-    // and the scalloped free edge collapses into ONE broad hump — which is the plane wing again.
-    const FAN = [[26, 1.00], [42, 0.86], [60, 0.64], [76, 0.44]];   // [azimuth° aft off K, length×]
-    const DROOP = [0.05, 0.17, 0.28, 0.39];                          // tip drop below the wrist, × length
-    const NF = FAN.length, NS = 4, D2R = Math.PI / 180;
-    const L0 = (XT - K[0]) / Math.cos(FAN[0][0] * D2R);              // pins the tip to the authored span
     const spars = [];
-    for (let i = 0; i < NF; i++) {
-      const az = (FAN[i][0] + (i === 0 ? 0 : jit(i * 3 + 1, 3.0))) * D2R;
-      const Ln = L0 * FAN[i][1] * (1 + (i === 0 ? 0 : jit(i * 3 + 5, 0.06)));
+    {
+      const s0 = [];
+      for (let k = 0; k <= NS; k++) {
+        const t = FX_WRIST_T + (0.86 - FX_WRIST_T * 0.86) * (k / NS) + (1 - 0.86) * 0 ;
+        const tt = FX_WRIST_T + (1 - FX_WRIST_T) * (k / NS) * 0.86;
+        const P = LEt(tt);
+        s0.push([P[0], P[1] + camber(P[0], 0), P[2]]);
+      }
+      // draw the leading bone along the curve so the ridge follows it, tapering outboard
+      for (let k = 0; k < NS; k++) {
+        const f = k / NS;
+        boneRidge(pushH, s0[k], s0[k + 1], R0 * (0.46 - 0.20 * f), R0 * (0.40 - 0.22 * f), R0 * (1.05 - 0.45 * f), true);
+      }
+      const Ptip = LEt(1); boneRidge(pushH, s0[NS], [Ptip[0], Ptip[1] + camber(Ptip[0], 0), Ptip[2]], R0 * 0.20, S(0.010), R0 * 0.42, true);
+      spars.push(s0);
+    }
+    const F0c = spars[0][NS];
+    const phi0 = Math.atan2(F0c[2] - K[2], F0c[0] - K[0]);
+    const r0 = Math.hypot(F0c[0] - K[0], F0c[2] - K[2]);
+    for (let i = 1; i < NF; i++) {
+      const az = phi0 + SPANAFT * (i / (NF - 1)) + jit(i * 3 + 1, 0.05);
+      const Ln = r0 * LENF[i] * (1 + jit(i * 3 + 5, 0.06));
       const tipP = [K[0] + Math.cos(az) * Ln, K[1] - DROOP[i] * Ln, K[2] + Math.sin(az) * Ln];
       // the KNUCKLE at ~58% — a forward-outboard bow plus a small Y jog, so the bone is STEPPED
       // rather than a smooth arc (an arc reads feather; a knuckled bone reads hand)
@@ -1136,7 +1172,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
     // along the last finger cuts a deep V between the hand and the arm sheet, which is also the
     // bay the planform probe measured as the shallowest (6% against a 10% floor).
-    const Tlast = lerp3(K, spars[NF - 1][NS], 0.58);
+    const Tlast = lerp3(K, spars[NF - 1][NS], 0.48);   // deeper: this bay measured the shallowest of the set
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
