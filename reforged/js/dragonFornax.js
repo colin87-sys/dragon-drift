@@ -1138,7 +1138,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // mid-span trailing edge as one plain convex lobe — the exact residue the playbook names
     // ("convex scallop lobes whose valleys never cut inward are STILL this failure"). Every bay
     // has to cut, or the failure survives at mid-span even once it is dead at the tips.
-    const CUP = [0.62, 0.60, 0.56];
+    const CUP = [0.44, 0.42, 0.38];   // capped: 0.62/0.60/0.56 cut past a third of local chord and the mid-wing went perforated — the wing has to read as ONE SAIL, not a frame with holes
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
@@ -1175,7 +1175,10 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
     // along the last finger cuts a deep V between the hand and the arm sheet, which is also the
     // bay the planform probe measured as the shallowest (6% against a 10% floor).
-    const Tlast = lerp3(K, spars[NF - 1][NS], 0.40);   // deeper still: this bay stayed the shallowest of the set   // deeper: this bay measured the shallowest of the set
+    // ⚠ THE ARMPIT WEDGE. Pulling this far back opened a cut deeper than half the local chord between
+    // the arm sheet and the hand fan — the one cut deep enough to threaten silhouette integrity in
+    // motion. The separation notch has to READ without hollowing the wing.
+    const Tlast = lerp3(K, spars[NF - 1][NS], 0.66);   // deeper: this bay measured the shallowest of the set
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
