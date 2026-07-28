@@ -724,7 +724,13 @@ export const DRAGONS = {
       // condors flap ~1% of flight time; compressed for game read to 2-4 beats then a 3.0-4.5s
       // hold. High glidePow HOLDS the glide pose and pulses through it (never a sine metronome).
       wingParts: 3, rootAmp: 0.58, midAmp: 0.30, tipAmp: 0.52, midLag: 0.45, tipLag: 1.0,
-      glidePow: 2.4, restLift: 0.06, apexMid: 0.10, apexTip: 0.20,
+      // ⚠ APEX V-LIFT REDUCED (0.10/0.20 -> 0.05/0.09, restLift 0.06 -> 0.03). The held glide pose
+      // stood the wings in so steep a V that from the SHIPPED behind-and-above camera each wing was
+      // an edge-on sliver — the hand anatomy was real but never projected to the camera that
+      // matters. The bank pose was the existence proof: the same asset reads well the moment its
+      // top surface faces the viewer. Motion identity (the heavy bellows, high glidePow holding the
+      // pose) is unchanged; only the ATTITUDE the pose is held AT moved.
+      glidePow: 2.4, restLift: 0.03, apexMid: 0.05, apexTip: 0.09,
       tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.30, tailRudderScale: 0.5,
       // THE STOKE is WITHHELD: base emissive stays ~0 and the multiplier makes Surge an event.
       // Nothing in the I0 stub emits — the seam network is I4.

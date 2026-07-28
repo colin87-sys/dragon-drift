@@ -912,7 +912,7 @@ registerTorso('slagAnvilTorso', buildSlagAnvilTorso);
 // continuous swept limb instead of a spoke.
 const FX_SPAN = 3.95;          // lateral reach of the tip, authored units
 const FX_WRIST_T = 0.30;       // carpal apex — MEDIAL (house band 0.2–0.3): short arm, long hand
-const FX_ARCH = 0.34;          // gull rise at the apex, x hs
+const FX_ARCH = 0.22;          // gull rise at the apex, x hs — flattened so the top surface angles toward the chase cam
 // Z ogee: forward bow inboard, hard aft sweep outboard.
 // ⚠ The forward bow must peak AT THE WRIST, not at mid-span. A plain sin(PI*t) peaks at t=0.5,
 // which put the apex at 0.42 while the wrist sat at 0.265 — so the edge was still convex well
@@ -923,7 +923,7 @@ const FX_BOWP = Math.log(0.5) / Math.log(0.40);   // 0.40 not 0.30: FX_WRIST_T i
 const fxArmZ = (t, hs) => -0.10 + 0.44 * hs * Math.pow(t, 1.12) - 0.20 * hs * Math.sin(Math.PI * Math.pow(t, FX_BOWP));
 // Y gull: rise to the carpal apex, then ease down to the tip (never a straight V).
 const fxArmY = (t, hs, w) => {
-  const arch = t <= w ? Math.sin((t / w) * Math.PI / 2) * 0.30 : 0.30 - (t - w) * 0.14;
+  const arch = t <= w ? Math.sin((t / w) * Math.PI / 2) * 0.30 : 0.30 - (t - w) * 0.30;
   return hs * (0.02 * t + FX_ARCH * arch) - hs * 0.014;
 };
 // Leading-edge radius taper along the same parameter (a constant-radius spar reads as a bar).
