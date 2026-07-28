@@ -678,7 +678,37 @@ Fornax now splits from Vesper on axes that survive gameplay distance:
   the shoulder→hip run** (never reaching the thigh), and `flapstrip` gains an
   interpenetration check at max abduction + full downstroke + full wing fold.
 
-## 8. Tail — `firebrandTail` (REVISED: no spade)
+## 8. Tail — `firebrandTail` — **BUILT AND GATED: 4.2/5 PASS**
+
+**Gate trajectory: 3.8 → 4.2 (PASS, "by the width of the bar, and earned").**
+Continuity at the hip 4.1 · silhouette 4.1 · mass/taper 4.4 · rank 4.3 · terminus 4.1.
+
+⚠ **The 3.8 round is the one worth reading.** It said plainly that the deferred trunk cladding was
+**NOT** the blocker — *"the failing scores are form and scale problems that cladding cannot
+touch"* — so finishing the ranked build list would not have passed it. Three geometry fixes did:
+
+1. **A DECAY SCHEDULE MUST BE JUDGED AT GAME DISTANCE, NOT ON PAPER.** The ×0.91-to-0.04u schedule
+   is arithmetically correct (this sheet even shows an earlier ×0.66 version rejected for computing
+   to a dead crest) — and it still killed the rank before the tail ended. Floor 0.09u, decay 0.945.
+2. **A VANE IN THE SAGITTAL PLANE IS EDGE-ON TO THE SHIPPED CAMERA and breaks no outline there.**
+   That is why the crest scored well in profile and *zero* from behind-and-above. Alternate vanes
+   cant out to the flanks. This is a general law for any dorsal rank on this roster.
+3. **A CONSTANT PER-JOINT ARC ACCUMULATES INTO A PLUMB-BOB.** Front-load it — curve hard off the
+   hip, then straighten, so the last third trails aft and reads as a spine continuing.
+
+**Ceiling:** the gate states the tail is at or within a hair of its practical unlit ceiling, and
+warns that pushing more geometry now *"would overshoot the profile read that is currently
+correct."* Remaining residue is lighting's job plus the deferred cladding.
+
+**Carried to the polish/lighting pass (cheap tells, logged not fixed):**
+- The terminal bead is a clean sphere — bead-on-stick residue; one asymmetric facet or a heat-crack
+  notch kills the tell.
+- The vane rank repeats a near-identical quad at near-even spacing — metronome rhythm; ±15% jitter
+  on two or three vanes breaks it.
+- The bare outer trunk reads as a *second material* against the clad hip from rear-¾ — **the
+  cladding pass must FEATHER that boundary, not hard-stop it.**
+
+## 8-spec. Tail — `firebrandTail` (REVISED: no spade)
 
 > **⚠ v2.7 — THE SPEC HAD FOUR HOLES, found by an art-director pass against Tempest after the
 > owner rejected the shipped tail.** Its verdict on the I0 blockout: *"not an under-detailed tail —

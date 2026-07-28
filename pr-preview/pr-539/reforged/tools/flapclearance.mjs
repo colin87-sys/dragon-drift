@@ -62,8 +62,14 @@ for (const phase of PHASES) {
   const r = await page.evaluate(() => {
     const THREE = window.THREE;
     // find the dragon root: the object carrying the wing pivots
+    // ⚠ The scene is exposed as `window.__dd.scene` under ?debug — NOT `window.scene`, which I
+    // invented and which silently made this tool report "no dragon root" on every phase. A probe
+    // that cannot find its subject fails LOUDLY here rather than passing vacuously, which is the
+    // only reason the mistake was visible at all.
+    const scene = window.__dd?.scene;
+    if (!scene) return { error: 'window.__dd.scene not found (is ?debug on?)' };
     let root = null;
-    (window.scene || window.__scene)?.traverse?.((o) => {
+    scene.traverse?.((o) => {
       if (root) return;
       let hasPivot = false;
       o.traverse?.((c) => { if (c.userData?.wingRole === 'pivot') hasPivot = true; });
