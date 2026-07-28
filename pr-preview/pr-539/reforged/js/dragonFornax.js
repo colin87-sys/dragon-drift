@@ -1224,7 +1224,12 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // shoulder, so along the seam a thin wedge of SKY survived between the inner membrane and the
     // flank — daylight through the wing inside its own perimeter, the classic stuck-on tell, and
     // the single item blocking the quality gate. Drive it deep and let the torso occlude the excess.
-    const B = [-S(0.34), K[1] - S(0.62), S(1.55)];                     // hip anchor, wing-local
+    // ⚠ ANCHORED AFT, past the hip and onto the tail root (z 1.55 -> 2.15). Owner: the trailing edge
+    // should meet the body "toward the back of the torso, more towards the tail". That is also the
+    // anatomically stronger read — the membrane research is unambiguous that bats and pterosaurs
+    // carry the plagiopatagium to the ANKLE, never stopping at the hip, and a longer root seam is
+    // what makes the wing continuous with the body instead of parked beside it.
+    const B = [-S(0.34), K[1] - S(0.62), S(2.15)];                     // tail-root anchor, wing-local
     // ⚠ THE SEPARATION NOTCH. The plagiopatagium must NOT start at the last fingertip, or the last
     // bay and the body sheet blend into one continuous curve and the digit stops reading as a
     // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
