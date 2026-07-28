@@ -1253,7 +1253,16 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // ⚠ THE ARMPIT WEDGE. Pulling this far back opened a cut deeper than half the local chord between
     // the arm sheet and the hand fan — the one cut deep enough to threaten silhouette integrity in
     // motion. The separation notch has to READ without hollowing the wing.
-    const Tlast = lerp3(K, spars[NF - 1][NS], 0.66);   // deeper: this bay measured the shallowest of the set
+    // ⚠ 0.66 → 0.80 to close the APEX WINDOW. At apex the torso swings behind the gap between the hand
+    // fan and the arm sheet and caps its open end, turning the separation notch into an ENCLOSED
+    // window — 9.44% of the planform in enclosed daylight against a 9.0% bar (holecensus H2).
+    // The instinct is to shrink the notch; that is backwards and the sweep proved it — a SHALLOWER
+    // notch encloses MORE (0.60→9.69%, 0.54→9.98%, 0.48→10.33%) because the membrane reaches further
+    // round the gap and seals its escape to open sky. Cutting DEEPER keeps the notch open at the
+    // outboard end so the daylight drains to the outside instead of being trapped: 0.74→9.08,
+    // 0.82→8.76, 0.90→8.37. 0.80 clears the bar with margin without pushing the cut toward the
+    // armpit-wedge depth this section already warns about. Planform stays 12/12 at every value tried.
+    const Tlast = lerp3(K, spars[NF - 1][NS], 0.80);
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];

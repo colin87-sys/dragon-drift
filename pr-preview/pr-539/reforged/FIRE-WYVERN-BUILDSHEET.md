@@ -1470,3 +1470,52 @@ the roster's implicit answer is "don't".
 to the tail root, so the crossing happens beneath body geometry rather than in open air. That
 is the house pattern already (root gusset buried under a static cowl, DRAGON-DESIGN §4.7). It
 must go through the critic at ≥4.2/5 like everything else.
+
+---
+
+### I2 WING — B1, the intra-wing hole census, 2026-07-28
+
+The junction re-gate came back **2.0/5 FAIL** (bar 4.2). Its most valuable finding was not a score:
+`flapclearance` measures wing-vs-**torso**, and the defect the art director could actually see was
+wing-vs-**itself** — enclosed daylight between the spar, the battens and the membrane, well
+outboard of the flank. The probe was structurally blind to it. That is the third time on this
+creature a probe has measured the wrong thing, and this one was built *after* being told the defect
+was in motion.
+
+`holecensus.mjs` closes that class: enclosed background regions inside the outline, 5 flap phases ×
+3 camera poses, rendered through the **real chase camera** so the numbers are the ones the player's
+screen produces.
+
+**A discriminator that failed, recorded so it is not retried.** The critic's distinction was that
+Tempest's holes are deliberate WINDOWS and Fornax's are slivers beside straps. Encoding that as the
+hole's narrow dimension over sqrt(planform) **did not separate the roster**: Tempest 0.125–0.237,
+Fornax 0.121–0.241, the same band. Plain hole FRACTION does separate them.
+
+**Roster calibration at chase scale** (bands set just above what the premium bar achieves):
+
+| | planform | mean hole fraction | worst pose |
+|---|---|---|---|
+| tempest (bar) | 12625 px | 3.65% | 8.70% rear/apex |
+| revenant | 10912 px | 2.93% | 6.69% |
+| azure | 11715 px | 0.08% | 0.36% |
+| **fornax, before** | 8599 px | **2.42%** | **9.44%** rear/apex |
+| **fornax, after** | 8739 px | **2.21%** | **8.86%** rear/apex |
+
+**What this says, and what it does not.** Fornax's MEAN enclosed daylight was already *below*
+Tempest's and revenant's. At the size the player actually sees, the wing is not more perforated than
+the roster. Only the **apex** pose exceeded the bar, and only just. So B1 is real but **scoped**: an
+apex-pose finding at gameplay scale, not the whole-cycle tear it reads as from a 4–6× studio crop —
+which is the uncertainty the critic itself flagged when it asked for 1× evidence.
+
+**The fix, and the instinct that was backwards.** At apex the torso swings behind the gap between the
+hand fan and the arm sheet and caps its open end, turning the separation notch into an enclosed
+window. The instinct is to shrink the notch. The sweep proved the opposite: a *shallower* notch
+encloses MORE (0.60→9.69%, 0.54→9.98%, 0.48→10.33%) because the membrane reaches further round the
+gap and seals its escape to open sky. Cutting **deeper** keeps the outboard end open so the daylight
+drains outside (0.74→9.08, 0.82→8.76, 0.90→8.37). `Tlast` 0.66 → **0.80**.
+
+**Gates after:** holecensus 2/2 · planform 12/12 · structural 16/16 · tricount 0 over budget ·
+flapclearance C1 clear, C3 pass, **C2 still failing** (that is B2's round, not this one).
+
+**Still open from the 2.0 gate:** B2 (static body-side aft web), B3 (delete the root straps for one
+continuous fillet web), B4 (value structure at the junction). Gated separately, by owner's call.
