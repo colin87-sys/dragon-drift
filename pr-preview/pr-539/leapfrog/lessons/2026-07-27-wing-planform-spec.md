@@ -88,6 +88,30 @@ Three rules travel with the ogee, and the second and third are where builds actu
    rake aft from there. Absolute azimuths are a genuine bug: once the edge sweeps aft, fingers
    authored from +x point *forward* of it and the hand stops agreeing with the arm.
 
+## ⚠ SUSPECT THE POSE BEFORE THE MESH
+
+The wing's rear-chase score sat at 3.2–3.7 across **five** critic rounds while every other view
+climbed. I kept fixing geometry. The gate that finally named it:
+
+> *"The hand anatomy is real but is not projecting to the camera that matters."*
+
+The held glide pose stood the wings in so steep a V that from the shipped behind-and-above camera
+each wing was an **edge-on sliver**. The fix was two dials in the creature def (apex V-lift
+0.10/0.20 → 0.05/0.09, restLift 0.06 → 0.03) — **not one triangle changed.** Rear-chase went
+3.2 → 4.2 and the increment passed.
+
+And the evidence had been sitting in every capture sheet the whole time: **the BANK panel always
+looked good.** Same mesh, different attitude. I had looked at it a dozen times and read it as "the
+bank pose is fine" instead of "the mesh is fine and the cruise attitude is wrong."
+
+> **When ONE view scores badly round after round while the others improve, suspect the POSE, the
+> CAMERA, or the DIALS before the mesh.** A defect that appears in one view and not another is
+> almost never a geometry defect. Look for the view where the asset already reads well — that view
+> is telling you the geometry is not the problem.
+
+Corollary: capture sheets are evidence, not decoration. If one panel of a six-panel sheet
+contradicts your diagnosis, the panel is right.
+
 ## ⚠ A FLOOR IS NOT A TARGET — how I nearly hollowed the wing out
 
 The scallop assertion says inter-finger valleys must cut inward by **at least** 10%. Every round it
