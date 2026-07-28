@@ -680,6 +680,47 @@ Fornax now splits from Vesper on axes that survive gameplay distance:
 
 ## 8. Tail — `firebrandTail` (REVISED: no spade)
 
+> **⚠ v2.7 — THE SPEC HAD FOUR HOLES, found by an art-director pass against Tempest after the
+> owner rejected the shipped tail.** Its verdict on the I0 blockout: *"not an under-detailed tail —
+> it is NO TAIL AT ALL … a tail boom off a model aircraft,"* and on the side profile: *"you can see
+> the exact moment the creature stops being designed: the torso carries serration, shard cladding,
+> layered value breaks — and at the hip everything HALTS ON A HARD LINE."*
+>
+> **The spec below covers the CREST and the TERMINUS and would clear the bar on both. It never
+> owned the TRUNK** — and crest + firebrand mounted on the four-box stick is *"jewelry on a broom
+> handle."* Four additions, all now normative:
+>
+> **8a. THE TRUNK IS SPECIFIED, NOT ASSUMED.**
+> - **8–10 segments**, not 4 — the taper curve and the glide arc cannot exist at 4.
+> - **NON-SQUARE cross-section:** the trunk lofts on `SLAG_PROFILE`, the torso's own fixed
+>   10-column polygon. Same profile ⇒ the chine, deck and belly columns run continuously from the
+>   chest to the tail tip. `BoxGeometry` squares are banned; they are what made it read extruded.
+> - **Trunk cladding in the torso's blade language** — the spec gave the CREST the torso language
+>   and never gave it to the trunk surface.
+>
+> **8b. TAPER PROFILE — convex, then accelerating.** "Fattest aft of the hip" is necessary and not
+> sufficient: the read is *muscle at the root, whip at the tip*. Linear box steps say extruded. The
+> root must be **at least as thick as the torso it leaves** — the shipped stub was thinner, which
+> is why it attached "like a bolt-on."
+>
+> **8c. REST-POSE CURVATURE.** A dead-straight tail with a perfect crest is *"a decorated pole."*
+> The glide pose carries a gentle arc; the motion kit's sway rides on top of it. The spec was
+> static-only and never said so.
+>
+> **8d. VALUE DUTY ON THE TRUNK.** The crest gets a pale leading edge; the trunk plate edges were
+> never given one. **Under withheld light, edge-value is the only thing separating the tail from
+> the sky.** The firebrand's char cap needs an explicit pale rim or it vanishes into the dark tip.
+>
+> **BUILD ORDER (by how much each moves the read):** trunk **~50%** → crest rank hip→tip **~35%**
+> → firebrand terminus **~10%** → cladding and plate edges last, because they only land once the
+> first three exist.
+>
+> **THE ONE THING:** *kill the seam at the hip.* The tail must read as the CONTINUATION of the
+> torso's systems — its mass, its crest rank, its blade language — not as an attachment.
+> **⚠ Warning, recorded verbatim:** *"do not reach for emissive lava seams, glow, or surface noise
+> on the existing boxes — a glowing stick is still a stick."*
+
+
 - **Terminus decision (ref §1):** the spade is out — not period (Fox-Davies: Tudor tails
   end in a smooth blunt point; the barb is a recent addition) and the #1 de-kitsch target.
   The de-kitsch survey's move is RE-MOTIVATION: Fornax's terminus is **THE FIREBRAND** —
