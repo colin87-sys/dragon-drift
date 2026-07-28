@@ -1166,6 +1166,47 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       trailing.push(mid[NS], fb[NS]);
     }
 
+    // ── SAIL RELIEF — ribs + plate islands on the MEMBRANE FIELD ─────────────────────────────────
+    // ⚠ All the relief budget had gone to the leading edge, leaving the sail as large blank facets —
+    // and the sail is exactly what a behind-and-above camera looks DOWN ONTO. Ribs give the field
+    // value breaks even unlit (a tented ridge shades on both flanks); the plate islands are the
+    // torso's slag language carried onto the membrane so the wing belongs to the same creature.
+    for (let i = 0; i < NF - 1; i++) {
+      const fa = spars[i], fb = spars[i + 1];
+      // one rib per bay, riding the sheet from near the knuckle out toward the free edge
+      const RN = 6;
+      for (let k = 1; k < RN; k++) {
+        const u0 = k / RN, u1 = (k + 1) / RN;
+        const on = (u) => {
+          const q = Math.min(NS - 1e-3, u * NS), k0 = Math.floor(q), f = q - k0;
+          const A2 = lerp3(fa[k0], fa[Math.min(NS, k0 + 1)], f), B2 = lerp3(fb[k0], fb[Math.min(NS, k0 + 1)], f);
+          return lerp3(A2, B2, 0.42);
+        };
+        const p0 = on(u0), p1 = on(u1);
+        if (u1 > 1) break;
+        const h = R0 * 0.30 * (1 - u0 * 0.55), w = R0 * 0.24 * (1 - u0 * 0.4);
+        const dx = p1[0] - p0[0], dz = p1[2] - p0[2], dn = Math.hypot(dx, dz) || 1;
+        const nx = -dz / dn, nz = dx / dn;
+        const a0 = [p0[0] + nx * w, p0[1], p0[2] + nz * w], b0 = [p0[0] - nx * w, p0[1], p0[2] - nz * w];
+        const a1 = [p1[0] + nx * w, p1[1], p1[2] + nz * w], b1 = [p1[0] - nx * w, p1[1], p1[2] - nz * w];
+        const c0 = [p0[0], p0[1] + h, p0[2]], c1 = [p1[0], p1[1] + h * 0.92, p1[2]];
+        pushH(M.scorch, [a0, a1, c1], [a0, c1, c0]);          // lit flank
+        pushH(memDeep,  [b0, c0, c1], [b0, c1, b1]);          // shadow flank
+      }
+      // two cooled-slag plate islands per bay, on a broken duty so they never read as a row
+      for (let k = 0; k < 2; k++) {
+        const u = 0.34 + 0.30 * k, v = 0.30 + 0.22 * ((i + k) % 2);
+        const q = Math.min(NS - 1e-3, u * NS), k0 = Math.floor(q), f = q - k0;
+        const A2 = lerp3(fa[k0], fa[Math.min(NS, k0 + 1)], f), B2 = lerp3(fb[k0], fb[Math.min(NS, k0 + 1)], f);
+        const c = lerp3(A2, B2, v);
+        const r = R0 * (0.40 - 0.08 * k), lift = R0 * 0.16;
+        pushH(M.ashLit, [[c[0] - r, c[1] + lift, c[2] - r * 0.7], [c[0] + r * 0.9, c[1] + lift, c[2] - r * 0.4],
+                         [c[0] + r * 0.2, c[1] + lift, c[2] + r]]);
+        pushH(M.seam,   [[c[0] - r, c[1] + lift, c[2] - r * 0.7], [c[0] + r * 0.2, c[1] + lift, c[2] + r],
+                         [c[0] - r * 0.5, c[1], c[2] + r * 0.2]]);
+      }
+    }
+
     // ── THE PLAGIOPATAGIUM — arm sheet to the BODY ANCHOR, trailing edge continuing the scallop.
     // §4.7's root gusset: the whole trailing line tapers/cups from the last fingertip down to the
     // hip in ONE continuous concave curve — a straight inboard bar is the plane whisper at the root.
@@ -1208,8 +1249,14 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // Per-bay shards read as floating debris, which this file has already been burned by four times.
     if (trailing.length > 1) {
       const et = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.07, p[1] + (K[1] - p[1]) * 0.07 + S(0.005), p[2] + (K[2] - p[2]) * 0.07];
+      // ⚠ Do not span a large gap. The trailing polyline jumps across the separation notch, and a
+      // quad stretched over that jump is a long thin blade floating clear of the wing — read as
+      // "orphan geometry off the trailing edge". Break the strip instead of bridging.
+      const GAPMAX = S(0.95);
       for (let s2 = 0; s2 < trailing.length - 1; s2++) {
-        const a = trailing[s2], b = trailing[s2 + 1], ai = inb(a), bi2 = inb(b);
+        const a = trailing[s2], b = trailing[s2 + 1];
+        if (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) > GAPMAX) continue;
+        const ai = inb(a), bi2 = inb(b);
         et.push([a, b, bi2], [a, bi2, ai]);
       }
       pushH(memDeep, ...et);   // the knife-edge is membrane, not a recess
@@ -1501,29 +1548,29 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     if (side === -1) { const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(pivot); group.add(lmirror); }
     else group.add(pivot);
 
-    // ── W7 THE SHOULDER SADDLE — the massif killer. STATIC (body frame), not on the flapping pivot.
-    // Binding I2 acceptance criterion: if the mid-back still reads as a featureless black box after
-    // this, I2 fails its gate. Three lapped scapular lames at 0.055u standoff + 0.035u cup with
-    // full perimeter recess walls, carving the dead deck into structure the arm grows out of. This
-    // is also the §5.3 FAIRING: if the wing can be deleted and leave a clean torso, it is a sticker
-    // — and from behind-and-above the player looks straight down into that junction.
+    // ── W7 THE SHOULDER SADDLE — ONE scapular mass, not a greeble cloud ─────────────────────────
+    // ⚠ Three small lapped lames read at 1x as "a shrapnel of plates around the shoulder" rather
+    // than a mass the wing grows FROM. Replaced with one dominant scapular slab plus a single
+    // subordinate lame — the dominant+decay law applied to the shoulder, same as to the fingers.
+    // STATIC in the body frame (never on the flapping pivot) so it covers the root through the
+    // whole flap, per DRAGON-DESIGN.md §4.8.
     {
       const sad = [];
-      let w = S(0.30), zc = S(-1.16);
-      for (let n = 0; n < 3; n++) {
+      let w = S(0.46), zc = S(-1.12);
+      for (let n = 0; n < 2; n++) {
         const OFF = S(0.055), CUP = S(0.035);
         const x = side * (S(0.40) + OFF), y = TORSO_Y + S(0.26);
         sad.push({ x, y, zc, w, OFF, CUP });
-        w *= 0.66; zc += S(0.24);
+        w *= 0.52; zc += S(0.40);
       }
       const stris = [], rtris = [], wtris = [];
       for (const Lm of sad) {
         const { x, y, zc: z, w: ww } = Lm;
-        stris.push([[x, y + S(0.10), z - ww * 0.5], [x, y - S(0.10), z - ww * 0.35], [x * 1.06, y - S(0.02), z + ww * 0.5]],
-                   [[x, y + S(0.10), z - ww * 0.5], [x * 1.06, y - S(0.02), z + ww * 0.5], [x * 1.06, y + S(0.06), z + ww * 0.3]]);
-        rtris.push([[x * 1.07, y + S(0.06), z + ww * 0.3], [x * 1.07, y - S(0.02), z + ww * 0.5], [x * 1.03, y + S(0.02), z + ww * 0.58]]);
-        wtris.push([[x, y + S(0.10), z - ww * 0.5], [side * S(0.40), y + S(0.10), z - ww * 0.5], [side * S(0.40), y - S(0.10), z - ww * 0.35]],
-                   [[x, y + S(0.10), z - ww * 0.5], [side * S(0.40), y - S(0.10), z - ww * 0.35], [x, y - S(0.10), z - ww * 0.35]]);
+        stris.push([[x, y + S(0.13), z - ww * 0.5], [x, y - S(0.12), z - ww * 0.35], [x * 1.07, y - S(0.02), z + ww * 0.5]],
+                   [[x, y + S(0.13), z - ww * 0.5], [x * 1.07, y - S(0.02), z + ww * 0.5], [x * 1.07, y + S(0.08), z + ww * 0.3]]);
+        rtris.push([[x * 1.08, y + S(0.08), z + ww * 0.3], [x * 1.08, y - S(0.02), z + ww * 0.5], [x * 1.03, y + S(0.03), z + ww * 0.6]]);
+        wtris.push([[x, y + S(0.13), z - ww * 0.5], [side * S(0.40), y + S(0.13), z - ww * 0.5], [side * S(0.40), y - S(0.12), z - ww * 0.35]],
+                   [[x, y + S(0.13), z - ww * 0.5], [side * S(0.40), y - S(0.12), z - ww * 0.35], [x, y - S(0.12), z - ww * 0.35]]);
       }
       sadAcc.s.push(...stris); sadAcc.r.push(...rtris); sadAcc.w.push(...wtris);
     }
