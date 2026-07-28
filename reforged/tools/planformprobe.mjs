@@ -376,6 +376,20 @@ check(groups >= 2 && camberPct >= 0.02,
   'P10 an ARM exists: ≥2 articulated groups AND the inboard LE bows forward ≥2% of L',
   `${groups} groups, inboard forward camber ${(camberPct * 100).toFixed(1)}% of L`);
 
+// ⚠ P12 ATTEMPTED AND WITHDRAWN — recorded so the next attempt starts informed.
+// The defect: a finger raking past ~85° about the wrist points backward-INBOARD, so its bone
+// sweeps through the torso on the downstroke and reads in-game as a spoke colliding with the body.
+// Real, reported from play, and invisible to this entire harness — studio captures are single
+// poses, so a MOTION collision never appears in them.
+// The attempt asserted on the aft-most detected fingertip azimuth. It fails ALL THREE shipped
+// wings (Tempest 162.5°, Vesper 102.5°) because the angular profile's aft-most "tip" is a
+// plagiopatagium corner, not a finger — the same phantom-tip problem P5a had before it was bounded
+// to the hand sector. Distinguishing BONE from MEMBRANE is what this probe cannot currently do, and
+// a gate that fails the house standard is a wrong gate.
+// TO DO IT PROPERLY: tag finger-bone meshes distinctly at build time and assert on those alone, or
+// sample the rig through its flap arc and test for wing/torso interpenetration directly. Until
+// then this class of defect has no automated detector and only shows up in play.
+
 // --- P11: the gull — vertical extent from the rear (ref §4.9.4b) -------------
 // The assertion the first version of this probe did not have, and its absence let a wing pass
 // twelve planform checks and still render from the shipped camera as a razor line. A planform is
