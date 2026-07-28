@@ -1680,7 +1680,10 @@ function buildFirebrandTail(def, model, mats, anchor) {
 
   // §8c — a glide ARC. A dead-straight tail with a perfect crest is a decorated pole; the motion
   // kit's sway rides on top of this rest curve.
-  const ARC = 0.055;                       // radians per joint, accumulating
+  // ⚠ FRONT-LOADED, NOT UNIFORM. A constant per-joint arc accumulates into a plumb-bob: from the
+  // chase camera the tail hung straight down and read static. Curving hard off the hip and then
+  // STRAIGHTENING makes the last third trail aft, which is what reads as a spine continuing.
+  const arcAt = (i) => 0.085 * Math.pow(0.62, i);
 
   // ⚠ ONE ACCUMULATOR PER BONE. Each bone must own its geometry (it rotates), but within a bone
   // everything batches: trunk section, crest vanes and recesses all land in the same three
@@ -1691,7 +1694,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   for (let i = 0; i < nJoints; i++) {
     const j = new THREE.Group();
     j.position.set(0, 0, i === 0 ? 0 : segLen);
-    j.rotation.x = i === 0 ? 0 : ARC;      // the rest arc, distributed down the chain
+    j.rotation.x = i === 0 ? 0 : arcAt(i);  // front-loaded rest arc: curve off the hip, trail aft
     j.isBone = true;                        // ROTATION-ONLY: position writes tear a connected loft
     parent.add(j);
     parent = j;
@@ -1723,14 +1726,25 @@ function buildFirebrandTail(def, model, mats, anchor) {
 
     // §8 crest — ONE schedule owns hip→tip: height decays x0.91 per vane to a 0.04u floor, pitch
     // near-constant, seeded to CONTINUE the torso serration rather than restart it at the hip.
-    const H = Math.max(S(0.04), S(0.18) * Math.pow(0.91, 3.4 + i * 2));
+    // ⚠ FLOOR RAISED 0.04 -> 0.09 AND THE DECAY SLOWED. The spec's ×0.91-to-0.04u schedule is
+    // arithmetically fine and killed the rank before the tail ended: the outer half read smooth in
+    // every view, i.e. ~35% of the build was invisible from the camera the player lives in. A decay
+    // schedule has to be judged at GAME DISTANCE, not on paper.
+    const H = Math.max(S(0.09), S(0.20) * Math.pow(0.945, 3.4 + i * 2));
     for (let v = 0; v < 2; v++) {
       const zc = segLen * (0.25 + 0.5 * v);
       const top = radAt(t0 + (t1 - t0) * (0.25 + 0.5 * v)) * 0.86;
       const w = Math.max(S(0.02), H * 0.42);
       const lean = (((i * 2 + v) % 3) === 0) ? 1 : -1;         // period-3 rhythm, struck shards
+      // ⚠ ALTERNATING LATERAL CANT. A vane standing in the sagittal plane is EDGE-ON to a
+      // behind-and-above camera and contributes nothing to the outline there — which is why the
+      // crest scored well in side profile and zero from the shipped view. Canting alternate vanes
+      // out to the flanks makes the rank break the silhouette from behind while keeping the
+      // struck-shard read in profile.
+      const cant = lean * w * 1.15;
       push(((i * 2 + v + 1) % 7) < 4 ? M.ashLit : M.scorch,
-        [[0, top, zc - w], [0, top, zc + w], [lean * w * 0.35, top + H, zc + w * 0.15]]);
+        [[0, top, zc - w], [0, top, zc + w], [cant, top + H, zc + w * 0.15]]);
+      push(M.scorch, [[0, top, zc + w], [cant, top + H, zc + w * 0.15], [cant * 0.4, top + H * 0.5, zc + w * 1.5]]);
       push(M.seam, [[0, top, zc - w], [0, top, zc + w], [0, top - S(0.03), zc]]);   // under-gap recess (RL2)
     }
     for (const [mat, tris] of acc) j.add(tagPart(flatTriMesh(tris, mat), mat === M.seam ? 'seam' : 'tail'));
@@ -1740,13 +1754,20 @@ function buildFirebrandTail(def, model, mats, anchor) {
   // spade (the #1 de-kitsch target). §8d: it needs an explicit pale rim or it vanishes into the
   // dark tip, so the cap carries a rim tier while the socket behind it stays seam-dark.
   {
-    const tip = segs[segs.length - 1], r = radAt(1) * 1.9, z = segLen;
+    // ⚠ 2.7x, WITH A NECK-IN. At 1.9x the coal was a pin-head on a needle — "a bead on a stick",
+    // and invisible from the chase camera. The spec word is BLUNT, and a blunt terminus has to read
+    // as a blunt OUTLINE with the light off, not as a speck that will be rescued by glow at I4.
+    const tip = segs[segs.length - 1], r = radAt(1) * 2.7, z = segLen;
     const cap = [], rim = [];
     const N = 6;
     for (let k = 0; k < N; k++) {
       const a = (k / N) * Math.PI * 2, b = ((k + 1) / N) * Math.PI * 2;
       const p0 = [Math.cos(a) * r, Math.sin(a) * r * 0.8, z], p1 = [Math.cos(b) * r, Math.sin(b) * r * 0.8, z];
-      cap.push([p0, p1, [0, 0, z + r * 1.15]]);
+      // neck-in before the coal: the outline pinches, then swells — that step is what makes the
+      // terminus an EVENT rather than the end of a taper
+      const n0 = [Math.cos(a) * r * 0.42, Math.sin(a) * r * 0.34, z - r * 0.55];
+      const n1 = [Math.cos(b) * r * 0.42, Math.sin(b) * r * 0.34, z - r * 0.55];
+      cap.push([n0, n1, p1], [n0, p1, p0], [p0, p1, [0, 0, z + r * 0.95]]);
       rim.push([p0, p1, [Math.cos((a + b) / 2) * r * 0.55, Math.sin((a + b) / 2) * r * 0.44, z + r * 0.5]]);
     }
     tip.add(tagPart(flatTriMesh(cap, M.seam), 'tail'));
