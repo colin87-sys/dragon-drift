@@ -60,6 +60,47 @@ And the corollary, which cost the most:
 > *this product*. When they disagree, the playbook wins, and the research goes in as a refinement
 > *inside* the kit — not as a replacement for it.
 
+## ⚠ THE SECOND OWNER REJECTION: A TABLE OF ANGLES IS NOT A CURVE
+
+Owner, on the rebuilt fingered wing: *"the leading edge should be convex from the connection to the
+body, and then after the wrist, where the first finger spoke creates the leading frame, it should
+be concave."* Right, and already in the repo — `DRAGON-DESIGN.md` §4.1's **OGEE**, shipped as
+`vesperArmZ(t) = -0.10 + 0.44·hs·t^1.12 - 0.15·hs·sin(π·t)`. An art-director pass on SHAPE ALONE
+called my build **not acceptable**: *"convex, corner, straight."*
+
+**And the thing that led me there was a section I wrote earlier in the same session.** Ref §4.9.4
+gives per-run sweep angles — shoulder→elbow 5°, elbow→wrist 12°, wrist→tip 28°. A table of angles
+per run *invites* building the leading edge as a **chain of straight bones**, which is precisely
+what produces a hard corner at the wrist. The research was accurate and the construction it
+implied was wrong.
+
+> **A table of per-segment angles is a CHECK on a curve, never a method for building one.** If the
+> spec's natural reading is a polyline and the art needs a curve, the spec will produce polylines
+> forever. State the curve as a FUNCTION; use the angles to verify it.
+
+Three rules travel with the ogee, and the second and third are where builds actually die:
+
+1. **ONE function, root to tip.** The wrist is a point *on* the curve (`LE(wristT)`), and the
+   wingtip is **`LE(1)`** — so the leading finger is the curve's continuation, not a separate spar.
+2. **The forward bow peaks AT THE WRIST.** A plain `sin(π t)` peaks at mid-span, leaving the apex
+   outboard of the joint and starting the concave phase too late.
+3. **The finger fan is relative to the CURVE, never to the body axis.** `phi0 = atan2(F0 − K)`, then
+   rake aft from there. Absolute azimuths are a genuine bug: once the edge sweeps aft, fingers
+   authored from +x point *forward* of it and the hand stops agreeing with the arm.
+
+## ⚠ A FLOOR IS NOT A TARGET — how I nearly hollowed the wing out
+
+The scallop assertion says inter-finger valleys must cut inward by **at least** 10%. Every round it
+came up short I deepened the cups — 0.34 → 0.46 → 0.52 → 0.62. The wing passed at 39%, and the art
+director's next note was that the mid-wing had gone **perforated**: sky through the sail, skeletal
+in the lit planform, with the armpit wedge deep enough to threaten silhouette integrity in motion.
+Capping the cuts back to 0.44/0.42/0.38 still passes at 21%.
+
+> **Deep enough to READ, never deep enough to HOLLOW.** A `>=` gate will happily let you destroy the
+> thing it was written to protect if you keep chasing it upward. When a floor is missed, ask whether
+> the FEATURE is too shallow or whether something else is masking it — I had both, and only the
+> second was real for two of those rounds.
+
 ## Second gotcha: a SETTLED entry can be wrong, and the bar is falsification
 
 SETTLED said *"Bat fan, 4 digits, dominant D1 — not the pterosaur spar"*, justified by
