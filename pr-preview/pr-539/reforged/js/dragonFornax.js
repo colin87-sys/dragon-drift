@@ -1069,7 +1069,12 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // phi0 = atan2(F0 - K) and rakes each finger aft from THERE, so the whole hand inherits the
     // curve's direction — which is what makes every line in the wing agree on one flow.
     const LENF = [1.00, 0.76, 0.58, 0.40];      // dominant + decay, shallower than before: the hand read "starved and vestigial" against Tempest, which keeps chord out through mid-hand
-    const SPANAFT = 1.05;                        // total aft rake of the fan, radians
+    // ⚠ CAP THE RAKE SO NO FINGER ENTERS THE BODY CORRIDOR. At 1.05 rad the aft finger sat at 96.6°
+    // ABSOLUTE — pointing backward-inboard — so its bone swept into the torso on every downstroke and
+    // read in-game as a spoke colliding with the body. Inboard of the hand there should be no bone at
+    // all: that region is the plagiopatagium SHEET (§4.7's root gusset). 0.73 rad puts the aft finger
+    // at ~78°, clear of the corridor, and hands the inboard area back to the membrane where it belongs.
+    const SPANAFT = 0.73;                        // total aft rake of the fan, radians
     const DROOP = [0.05, 0.17, 0.28, 0.39];
     const NF = LENF.length, NS = 4;
     const jit = (i, amp) => { const h = Math.sin((i + 1) * 78.233 + 2.7) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; };
@@ -1138,13 +1143,18 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // mid-span trailing edge as one plain convex lobe — the exact residue the playbook names
     // ("convex scallop lobes whose valleys never cut inward are STILL this failure"). Every bay
     // has to cut, or the failure survives at mid-span even once it is dead at the tips.
-    const CUP = [0.44, 0.42, 0.38];   // capped: 0.62/0.60/0.56 cut past a third of local chord and the mid-wing went perforated — the wing has to read as ONE SAIL, not a frame with holes
+    // ⚠ ONE constant, not a per-bay array. §4.3 specifies a single `cup` dial precisely so each bay's
+    // scallop stays PROPORTIONAL to its own width — the finger lengths already decay, so a constant
+    // cup yields scallops that scale down cleanly outboard. A per-bay array breaks that progression
+    // and the trailing edge stops reading as one rhythm. Still capped well under a third of chord:
+    // deep enough to READ, never deep enough to HOLLOW.
+    const CUPK = 0.42;
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
       const chord = Math.hypot(fb[NS][0] - fa[NS][0], fb[NS][1] - fa[NS][1], fb[NS][2] - fa[NS][2]) || 1;
       const billow = 0.20 * chord * (0.55 + 0.90 * (i / Math.max(1, NF - 2)));
-      const scal = CUP[Math.min(i, CUP.length - 1)] * (0.9 + 0.2 * ((i * 0.618) % 1));
+      const scal = CUPK * (0.94 + 0.12 * ((i * 0.618) % 1));   // one constant + a hair of jitter, never a per-bay table
       const mid = [];
       for (let k = 0; k <= NS; k++) {
         const saf = k / NS;
@@ -1565,10 +1575,15 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const sad = [];
       // ⚠ ONE mass, full stop. The "subordinate lame" was still reading as a stray shard beside the
       // slab rather than as a rank — with two elements there is no dominant, just clutter.
-      let w = S(0.52), zc = S(-1.06);
+      // ⚠ SIZED TO COVER THE ROOT THROUGH THE WHOLE FLAP (§4.8), not merely to sit on the shoulder.
+      // The in-game report was a tattered, see-through wing/body junction — and the studio stills
+      // never showed it because they are STATIC. The cowl is static in the body frame while the
+      // membrane root swings under it, so it has to be big enough to stay over that root at every
+      // point of the arc. One slab at 0.52 wide covered the rest pose and nothing else.
+      let w = S(0.92), zc = S(-1.00);
       for (let n = 0; n < 1; n++) {
         const OFF = S(0.055), CUP = S(0.035);
-        const x = side * (S(0.40) + OFF), y = TORSO_Y + S(0.26);
+        const x = side * (S(0.40) + OFF), y = TORSO_Y + S(0.30);   // proud of the membrane root: the gusset is BURIED under it (§4.7)
         sad.push({ x, y, zc, w, OFF, CUP });
         w *= 0.52; zc += S(0.40);
       }
