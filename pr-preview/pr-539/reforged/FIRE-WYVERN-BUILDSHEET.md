@@ -461,63 +461,44 @@ as fingers comes from the cusp travelling a long way back toward the wrist.
 the arm chain and its gull curve (§5.1), the propatagium, the shoulder→hip attachment, the slag
 crust rank on the arm, the arm mass and elbow node, and the planform gate.
 
-### 5.1 THE SKELETON (build this FIRST — the membrane is an output, never an input)
+### 5.1 THE LEADING EDGE IS ONE CONTINUOUS OGEE — the shape law, above all others
 
-`L` = shoulder joint → wingtip = **`wingSpan` 4.26 u**. Sweep Λ is measured **aft of the
-lateral axis**; negative rakes forward. Fractions are of L.
+> **⚠ v2.6.** The owner rejected the previous outline: *"the leading edge should be convex from the
+> connection to the body, and then after the wrist, where the first finger spoke creates the
+> leading frame, it should be concave."* That law was already in the repo and this sheet did not
+> carry it — `DRAGON-DESIGN.md` §4.1: *"Knuckled leading edge, never a straight bar. Two curves
+> compose it: a gull ARCH in Y … and an OGEE in Z (bow forward mid-span, sweep hard aft to the
+> tip)."* An independent art-director pass on SHAPE ALONE called the old build **not acceptable**
+> for exactly this: *"convex, corner, straight"* — a hard corner at the wrist and no concave phase.
 
-| Segment | length | Λ | cumulative station |
-|---|---|---|---|
-| humerus | **0.095** | **−6°** | 0.083 |
-| forearm | **0.144** | **+6°** | 0.223 |
-| carpus | **0.019** | **+6°** | **0.242 ⟵ THE WRIST** |
-| metacarpal IV | **0.129** | **+31°** | 0.375 |
-| wing phalanx 1 | **0.227** | **+31°** | 0.611 |
-| wing phalanx 2 | **0.178** | **+33°** | 0.795 |
-| wing phalanx 3 | **0.125** | **+39°** | 0.921 |
-| wing phalanx 4 | **0.083** | **+51°** | 1.000 (tip hook) |
+**The function** (Fornax's, after `vesperArmZ`):
 
-Solved leading-edge vertices, **in units, wing-local (origin = shoulder, +x outboard, +z aft)**.
-⚠ `L` is the **straight-line** shoulder→tip (4.26); the tip's **lateral reach is x = 3.810**, and
-the two are not interchangeable — conflating them puts chord stations past the wingtip.
+```
+armZ(t) = -0.10 + 0.44·hs·t^1.12 - 0.20·hs·sin(π · t^p),   p = ln(0.5)/ln(0.40)
+armY(t) = gull arch, rising to the carpal apex then easing to the tip
+wristT  = 0.30      (MEDIAL — short arm, long hand)
+```
 
-| | shoulder | elbow | forearm | **wrist** | mcIV | wp1 | wp2 | wp3 | **tip** |
-|---|---|---|---|---|---|---|---|---|---|
-| **x** | 0.000 | 0.414 | 1.041 | **1.124** | 1.636 | 2.537 | 3.232 | 3.691 | **3.948** |
-| **z** | 0.000 | −0.043 | 0.022 | **0.031** | 0.270 | 0.690 | 1.044 | 1.342 | **1.599** |
-| **y** | 0.000 | 0.149 | 0.340 | **0.362** | 0.347 | 0.320 | 0.298 | 0.285 | **0.277** |
+**The three laws inside it, in order of importance:**
 
-⚠ **The `y` row is the GULL CURVE and it is NOT optional (ref §4.9.4b).** Built without it — as
-this sheet's first draft was, an x/z table only — the wing rendered from the rear as a **razor
-line, 31% wide and 9% tall**, because a flat horizontal membrane is edge-on to the shipped camera.
-Rise is +0.035 L at the elbow, **+0.085 L at the wrist (apex)**, +0.065 L at the tip: a shallow M,
-never a straight V. Inboard dihedral works out at **17.9°** (sourced cap 20°), outboard **−1.7°**
-(band 0 to −5°). **Camber rides on top of this; it does not replace it** — camber is a chordwise
-bulge, the gull is a spanwise rise, and a build needs both.
+1. **ONE FUNCTION, ROOT TO TIP.** The wrist is `LE(wristT)` — a point *on* the curve, not a joint
+   *in* the silhouette — and **the wingtip is `LE(1)`**, so the leading finger is the curve's
+   continuation. Building the leading finger as a separate straight bone at a fixed azimuth is the
+   error that produced the corner; it is what makes a wing read as a spoke-fan plank.
+2. **THE FORWARD BOW PEAKS AT THE WRIST.** A plain `sin(π t)` peaks at mid-span, which leaves the
+   apex outboard of the joint and starts the concave phase too late. Warping by `t^(ln0.5/ln w)`
+   puts the peak on the wrist. Both shipped house wings sit within ~0.02 of their wrist.
+3. **THE FINGER FAN IS RELATIVE TO THE CURVE, NEVER TO THE BODY AXIS.** `phi0 = atan2(F0 − K)`,
+   then each finger rakes aft from there. Absolute azimuths are a real bug: once the edge sweeps
+   aft, fingers authored from +x point *forward* of it and the hand stops agreeing with the arm.
+   Getting this right is what makes every line in the wing agree on one direction of flow.
 
-⚠ **Sweep is 25° outboard, not the 31° first solved.** The forward-offset band is stated for the
-VISIBLE leading edge, but a bone chain is authored as a CENTRELINE — the spar's forward face plus
-the propatagium bulge together sit ~0.026 L ahead of it. Solving the centreline to the top of the
-band measured 0.125 against a 0.125 ceiling: a coincidence, not a pass. **Author the centreline
-well inside the band you intend to measure.**
+**Tip:** finger 0's membrane runs to `LE(1)` so the leading edge and the outer membrane converge at
+**one raked point**. Free spikes belong to fingers 1..N−1 only — a multi-prong tip restates the
+spoke-fan thesis in miniature.
 
-- **THE KEY NUMBER — max forward deviation of the leading edge from the shoulder→tip
-  chord = 0.113 L (0.48 u), peaking AT THE WRIST (station 0.242).** Ref §4.9 band is
-  **0.085–0.125**. The rejected wing had **0.035** — under half the threshold at which the
-  eye stops reading "straight". *This one assertion would have caught the failure on turn one.*
-- **Included angle at the wrist = 155°** (ref band 155–168°, reject >170°). The **whole
-  break sits at ONE vertex** — the carpus deliberately follows the forearm heading (+6°)
-  rather than splitting the break into two half-steps. **Chevron, not arc:** an arc reads
-  *feather*, an angle reads *structure under load*. This is why `archRise`/`leadY` — the
-  old single sine bow — is **deleted**, not retuned.
-- **Elbow break is real but modest** (−6° → +6° = a 12° kink at station 0.083), consistent
-  with the sourced near-rigid pterosaur arm (shoulder 5°, wrist 5°, elbow 10° of flexion).
-  It is **hidden under the propatagium** (§5.3) exactly as in life.
-- **Leading-edge radius TAPERS** `1.00 / 0.62 / 0.38 / 0.22 / 0.10` at
-  shoulder/elbow/wrist/mid-hand/tip. A constant-radius spar **reads as a bar however
-  curved** — this is the failure most likely to survive a correct planform.
-- **Thickness ladder** humerus 1.00 → forearm 0.80 → mcIV 0.50 → wp1 0.40 → wp2+ 0.28,
-  tapering to a point, thicker at each element's proximal end.
+**Fingers:** lengths `1.00 / 0.76 / 0.58 / 0.40`, fan rake `1.05 rad`, droop `0.05/0.17/0.28/0.39`.
+**Cups:** `0.62 / 0.60 / 0.56`, pulled FULLY toward the knuckle in X and Z.
 
 ### 5.2 THE PLANFORM (chord + trailing edge)
 

@@ -962,6 +962,27 @@ Glide-pose rise **above the shoulder**, as a fraction of L:
 6.5–9% `[S]` (repo cruise band 0.06–0.10 c); the gull is a spanwise rise of 8.5% of L. They are
 different axes and a build needs both — camber alone leaves the rear silhouette flat.
 
+#### §4.9.4c THE OGEE — the leading edge is ONE CONTINUOUS FUNCTION `[house law]`
+
+⚠ **Added after an owner rejection that this file could not have prevented.** §4.9.4's sweep table
+gives per-run angles, which invites building the leading edge as a CHAIN OF STRAIGHT BONES. That
+produces a hard corner at the wrist and a straight run to the tip — and an art-director pass on
+shape alone called it *"convex, corner, straight"*, not acceptable.
+
+**`DRAGON-DESIGN.md` §4.1 outranks the sweep table here.** The leading edge is a single continuous
+function of span fraction: `armZ(t) = -0.10 + 0.44·hs·t^1.12 - k·hs·sin(π·t^p)`. The `−sin` term is
+the ogee — it bows the edge FORWARD inboard so the run to the wrist reads **convex** and everything
+past it reads **concave**. Three rules travel with it:
+
+1. The wrist is a point **ON** the curve; the wingtip is **`LE(1)`**. The leading finger is the
+   curve's continuation, never a separate spar.
+2. The forward bow **peaks at the wrist** (warp by `t^(ln0.5/ln wristT)`), or the concave phase
+   starts too far out.
+3. The finger fan is derived **relative to the curve** (`phi0 = atan2(F0 − K)`), never at absolute
+   azimuths from the body axis.
+
+**Use §4.9.4's angles as a CHECK on the resulting curve, not as a construction method.**
+
 #### §4.9.5 CHORD DISTRIBUTION — chord ÷ full span `b`, by station
 
 η = fraction of **semi**-span from the body midline. Scale every chord by `(7.0 / AR_target)` for the
