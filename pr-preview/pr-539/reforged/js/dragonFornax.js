@@ -1648,34 +1648,112 @@ function buildBrandSkull(def, model, mats) {
 }
 registerHead('brandSkull', buildBrandSkull);
 
-// --- TAIL: firebrandTail -----------------------------------------------------
-// No spade — the research killed it (Fox-Davies 1909: the barb is "a comparatively recent
-// addition"; Tudor dragons "invariably" ended in a smooth blunt point). Silhouette duty moves to
-// a dominant+decay dorsal ridge and the terminus is a blunt char-capped FIREBRAND that vents THE
-// STOKE at I4. Ref §2: tail length has NO consistent natural relationship to torso — 2.6× is a
-// declared composition choice, not a derived number, and the sheet says so.
+// --- TAIL: `firebrandTail` (buildsheet §8 + §8a–d) ---------------------------
+// ⚠ REPLACES THE I0 BLOCKOUT — four tapered BoxGeometry segments that were never built on. The
+// art-director verdict: "not an under-detailed tail — it is NO TAIL AT ALL … a tail boom off a
+// model aircraft," and on the side profile, "you can see the exact moment the creature stops being
+// designed … at the hip everything HALTS ON A HARD LINE."
+//
+// THE ONE THING (§8): kill the seam at the hip. The tail is the CONTINUATION of the torso's
+// systems — its mass, its cross-section, its crest rank, its blade language — never an attachment.
+// So the trunk lofts on SLAG_PROFILE, the torso's own 10-column polygon: the chine, deck and belly
+// columns run unbroken from the chest to the tip, and `slagBand` paints them with the same rule.
 function buildFirebrandTail(def, model, mats, anchor) {
   const group = new THREE.Group();
   group.position.set(0, anchor.y, anchor.z);
-  const nJoints = model.tailJoints ?? 4;
-  const segLen = ((model.tailLength ?? 1) * 2.6) / nJoints;
+  const S = (v) => v * (model.anvilScale ?? 1);
+  const M = fornaxMats(def);
 
-  // NESTED isBone chain — each child offset by the inter-joint vector. joints[0].isBone = true
-  // makes it ROTATION-ONLY: position writes tear a connected loft.
+  // §8a — 8 segments, not 4: the taper curve and the glide arc cannot exist at 4.
+  const nJoints = Math.max(8, model.tailJoints ?? 8);
+  const total = S((model.tailLength ?? 1.55) * 2.6);
+  const segLen = total / nJoints;
+
+  // §8b — convex then accelerating. Muscle at the root, whip at the tip. A linear ramp reads
+  // extruded; that is what the box steps were. The root is FATTER than the stub's 0.20 so it is at
+  // least as thick as the torso it leaves, instead of attaching like a bolt-on.
+  // 0.46 read as a CLUB — "muscle at the root" is not "cone off the hip". The root should be
+  // comparable to the hull it leaves, not larger than it, and the taper convex-then-accelerating
+  // rather than a fast power curve that empties the last two thirds.
+  const R0 = S(0.26);
+  const radAt = (t) => R0 * (1 - 0.55 * Math.pow(t, 1.35) - 0.42 * Math.pow(t, 4.5)) + S(0.010);
+
+  // §8c — a glide ARC. A dead-straight tail with a perfect crest is a decorated pole; the motion
+  // kit's sway rides on top of this rest curve.
+  const ARC = 0.055;                       // radians per joint, accumulating
+
+  // ⚠ ONE ACCUMULATOR PER BONE. Each bone must own its geometry (it rotates), but within a bone
+  // everything batches: trunk section, crest vanes and recesses all land in the same three
+  // material buckets. Built naively — slagLoft's own per-tier meshes plus a mesh per vane rank —
+  // an 8-bone tail cost 37 draws on its own and blew the batching assert.
   const segs = [];
   let parent = group;
   for (let i = 0; i < nJoints; i++) {
     const j = new THREE.Group();
     j.position.set(0, 0, i === 0 ? 0 : segLen);
-    j.isBone = true;
-    const taper = 1 - (i / nJoints) * 0.62;   // fattest segments sit AFT of the hip (ref §2)
-    const stem = blockout(0.20 * taper, 0.20 * taper, segLen, mats.bodyMat);
-    stem.position.z = segLen * 0.5;
-    j.add(stem);
+    j.rotation.x = i === 0 ? 0 : ARC;      // the rest arc, distributed down the chain
+    j.isBone = true;                        // ROTATION-ONLY: position writes tear a connected loft
     parent.add(j);
     parent = j;
     segs.push(j);
+
+    const acc = new Map();
+    const push = (mat, ...tris) => { let A = acc.get(mat); if (!A) acc.set(mat, A = []); for (const t of tris) A.push(t); };
+
+    // the trunk section — SLAG_PROFILE, so the torso's columns continue into the tail
+    const t0 = i / nJoints, t1 = (i + 1) / nJoints;
+    const r0 = radAt(t0), r1 = radAt(t1);
+    const ST = [
+      { z: 0, rx: r0, ry: r0 * 0.86, cy: 0 },
+      { z: segLen * 0.5, rx: (r0 + r1) * 0.5, ry: (r0 + r1) * 0.43, cy: 0 },
+      { z: segLen, rx: r1, ry: r1 * 0.86, cy: 0 },
+    ];
+    const P = (st, k) => [SLAG_PROFILE[k][0] * st.rx, st.cy + SLAG_PROFILE[k][1] * st.ry, st.z];
+    for (let si = 0; si < ST.length - 1; si++) {
+      const A = ST[si], B = ST[si + 1];
+      for (let k = 0; k < SLAG_PROFILE.length; k++) {
+        const k1 = (k + 1) % SLAG_PROFILE.length;
+        // §8d VALUE DUTY ON THE TRUNK — the deck and chine columns carry the pale tiers on the same
+        // broken duty the torso uses. Under withheld light, edge-value is the only thing separating
+        // the tail from the sky. `slagBand` is the ONE sanctioned index pick; reusing it is what
+        // makes this the same creature rather than a matching-coloured accessory.
+        push(slagBand(M, k, i * 2 + si), [P(A, k), P(B, k1), P(B, k)], [P(A, k), P(A, k1), P(B, k1)]);
+      }
+    }
+
+    // §8 crest — ONE schedule owns hip→tip: height decays x0.91 per vane to a 0.04u floor, pitch
+    // near-constant, seeded to CONTINUE the torso serration rather than restart it at the hip.
+    const H = Math.max(S(0.04), S(0.18) * Math.pow(0.91, 3.4 + i * 2));
+    for (let v = 0; v < 2; v++) {
+      const zc = segLen * (0.25 + 0.5 * v);
+      const top = radAt(t0 + (t1 - t0) * (0.25 + 0.5 * v)) * 0.86;
+      const w = Math.max(S(0.02), H * 0.42);
+      const lean = (((i * 2 + v) % 3) === 0) ? 1 : -1;         // period-3 rhythm, struck shards
+      push(((i * 2 + v + 1) % 7) < 4 ? M.ashLit : M.scorch,
+        [[0, top, zc - w], [0, top, zc + w], [lean * w * 0.35, top + H, zc + w * 0.15]]);
+      push(M.seam, [[0, top, zc - w], [0, top, zc + w], [0, top - S(0.03), zc]]);   // under-gap recess (RL2)
+    }
+    for (const [mat, tris] of acc) j.add(tagPart(flatTriMesh(tris, mat), mat === M.seam ? 'seam' : 'tail'));
   }
+
+  // §8 THE FIREBRAND — a blunt char-capped coal tip, the anatomical end of the seam network. NOT a
+  // spade (the #1 de-kitsch target). §8d: it needs an explicit pale rim or it vanishes into the
+  // dark tip, so the cap carries a rim tier while the socket behind it stays seam-dark.
+  {
+    const tip = segs[segs.length - 1], r = radAt(1) * 1.9, z = segLen;
+    const cap = [], rim = [];
+    const N = 6;
+    for (let k = 0; k < N; k++) {
+      const a = (k / N) * Math.PI * 2, b = ((k + 1) / N) * Math.PI * 2;
+      const p0 = [Math.cos(a) * r, Math.sin(a) * r * 0.8, z], p1 = [Math.cos(b) * r, Math.sin(b) * r * 0.8, z];
+      cap.push([p0, p1, [0, 0, z + r * 1.15]]);
+      rim.push([p0, p1, [Math.cos((a + b) / 2) * r * 0.55, Math.sin((a + b) / 2) * r * 0.44, z + r * 0.5]]);
+    }
+    tip.add(tagPart(flatTriMesh(cap, M.seam), 'tail'));
+    tip.add(tagPart(flatTriMesh(rim, M.rim), 'tail'));
+  }
+
   return { group, segs };
 }
+
 registerTail('firebrandTail', buildFirebrandTail);

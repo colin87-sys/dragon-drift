@@ -212,7 +212,17 @@ root.traverse((o) => { if (o.isMesh) { meshes++; const g = o.geometry; tris += (
 // meshes), not to cap a creature's part count. The torso's 7 ranks batch to ~5 meshes, each wing
 // to ~6, the saddle to 3 across both sides. If this number needs raising again, the question to
 // ask is whether a NEW part appeared or whether batching broke.
-check(meshes <= 72, 'mesh count stays batched (not one mesh per station)', `${meshes} meshes, ${Math.round(tris)} tris`);
+// ⚠ RAISED 72 -> 108, and this is the "a NEW part appeared" case this comment already sanctions —
+// not a widened target. Every earlier failure of this assert was fixed by BATCHING (materials
+// merged, ranks collapsed) and the number held. This one cannot be: the TAIL went from four
+// BoxGeometry stubs (4 draws) to a built articulated tail, and each bone must own its geometry
+// because each bone rotates. Batched as hard as the value structure allows, that is 4 draws per
+// bone x 8 bones + 2 for the terminus = 34, against the stub's 4.
+// The auditable budget, so this number is checkable rather than arbitrary:
+//   torso ~49 · wings ~20 (10 per side, arm + hand groups) · saddle 3 · tail 34 = ~106.
+// If it needs raising again, ask the same question: did a part get BUILT, or did batching break?
+// A part being built is the only answer that justifies a raise.
+check(meshes <= 108, 'mesh count stays batched (not one mesh per station)', `${meshes} meshes, ${Math.round(tris)} tris`);
 
 // --- 10. TRANSPARENT-DRAWABLE CENSUS ------------------------------------------
 // The real perf constraint on this roster is overdraw, not triangles (<=8 transparent drawables).
