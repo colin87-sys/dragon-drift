@@ -1425,3 +1425,48 @@ round).**
   reading stated (rank-Hmax, tall vanes 0.18–0.33u — an every-vane reading would fail
   f0's short vanes and the apex's own 0.128u short vanes); anti-pooling run cap made
   transverse-symmetric (per column AND per station-ring).
+
+---
+
+### I2 WING — the MOTION gate (`flapclearance`), 2026-07-28
+
+The owner's report — *"when the wing flaps, the part that connects the trailing edge to the
+body are like spokes that collide with the body in movement"* — was never verified, only
+responded to. Every tool in this harness measures ONE POSE, and a motion collision cannot
+appear in a still. `flapclearance.mjs` is the first gate that poses the rig at all five cycle
+points and measures against the torso hull.
+
+**The law it settled on.** Not "does wing geometry enter the torso" — that is true by design
+on every dragon in the roster, because root burial is how the junction seals. Not "does burial
+get deeper" either, which is what the first revision asserted on and is the wrong thing: the
+torso occludes buried geometry at any depth. The visible defect is a **crossing** — a surface
+outside the hull at one phase and inside it at another drags a moving intersection line across
+the flank, which is exactly the "tattered, see-through" join in the owner's screenshot.
+
+| Gate | Before | After | Note |
+|---|---|---|---|
+| **C1** submerges (outside at rest → inside in motion) | **−0.480u** @ 0.38× span, downstroke | **CLEAR** at all five phases | the reported defect; fixed by the root sink |
+| **C2** surfaces (inside at rest → outside in motion) | fail | **still FAIL** | structural — see below |
+| **C3** rest burial vs midline | −0.86× | −0.94× half-width | within band |
+| planform / structural / tricount | 12/12 · 16/16 · OK | 12/12 · 16/16 · OK | no regression |
+
+**Roster calibration, run BEFORE the subject** (the planformprobe discipline): Tempest, the
+premium bar, is clear at every station beyond the root; azure likewise; revenant grazes at
+−0.012u (≈0.25px). Vesper fails C1 at −0.176u and is recorded as a **known non-conformance,
+not a reason to widen the band** — a band loose enough to pass it would be blind to the class.
+
+**Why C2 is left failing, honestly.** C2 is *vacuous* on all four other dragons: none of them
+authors membrane inside the hull beyond 0.30× span. Fornax does, because the plagiopatagium
+anchors 2.15u aft (§5.3, at the owner's request). The flap is very nearly pure roll — the
+pivot's z rotation swings 0.40 → −0.63 rad across the cycle while x moves 0.009 — so a welded
+vertex traces an arc of radius `hypot(x, y)` about that axis, and z does not enter it. That
+anchor sits at r ≈ 0.62 while the hull surface is ~0.27 from the axis, so it **must** cross.
+A 48-point sweep of (anchor x, anchor y, sink depth) with the probe as oracle found no position
+clearing both asserts. The conclusion is structural, not numeric: **a membrane rigidly welded
+to a single rolling bone cannot hold a body attachment 2.15u aft at this flap amplitude**, and
+the roster's implicit answer is "don't".
+
+**Open, specified, not built:** a STATIC body-side aft web running the flank from the shoulder
+to the tail root, so the crossing happens beneath body geometry rather than in open air. That
+is the house pattern already (root gusset buried under a static cowl, DRAGON-DESIGN §4.7). It
+must go through the critic at ≥4.2/5 like everything else.
