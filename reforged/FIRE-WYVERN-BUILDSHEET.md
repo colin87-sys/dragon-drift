@@ -1084,7 +1084,29 @@ lives in the rear-chase membrane read, which is what I4 exists to solve.
 3. Minor plate clutter at the wing root at 1×.
 4. **Re-judge the rear-chase read once the membrane has its withheld glow.**
 
-**Trajectory: 3.2 → 3.4 → 3.6 → 3.9 → 4.2.** Every round's gate-decider was a case of **decoration
+**Trajectory (fingered-kit era, after the spar was reverted):** shape judged **ACCEPTABLE** by an
+art-director pass on form alone (ogee confirmed, "the corner is gone, no slope discontinuity"),
+then quality **3.5 → 4.0 → 4.2 PASS** — *"narrowly earned, not gifted."*
+Final: limb 4.4 · rear-chase 4.2 · wing-top relief 4.1 · attachment 4.0 · distinctiveness 4.3.
+
+**The finding that unblocked it was a POSE fix, not a geometry fix.** Five rounds of geometry work
+failed to move the rear-chase score because the held glide pose stood the wings in so steep a V
+that each wing was edge-on to the shipped camera — *"the hand anatomy is real but is not projecting
+to the camera that matters."* The bank pose was the existence proof. **When a view scores badly
+round after round while every other view improves, suspect the POSE before the mesh.**
+
+**⚠ CARRIED INTO I4 — and the first one must be done BEFORE the light lands, not after:**
+1. **Merge the root straps into one continuous fillet web.** 2–3 parallel strands still cross open
+   sky per side at rear-chase/bank, and the lifted trailing band draws a daylight seam along the
+   inboard run. The gate's warning is explicit: **"Lighting the underside glow will make these
+   seams MORE visible, not less — seal before lighting."**
+2. Kill or dress the bare rectangular box on the spar (visible at wing 4×) — untextured-primitive tell.
+3. Sweep the last two or three pale sticks at the left hip and right shoulder root.
+
+**Ceiling:** the gate states the wing is essentially at its practical unlit ceiling apart from
+item 1 — the membrane's flatness and near-black poverty cannot honestly improve until I4.
+
+**Trajectory (spar era, superseded): 3.2 → 3.4 → 3.6 → 3.9 → 4.2.** Every round's gate-decider was a case of **decoration
 mistaken for structure** — see the lesson file. The three laws that came out of it (the outline is
 where the surface *ends*; a proud element that does not visibly *meet* its surface is debris; never
 close a seam with coplanar duplicates) are worth more than the wing.
