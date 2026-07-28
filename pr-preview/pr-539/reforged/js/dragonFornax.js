@@ -1068,8 +1068,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // end up pointing FORWARD of it and the hand stops agreeing with the arm. Vesper derives
     // phi0 = atan2(F0 - K) and rakes each finger aft from THERE, so the whole hand inherits the
     // curve's direction — which is what makes every line in the wing agree on one flow.
-    const LENF = [1.00, 0.86, 0.70, 0.52];      // dominant + decay (house ladder)
-    const SPANAFT = 1.16;                        // total aft rake of the fan, radians
+    const LENF = [1.00, 0.76, 0.58, 0.40];      // dominant + decay, shallower than before: the hand read "starved and vestigial" against Tempest, which keeps chord out through mid-hand
+    const SPANAFT = 1.05;                        // total aft rake of the fan, radians
     const DROOP = [0.05, 0.17, 0.28, 0.39];
     const NF = LENF.length, NS = 4;
     const jit = (i, amp) => { const h = Math.sin((i + 1) * 78.233 + 2.7) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; };
@@ -1078,7 +1078,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const s0 = [];
       for (let k = 0; k <= NS; k++) {
         const t = FX_WRIST_T + (0.86 - FX_WRIST_T * 0.86) * (k / NS) + (1 - 0.86) * 0 ;
-        const tt = FX_WRIST_T + (1 - FX_WRIST_T) * (k / NS) * 0.86;
+        // ⚠ NO free spike on finger 0. The tip must resolve at ONE point: the leading edge and the
+        // outermost membrane converge there. Running the bone past the membrane here gave the
+        // "multi-prong cluster" tip the art director flagged — the eye exits the wing in three
+        // places instead of one, which restates the spoke-fan thesis in miniature.
+        const tt = FX_WRIST_T + (1 - FX_WRIST_T) * (k / NS);
         const P = LEt(tt);
         s0.push([P[0], P[1] + camber(P[0], 0), P[2]]);
       }
@@ -1087,7 +1091,6 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         const f = k / NS;
         boneRidge(pushH, s0[k], s0[k + 1], R0 * (0.46 - 0.20 * f), R0 * (0.40 - 0.22 * f), R0 * (1.05 - 0.45 * f), true);
       }
-      const Ptip = LEt(1); boneRidge(pushH, s0[NS], [Ptip[0], Ptip[1] + camber(Ptip[0], 0), Ptip[2]], R0 * 0.20, S(0.010), R0 * 0.42, true);
       spars.push(s0);
     }
     const F0c = spars[0][NS];
@@ -1135,7 +1138,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // mid-span trailing edge as one plain convex lobe — the exact residue the playbook names
     // ("convex scallop lobes whose valleys never cut inward are STILL this failure"). Every bay
     // has to cut, or the failure survives at mid-span even once it is dead at the tips.
-    const CUP = [0.52, 0.50, 0.46];
+    const CUP = [0.62, 0.60, 0.56];
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
@@ -1172,7 +1175,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
     // along the last finger cuts a deep V between the hand and the arm sheet, which is also the
     // bay the planform probe measured as the shallowest (6% against a 10% floor).
-    const Tlast = lerp3(K, spars[NF - 1][NS], 0.48);   // deeper: this bay measured the shallowest of the set
+    const Tlast = lerp3(K, spars[NF - 1][NS], 0.40);   // deeper still: this bay stayed the shallowest of the set   // deeper: this bay measured the shallowest of the set
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
