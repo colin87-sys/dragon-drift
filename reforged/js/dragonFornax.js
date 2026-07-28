@@ -1175,7 +1175,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const fa = spars[i], fb = spars[i + 1];
       // one rib per bay, riding the sheet from near the knuckle out toward the free edge
       const RN = 6;
-      for (let k = 1; k < RN; k++) {
+      for (let k = 1; k < RN - 1; k++) {   // stop short of the free edge: a rib tip past the scallop is a bare needle
         const u0 = k / RN, u1 = (k + 1) / RN;
         const on = (u) => {
           const q = Math.min(NS - 1e-3, u * NS), k0 = Math.floor(q), f = q - k0;
@@ -1210,7 +1210,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // ── THE PLAGIOPATAGIUM — arm sheet to the BODY ANCHOR, trailing edge continuing the scallop.
     // §4.7's root gusset: the whole trailing line tapers/cups from the last fingertip down to the
     // hip in ONE continuous concave curve — a straight inboard bar is the plane whisper at the root.
-    const B = [-S(0.10), K[1] - S(0.62), S(1.55)];                     // hip anchor, wing-local
+    // ⚠ THE ROOT ANCHOR MUST SIT WELL INSIDE THE HULL. At -0.10 it landed barely inboard of the
+    // shoulder, so along the seam a thin wedge of SKY survived between the inner membrane and the
+    // flank — daylight through the wing inside its own perimeter, the classic stuck-on tell, and
+    // the single item blocking the quality gate. Drive it deep and let the torso occlude the excess.
+    const B = [-S(0.34), K[1] - S(0.62), S(1.55)];                     // hip anchor, wing-local
     // ⚠ THE SEPARATION NOTCH. The plagiopatagium must NOT start at the last fingertip, or the last
     // bay and the body sheet blend into one continuous curve and the digit stops reading as a
     // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
@@ -1237,7 +1241,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // a 1.0 floor, i.e. failure #5 (bolted-on wing) and the spoon wing at once. Tempest fills the
     // same triangle (`[ROOT, K, B]`) and that is what makes its wing look grown rather than hung.
     {
-      const SH0 = [LE[0][1], LE[0][4] + camber(0, 0), LE[0][2]];
+      const SH0 = [-S(0.26), LE[0][4] + camber(0, 0), LE[0][2]];   // inboard of the joint: the fill has to start INSIDE the flank, not on it
       const mid1 = lerp3(SH0, K, 0.5), mid2 = lerp3(SH0, B, 0.5);
       const sag = [ (K[0] + B[0]) / 2 * 0.5 + SH0[0] * 0.5, (K[1] + B[1]) / 2 - S(0.10), (K[2] + B[2]) / 2 * 0.6 ];
       pushA(M.scorch, [SH0, mid1, sag], [mid1, K, sag]);
@@ -1248,7 +1252,10 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // ── THE CONNECTED KNIFE-EDGE (§4.6) — ONE strip tracing the WHOLE scalloped trailing polyline.
     // Per-bay shards read as floating debris, which this file has already been burned by four times.
     if (trailing.length > 1) {
-      const et = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.07, p[1] + (K[1] - p[1]) * 0.07 + S(0.005), p[2] + (K[2] - p[2]) * 0.07];
+      // ⚠ 0.07 is a HAIRLINE over the plagiopatagium's long trailing run — from the chase camera it
+      // reads as a rigging wire strung across open sky, not as an edge. Widen the inset so the band
+      // always has real width, and lift it enough to sit on the sheet rather than beside it.
+      const et = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.16, p[1] + (K[1] - p[1]) * 0.16 + S(0.010), p[2] + (K[2] - p[2]) * 0.16];
       // ⚠ Do not span a large gap. The trailing polyline jumps across the separation notch, and a
       // quad stretched over that jump is a long thin blade floating clear of the wing — read as
       // "orphan geometry off the trailing edge". Break the strip instead of bridging.
@@ -1556,8 +1563,10 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // whole flap, per DRAGON-DESIGN.md §4.8.
     {
       const sad = [];
-      let w = S(0.46), zc = S(-1.12);
-      for (let n = 0; n < 2; n++) {
+      // ⚠ ONE mass, full stop. The "subordinate lame" was still reading as a stray shard beside the
+      // slab rather than as a rank — with two elements there is no dominant, just clutter.
+      let w = S(0.52), zc = S(-1.06);
+      for (let n = 0; n < 1; n++) {
         const OFF = S(0.055), CUP = S(0.035);
         const x = side * (S(0.40) + OFF), y = TORSO_Y + S(0.26);
         sad.push({ x, y, zc, w, OFF, CUP });
