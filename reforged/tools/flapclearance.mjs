@@ -13,12 +13,17 @@
 // kit, DRAGON-DESIGN §4). So "is any wing vertex inside the torso" is the wrong question; it is
 // true by design, on every dragon in the roster, at rest.
 //
-// The right question is whether burial GROWS when the wing moves. The authored (unposed) build is
-// the reference: whatever sits inside the hull there is the intended attachment footprint. Then for
-// each flap phase we re-measure the SAME sample points and ask what changed:
+// The right question is whether geometry CHANGES SIDE when the wing moves — and note that is not
+// the same as "goes deeper", which is what an earlier revision of this file asserted on and is the
+// reason it measured the wrong thing. Depth is invisible: the torso occludes buried geometry at any
+// depth. A CROSSING is visible at one pixel, because it drags a moving intersection line across the
+// flank. So the authored (unposed) build is the reference — whatever sits inside the hull there is
+// the intended attachment footprint — and each phase is diffed against it:
 //
-//   • a point that was OUTSIDE the hull at rest and is INSIDE it at some phase  → swept in. A collision.
-//   • a point buried at rest that goes DEEPER than its rest burial               → the root grinding.
+//   • a point OUTSIDE the hull at rest that is INSIDE it at some phase  → submerged. C1.
+//   • a point INSIDE the hull at rest that is OUTSIDE it at some phase  → surfaced.  C2.
+//
+// Same defect, opposite directions; neither is detectable in a still.
 //
 // Both are motion facts, invisible in any still, and neither depends on classifying a triangle as
 // "bone" or "membrane" — which is not possible here anyway: the wing batches per MATERIAL, and
@@ -56,7 +61,8 @@ const PHASES = ['glide', 'recovery', 'apex', 'downstroke', 'settle'];
 // the foot of this file), not derived from theory.
 const ROOT_FRAC = 0.30;    // the sealed junction: samples within this × span of the shoulder are exempt
 const SWEEP_IN = -0.06;    // a point outside the hull at rest may not end up this far inside it
-const GRIND = -0.10;       // a point buried at rest may not go this much deeper than its rest depth
+const SURFACE = 0.06;      // ...nor may a point buried at rest emerge this far out of the hull
+const SURFACE_MAX = 9;     // saturation for "left the hull's footprint entirely" — a flag, not a length
 const REST_BURIAL = -1.0;  // × hull half-width: −1.0 IS the midline, so the root may not exit the far side
 
 let fail = 0, pass = 0;
@@ -221,7 +227,8 @@ const profile = BANDS.map(() => 9);
 for (const phase of PHASES) {
   setFlapDebugPose(parts, def.model, phase);
   const cur = measure();
-  let sweptIn = 0, worstSweep = 9, worstSweepI = -1, worstGrind = 9, grindSamples = 0;
+  let sweptIn = 0, worstSweep = 9, worstSweepI = -1, grindSamples = 0;
+  let surfacedBy = 0, surfacedFull = false, surfacedI = -1;
   let rootWorst = 9;
   for (let i = 0; i < nSamples; i++) {
     const c = cur[i], r = rest[i], st = station[i];
@@ -229,18 +236,33 @@ for (const phase of PHASES) {
     const bi = BANDS.findIndex((f) => st <= f * SPAN);
     if (bi >= 0 && c < profile[bi]) profile[bi] = c;
     if (st <= ROOT_ZONE) { if (c < rootWorst) rootWorst = c; continue; }   // sealed junction — exempt
-    if (r >= 0) {                                     // outside at rest — may not swim in
+    // ⚠ THE LAW IS "DO NOT CHANGE SIDE", NOT "DO NOT GO DEEP". Geometry that stays inside the hull
+    // is occluded by it and cannot be seen at any depth; geometry that stays outside is just the
+    // wing. What the eye catches is the CROSSING — a surface that is outside at one phase and
+    // inside at another drags a moving intersection line across the flank, which is precisely the
+    // "tattered, see-through" wing-body join reported from play. Depth of burial is irrelevant to
+    // it, and an earlier revision of this file asserted on depth and so measured the wrong thing.
+    if (r >= 0) {                                     // outside at rest — may not submerge
       if (c < 0) sweptIn++;
       if (c < worstSweep) { worstSweep = c; worstSweepI = i; }
-    } else {                                          // buried at rest — may not grind deeper
+    } else {                                          // buried at rest — may not surface
       grindSamples++;
-      if (c - r < worstGrind) worstGrind = c - r;
+      // ⚠ `c` is 9 for "no hull at this station at all", a SENTINEL, not a distance — feeding it
+      // into a magnitude printed a −9.000u violation, which is a unit that does not exist on a
+      // creature 4u across. A point that leaves the hull's z/y footprint entirely has surfaced as
+      // completely as it can, so it saturates the metric rather than scaling it.
+      const outBy = c >= 9 ? SURFACE_MAX : c;
+      if (outBy > 0 && outBy > surfacedBy) { surfacedBy = outBy; surfacedFull = c >= 9; surfacedI = i; }
     }
   }
   const wp = worstSweepI >= 0 ? worldAt(worstSweepI) : null;
-  rows.push({ phase, sweptIn, worstSweep, worstGrind, rootWorst, grindSamples, at: wp && { d: station[worstSweepI] } });
-  console.log(`  ${phase.padEnd(11)} swept-in ${String(sweptIn).padStart(4)}   worst-sweep ${worstSweep >= 9 ? '  clear' : worstSweep.toFixed(3) + 'u'}   worst-grind ${worstGrind >= 9 ? '  none' : worstGrind.toFixed(3) + 'u'}   root ${rootWorst >= 9 ? 'clear' : rootWorst.toFixed(3) + 'u'}` +
+  rows.push({ phase, sweptIn, worstSweep, surfacedBy, surfacedFull, surfacedI, rootWorst, grindSamples, at: wp && { d: station[worstSweepI] } });
+  console.log(`  ${phase.padEnd(11)} swept-in ${String(sweptIn).padStart(4)}   worst-sweep ${worstSweep >= 9 ? '  clear' : worstSweep.toFixed(3) + 'u'}   surfaced ${surfacedBy === 0 ? '  none' : (surfacedFull ? ' clear' : surfacedBy.toFixed(3) + 'u')}   root ${rootWorst >= 9 ? 'clear' : rootWorst.toFixed(3) + 'u'}` +
     (wp && worstSweep < 0 ? `   [at ${(station[worstSweepI] / SPAN).toFixed(2)}× span, xyz ${wp.x.toFixed(2)} ${wp.y.toFixed(2)} ${wp.z.toFixed(2)}, hull ±${(halfW[slot(wp.z)] || 0).toFixed(2)}]` : ''));
+  if (surfacedI >= 0 && surfacedBy > SURFACE) {
+    const sp = worldAt(surfacedI), sl = slot(sp.z);
+    console.log(`              surfaced sample: xyz ${sp.x.toFixed(2)} ${sp.y.toFixed(2)} ${sp.z.toFixed(2)}   hull at that z: ±${(halfW[sl] || 0).toFixed(2)} x, y ${Number.isFinite(yLo[sl]) ? yLo[sl].toFixed(2) : 'n/a'}..${Number.isFinite(yHi[sl]) ? yHi[sl].toFixed(2) : 'n/a'}   (${(station[surfacedI] / SPAN).toFixed(2)}× span)`);
+  }
 }
 
 console.log('\n  worst clearance by station (all phases, all samples):');
@@ -248,18 +270,18 @@ console.log('    ' + BANDS.map((f, i) => `≤${f.toFixed(2)}×span ${profile[i] 
 console.log('');
 
 const wsRow = rows.reduce((a, b) => (b.worstSweep < a.worstSweep ? b : a));
-const wgRow = rows.reduce((a, b) => (b.worstGrind < a.worstGrind ? b : a));
+const wgRow = rows.reduce((a, b) => (b.surfacedBy > a.surfacedBy ? b : a));
 check(wsRow.worstSweep >= SWEEP_IN, `C1  beyond the root zone, nothing sweeps INTO the hull  [≥${SWEEP_IN}u]`,
   `worst ${wsRow.worstSweep >= 9 ? 'clear' : wsRow.worstSweep.toFixed(3) + 'u'} at "${wsRow.phase}"` +
   (wsRow.at && wsRow.worstSweep < 0 ? `, ${(wsRow.at.d / SPAN).toFixed(2)}× span out along the wing` : ''));
-// ⚠ A TRIPWIRE, and on the present roster a VACUOUS one: outside the root zone no dragon authors
-// geometry already inside the hull, so this assert covers zero samples and passes for free. Printing
-// the coverage is the point — a gate that passes on an empty set must SAY the set was empty, or it
-// reads as evidence it never gathered. It fires the day a wing authors a buried mid-span strap.
+// The mirror of C1: a buried strap that SURFACES mid-flap is exactly as visible as an outboard one
+// that submerges — same moving intersection, opposite direction. Coverage is printed because on
+// some dragons this set is empty, and a gate that passes on an empty set must say so or it reads as
+// evidence it never gathered.
 const grindCov = Math.max(...rows.map((r) => r.grindSamples));
-check(wgRow.worstGrind >= GRIND, `C2  beyond the root zone, rest-buried geometry does not deepen  [≥${GRIND}u vs rest]`,
+check(wgRow.surfacedBy <= SURFACE, `C2  beyond the root zone, nothing buried SURFACES  [≤${SURFACE}u]`,
   grindCov === 0 ? 'VACUOUS — 0 samples buried at rest outside the root zone (tripwire only)'
-    : `worst ${wgRow.worstGrind.toFixed(3)}u at "${wgRow.phase}" over ${grindCov} samples`);
+    : `worst ${wgRow.surfacedBy === 0 ? 'none' : (wgRow.surfacedFull ? 'fully clear of the hull' : wgRow.surfacedBy.toFixed(3) + 'u')} at "${wgRow.phase}" over ${grindCov} samples`);
 check(restWorstN >= REST_BURIAL, `C3  the authored root burial does not cross the midline  [≥${REST_BURIAL} × half-width]`,
   `worst ${restWorstN.toFixed(2)}× (${restWorst.toFixed(3)}u) at rest`);
 
@@ -272,12 +294,25 @@ process.exit(fail === 0 ? 0 : 1);
 // planformprobe's bands were set this way too: a band derived from theory that fails Tempest is a
 // bug in the band, not a finding. Measured, 2026-07-28, tier 3:
 //
-//            C1 worst sweep-in        C3 rest burial      verdict
-//   tempest  clear (+1.285u)          −0.91× half-width   PASS   ← the premium bar, clean at every station
-//   azure    clear (+1.378u)          −0.20×              PASS
-//   revenant −0.012u @ 0.30× span     −0.85×              PASS   (grazes the boundary, 0.012u ≈ 0.25px)
-//   vesper   −0.176u @ 0.42× span     −0.68×              FAIL   ← see below
-//   fornax   −0.480u @ 0.38× span     −0.86×              FAIL   ← the reported defect, measured
+//            C1 worst submerge       C2 surfaced   C3 rest burial      verdict
+//   tempest  clear (+1.285u)         vacuous       −0.91× half-width   PASS  ← premium bar, clean at every station
+//   azure    clear (+1.378u)         vacuous       −0.20×              PASS
+//   revenant −0.012u @ 0.30× span    vacuous       −0.85×              PASS  (grazes it; 0.012u ≈ 0.25px)
+//   vesper   −0.176u @ 0.42× span    vacuous       −0.68×              FAIL  ← known non-conformance, see below
+//   fornax   −0.480u @ 0.38× span → CLEAR after the root sink; C2 still fails. See §FORNAX below.
+//
+// ── §FORNAX — what C2 is telling us, and why it is not a band problem ────────────────────────────
+// C2 is VACUOUS on all four other dragons: none of them authors membrane inside the hull beyond
+// 0.30× span. Fornax does, because its plagiopatagium anchors 2.15u aft (the owner asked for the
+// trailing edge to reach back toward the tail). That anchor sits r ≈ 0.62 from the roll axis while
+// the hull surface is ~0.27 from it, so it must cross — and a 48-point sweep of (anchor x, anchor
+// y, sink depth) with this probe as the oracle found NO position that clears both C1 and C2.
+// The conclusion is structural, not numeric: a membrane rigidly welded to a single rolling bone
+// cannot hold a body attachment 2.15u aft at this flap amplitude. The roster's implicit answer is
+// "don't" — every shipped wing keeps its junction inside the root zone.
+// The root sink clears C1, which is the half the owner actually reported ("spokes that collide
+// with the body in movement"). C2 is left FAILING and honest: the cure is a static body-side aft
+// web so the crossing happens beneath body geometry. Not built. Do not widen the band to hide it.
 //
 // ⚠ VESPER IS A KNOWN NON-CONFORMANCE, NOT A REASON TO WIDEN THE BAND. Loosening SWEEP_IN to
 // −0.20u to make the roster all-green would have made the gate blind to the subject's −0.48u by

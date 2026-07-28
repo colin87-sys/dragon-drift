@@ -1229,6 +1229,21 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // anatomically stronger read — the membrane research is unambiguous that bats and pterosaurs
     // carry the plagiopatagium to the ANKLE, never stopping at the hip, and a longer root seam is
     // what makes the wing continuous with the body instead of parked beside it.
+    // ⚠ AND IT RIDES A ROTATING BONE, WHICH BOUNDS WHAT THIS ANCHOR CAN EVER DO. The flap is very
+    // nearly PURE ROLL: across the five cycle phases the pivot's z rotation swings 0.40 → −0.63 rad
+    // while x moves 0.009 and y not at all. So a vertex welded here travels an arc whose radius is
+    // its distance from the roll axis — hypot(x, y) in this frame; z does not enter it. The torso
+    // surface is only ~0.27u from that axis outboard, so ANY anchor with hypot(x, y) > ~0.27 must
+    // cross the hull surface somewhere in the cycle, and each crossing drags a moving intersection
+    // line across the flank — the "tattered, see-through" join reported from play.
+    // This anchor sits at r ≈ 0.62. It CANNOT be made compliant by moving it: a 48-point sweep of
+    // (x, y, sink) with `flapclearance` as the oracle found no position that clears both crossing
+    // asserts, and no dragon in the shipped roster anchors membrane this far aft — that is why.
+    // The sink below is a real mitigation (it clears the sweep-in assert outright, which is the
+    // half the owner actually saw), not a cure; the cure is a STATIC body-side aft web so the
+    // crossing happens under body geometry. Specified in the buildsheet, not yet built.
+    // z is free either way, so the owner's ask — carry the trailing edge aft toward the tail —
+    // costs nothing here and is kept at 2.15.
     const B = [-S(0.34), K[1] - S(0.62), S(2.15)];                     // tail-root anchor, wing-local
     // ⚠ THE SEPARATION NOTCH. The plagiopatagium must NOT start at the last fingertip, or the last
     // bay and the body sheet blend into one continuous curve and the digit stops reading as a
@@ -1242,10 +1257,25 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
+    // ⚠ THE ROOT SINK — the fix for the "tattered, see-through wing-body join" reported from play,
+    // and the reason `flapclearance` exists. The inboard run of this sheet was authored GRAZING the
+    // flank (world x ≈ 0.55 against a ±0.54 hull), which is the one place a rigid surface must never
+    // sit: the sheet is welded to a rotating bone, so every pose in the cycle carries it across the
+    // hull surface, and each crossing drags a moving intersection line over the torso. Depth of
+    // burial is invisible — the torso occludes it at any depth — but a CROSSING is visible at 1px.
+    // So the inboard run is sunk past the swing amplitude (~0.5u at this radius) and stays buried
+    // through all five phases; the membrane now emerges from the flank at a fixed line, which is
+    // exactly the sealed root the house kit asks for (DRAGON-DESIGN §4.7).
+    // The ramp is superlinear so the OUTBOARD half of the trailing edge — the scalloped part the
+    // eye actually reads — is untouched; only the last third moves.
+    const ROOTSINK = S(0.66);
     const teN = 5, tePts = [], mPts = [];
     for (let k = 0; k <= teN; k++) {
-      const p = bz(Tlast, teCtrl, B, k / teN); tePts.push(p);
-      const m = lerp3(K, p, 0.55); m[1] -= S(0.13) * (0.4 + 0.6 * (k / teN)); mPts.push(m);
+      const t = k / teN;
+      const p = bz(Tlast, teCtrl, B, t);
+      p[0] -= ROOTSINK * Math.pow(t, 1.7);
+      tePts.push(p);
+      const m = lerp3(K, p, 0.55); m[1] -= S(0.13) * (0.4 + 0.6 * t); mPts.push(m);
     }
     for (let k = 0; k < teN; k++) {
       pushA(M.scorch, [K, mPts[k + 1], mPts[k]]);                      // taut inner band
