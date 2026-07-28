@@ -204,6 +204,23 @@
         }
         return _box.setFromObject(parts.head);
       }
+      // JUNCTION target — the wing-body weld, which no crop in this studio ever framed. The gate
+      // that needed it was a MOTION gate (flapclearance): the root gusset is welded to a rotating
+      // bone, so its join with the flank is the one region whose read changes through the cycle,
+      // and it was being judged from whole-body panels where it is a few pixels wide.
+      // A fixed box on the RIGHT wing pivot, scaled by the pivot's own offset from the midline so
+      // it sizes itself per creature: wide enough to hold the shoulder root, the flank it lands
+      // on, and the plagiopatagium's aft anchor, which runs well behind the joint.
+      if (part === 'junction') {
+        const pv = parts.wingPivotR || parts.wingYokeR || (parts.wingRigR && parts.wingRigR.isObject3D ? parts.wingRigR : null);
+        if (pv && pv.isObject3D) {
+          const p = pv.getWorldPosition(new THREE.Vector3());
+          const r = Math.max(0.6, Math.abs(p.x) * 2.4);
+          return _box.setFromCenterAndSize(
+            new THREE.Vector3(p.x * 0.75, p.y - r * 0.15, p.z + r * 1.05),
+            new THREE.Vector3(r * 1.7, r * 1.9, r * 3.0));
+        }
+      }
       if (part === 'wing' || part === 'wingR') {
         const roots = part === 'wingR' ? WING_R : WING_ROOTS;
         const b = new THREE.Box3(); b.makeEmpty();
@@ -275,6 +292,9 @@
       if (o.part === 'head') { dir = [-0.66, -0.12, -0.72]; fill = 0.92; target = 'head';   // front-left, a touch below level — looks INTO the cheek/eye zone
         if ((o.zoom || 1) > 1.4) aimFrac = [-0.22, -0.02, -0.34]; }   // detail crop: aim onto the NEAR (front-left) EYE on the cheek
       else if (o.part === 'wing') { dir = [0.45, 0.5, 0.62]; fill = 1.0; target = 'wingR'; }  // rear-above on ONE wing
+      // Junction: behind, above and slightly outboard — the shipped chase camera's own relationship
+      // to the weld, which is the only viewpoint whose verdict on it counts.
+      else if (o.part === 'junction') { dir = o.dir || [0.55, 0.42, 0.86]; fill = 0.95; target = 'junction'; }
       else { dir = BODY_ANGLES.rear.dir; fill = 0.95; target = 'whole'; }
       fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1, aimFrac);
       render();
