@@ -498,7 +498,16 @@ wristT  = 0.30      (MEDIAL — short arm, long hand)
 spoke-fan thesis in miniature.
 
 **Fingers:** lengths `1.00 / 0.76 / 0.58 / 0.40`, fan rake `1.05 rad`, droop `0.05/0.17/0.28/0.39`.
-**Cups:** `0.62 / 0.60 / 0.56`, pulled FULLY toward the knuckle in X and Z.
+**Cups:** `0.44 / 0.42 / 0.38`, pulled FULLY toward the knuckle in X and Z. ⚠ **CAP THE CUT.**
+At 0.62/0.60/0.56 the cuts ran past a third of local chord and the mid-wing went *perforated* —
+sky through the sail, skeletal in the lit top planform. The wing must read as **ONE SAIL** with
+bounded scallops (Tempest's read), not as a frame with holes. Separation notch likewise: pulling
+the plagiopatagium anchor back to 0.40 of the last finger opened a wedge deeper than half the
+local chord — the one cut deep enough to threaten silhouette integrity in motion. Held at 0.66.
+
+> **The law: deep enough to READ, never deep enough to HOLLOW.** Inter-finger cuts ≈ a third of
+> local chord; the scallop law (§11 P5a) is a FLOOR, not a target, and chasing it upward turns a
+> sail into a skeleton.
 
 ### 5.2 THE PLANFORM (chord + trailing edge)
 
