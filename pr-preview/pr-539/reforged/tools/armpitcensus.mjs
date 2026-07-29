@@ -19,6 +19,7 @@
 //   node tools/armpitcensus.mjs [key] [pose...]        (default fornax, all cycle phases)
 import { createRequire } from 'module';
 import { execFileSync } from 'child_process';
+import { writeFileSync } from 'fs';
 import { serve } from '../tests/serve.mjs';
 
 const require = createRequire(import.meta.url);
@@ -31,8 +32,10 @@ const pw = (() => {
 })();
 
 const argv = process.argv.slice(2);
-const key = argv[0] || 'fornax';
-const POSES = argv.length > 1 ? argv.slice(1) : ['glide', 'settle', 'downstroke'];
+const FLAGS = new Set(argv.filter((a) => a.startsWith('--')));
+const pos = argv.filter((a) => !a.startsWith('--'));
+const key = pos[0] || 'fornax';
+const POSES = pos.length > 1 ? pos.slice(1) : ['glide', 'settle', 'downstroke'];
 // `top` is where the armpit lives; `rear` is the shipped camera, where it counts double.
 const ANGLES = ['top', 'rear'];
 const MIN_PX = 20;   // below this it is a rasteriser speck at this resolution
@@ -87,9 +90,25 @@ for (const pose of POSES) {
         }
         holes.push({ area, w: x1 - x0 + 1, h: y1 - y0 + 1, x: x0, y: y0 });
       }
-      return { holes: holes.sort((a, b) => b.area - a.area), W, H };
-    }, { key, tier, pose, angle });
+      // --dump: paint the enclosed regions magenta over the render and hand back a data URL. A
+      // coordinate in a report cannot tell you WHAT BOUNDS the hole, and that is the only thing that
+      // determines the fix — two rounds were lost to geometry aimed at the wrong side of it.
+      let url = null;
+      if (o.dump) {
+        const ctx = c.getContext('2d');
+        const img = ctx.getImageData(0, 0, W, H);
+        for (let i = 0; i < N; i++) if (region[i] === 2) { img.data[i * 4] = 255; img.data[i * 4 + 1] = 0; img.data[i * 4 + 2] = 220; }
+        ctx.putImageData(img, 0, 0);
+        url = c.toDataURL('image/png');
+      }
+      return { holes: holes.sort((a, b) => b.area - a.area), W, H, url };
+    }, { key, tier, pose, angle, dump: FLAGS.has('--dump') });
 
+    if (r.url) {
+      const f = `/tmp/armpit-${key}-${pose}-${angle}.png`;
+      writeFileSync(f, Buffer.from(r.url.split(',')[1], 'base64'));
+      console.log(`    dumped ${f}`);
+    }
     const big = r.holes.filter((h) => h.area >= MIN_PX);
     const total = big.reduce((a, h) => a + h.area, 0);
     rows.push({ pose, angle, total, n: big.length, worst: big[0] });

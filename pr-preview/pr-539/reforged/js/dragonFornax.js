@@ -1302,6 +1302,13 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const SH0 = [-S(0.26), LE[0][4] + camber(0, 0), LE[0][2]];   // inboard of the joint: the fill has to start INSIDE the flank, not on it
       const mid1 = lerp3(SH0, K, 0.5), mid2 = lerp3(SH0, B, 0.5);
       const sag = [ (K[0] + B[0]) / 2 * 0.5 + SH0[0] * 0.5, (K[1] + B[1]) / 2 - S(0.10), (K[2] + B[2]) / 2 * 0.6 ];
+      // ⚠ NOT the armpit's boundary — measured, not assumed. This chord SH0→K runs under the
+      // ogee, so a lens-shaped gap between chord and curve was the obvious culprit; fanning the
+      // fill along the actual curve (+14 tris) moved the armpit census by ZERO pixels. Reverted.
+      // Three causes are now ruled out with the oracle rather than guessed at: the inboard gusset,
+      // the propatagium root bow (swept 0/0.55/1.0, no effect), and this chord. Whatever bounds
+      // that 3079 px region, it is none of them — see /tmp/armpit-fornax-glide-top.png via
+      // `node tools/armpitcensus.mjs fornax glide --dump`.
       pushA(M.scorch, [SH0, mid1, sag], [mid1, K, sag]);
       pushA(wingMat,  [SH0, sag, mid2], [mid2, sag, B], [sag, K, B]);
     }
