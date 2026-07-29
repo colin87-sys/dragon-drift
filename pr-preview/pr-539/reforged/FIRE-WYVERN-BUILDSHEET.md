@@ -1519,3 +1519,38 @@ flapclearance C1 clear, C3 pass, **C2 still failing** (that is B2's round, not t
 
 **Still open from the 2.0 gate:** B2 (static body-side aft web), B3 (delete the root straps for one
 continuous fillet web), B4 (value structure at the junction). Gated separately, by owner's call.
+
+---
+
+### I2 WING — B3, the root straps, 2026-07-28
+
+The owner named this twice — *"like spokes that collide with the body… there shouldn't even be
+spokes there anyway"* — and it sat as carried I4 item #1 for several rounds.
+
+**What they actually were.** Not spokes in the sense of bones. Three separate surfaces stacked along
+the same inboard run: the taut inner band, the outer band, and the CONNECTED KNIFE-EDGE strip, the
+last lifted `S(0.010)` clear of the sheet. Over the scalloped hand that band *is* the edge and earns
+its place. Along the root run it is a second surface floating just off the membrane, and at the
+grazing angles the flank view gives it, that lift opens a daylight seam — three stacked strands
+where the creature has one sheet.
+
+Compounding it, the mid-band's fold ran `0.4 + 0.6t`, *deepening* toward the body, which put the
+sharpest crease exactly at the weld. A fold is a form cue out on the sheet and a defect at the join.
+
+**The fix.** Two lines, no new geometry:
+- the knife-edge band now stops at the separation notch (`teRootStart`) and is not built along the
+  root run at all;
+- the mid-band drop tapers to nothing at the anchor (`0.95 − 0.85t`), so the root is one fillet.
+
+**Measured.** `holecensus` mean enclosed daylight **2.21% → 0.31%**, worst pose **8.86% → 1.16%** —
+against a premium bar (Tempest) of 3.65% / 8.70%. The lifted band along the root run was generating
+most of the enclosed daylight in the whole creature.
+
+**Gates after:** holecensus 2/2 · planform 12/12 · structural 16/16 · tricount 0 over budget ·
+flapclearance C1 clear, C3 pass, C2 still failing (B2's round).
+
+**A blind spot worth recording.** `holecensus` counts ENCLOSED daylight. The bars the critic saw at
+settle/flank have sky that is *open* to the outside, so the census reported 0 holes there and could
+not have caught them — the same shape of error as `flapclearance` measuring wing-vs-torso when the
+defect was wing-vs-wing. Two probes, two classes, and the art director found both. **Gates confirm a
+fix; they do not find the defect.**

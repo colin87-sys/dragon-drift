@@ -1284,7 +1284,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const p = bz(Tlast, teCtrl, B, t);
       p[0] -= ROOTSINK * Math.pow(t, 1.7);
       tePts.push(p);
-      const m = lerp3(K, p, 0.55); m[1] -= S(0.13) * (0.4 + 0.6 * t); mPts.push(m);
+      // ⚠ B3. The mid-band drop USED to deepen toward the body (0.4 + 0.6t), which put the sharpest
+      // crease exactly where the sheet meets the flank — so the inner band, the outer band and the
+      // lifted edge read as three stacked strands at grazing angles instead of one surface. Taper it
+      // to nothing at the anchor: the fold is a form cue out on the sheet and a defect at the weld.
+      const m = lerp3(K, p, 0.55); m[1] -= S(0.13) * (0.95 - 0.85 * t); mPts.push(m);
     }
     for (let k = 0; k < teN; k++) {
       pushA(M.scorch, [K, mPts[k + 1], mPts[k]]);                      // taut inner band
@@ -1301,6 +1305,12 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       pushA(M.scorch, [SH0, mid1, sag], [mid1, K, sag]);
       pushA(wingMat,  [SH0, sag, mid2], [mid2, sag, B], [sag, K, B]);
     }
+    // ⚠ B3. Record where the INBOARD run starts. The knife-edge below must not be built along it:
+    // over the scalloped hand the band IS the edge, but along the root run it is a second surface
+    // lifted off the sheet, and at the grazing angles the flank view gives it that lift opens a
+    // daylight seam — the carried I4 item's exact words, and half of what the owner has twice called
+    // "spokes". The band stops at the notch; the root run gets the fillet instead.
+    const teRootStart = trailing.length;
     for (let k = 1; k <= teN; k++) trailing.push(tePts[k]);
 
     // ── THE CONNECTED KNIFE-EDGE (§4.6) — ONE strip tracing the WHOLE scalloped trailing polyline.
@@ -1315,6 +1325,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       // "orphan geometry off the trailing edge". Break the strip instead of bridging.
       const GAPMAX = S(0.95);
       for (let s2 = 0; s2 < trailing.length - 1; s2++) {
+        if (s2 >= teRootStart - 1) break;          // B3: no lifted band along the root run
         const a = trailing[s2], b = trailing[s2 + 1];
         if (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) > GAPMAX) continue;
         const ai = inb(a), bi2 = inb(b);
