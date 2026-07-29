@@ -43,6 +43,14 @@ const STATES = [
   { name: 'bank',  bgs: ['pale'],                 angles: BODY_ANGLES },
   { name: 'face',  bgs: ['pale'],                 angles: FACE_ANGLES },
   { name: 'surge', bgs: ['dark'],                 angles: BODY_ANGLES },   // withheld-motif ignition, on the dark sky (matched pair vs glide-dark)
+  // ⚠ TWO CYCLE PHASES AT WHOLE-CREATURE FRAMING. Every state above is a HELD pose (glide) or a
+  // posture pin (fold/bank/face/surge) — so the only captures of the moving part of the beat were
+  // 4-6× junction crops, and a gate cannot tell a defect from a magnification artifact at that
+  // zoom. The art director asked for exactly this and was right to: settle and downstroke are the
+  // phases where the wing lies closest to the body, and they must be judged at the same framing as
+  // glide before anyone calls a crop-visible sliver shipped-visible.
+  { name: 'settle',     bgs: ['pale'], angles: BODY_ANGLES },
+  { name: 'downstroke', bgs: ['pale'], angles: BODY_ANGLES },
 ];
 
 mkdirSync('reforged-captures', { recursive: true });
