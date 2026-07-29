@@ -1531,6 +1531,22 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       for (let i = 0; i < NP; i++) {
         pushA(M.scorch, [prev[i][0], prev[i + 1][0], prev[i + 1][1]], [prev[i][0], prev[i + 1][1], prev[i][1]]);
       }
+      // ⚠ THE ARMPIT GUSSET. The sheet above runs shoulder→wrist and its bow is ZERO at t=0, so it
+      // collapses onto the bone exactly where the arm leaves the body — and inboard of that joint
+      // nothing filled forward of the spar at all. From the TOP PLANFORM that left a wedge of open
+      // sky driving inboard between the leading-edge batten arc and the root sheet, dying against
+      // the flank: an armpit you can see through, in the HELD glide pose, i.e. most of play.
+      // It is not a scallop-tuning problem — there was simply no geometry there. Close the triangle
+      // from the flank to the shoulder end of the propatagium. Anatomically this is where the
+      // propatagium anchors to the neck/shoulder, so the sheet now starts on the BODY, not on the
+      // joint, which is also what makes the arm read as emerging rather than beginning.
+      {
+        const XIN = -S(0.26);                       // inboard of the joint, buried in the flank
+        const yg = leY(0) + camber(0, 0);
+        const a0 = [XIN, yg - S(0.03), leZ(0) - S(0.05)];   // forward, on the flank
+        const a1 = [XIN, yg - S(0.05), leZ(0) + S(0.12)];   // aft, into the shoulder root
+        pushA(M.scorch, [a0, prev[0][0], prev[0][1]], [a0, prev[0][1], a1]);
+      }
     }
 
     // ── W4 THE WRIST BOSS (the Smaug move) ──────────────────────────────────────────────────────
