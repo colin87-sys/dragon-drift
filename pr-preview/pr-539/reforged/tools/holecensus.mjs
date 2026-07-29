@@ -48,7 +48,12 @@ const PHASES = WING_DEBUG_STATES.filter((s) => !['fold', 'bank'].includes(s));
 // Three camera poses. `rear` is the shipped chase cam — the verdict that ships. `threeq` is the
 // rear-¾ above, i.e. the chase cam in a hard bank, which is where the critic found the worst of it.
 // `side` is the elevation, where a crack between two members is widest and easiest to attribute.
-const VIEWS = ['rear', 'threeq', 'side'];
+// ⚠ `top` earns its place the hard way. The ARMPIT — enclosed sky between the batten arc and the
+// root sheet — is only visible looking straight down, so with rear/threeq/side alone this census
+// reported the wing clean while a hole 2× the premium bar's sat in the held glide pose. A fix was
+// then written, committed, and claimed against a panel nobody re-measured; the verification render
+// came back BYTE-IDENTICAL. Measure the view the defect lives in, or the gate certifies the fix.
+const VIEWS = ['rear', 'threeq', 'side', 'top'];
 const W = 900, H = 640;
 
 // Bands — see §BANDS at the foot of this file for the roster numbers behind them.
