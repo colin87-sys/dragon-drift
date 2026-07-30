@@ -58,6 +58,7 @@ for (const pose of POSES) {
       // `state` IS the pose here: glide/settle/downstroke are all STATE entries using BODY_ANGLES,
       // so one dsRender gives the exact panel the contact sheet builds.
       window.dsRender({ key: o.key, tier: o.tier, state: o.pose, bg: 'pale', angle: o.angle });
+      if (o.hide && o.hide.length) window.dsHide(o.hide);
       const gl = document.getElementById('gl');
       const c = document.createElement('canvas');
       c.width = gl.width; c.height = gl.height;
@@ -102,7 +103,8 @@ for (const pose of POSES) {
         url = c.toDataURL('image/png');
       }
       return { holes: holes.sort((a, b) => b.area - a.area), W, H, url };
-    }, { key, tier, pose, angle, dump: FLAGS.has('--dump') });
+    }, { key, tier, pose, angle, dump: FLAGS.has('--dump'),
+         hide: [...FLAGS].filter((f) => f.startsWith('--hide=')).flatMap((f) => f.slice(7).split(',')) });
 
     if (r.url) {
       const f = `/tmp/armpit-${key}-${pose}-${angle}.png`;

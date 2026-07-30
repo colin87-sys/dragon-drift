@@ -1554,3 +1554,42 @@ settle/flank have sky that is *open* to the outside, so the census reported 0 ho
 not have caught them — the same shape of error as `flapclearance` measuring wing-vs-torso when the
 defect was wing-vs-wing. Two probes, two classes, and the art director found both. **Gates confirm a
 fix; they do not find the defect.**
+
+---
+
+### I2 WING — the armpit, located by elimination (2026-07-29)
+
+Rounds 3 and 4 spent four geometry edits on this hole and moved it by **exactly zero pixels** each
+time: the inboard gusset, the propatagium root bow (swept 0/0.55/1.0), the chord-to-curve fan on the
+shoulder fill, and a cervical sheet forward of the leading edge. Every one verifiably built — the
+tri count rose each time — and the browser was demonstrably reloading the file, because recolouring
+the materials changed the dump. Four misses in a row is not four bad guesses; it is a wrong model of
+where the region sits.
+
+**So it was located by ELIMINATION instead of by reasoning.** `dsHide` (new seam in
+`dragonstudio.html`) hides meshes by part tag and re-renders the same camera; `armpitcensus --hide=`
+drives it. If removing a surface makes the enclosed region MERGE with outside sky, that surface is
+a boundary.
+
+| hidden | armpit (top/glide) |
+|---|---|
+| *(none)* | 3079 px |
+| hull | 3357 px |
+| neck · seam · rim · shoulderRoot · saddle | **3079 px — no change at all** |
+| leg | 3022 px |
+| **wing** | **26 px** |
+
+**The hole is bounded entirely by WING geometry.** Not the torso, not the neck, not the scapular
+cowl. That refutes the art director's stated diagnosis ("terminated by a pale quad that does not
+reach the arc" — the cowl is `saddle`/`shoulderRoot`, and hiding either changes nothing) *and* the
+colour-dump reading that agreed with it. Both were plausible from a picture; neither survived the
+measurement.
+
+> **When a fix lands zero pixels twice, stop proposing causes and start removing candidates.** An
+> ablation costs one run per surface and returns a boundary, not a hypothesis. Four rounds of
+> reasoning from the code, two independent visual diagnoses, and both were wrong about which object
+> owned the edge.
+
+**Still open:** which wing surface. All wing geometry is tagged `wing`/`seam` and batches by
+material, so the part tagger cannot resolve it further — the next step is a per-material ablation,
+not another sheet. Do not add geometry for this until the owning surface is named.
