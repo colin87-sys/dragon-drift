@@ -1593,3 +1593,28 @@ measurement.
 **Still open:** which wing surface. All wing geometry is tagged `wing`/`seam` and batches by
 material, so the part tagger cannot resolve it further — the next step is a per-material ablation,
 not another sheet. Do not add geometry for this until the owning surface is named.
+
+**Per-material ablation — and why removal cannot finish the job.** The wing carries six materials
+(`#54504c` scorch 750 tris · `#1e1e20` 694 · `#8f8a84` ashLit 212 · `#28282b` memDeep 100 ·
+`#2a2a2c` wingOuter 54 · `#262629` memGlow 36). Hiding each in turn:
+
+| hidden | armpit |
+|---|---|
+| `#54504c` | 11783 px |
+| `#8f8a84` | 5714 px |
+| `#2a2a2c` | 4040 px |
+| `#1e1e20` | 3090 px |
+| `#28282b` · `#262629` | 3079 px (no change) |
+
+**No removal merges the region with outside sky** — every one either leaves it alone or makes the
+total worse, because deleting a surface exposes MORE background elsewhere. Ablation identified the
+boundary at part granularity (it is wing, definitively) but it is the wrong instrument one level
+down: subtraction cannot isolate a rim when subtraction also manufactures sky.
+
+> **An ablation answers "is this a boundary" only while the removed surface is not itself occluding
+> other background.** Inside a dense assembly that condition fails, and the method silently stops
+> working — it keeps returning numbers, they just no longer mean what they meant one level up.
+
+The next instrument is additive or geometric, not subtractive: render each material ALONE and test
+which one's silhouette contains the region's rim pixels, or unproject the region against the depth
+buffer to get its 3D extent directly. **Still do not add geometry until the owning surface is named.**
