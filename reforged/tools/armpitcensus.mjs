@@ -59,6 +59,8 @@ for (const pose of POSES) {
       // so one dsRender gives the exact panel the contact sheet builds.
       window.dsRender({ key: o.key, tier: o.tier, state: o.pose, bg: 'pale', angle: o.angle });
       if (o.hide && o.hide.length) window.dsHide(o.hide);
+      if (o.hideMat && o.hideMat.length) window.dsHideMat(o.hideMat);
+      if (o.listMats) return { mats: window.dsWingMats(), holes: [], W: 0, H: 0 };
       const gl = document.getElementById('gl');
       const c = document.createElement('canvas');
       c.width = gl.width; c.height = gl.height;
@@ -104,8 +106,11 @@ for (const pose of POSES) {
       }
       return { holes: holes.sort((a, b) => b.area - a.area), W, H, url };
     }, { key, tier, pose, angle, dump: FLAGS.has('--dump'),
-         hide: [...FLAGS].filter((f) => f.startsWith('--hide=')).flatMap((f) => f.slice(7).split(',')) });
+         hide: [...FLAGS].filter((f) => f.startsWith('--hide=')).flatMap((f) => f.slice(7).split(',')),
+         hideMat: [...FLAGS].filter((f) => f.startsWith('--hideMat=')).flatMap((f) => f.slice(10).split(',')),
+         listMats: FLAGS.has('--mats') });
 
+    if (r.mats) { console.log('  wing materials:'); for (const m of r.mats) console.log(`    ${m.hex}  ${m.tris} tris`); continue; }
     if (r.url) {
       const f = `/tmp/armpit-${key}-${pose}-${angle}.png`;
       writeFileSync(f, Buffer.from(r.url.split(',')[1], 'base64'));

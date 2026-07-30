@@ -290,6 +290,34 @@
     // geometry to close an enclosed hole tells you nothing if you are aiming at the wrong surface
     // (four attempts, zero pixels). Removing a candidate and watching the hole MERGE with outside
     // sky identifies the boundary in one run instead.
+    // List the distinct materials in the wing subtrees, by colour, with tri counts. The part tagger
+    // stops at `wing`/`seam` because the wing batches per MATERIAL, so a boundary inside the wing
+    // can only be named this way.
+    window.dsWingMats = () => {
+      const out = new Map();
+      for (const k of ['wingPivotL', 'wingPivotR']) {
+        const r = built && built.parts && built.parts[k];
+        if (r && r.isObject3D) r.traverse((o) => {
+          if (!o.isMesh || !o.material) return;
+          const hex = '#' + o.material.color.getHexString();
+          const n = (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+          out.set(hex, (out.get(hex) || 0) + n);
+        });
+      }
+      return [...out.entries()].map(([hex, tris]) => ({ hex, tris })).sort((a, b) => b.tris - a.tris);
+    };
+    // Hide by material colour — the resolution the part tag cannot reach.
+    window.dsHideMat = (hexes) => {
+      const set = new Set((hexes || []).map((h) => h.toLowerCase()));
+      if (!built) return false;
+      built.group.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        if (o.userData.__dsVis === undefined) o.userData.__dsVis = o.visible;
+        o.visible = set.has(('#' + o.material.color.getHexString()).toLowerCase()) ? false : o.userData.__dsVis;
+      });
+      render();
+      return true;
+    };
     window.dsHide = (tags) => {
       const set = new Set(tags || []);
       if (!built) return false;
