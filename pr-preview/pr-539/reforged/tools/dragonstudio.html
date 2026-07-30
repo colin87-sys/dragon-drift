@@ -286,6 +286,22 @@
     // A fill-the-frame PART crop (whole/wing/head, subject ≥60%) or a 4× detail crop (zoom). Each
     // part gets its own angle + fill so the subject actually FILLS the crop: the wing crop frames a
     // SINGLE (right) wing broadside; the head crop tightens onto the face.
+    // Hide meshes by their part tag and re-render the CURRENT camera. Diagnostic seam: adding
+    // geometry to close an enclosed hole tells you nothing if you are aiming at the wrong surface
+    // (four attempts, zero pixels). Removing a candidate and watching the hole MERGE with outside
+    // sky identifies the boundary in one run instead.
+    window.dsHide = (tags) => {
+      const set = new Set(tags || []);
+      if (!built) return false;
+      built.group.traverse((o) => {
+        if (!o.isMesh) return;
+        const t = o.userData && (o.userData.fornaxPart || o.userData.bodyPart);
+        if (o.userData.__dsVis === undefined) o.userData.__dsVis = o.visible;
+        o.visible = set.has(t) ? false : o.userData.__dsVis;
+      });
+      render();
+      return true;
+    };
     window.dsCrop = (o) => {
       const b = load(o.key, o.tier);
       applySurge(b, false);   // crops are never a surge state — reset any surge mutation from a prior sheet render
