@@ -1244,7 +1244,17 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // crossing happens under body geometry. Specified in the buildsheet, not yet built.
     // z is free either way, so the owner's ask — carry the trailing edge aft toward the tail —
     // costs nothing here and is kept at 2.15.
-    const B = [-S(0.34), K[1] - S(0.62), S(2.15)];                     // tail-root anchor, wing-local
+    // ⚠ THE ANCHOR COMES FORWARD — to the FATTEST hull station, which is the variable the 48-point
+    // sweep never moved. That sweep varied (x, y, sink) and concluded the crossing was structural:
+    // a vertex at r≈0.62 from the roll axis against a hull surface ~0.27 away must cross. The radius
+    // maths was right and the conclusion was wrong, because it held z FIXED. z does not enter the
+    // arc radius — but it decides WHICH HULL STATION the arc is measured against. At z 2.15 the hull
+    // is rx≈0.31; at the shoulder girdle it is rx≈0.60, nearly double. Tempest is exempt from the
+    // surfacing assert for that reason and no other: its anchor (B = [-0.34,-0.42,0.10], ABSOLUTE,
+    // not ×hs — 0.024 of half-span aft) is buried in the deepest station in its body.
+    // The owner's aft reach is not abandoned, it CHANGES OWNER: a static body-frame fairing carries
+    // the line to the tail root, where it cannot cross a hull it does not rotate against.
+    const B = [-S(0.30), K[1] - S(0.48), S(0.45)];                     // shoulder-girdle anchor, wing-local
     // ⚠ THE SEPARATION NOTCH. The plagiopatagium must NOT start at the last fingertip, or the last
     // bay and the body sheet blend into one continuous curve and the digit stops reading as a
     // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
@@ -1277,12 +1287,10 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // exactly the sealed root the house kit asks for (DRAGON-DESIGN §4.7).
     // The ramp is superlinear so the OUTBOARD half of the trailing edge — the scalloped part the
     // eye actually reads — is untouched; only the last third moves.
-    const ROOTSINK = S(0.66);
     const teN = 5, tePts = [], mPts = [];
     for (let k = 0; k <= teN; k++) {
       const t = k / teN;
       const p = bz(Tlast, teCtrl, B, t);
-      p[0] -= ROOTSINK * Math.pow(t, 1.7);
       tePts.push(p);
       // ⚠ B3. The mid-band drop USED to deepen toward the body (0.4 + 0.6t), which put the sharpest
       // crease exactly where the sheet meets the flank — so the inner band, the outer band and the
@@ -1290,27 +1298,32 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       // to nothing at the anchor: the fold is a form cue out on the sheet and a defect at the weld.
       const m = lerp3(K, p, 0.55); m[1] -= S(0.13) * (0.95 - 0.85 * t); mPts.push(m);
     }
+    // ⚠ A GRADUATED RAMP, not one step. `k < 2 ? scorch : wingMat` put a single hard boundary —
+    // L 0.09 → 0.026, a 3.5× value cliff — along the WHOLE length of the sheet, coincident with the
+    // mPts fold. A fold and a 3.5× cliff on the same line is a strand by construction, whatever the
+    // silhouette does. Tempest indexes a 4-tier ramp by station (dragonTempest.js:776-777) so the
+    // inner and outer bands step at DIFFERENT stations: no single boundary is both long and
+    // high-contrast, and the steps migrate along the sheet instead of drawing a seam down it.
+    const TIER = [M.scorch, wingMat, memDeep];
+    const tier = (v) => TIER[Math.max(0, Math.min(2, Math.round(v)))];
     for (let k = 0; k < teN; k++) {
-      pushA(M.scorch, [K, mPts[k + 1], mPts[k]]);                      // taut inner band
-      pushA(k < 2 ? M.scorch : wingMat, [mPts[k], mPts[k + 1], tePts[k + 1]], [mPts[k], tePts[k + 1], tePts[k]]);
+      const fw = k / teN;                                              // 0 at the wrist, 1 at the anchor
+      pushA(tier(0.15 + 1.0 * fw), [K, mPts[k + 1], mPts[k]]);         // taut inner band
+      pushA(tier(0.95 + 1.1 * fw), [mPts[k], mPts[k + 1], tePts[k + 1]], [mPts[k], tePts[k + 1], tePts[k]]);
     }
-    // ⚠ THE SHOULDER FILL — the triangle shoulder→wrist→hip. Without it the membrane begins at the
-    // WRIST and the armpit is an open hole: the probe measured a root chord 0.44x the trunk against
-    // a 1.0 floor, i.e. failure #5 (bolted-on wing) and the spoon wing at once. Tempest fills the
-    // same triangle (`[ROOT, K, B]`) and that is what makes its wing look grown rather than hung.
+    // ⚠ THE SHOULDER FILL — REBUILT TO TEMPEST'S TOPOLOGY, and this is where the owner's "spokes"
+    // actually came from. It used to be a 5-triangle fan around a dropped `sag` point, in TWO
+    // materials, with `mid2 = lerp3(SH0, B, 0.5)` and `sag` both DERIVED FROM THE AFT ANCHOR. When
+    // the anchor was pushed to z 2.15 to carry the trailing edge toward the tail, those two
+    // armpit-sized triangles silently stretched into 3-unit straps running the whole flank at a
+    // depth the membrane does not share — slicing through the torso and emerging on the dorsal
+    // surface and under the belly. A per-surface pixel census put this fill at 24-29% of every
+    // junction pixel at every phase. The spokes were added by a change made somewhere else.
+    // Tempest fills the same corner with ONE fan, ONE material, sharing its edges with the
+    // plagiopatagium rather than stacking a second plane behind it (dragonTempest.js:779).
     {
-      const SH0 = [-S(0.26), LE[0][4] + camber(0, 0), LE[0][2]];   // inboard of the joint: the fill has to start INSIDE the flank, not on it
-      const mid1 = lerp3(SH0, K, 0.5), mid2 = lerp3(SH0, B, 0.5);
-      const sag = [ (K[0] + B[0]) / 2 * 0.5 + SH0[0] * 0.5, (K[1] + B[1]) / 2 - S(0.10), (K[2] + B[2]) / 2 * 0.6 ];
-      // ⚠ NOT the armpit's boundary — measured, not assumed. This chord SH0→K runs under the
-      // ogee, so a lens-shaped gap between chord and curve was the obvious culprit; fanning the
-      // fill along the actual curve (+14 tris) moved the armpit census by ZERO pixels. Reverted.
-      // Three causes are now ruled out with the oracle rather than guessed at: the inboard gusset,
-      // the propatagium root bow (swept 0/0.55/1.0, no effect), and this chord. Whatever bounds
-      // that 3079 px region, it is none of them — see /tmp/armpit-fornax-glide-top.png via
-      // `node tools/armpitcensus.mjs fornax glide --dump`.
-      pushA(M.scorch, [SH0, mid1, sag], [mid1, K, sag]);
-      pushA(wingMat,  [SH0, sag, mid2], [mid2, sag, B], [sag, K, B]);
+      const SH0 = [-S(0.26), LE[0][4] + camber(0, 0), LE[0][2]];   // inboard of the joint: the fill starts INSIDE the flank
+      pushA(M.scorch, [SH0, [0, leY(0) + camber(0, 0), leZ(0)], K], [SH0, K, B]);
     }
     // ⚠ B3. Record where the INBOARD run starts. The knife-edge below must not be built along it:
     // over the scalloped hand the band IS the edge, but along the root run it is a second surface
@@ -1538,22 +1551,9 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       for (let i = 0; i < NP; i++) {
         pushA(M.scorch, [prev[i][0], prev[i + 1][0], prev[i + 1][1]], [prev[i][0], prev[i + 1][1], prev[i][1]]);
       }
-      // ⚠ THE ARMPIT GUSSET. The sheet above runs shoulder→wrist and its bow is ZERO at t=0, so it
-      // collapses onto the bone exactly where the arm leaves the body — and inboard of that joint
-      // nothing filled forward of the spar at all. From the TOP PLANFORM that left a wedge of open
-      // sky driving inboard between the leading-edge batten arc and the root sheet, dying against
-      // the flank: an armpit you can see through, in the HELD glide pose, i.e. most of play.
-      // It is not a scallop-tuning problem — there was simply no geometry there. Close the triangle
-      // from the flank to the shoulder end of the propatagium. Anatomically this is where the
-      // propatagium anchors to the neck/shoulder, so the sheet now starts on the BODY, not on the
-      // joint, which is also what makes the arm read as emerging rather than beginning.
-      {
-        const XIN = -S(0.26);                       // inboard of the joint, buried in the flank
-        const yg = leY(0) + camber(0, 0);
-        const a0 = [XIN, yg - S(0.03), leZ(0) - S(0.05)];   // forward, on the flank
-        const a1 = [XIN, yg - S(0.05), leZ(0) + S(0.12)];   // aft, into the shoulder root
-        pushA(M.scorch, [a0, prev[0][0], prev[0][1]], [a0, prev[0][1], a1]);
-      }
+      // (The W3 ARMPIT GUSSET is gone. It measured 2-339 px of the junction — 0.003-0.5% — i.e.
+      // visually nonexistent, which is why five successive edits aimed at this region moved the
+      // armpit census by exactly zero pixels. It was never the thing anyone was looking at.)
     }
 
     // ── W4 THE WRIST BOSS (the Smaug move) ──────────────────────────────────────────────────────
