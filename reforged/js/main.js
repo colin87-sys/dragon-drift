@@ -7,6 +7,7 @@ import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, setEmpyreanQuality, godrayMul, godrayTint, godrayBreak } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug, surgeCascadeDebug, surgeCascadeSample, surgeFlareSample, surgeDecaySample, surgeGutterSample } from './dragon.js';
 import { setVitals, setSurge } from './dragonBond.js';
+import { setCreatureShading } from './dragonSurfaceShader.js';   // N18 creature shading (shared live uniform)
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
 import { initBossBar, updateBossBar } from './bossBar.js';
@@ -234,6 +235,9 @@ initContactShadow(scene);
 if (urlParams.has('shadow') || gfxPref.heroShadow === true) setContactShadowSilhouette(true);
 // N15 prop AO: apply the saved toggle; ?ao forces on.
 if (urlParams.has('ao') || gfxPref.propAO === true) setPropAO(true);
+// N18 creature shading: apply the saved toggle; ?dsurf forces on. Purely a shared
+// uniform, so it can be flipped after createDragon with no rebuild.
+if (urlParams.has('dsurf') || gfxPref.dragonShading === true) setCreatureShading(true);
 // N8 atmosphere: apply the saved toggle; ?atmos forces on.
 if (urlParams.has('atmos') || gfxPref.atmosphere === true) setAtmosphereEnabled(true);
 // N9 sky clouds: apply the saved toggle; ?clouds forces on.
@@ -890,6 +894,7 @@ ui.init({
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
     else if (kind === 'propAO') setPropAO(value);
+    else if (kind === 'dragonShading') setCreatureShading(value);   // N18: live shared uniform, no rebuild
     else if (kind === 'atmosphere') setAtmosphereEnabled(value);
     else if (kind === 'skyClouds') setSkyCloudsEnabled(value);
     else if (kind === 'waterSwell') setWaterSwell(value);

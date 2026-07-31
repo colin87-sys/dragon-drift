@@ -604,6 +604,44 @@ run local/on-demand; only math + plumbing tests gate CI).
   shader initiative — schedule it in Phase 2/3 alongside the world work, and treat every lighting upgrade (N5/N7)
   as raising the bar the props must meet. (Owner-flagged, 2026-07-11.)
 
+- **N18 — Creature shading: the dragon surface learns to carve DARK.** *(Owner-prompted, 2026-07-30 —
+  "why do my dragons still look poor?")* An audit of `dragonSurfaceShader.js` found the creature surface is
+  **structurally incapable of occlusion**: every patch either does `totalEmissiveRadiance += …` or tweaks
+  `roughnessFactor`, so no patch can make any pixel *darker* than the un-patched material. Detail is mostly
+  darkness — a scale reads because its crevice is dark, a body reads solid because its belly is dim — so every
+  past tuning pass could only reach for more glow, which is exactly the "LED-strip glow / flat-black poverty"
+  failure `DRAGON-DESIGN.md` names on sight. **N15 solved this for the world (prop AO, SHIP 8/10); creatures
+  never got it.** The audit also surfaced a **live bug**: `dragonTorso.js` built its material with
+  `bodyMat.clone()`, and r160's `Material.copy` carries neither `onBeforeCompile` nor `customProgramCacheKey`
+  (verified in the vendored source + proven directly) — so the fresnel rim and every blueprint surface patch
+  were **silently dropped on the biggest mesh of most of the roster**, Azure included. The damage is *patchy*,
+  which reads worse than uniform: whether a mesh kept its rim came down to whether its call site happened to
+  clone, so one dragon renders with its skull and root rimmed and its torso, head shells and snout not
+  (direct: `dragonDraconicHead.js:68,:306`, `dragonTorso.js:274` · cloned: `dragonTorso.js:150`,
+  `dragonDraconicHead.js:195,:259,:305,:958`, `dragonJadeSerpent.js:343`, `dragonFaceted.js` ×9). Same r160 trap
+  N17/PR-3 logged from the uniform side; never propagated to creatures.
+  - **✓ Landed — N18 (CREATURE SHADING toggle + `?dsurf`, default OFF).** Three parts, one shared live uniform:
+    (1) **`bellyAOPatch`** — object-space down-facing occlusion (`objectNormal`, already skinned at the
+    `<begin_vertex>` seam, so the belly stays the belly as the tail coils); (2) a **cavity term** on
+    `cellularScalesNormal` reusing the height field the relief already computes, so crevices go dark instead of
+    merely tilting; (3) **`cloneComposed`** — clone + re-apply the recorded patch stack (tracked in a module
+    `WeakMap`, *not* `userData`, which `Material.copy` JSON-round-trips). All three multiply `diffuseColor.rgb`
+    at the existing `<emissivemap_fragment>` seam — still live there, consumed by `<lights_physical_fragment>`
+    after us — so the darkening flows through real lighting: **no new pass, no new seam, zero per-frame cost.**
+    Identity via a **snapshot-and-`mix` block gate** (`mix(a,b,0) == a` exactly, over all four mutable values) —
+    the block-level analogue of N15's attribute identity, which is what lets a restored patch stack ship inert
+    and light up live with no rebuild. Hero = **Azure** (`parts.surface.shader: ['bellyAO']`). Verified:
+    `tests/creatureao.mjs` 26/26 (incl. an explicit regression assert that plain `.clone()` still drops patches,
+    and object-identity asserts on the shared uniform — a by-value thread would silently disable the toggle),
+    `tests/surfaceshader.mjs` 9/9, `tricount` 0 over budget. Lesson:
+    `2026-07-30-graphics-creature-shading-can-only-add-light.md`.
+    **⚠ Gate 1 + Gate 2 NOT RUN** (session configured without sub-agent spawning) — required before merge.
+    **Owner judges on the preview** (`?dsurf=1` A/B): belly depth on the chase cam, and whether the restored
+    torso rim reads as contour or as an outline. **Scope is deliberately `dragonTorso.js:150` only** (hero-first;
+    the other clone sites listed above are the migration list for after sign-off — each is the same one-word
+    change). Follow-ups: roster `bellyAO` migration by declaration; a normal-space **crease** term for the
+    wing-root / neck junctions the down-facing term can't reach.
+
 - **N17 — Premium collectibles: the "Skyforged glass" marker system.** *(Owner-approved plan, 2026-07-13 — must
   not be forgotten.)* The owner flew the Sky Canyon **flow** run and rejected the flow gate as *"tacky and
   cheap,"* and separately noted the rings/powerups don't read premium. A high-effort Fable art-direction pass
