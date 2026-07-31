@@ -1702,43 +1702,66 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   // whole trailing line — wingtip → hand scallops → arm sheet → flank → tail root — reads as one
   // rhythm that opens up instead of two objects meeting.
   {
-    const NZ = 13, z0 = S(-0.55), z1 = S(1.58);         // stops short of tailAnchor.z so the tail loft caps it
-    const WMAX = S(0.40);
-    // Three lobes, chords GROWING aft (the hand's decaying rank run backwards). The deepest cusp
-    // sits at the hip so the abducted haunch passes THROUGH the notch — the femoral notch, which
-    // removes the leg collision by design rather than by clearance tuning.
-    const lobe = (u) => {                                // u 0..1 along the run
-      const CUSP = [0.10, 0.16, 0.24], L = CUSP.length;
+    const NZ = 15, z0 = S(-0.55), z1 = S(1.58);         // stops short of tailAnchor.z so the tail loft caps it
+    // ⚠ WMAX 0.40 → 0.22. At 0.40 the sheet covered ~16.5% of the junction crop and buried the
+    // plated flank — the seam slots and chine rail that cost five earlier rounds to earn. A fairing
+    // that hides the body it belongs to has not joined the body, it has replaced it.
+    const WMAX = S(0.22);
+    // ⚠ THE SCALLOPS, REBUILT. The first version dipped only 0.10-0.24 of local width while the
+    // growth term rose monotonically — so the dips never actually pulled the edge back in and the
+    // whole run measured 6% deviation from a straight chord: one swell and a spike, not a rank.
+    // A scallop is only a scallop if the width is NON-MONOTONIC: the valley must cut back INSIDE
+    // the previous peak. Cusps now run 0.30/0.38/0.46 of local width against a growth exponent
+    // that is deliberately gentle, so each valley undercuts the peak before it.
+    // The rank still GROWS aft (the owner's "increasing proportional scallops") — it is the PEAKS
+    // that grow, while the valleys keep cutting in, which is what reads as a rhythm opening up.
+    const lobe = (u) => {
+      const CUSP = [0.30, 0.38, 0.46], L = CUSP.length;
       const q = Math.min(L - 1e-6, u * L), li = Math.floor(q), f = q - li;
-      return 1 - CUSP[li] * Math.sin(Math.PI * f);       // ≥4 segments per lobe falls out of NZ=13
+      return 1 - CUSP[li] * Math.sin(Math.PI * f);
     };
-    const fair = { top: [], under: [], rim: [] };
+    const fair = { lit: [], mid: [], deep: [], rim: [] };
     const ring = (u) => {
       const z = z0 + (z1 - z0) * u;
       const hw = attach.halfWidthAt(z), keel = attach.keelTopAt(z);
       const yr = attach.bodyMidY + 0.55 * (keel - attach.bodyMidY);    // upper-flank chine, above the haunch
-      // width grows monotonically aft and is ZERO at the forward end — no start edge to read as a
-      // bolted-on fin (failure #5); the sheet emerges from the flank instead of beginning on it.
-      const w = WMAX * Math.pow(u, 0.85) * lobe(u);
-      const root = [hw * 0.92, yr, z];
-      const free = [hw * 0.92 + w * 0.82, yr - w * 0.58, z];           // canted ~35° below horizontal
-      return { root, free, w };
+      const w = WMAX * Math.pow(u, 0.62) * lobe(u);      // zero width forward: no start edge to read as a fin
+      // ⚠ THE AFT END MUST NOT OUTHANG THE HULL. At a 0.58 cant the tip hung ~200px below the
+      // creature's own belly line and terminated on nothing — a proud element that does not visibly
+      // meet a surface is debris, by this sheet's own law. The cant relaxes aft so the free edge
+      // rises back toward the tail loft and the hull keeps ownership of the lower outline.
+      const cant = 0.52 * (1 - 0.72 * u);
+      return { root: [hw * 0.92, yr, z], free: [hw * 0.92 + w * 0.86, yr - w * cant, z], w };
     };
+    const lerpP = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     for (let i = 0; i < NZ - 1; i++) {
       const A = ring(i / (NZ - 1)), B2 = ring((i + 1) / (NZ - 1));
       const D = S(0.05);                                  // a WEDGE, never a plane (failure #3)
       const dn = (p) => [p[0], p[1] - D, p[2]];
+      // ⚠ THREE VALUE TIERS ACROSS THE CHORD, root LIT → free edge DARK. The first version was one
+      // flat material: 85% of its pixels in a single luminance bin against a torso that spreads
+      // across four. One value plus one bright edge is the vocabulary of a MEMBRANE, and the whole
+      // point of this part is that it must read as BODY. The hull's own ladder now continues onto
+      // it, so the eye cannot find the boundary between flank and fairing.
+      const BAND = [0, 0.38, 0.72, 1];
+      const SINK = [fair.lit, fair.mid, fair.deep];
       for (const sd of [1, -1]) {
         const m = (p) => [sd * p[0], p[1], p[2]];
-        fair.top.push([m(A.root), m(B2.root), m(B2.free)], [m(A.root), m(B2.free), m(A.free)]);
-        fair.under.push([m(dn(A.root)), m(dn(B2.free)), m(dn(B2.root))], [m(dn(A.root)), m(dn(A.free)), m(dn(B2.free))]);
+        for (let b = 0; b < 3; b++) {
+          const a0 = lerpP(A.root, A.free, BAND[b]), a1 = lerpP(A.root, A.free, BAND[b + 1]);
+          const b0 = lerpP(B2.root, B2.free, BAND[b]), b1 = lerpP(B2.root, B2.free, BAND[b + 1]);
+          SINK[b].push([m(a0), m(b0), m(b1)], [m(a0), m(b1), m(a1)]);
+          SINK[b].push([m(dn(a0)), m(dn(b1)), m(dn(b0))], [m(dn(a0)), m(dn(a1)), m(dn(b1))]);
+        }
         fair.rim.push([m(A.free), m(B2.free), m(dn(B2.free))], [m(A.free), m(dn(B2.free)), m(dn(A.free))]);
       }
     }
-    // TORSO values, never membrane values — the fairing must read as BODY, because it does not fold
-    // when the wing does and an orphaned membrane sheet is exactly what this creature must not grow.
-    group.add(tagPart(flatTriMesh(fair.top, M.char), 'fairing'));
-    group.add(tagPart(flatTriMesh(fair.under, M.scorch), 'fairing'));
+    // TORSO values, never membrane values — the fairing does not fold when the wing does, so if it
+    // speaks the membrane's language it reads as an orphaned sheet. Root catches light like the
+    // flank above it; the free edge sinks to the hull's darkest tier.
+    group.add(tagPart(flatTriMesh(fair.lit, M.scorch), 'fairing'));
+    group.add(tagPart(flatTriMesh(fair.mid, M.char), 'fairing'));
+    group.add(tagPart(flatTriMesh(fair.deep, M.seam), 'fairing'));
     group.add(tagPart(flatTriMesh(fair.rim, M.rim), 'fairing'));
   }
   if (sadAcc.s.length) {
