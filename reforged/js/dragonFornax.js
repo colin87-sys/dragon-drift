@@ -1690,6 +1690,57 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       length: Math.hypot(T[1], T[2]), tipObj: marker,
     });
   }
+  // ── W8 THE AFT FAIRING — the owner's aft reach, moved to an owner that can hold it ────────────
+  // The trailing edge was asked to meet the body "toward the back of the torso, more towards the
+  // tail". Carried on the WING that is impossible: the membrane is welded to a rolling bone, so an
+  // aft anchor traces an arc against a thin hull station and must cross it every cycle — and the
+  // fill triangles derived from that anchor became the "spokes" the owner named three times.
+  // So the aft run changes OWNER. This is static in the BODY frame (built on `group`, never on a
+  // pivot), so it cannot cross a hull it does not rotate against, cannot strand, and cannot be a
+  // spoke. DRAGON-DESIGN §4.8 already says the cowl works this way; this is that, carried aft.
+  // It is also where the second standing ask lands: scallops in a GROWING rank running aft, so the
+  // whole trailing line — wingtip → hand scallops → arm sheet → flank → tail root — reads as one
+  // rhythm that opens up instead of two objects meeting.
+  {
+    const NZ = 13, z0 = S(-0.55), z1 = S(1.58);         // stops short of tailAnchor.z so the tail loft caps it
+    const WMAX = S(0.40);
+    // Three lobes, chords GROWING aft (the hand's decaying rank run backwards). The deepest cusp
+    // sits at the hip so the abducted haunch passes THROUGH the notch — the femoral notch, which
+    // removes the leg collision by design rather than by clearance tuning.
+    const lobe = (u) => {                                // u 0..1 along the run
+      const CUSP = [0.10, 0.16, 0.24], L = CUSP.length;
+      const q = Math.min(L - 1e-6, u * L), li = Math.floor(q), f = q - li;
+      return 1 - CUSP[li] * Math.sin(Math.PI * f);       // ≥4 segments per lobe falls out of NZ=13
+    };
+    const fair = { top: [], under: [], rim: [] };
+    const ring = (u) => {
+      const z = z0 + (z1 - z0) * u;
+      const hw = attach.halfWidthAt(z), keel = attach.keelTopAt(z);
+      const yr = attach.bodyMidY + 0.55 * (keel - attach.bodyMidY);    // upper-flank chine, above the haunch
+      // width grows monotonically aft and is ZERO at the forward end — no start edge to read as a
+      // bolted-on fin (failure #5); the sheet emerges from the flank instead of beginning on it.
+      const w = WMAX * Math.pow(u, 0.85) * lobe(u);
+      const root = [hw * 0.92, yr, z];
+      const free = [hw * 0.92 + w * 0.82, yr - w * 0.58, z];           // canted ~35° below horizontal
+      return { root, free, w };
+    };
+    for (let i = 0; i < NZ - 1; i++) {
+      const A = ring(i / (NZ - 1)), B2 = ring((i + 1) / (NZ - 1));
+      const D = S(0.05);                                  // a WEDGE, never a plane (failure #3)
+      const dn = (p) => [p[0], p[1] - D, p[2]];
+      for (const sd of [1, -1]) {
+        const m = (p) => [sd * p[0], p[1], p[2]];
+        fair.top.push([m(A.root), m(B2.root), m(B2.free)], [m(A.root), m(B2.free), m(A.free)]);
+        fair.under.push([m(dn(A.root)), m(dn(B2.free)), m(dn(B2.root))], [m(dn(A.root)), m(dn(A.free)), m(dn(B2.free))]);
+        fair.rim.push([m(A.free), m(B2.free), m(dn(B2.free))], [m(A.free), m(dn(B2.free)), m(dn(A.free))]);
+      }
+    }
+    // TORSO values, never membrane values — the fairing must read as BODY, because it does not fold
+    // when the wing does and an orphaned membrane sheet is exactly what this creature must not grow.
+    group.add(tagPart(flatTriMesh(fair.top, M.char), 'fairing'));
+    group.add(tagPart(flatTriMesh(fair.under, M.scorch), 'fairing'));
+    group.add(tagPart(flatTriMesh(fair.rim, M.rim), 'fairing'));
+  }
   if (sadAcc.s.length) {
     group.add(tagPart(flatTriMesh(sadAcc.s, M.scorch), 'saddle'));
     group.add(tagPart(flatTriMesh(sadAcc.r, M.rim), 'saddle'));
