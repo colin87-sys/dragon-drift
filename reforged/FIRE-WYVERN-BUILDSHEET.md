@@ -1618,3 +1618,32 @@ down: subtraction cannot isolate a rim when subtraction also manufactures sky.
 The next instrument is additive or geometric, not subtractive: render each material ALONE and test
 which one's silhouette contains the region's rim pixels, or unproject the region against the depth
 buffer to get its 3D extent directly. **Still do not add geometry until the owning surface is named.**
+
+---
+
+### I2 — the "hip hole" is not at the hip (2026-07-31)
+
+Round 5 (2.3/5) named a 24×4 px block of pure sky punched through the hull at the hip, present in
+every pose, in the shipped camera, for two rounds. Ablation at part granularity pointed at the tail:
+hiding `tail` dropped the rear-chase enclosed sky 341 → 77 px, hiding `hull` → 165 px. The obvious
+mechanism followed — the hull's last station is rx 0.11 while the tail's first bone starts at
+R0 0.26, so the tail is FATTER than the hull it leaves and an open annulus sits between them.
+
+A lapped collar was built for exactly that annulus (a flare from the hull's aft station out past the
+tail root, pushed aft so the tail seats inside it). **It moved the worst hole 264 → 217 px and did
+not close it — and it added a visible flat DISC on the dorsal aft body, a plate stuck on.** Reverted.
+
+**The dump then showed why: the holes are not where the report's coordinates suggested.** Painting
+every enclosed region magenta over the render puts them in three places — thin slivers along BOTH
+WING ROOTS, and the largest as a crescent UNDER THE BELLY. The tail join is a contributor, not the
+site. Ablation said "tail is a boundary" and that was true; it does not follow that the tail join is
+where the hole lives, because removing the tail also removes what occludes the belly crescent.
+
+> **A boundary is not a location.** Ablation identifies what bounds a region; only looking identifies
+> where it is. This is the second time this creature has cost a round to that distinction — the first
+> was five edits aimed at an armpit that measured 2–339 px.
+
+**Also standing, and not yet acted on:** the two shipped gates report green on this. `holecensus`
+measures enclosed sky inside the WING outline and these are in the body; `flapclearance` measures the
+wing striking the torso and these are gaps, not collisions. Whatever closes these holes must be
+gated by a body-side census that does not yet exist.
