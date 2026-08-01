@@ -1089,13 +1089,21 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // end up pointing FORWARD of it and the hand stops agreeing with the arm. Vesper derives
     // phi0 = atan2(F0 - K) and rakes each finger aft from THERE, so the whole hand inherits the
     // curve's direction — which is what makes every line in the wing agree on one flow.
-    const LENF = [1.00, 0.76, 0.58, 0.40];      // dominant + decay, shallower than before: the hand read "starved and vestigial" against Tempest, which keeps chord out through mid-hand
+    // ⚠ THE CARPAL SWELL. The wing was not a delta — the round-7 diagnosis was wrong, and wrong in a
+    // way worth recording: it compared chord profiles NORMALISED to each wing's own widest chord,
+    // which divides the defect out. Normalised, this wing held 0.98 chord at 60% span against
+    // vesper's 0.60 and looked fine. In ABSOLUTE terms it was a narrow constant-width STRAP —
+    // chord-to-span 0.325 against a roster floor of 0.503.
+    // Fingers 1-2 now carry nearly the dominant's length, decaying only at the last: a hand that
+    // swells at the carpus and releases toward the tip, which is the only shape that raises breadth
+    // and lowers solidity together. Uniform widening moves them the same way and fails both.
+    const LENF = [1.00, 0.95, 0.86, 0.66];
     // ⚠ CAP THE RAKE SO NO FINGER ENTERS THE BODY CORRIDOR. At 1.05 rad the aft finger sat at 96.6°
     // ABSOLUTE — pointing backward-inboard — so its bone swept into the torso on every downstroke and
     // read in-game as a spoke colliding with the body. Inboard of the hand there should be no bone at
     // all: that region is the plagiopatagium SHEET (§4.7's root gusset). 0.73 rad puts the aft finger
     // at ~78°, clear of the corridor, and hands the inboard area back to the membrane where it belongs.
-    const SPANAFT = 0.73;                        // total aft rake of the fan, radians
+    const SPANAFT = 1.15;                        // total aft rake of the fan, radians
     const DROOP = [0.05, 0.17, 0.28, 0.39];
     const NF = LENF.length, NS = 4;
     const jit = (i, amp) => { const h = Math.sin((i + 1) * 78.233 + 2.7) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; };
@@ -1174,7 +1182,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // (Tempest decays 0.34 / 0.28 / 0.23 / 0.17 — dragonTempest.js:733). Deep enough to READ, never
     // deep enough to HOLLOW: past a point the free edges stop meeting and the wing goes perforated,
     // which is the sliver the owner circled.
-    const CUPK = 0.30;
+    const CUPK = 0.52;
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
