@@ -446,19 +446,40 @@ function buildSlagAnvilTorso(def, model, bodyMat) {
   // makes a body read as a box wearing panels.
   const body = [
     { z: S(-1.45), rx: S(0.26), ry: S(0.30), cy: S(0.20) },   // chest prow
-    { z: S(-0.95), rx: S(0.60), ry: S(0.56), cy: S(0.16) },   // SHOULDER YOKE — widest + deepest
-    { z: S(-0.35), rx: S(0.50), ry: S(0.46), cy: S(0.19) },
-    { z: S(0.20), rx: S(0.35), ry: S(0.34), cy: S(0.20) },    // WAIST tuck (leanest)
-    { z: S(0.60), rx: S(0.47), ry: S(0.44), cy: S(0.19) },    // HAUNCH swell — the hip outline event
+    // ⚠ THE LATISSIMUS SHELF — and it is the OWNER'S ask, finally read correctly.
+    // He said: the join between wing and torso at the FRONT already looks right, and "that exact
+    // look should extend posteriorly", and asked why this was being made so complex. He was right,
+    // and the reference he gave answers it: at the wing-body junction there is NO separate part.
+    // No cowl, no fairing, no skirt. The junction is an OUTLINE — one continuous concave arc from
+    // the arm's trailing edge through the armpit to the hip, with no corner anywhere on it — and
+    // the body's own flank carries it. A sheet cannot fix an outline it does not sit on, which is
+    // why five rounds of adding surfaces never touched this.
+    // Our half-widths ran 0.576 → 0.480 → 0.336 → 0.451: a −30% then +34% V-NOTCH in the plan
+    // silhouette. That notch is the corner, and every round since I1 has been decorating around it.
+    // Now strictly monotone shoulder → hip: 0.634 → 0.595 → 0.518 → 0.499 → 0.422.
+    // ⚠ rx ONLY. The three authored DORSAL silhouette events live in cy + ry and must survive
+    // byte-identical in side elevation; this is a plan-view change, and the chase camera is a
+    // plan-view camera. If the side profile moves, this was implemented wrong.
+    { z: S(-0.95), rx: S(0.66), ry: S(0.56), cy: S(0.16) },   // SHOULDER YOKE — widest + deepest
+    { z: S(-0.35), rx: S(0.62), ry: S(0.46), cy: S(0.19) },   // THE HOLD — the arc must not break here
+    { z: S(0.20), rx: S(0.54), ry: S(0.34), cy: S(0.20) },    // was the WAIST tuck; the notch is gone
+    { z: S(0.60), rx: S(0.52), ry: S(0.44), cy: S(0.19) },    // HAUNCH — now a continuation, not an event
     // The aft body carries real mass rather than pinching straight to the tail: the probe measured
     // 81.8% of side-view area forward of the hip against a 65-75% target, i.e. a tadpole. Real
     // archosaurs put the fattest caudal segments AFT of the hip, and a heavy aft body is what
     // earns the upright stance. Lengthening here fixed the number honestly; widening the band to
     // let 81.8% "pass" would have been moving the goalpost.
-    { z: S(0.90), rx: S(0.42), ry: S(0.40), cy: S(0.180) },
+    { z: S(0.90), rx: S(0.44), ry: S(0.40), cy: S(0.180) },
     { z: S(1.20), rx: S(0.31), ry: S(0.30), cy: S(0.165) },
-    { z: S(1.50), rx: S(0.19), ry: S(0.17), cy: S(0.155) },
-    { z: S(1.70), rx: S(0.11), ry: S(0.10), cy: S(0.150) },   // tail root
+    // ⚠ THE AFT PINCH, closed by CONSTRUCTION rather than by a patch. The hull used to end at
+    // rx 0.11 while the tail's first bone starts at R0 0.26 — the tail 2.4× fatter than the hull it
+    // leaves, so an open annulus sat between them and read as a block of pure sky at the hip in
+    // every pose. Round 5 bolted a collar over it: moved the hole 264 → 217 px, did not close it,
+    // and left a visible disc on the dorsal aft body. The rule is that the hull must not pinch
+    // below the tail's root radius. Then the tail emerges from a body of equal girth and there is
+    // no annulus to cover.
+    { z: S(1.50), rx: S(0.28), ry: S(0.25), cy: S(0.100) },
+    { z: S(1.70), rx: S(0.27), ry: S(0.26), cy: S(0.090) },   // tail root — girth matches the tail's R0
   ];
   group.add(tagPart(slagLoft(body, SLAG_PROFILE, (k, i) => slagBand(M, k, i)), 'hull'));
 
@@ -1323,7 +1344,15 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // plagiopatagium rather than stacking a second plane behind it (dragonTempest.js:779).
     {
       const SH0 = [-S(0.26), LE[0][4] + camber(0, 0), LE[0][2]];   // inboard of the joint: the fill starts INSIDE the flank
-      pushA(M.scorch, [SH0, [0, leY(0) + camber(0, 0), leZ(0)], K], [SH0, K, B]);
+      // ⚠ E4 — A WEDGE, NOT A PLANE. These two triangles are flat-shaded, so at downstroke they go
+      // edge-on to the chase camera and vanish, and sky shows through where the fill was. That is
+      // the symmetric pair of slits that opens on downstroke and closes at glide. Give it a lower
+      // skin and close the outboard rim so it has thickness to present at any sweep angle.
+      const LE0 = [0, leY(0) + camber(0, 0), leZ(0)];
+      const DW = S(0.05), lo = (p2) => [p2[0], p2[1] - DW, p2[2]];
+      pushA(M.scorch, [SH0, LE0, K], [SH0, K, B]);
+      pushA(M.char,   [lo(SH0), lo(K), lo(LE0)], [lo(SH0), lo(B), lo(K)]);
+      pushA(M.scorch, [LE0, lo(LE0), lo(K)], [LE0, lo(K), K], [K, lo(K), lo(B)], [K, lo(B), B]);
     }
     // ⚠ B3. Record where the INBOARD run starts. The knife-edge below must not be built along it:
     // over the scalloped hand the band IS the edge, but along the root run it is a second surface
@@ -1690,80 +1719,14 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       length: Math.hypot(T[1], T[2]), tipObj: marker,
     });
   }
-  // ── W8 THE AFT FAIRING — the owner's aft reach, moved to an owner that can hold it ────────────
-  // The trailing edge was asked to meet the body "toward the back of the torso, more towards the
-  // tail". Carried on the WING that is impossible: the membrane is welded to a rolling bone, so an
-  // aft anchor traces an arc against a thin hull station and must cross it every cycle — and the
-  // fill triangles derived from that anchor became the "spokes" the owner named three times.
-  // So the aft run changes OWNER. This is static in the BODY frame (built on `group`, never on a
-  // pivot), so it cannot cross a hull it does not rotate against, cannot strand, and cannot be a
-  // spoke. DRAGON-DESIGN §4.8 already says the cowl works this way; this is that, carried aft.
-  // It is also where the second standing ask lands: scallops in a GROWING rank running aft, so the
-  // whole trailing line — wingtip → hand scallops → arm sheet → flank → tail root — reads as one
-  // rhythm that opens up instead of two objects meeting.
-  {
-    const NZ = 15, z0 = S(-0.55), z1 = S(1.58);         // stops short of tailAnchor.z so the tail loft caps it
-    // ⚠ WMAX 0.40 → 0.22. At 0.40 the sheet covered ~16.5% of the junction crop and buried the
-    // plated flank — the seam slots and chine rail that cost five earlier rounds to earn. A fairing
-    // that hides the body it belongs to has not joined the body, it has replaced it.
-    const WMAX = S(0.22);
-    // ⚠ THE SCALLOPS, REBUILT. The first version dipped only 0.10-0.24 of local width while the
-    // growth term rose monotonically — so the dips never actually pulled the edge back in and the
-    // whole run measured 6% deviation from a straight chord: one swell and a spike, not a rank.
-    // A scallop is only a scallop if the width is NON-MONOTONIC: the valley must cut back INSIDE
-    // the previous peak. Cusps now run 0.30/0.38/0.46 of local width against a growth exponent
-    // that is deliberately gentle, so each valley undercuts the peak before it.
-    // The rank still GROWS aft (the owner's "increasing proportional scallops") — it is the PEAKS
-    // that grow, while the valleys keep cutting in, which is what reads as a rhythm opening up.
-    const lobe = (u) => {
-      const CUSP = [0.30, 0.38, 0.46], L = CUSP.length;
-      const q = Math.min(L - 1e-6, u * L), li = Math.floor(q), f = q - li;
-      return 1 - CUSP[li] * Math.sin(Math.PI * f);
-    };
-    const fair = { lit: [], mid: [], deep: [], rim: [] };
-    const ring = (u) => {
-      const z = z0 + (z1 - z0) * u;
-      const hw = attach.halfWidthAt(z), keel = attach.keelTopAt(z);
-      const yr = attach.bodyMidY + 0.55 * (keel - attach.bodyMidY);    // upper-flank chine, above the haunch
-      const w = WMAX * Math.pow(u, 0.62) * lobe(u);      // zero width forward: no start edge to read as a fin
-      // ⚠ THE AFT END MUST NOT OUTHANG THE HULL. At a 0.58 cant the tip hung ~200px below the
-      // creature's own belly line and terminated on nothing — a proud element that does not visibly
-      // meet a surface is debris, by this sheet's own law. The cant relaxes aft so the free edge
-      // rises back toward the tail loft and the hull keeps ownership of the lower outline.
-      const cant = 0.52 * (1 - 0.72 * u);
-      return { root: [hw * 0.92, yr, z], free: [hw * 0.92 + w * 0.86, yr - w * cant, z], w };
-    };
-    const lerpP = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-    for (let i = 0; i < NZ - 1; i++) {
-      const A = ring(i / (NZ - 1)), B2 = ring((i + 1) / (NZ - 1));
-      const D = S(0.05);                                  // a WEDGE, never a plane (failure #3)
-      const dn = (p) => [p[0], p[1] - D, p[2]];
-      // ⚠ THREE VALUE TIERS ACROSS THE CHORD, root LIT → free edge DARK. The first version was one
-      // flat material: 85% of its pixels in a single luminance bin against a torso that spreads
-      // across four. One value plus one bright edge is the vocabulary of a MEMBRANE, and the whole
-      // point of this part is that it must read as BODY. The hull's own ladder now continues onto
-      // it, so the eye cannot find the boundary between flank and fairing.
-      const BAND = [0, 0.38, 0.72, 1];
-      const SINK = [fair.lit, fair.mid, fair.deep];
-      for (const sd of [1, -1]) {
-        const m = (p) => [sd * p[0], p[1], p[2]];
-        for (let b = 0; b < 3; b++) {
-          const a0 = lerpP(A.root, A.free, BAND[b]), a1 = lerpP(A.root, A.free, BAND[b + 1]);
-          const b0 = lerpP(B2.root, B2.free, BAND[b]), b1 = lerpP(B2.root, B2.free, BAND[b + 1]);
-          SINK[b].push([m(a0), m(b0), m(b1)], [m(a0), m(b1), m(a1)]);
-          SINK[b].push([m(dn(a0)), m(dn(b1)), m(dn(b0))], [m(dn(a0)), m(dn(a1)), m(dn(b1))]);
-        }
-        fair.rim.push([m(A.free), m(B2.free), m(dn(B2.free))], [m(A.free), m(dn(B2.free)), m(dn(A.free))]);
-      }
-    }
-    // TORSO values, never membrane values — the fairing does not fold when the wing does, so if it
-    // speaks the membrane's language it reads as an orphaned sheet. Root catches light like the
-    // flank above it; the free edge sinks to the hull's darkest tier.
-    group.add(tagPart(flatTriMesh(fair.lit, M.scorch), 'fairing'));
-    group.add(tagPart(flatTriMesh(fair.mid, M.char), 'fairing'));
-    group.add(tagPart(flatTriMesh(fair.deep, M.seam), 'fairing'));
-    group.add(tagPart(flatTriMesh(fair.rim, M.rim), 'fairing'));
-  }
+  // (W8 THE AFT FAIRING IS DELETED — 392 tris, 4 meshes, 4 draw calls removed.
+  //  It was the wrong CLASS of object, not a badly-tuned one. The critic measured it owning 0.40%
+  //  of the rear-chase outline while covering 10.4% of the junction crop: invisible where it counts,
+  //  obstructive where it doesn't. A part that is not ON the silhouette cannot do a silhouette's
+  //  job at any width, cant or value ramp — and its bright rim ran 37% of its pixels at 6× body
+  //  luminance, a chrome outline off our own cheap-tell registry.
+  //  Its job now belongs to the torso loft, because in the reference anatomy that is whose job it
+  //  always was. See the LATISSIMUS SHELF note on the station table above.)
   if (sadAcc.s.length) {
     group.add(tagPart(flatTriMesh(sadAcc.s, M.scorch), 'saddle'));
     group.add(tagPart(flatTriMesh(sadAcc.r, M.rim), 'saddle'));
