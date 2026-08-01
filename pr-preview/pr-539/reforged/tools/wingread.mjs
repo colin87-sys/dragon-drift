@@ -54,11 +54,12 @@
 //
 // ── MEASURED, at glide (and stable to ±0.02 across settle / apex / downstroke, and to ±0.01
 //    across raster resolutions 160/320/640) ─────────────────────────────────────────────────────
-//     key        BREADTH   SOLID   ARCH    CUT
-//     tempest      0.512   0.626   0.141   0.130     premium bar
-//     vesper       0.569   0.443   0.136   0.129     the wing that killed the plane read
-//     revenant     0.503   0.560   0.147   0.160
-//     fornax       0.325   0.735   0.160   0.083     BREADTH low, SOLID high — a narrow STRAP
+//     key        BREADTH   SOLID   ARCH    CUT     RAG
+//     tempest      0.512   0.626   0.141   0.130   0.956   premium bar
+//     vesper       0.569   0.443   0.136   0.129   1.525   the wing that killed the plane read
+//     revenant     0.503   0.560   0.147   0.160   1.031
+//     fornax g10   0.325   0.735   0.160   0.083   2.40    BREADTH low, SOLID high — a narrow STRAP
+//     fornax g11   0.600   0.670   0.162   0.096   2.644   outline fixed, edge SHREDDED (see RAG)
 //
 //   node reforged/tools/wingread.mjs [key|--all]         WR_POSE=settle|apex|downstroke|fold
 
@@ -97,6 +98,9 @@ const BANDS = {
                            // (floor 0.10 = 20% under the roster's worst pose, 0.125. An earlier
                            //  draft used 0.04, which passed everything and therefore tested nothing:
                            //  a floor no one can fail is not a floor.)
+  RAG:     [0.80, 2.00],   // TE path length ÷ span  — roster 0.96 / 1.03 / 1.53 at glide, and
+                           // 0.96…1.70 over ALL SIX poses. Ceiling 2.00 ≈ 18% over the roster's
+                           // worst; floor 0.80 ≈ 17% under its best. "Scalloped" vs "tattered".
 };
 
 function harvest(key) {
@@ -236,9 +240,34 @@ function measure({ tris, key }) {
   }
   const CUT = cutArea / (sMax * cMax);
 
+  // RAG — the trailing edge's own path length ÷ span. Added at round 8, when CUT was found to be
+  // BLIND IN ONE DIRECTION. CUT is an AREA under the hull, normalised by the whole planform box, so
+  // a handful of violent narrow incisions score near zero — fornax g11 read CUT 0.096 (LOW, "needs
+  // more trailing-edge shape") while its trailing edge was in fact 2.6× as jagged as the roster's
+  // worst pose and its deepest single incision took 86% of the widest chord. The wing was not
+  // under-scalloped, it was SHREDDED, and CUT told the builder to cut more. A tool that points the
+  // fix the wrong way is worse than no tool.
+  // RAG is a PERIMETER, not an area, so a narrow slot costs it as much as a wide bay: it is the one
+  // number that separates "scalloped" from "tattered". Two-sided — the floor stops a bare delta
+  // trading its scallops away to buy the ceiling.
+  let teLen = 0;
+  for (let i = 1; i < pts.length; i++) teLen += Math.abs(pts[i][1] - pts[i - 1][1]);
+  const RAG = teLen / sMax;
+  // informational only, deliberately NOT a band: deepest single incision ÷ widest chord. The roster
+  // spans 0.308…0.747 across poses, so any ceiling that fails fornax (0.824) sits within 7% of
+  // vesper at bank — too thin a margin to defend under the calibration law. Printed so the shape of
+  // a RAG failure is legible (one canyon, or fifty nicks), never gated on.
+  let kk = 0, DEEPEST = 0;
+  for (const p of pts) {
+    while (kk + 1 < hull.length && hull[kk + 1][0] < p[0]) kk++;
+    const [x1, y1] = hull[kk], [x2, y2] = hull[Math.min(kk + 1, hull.length - 1)];
+    const t = x2 === x1 ? 0 : (p[0] - x1) / (x2 - x1);
+    DEEPEST = Math.max(DEEPEST, ((y1 + (y2 - y1) * t) - p[1]) / cMax);
+  }
+
   const profile = [];
   for (let i = 1; i <= STATIONS; i++) { const s = i / STATIONS; profile.push([s, at(s).chord / cMax]); }
-  return { key, span: sMax, cMax, BREADTH, SOLID, HOLD, ARCH, CUT, profile, tris: tris.length };
+  return { key, span: sMax, cMax, BREADTH, SOLID, HOLD, ARCH, CUT, RAG, DEEPEST, profile, tris: tris.length };
 }
 
 const verdict = (v, [a, b]) => (v < a ? 'LOW ' : v > b ? 'HIGH' : ' ok ');
@@ -247,8 +276,8 @@ const keys = process.argv[2] === '--all' || !process.argv[2]
 
 console.log(`\nWINGREAD — planform outline of the RIGHT wing, from triangles, posed at ${POSE}.`);
 console.log('bands are the shipped roster\'s own range, widened to round numbers (calibration law).\n');
-console.log('key         span   cmax   BREADTH       SOLID         ARCH          CUT           tris');
-console.log('-'.repeat(92));
+console.log('key         span   cmax   BREADTH       SOLID         ARCH          CUT           RAG           deep   tris');
+console.log('-'.repeat(112));
 const rows = [];
 for (const k of keys) {
   try {
@@ -257,7 +286,8 @@ for (const k of keys) {
     console.log(`${k.padEnd(10)} ${r.span.toFixed(2).padStart(5)} ${r.cMax.toFixed(2).padStart(6)}   `
       + `${r.BREADTH.toFixed(3)} ${verdict(r.BREADTH, BANDS.BREADTH)}   `
       + `${r.SOLID.toFixed(3)} ${verdict(r.SOLID, BANDS.SOLID)}   ${r.ARCH.toFixed(3)} ${verdict(r.ARCH, BANDS.ARCH)}   `
-      + `${r.CUT.toFixed(3)} ${verdict(r.CUT, BANDS.CUT)}   ${String(r.tris).padStart(5)}`);
+      + `${r.CUT.toFixed(3)} ${verdict(r.CUT, BANDS.CUT)}   ${r.RAG.toFixed(3)} ${verdict(r.RAG, BANDS.RAG)}   `
+      + `${r.DEEPEST.toFixed(3)}  ${String(r.tris).padStart(5)}`);
   } catch (e) { console.log(`${k.padEnd(10)} ERROR: ${e.message}`); }
 }
 console.log('\nchord profile, normalised to each wing\'s own widest chord (root → tip):');
