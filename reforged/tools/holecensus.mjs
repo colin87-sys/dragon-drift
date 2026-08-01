@@ -61,6 +61,15 @@ const NARROW = 0.022;    // informational only — see the dead end noted above
 const MIN_PX = 12;       // ignore rasteriser pinholes; a sub-12px speck is not visible daylight
 const MEAN_FRAC = 0.040; // mean enclosed daylight across 5 phases × 3 views, as a share of planform
 const WORST_FRAC = 0.090;// ...and the worst single pose. Both set at the premium bar. See §BANDS.
+// ⚠ AND A FLOOR, because this gate was ONE-SIDED and that is how it drove a wing flat.
+// A ceiling alone says "less daylight is always better", and the limit of that instruction is a
+// solid sheet — the plane/delta, this repo's kill-on-sight failure. The gate paid for it: a notch
+// was widened specifically to lower this number (it converted enclosed daylight to OPEN daylight,
+// which is uncounted), scored as an improvement, and produced the exact gap the owner then circled.
+// A fingered membrane MUST show daylight between its fingers. Roster at chase scale:
+//   tempest 3.33%   revenant 2.96%   vesper 0.31%   fornax-after-round-7 ~0%
+// Floor 1.5% passes the two dragons whose wings read as fingered and fails the two that read flat.
+const MIN_FRAC = 0.015;
 
 let fail = 0, pass = 0;
 const check = (ok, label, detail) => {
@@ -122,6 +131,8 @@ check(totFrac <= MEAN_FRAC, `H1  mean enclosed daylight over the cycle  [≤${(M
   `${(totFrac * 100).toFixed(2)}% across 5 phases × 3 views`);
 check(worstFrac.frac <= WORST_FRAC, `H2  worst single pose  [≤${(WORST_FRAC * 100).toFixed(1)}%]`,
   `${(worstFrac.frac * 100).toFixed(2)}% at ${worstFrac.view}/${worstFrac.pose}`);
+check(totFrac >= MIN_FRAC, `H3  the wing shows daylight BETWEEN its fingers  [≥${(MIN_FRAC * 100).toFixed(1)}%]`,
+  `${(totFrac * 100).toFixed(2)}%` + (totFrac < MIN_FRAC ? ' — a membrane with no daylight is a PLANE (§2 failure #1)' : ''));
 
 console.log('-'.repeat(78));
 console.log(fail === 0 ? `PASS — ${pass} target met` : `FAIL — ${fail} of ${pass + fail} targets missed`);
