@@ -1141,13 +1141,14 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
         pushH(M.ashLit, [[Bm[0] - r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0] + r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0], Bm[1] + r * 1.7, Bm[2] + r]]);
         pushH(M.seam, [[Bm[0] - r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0] + r, Bm[1] + r * 0.5, Bm[2] - r], [Bm[0], Bm[1] - r * 0.4, Bm[2] + r * 0.3]]);
       }
-      // ⚠ The membrane stops SHORT of the bone tip (0.86), so every finger projects a free spike
-      // past the sheet — Tempest does this on all four and it is what makes digits read as
-      // separate digits at silhouette scale instead of smearing into a serration.
-      const MEMEND = 0.86;
+      // ⚠ THE MEMBRANE RUNS TO THE TIP. It used to stop at 0.86 of the bone, leaving every finger a
+      // bare spike past the sheet, justified in this comment by "Tempest does this on all four".
+      // That claim is FALSE — dragonTempest.js:706 pushes the spar straight to the tip with no
+      // cutback. Three of the divergences that shaped this wing were argued from the reference and
+      // contradicted by its source; check the file, not the comment.
       const s = [];
       for (let k = 0; k <= NS; k++) {
-        const t = (k / NS) * MEMEND;
+        const t = k / NS;
         s.push(t <= 0.58 ? lerp3(K, Bm, t / 0.58) : lerp3(Bm, tipP, (t - 0.58) / 0.42));
       }
       spars.push(s);
@@ -1169,7 +1170,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // cup yields scallops that scale down cleanly outboard. A per-bay array breaks that progression
     // and the trailing edge stops reading as one rhythm. Still capped well under a third of chord:
     // deep enough to READ, never deep enough to HOLLOW.
-    const CUPK = 0.42;
+    // ⚠ 0.42 → 0.30. Flat across every bay, ours cupped harder than the premium bar's DEEPEST bay
+    // (Tempest decays 0.34 / 0.28 / 0.23 / 0.17 — dragonTempest.js:733). Deep enough to READ, never
+    // deep enough to HOLLOW: past a point the free edges stop meeting and the wing goes perforated,
+    // which is the sliver the owner circled.
+    const CUPK = 0.30;
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
@@ -1276,24 +1281,14 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // The owner's aft reach is not abandoned, it CHANGES OWNER: a static body-frame fairing carries
     // the line to the tail root, where it cannot cross a hull it does not rotate against.
     const B = [-S(0.30), K[1] - S(0.48), S(0.45)];                     // shoulder-girdle anchor, wing-local
-    // ⚠ THE SEPARATION NOTCH. The plagiopatagium must NOT start at the last fingertip, or the last
-    // bay and the body sheet blend into one continuous curve and the digit stops reading as a
-    // digit — Tempest's notch here is unmistakable and ours was absent. Anchoring it partway back
-    // along the last finger cuts a deep V between the hand and the arm sheet, which is also the
-    // bay the planform probe measured as the shallowest (6% against a 10% floor).
-    // ⚠ THE ARMPIT WEDGE. Pulling this far back opened a cut deeper than half the local chord between
-    // the arm sheet and the hand fan — the one cut deep enough to threaten silhouette integrity in
-    // motion. The separation notch has to READ without hollowing the wing.
-    // ⚠ 0.66 → 0.80 to close the APEX WINDOW. At apex the torso swings behind the gap between the hand
-    // fan and the arm sheet and caps its open end, turning the separation notch into an ENCLOSED
-    // window — 9.44% of the planform in enclosed daylight against a 9.0% bar (holecensus H2).
-    // The instinct is to shrink the notch; that is backwards and the sweep proved it — a SHALLOWER
-    // notch encloses MORE (0.60→9.69%, 0.54→9.98%, 0.48→10.33%) because the membrane reaches further
-    // round the gap and seals its escape to open sky. Cutting DEEPER keeps the notch open at the
-    // outboard end so the daylight drains to the outside instead of being trapped: 0.74→9.08,
-    // 0.82→8.76, 0.90→8.37. 0.80 clears the bar with margin without pushing the cut toward the
-    // armpit-wedge depth this section already warns about. Planform stays 12/12 at every value tried.
-    const Tlast = lerp3(K, spars[NF - 1][NS], 0.80);
+    // ⚠ NO SEPARATION NOTCH. The arm sheet starts at the LAST FINGERTIP, as Tempest's does
+    // (dragonTempest.js:766 — `Tlast = spars[N-1][NS]`, the tip, no notch anywhere).
+    // This was 0.66, then moved to 0.80 — and the move was made specifically to lower a gate
+    // number. It worked, and it made the creature worse: the notch did not remove daylight, it
+    // converted ENCLOSED daylight into OPEN daylight, and both censuses count only enclosed. So it
+    // scored as 9.44% → 8.37% while widening the exact wedge the owner then circled in a screenshot.
+    // Optimising a metric that does not measure the defect is worse than not measuring at all.
+    const Tlast = spars[NF - 1][NS];
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
