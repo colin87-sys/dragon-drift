@@ -60,6 +60,42 @@
 //     revenant     0.503   0.560   0.147   0.160   1.031
 //     fornax g10   0.325   0.735   0.160   0.083   2.40    BREADTH low, SOLID high — a narrow STRAP
 //     fornax g11   0.600   0.670   0.162   0.096   2.644   outline fixed, edge SHREDDED (see RAG)
+//     fornax g12   0.600   0.584   0.162   0.157   1.906   ALL FIVE BANDS GREEN — and the wing came
+//                  OFF THE BODY to do it. See SCALLOP below and read the caveat that follows.
+//
+// ── ⚠ THE g12 CAVEAT: FIVE GREEN BANDS ON A WING THAT REGRESSED ────────────────────────────────
+// g12 moved CUT 0.096→0.157 and RAG 2.644→1.906 by re-anchoring the arm sheet's trailing edge from
+// the last fingertip to the WRIST. Verified causal: a 2×2 ablation over {CUPK 0.52|0.30} × {Tlast
+// fingertip|wrist} moves CUT only on the Tlast axis (0.086→0.157 at CUPK 0.30). The dial was never
+// the lever — that part of the builder's claim is true.
+// But the edit closes the notch by DELETING the material on one side of it. The inboard sheet that
+// filled the armpit is gone: chord at 20% span fell 0.75→0.16, SOLID fell 0.670→0.584, and the
+// rendered silhouette lost 8.8% of its rear-chase area and 8.7% of its top planform — all of it in
+// one triangular wedge at each wing root. The wing now meets the body at a stick.
+// EVERY BAND HERE READ THAT AS AN IMPROVEMENT. SOLID *fell toward the middle of its band* because
+// deleting area lowers mean chord. This tool says at the top that it does not measure holes,
+// armpits or anything wing-vs-body — deliberately. That exclusion is still correct (a hole floor is
+// an instruction to punch holes), but it means WINGREAD ALONE CANNOT CLEAR A WING. The planform is
+// necessary and not sufficient; the junction must be judged on the render. Do not read five green
+// bands as a pass.
+//
+// ── SCALLOP: LOBES / GROW — the owner's ask, finally measured ──────────────────────────────────
+// Added round 9. The owner has asked in these words, repeatedly and never delivered, for a trailing
+// edge "scalloped nicely and increasing in proportional scallops". RAG catches tattered-vs-scalloped
+// as a TOTAL but is blind to the ARRANGEMENT — fifty equal nicks and five lobes that grow outboard
+// can share a RAG. CUT is an area and DEEPEST is one extremum, so neither sees it either.
+// LOBES = countable bays; GROW = Kendall concordance of lobe depth against span position, −1…+1.
+//     key        LOBES  GROW   depths root→tip                              at %span
+//     tempest      4    +1.00  0.196 0.224 0.307 0.308                      26 59 80 96
+//     vesper       4    +0.33  0.031 0.538 0.150 0.214                       9 39 70 90
+//     revenant     3    −0.33  0.434 0.231 0.377                            25 64 89
+//     fornax g12   7    −0.33  0.772 0.122 0.046 0.335 0.064 0.099 0.067    17 36 57 63 84 88 98
+// TEMPEST IS THE ASK, ALREADY SHIPPED: four bays, each deeper than the last, +1.00. Fornax is one
+// 0.772 canyon at 17% span — that is the armpit hole, located — followed by six random nicks that
+// get SHALLOWER outboard. Not a rank, and backwards. This also re-reads DEEPEST 0.772: it is not a
+// scalar marginally over the roster, it is the root wedge, and it is the defect.
+// Informational, never banded — the roster was not built to this ask and the calibration law
+// forbids a band the reference dragons fail. Printed so the ask stops being invisible.
 //
 //   node reforged/tools/wingread.mjs [key|--all]         WR_POSE=settle|apex|downstroke|fold
 
@@ -265,9 +301,50 @@ function measure({ tris, key }) {
     DEEPEST = Math.max(DEEPEST, ((y1 + (y2 - y1) * t) - p[1]) / cMax);
   }
 
+  // SCALLOP — the owner's standing ask, asked for in these words and never delivered: the trailing
+  // edge should be "scalloped nicely and INCREASING IN PROPORTIONAL SCALLOPS". Added at round 9,
+  // because RAG catches "tattered vs scalloped" as a total but is blind to the ARRANGEMENT: fifty
+  // equal nicks and five lobes that grow outboard can share a RAG. Neither is CUT's business (an
+  // area) nor DEEPEST's (one extremum). So decompose the TE into lobes between its hull-touch
+  // points and report two facts:
+  //   LOBES  how many distinct bays the edge is divided into. A scallop rank the eye can count is
+  //          3-7 across a hand; 20+ is a shred, 1 is a bare delta.
+  //   GROW   Spearman-style monotone score of lobe depth against lobe position, −1…+1. The owner
+  //          asked for depth that INCREASES outboard, so +1 is the ask delivered, 0 is a random
+  //          rank, −1 is backwards (deep at the root, shallow at the tip).
+  // Informational, NOT banded — the roster was never built to this ask, so a band would fail the
+  // reference dragons and the calibration law forbids that. Printed so the ask stops being invisible.
+  let kh = 0;
+  const dep = pts.map((p) => {
+    while (kh + 1 < hull.length && hull[kh + 1][0] < p[0]) kh++;
+    const [x1, y1] = hull[kh], [x2, y2] = hull[Math.min(kh + 1, hull.length - 1)];
+    const t = x2 === x1 ? 0 : (p[0] - x1) / (x2 - x1);
+    return ((y1 + (y2 - y1) * t) - p[1]) / cMax;
+  });
+  // a lobe is a run of stations hanging below the hull by more than 2% of the widest chord; noise
+  // below that is polygon jitter, not a bay the eye resolves.
+  const lobes = [];
+  let cur = null;
+  dep.forEach((d, i) => {
+    if (d > 0.02) { if (!cur) cur = { i0: i, max: 0 }; cur.max = Math.max(cur.max, d); }
+    else if (cur) { cur.i1 = i; if (cur.i1 - cur.i0 >= 2) lobes.push(cur); cur = null; }
+  });
+  if (cur) { cur.i1 = dep.length; if (cur.i1 - cur.i0 >= 2) lobes.push(cur); }
+  const LOBES = lobes.length;
+  let GROW = 0;
+  if (LOBES >= 3) {                       // concordant-pair (Kendall) score of depth vs position
+    let con = 0, dis = 0;
+    for (let a = 0; a < LOBES; a++) for (let b = a + 1; b < LOBES; b++) {
+      if (lobes[b].max > lobes[a].max) con++; else if (lobes[b].max < lobes[a].max) dis++;
+    }
+    GROW = (con - dis) / Math.max(1, con + dis);
+  }
+
   const profile = [];
   for (let i = 1; i <= STATIONS; i++) { const s = i / STATIONS; profile.push([s, at(s).chord / cMax]); }
-  return { key, span: sMax, cMax, BREADTH, SOLID, HOLD, ARCH, CUT, RAG, DEEPEST, profile, tris: tris.length };
+  return { key, span: sMax, cMax, BREADTH, SOLID, HOLD, ARCH, CUT, RAG, DEEPEST, LOBES, GROW,
+           lobeDepths: lobes.map((l) => +l.max.toFixed(3)),
+           lobeAt: lobes.map((l) => Math.round(50 * (l.i0 + l.i1) / dep.length)), profile, tris: tris.length };
 }
 
 const verdict = (v, [a, b]) => (v < a ? 'LOW ' : v > b ? 'HIGH' : ' ok ');
@@ -290,6 +367,10 @@ for (const k of keys) {
       + `${r.DEEPEST.toFixed(3)}  ${String(r.tris).padStart(5)}`);
   } catch (e) { console.log(`${k.padEnd(10)} ERROR: ${e.message}`); }
 }
+console.log('\nSCALLOP — the owner\'s ask ("scalloped nicely and increasing in proportional scallops").');
+console.log('informational, never banded: LOBES = countable bays, GROW = do they deepen outboard (+1 yes, 0 random, -1 backwards).');
+for (const r of rows) console.log(`  ${r.key.padEnd(9)} LOBES ${String(r.LOBES).padStart(2)}   GROW ${r.GROW >= 0 ? '+' : ''}${r.GROW.toFixed(2)}   depths [${r.lobeDepths.join(' ')}]  at %span [${r.lobeAt.join(' ')}]`);
+
 console.log('\nchord profile, normalised to each wing\'s own widest chord (root → tip):');
 for (const r of rows) console.log(`  ${r.key.padEnd(9)} ` + r.profile.filter((_, i) => i % 2 === 1).map(([s, c]) => `${(s * 100) | 0}:${c.toFixed(2)}`).join(' '));
 if (poseErr) console.log(`!! setFlapDebugPose threw: ${poseErr} — numbers above are the UNPOSED build\n`);
