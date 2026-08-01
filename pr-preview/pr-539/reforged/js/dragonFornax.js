@@ -1182,7 +1182,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // (Tempest decays 0.34 / 0.28 / 0.23 / 0.17 — dragonTempest.js:733). Deep enough to READ, never
     // deep enough to HOLLOW: past a point the free edges stop meeting and the wing goes perforated,
     // which is the sliver the owner circled.
-    const CUPK = 0.52;
+    const CUPK = 0.30;
     const trailing = [];
     for (let i = 0; i < NF - 1; i++) {
       const fa = spars[i], fb = spars[i + 1];
@@ -1296,7 +1296,13 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // converted ENCLOSED daylight into OPEN daylight, and both censuses count only enclosed. So it
     // scored as 9.44% → 8.37% while widening the exact wedge the owner then circled in a screenshot.
     // Optimising a metric that does not measure the defect is worse than not measuring at all.
-    const Tlast = spars[NF - 1][NS];
+    // ⚠ THE SEVERANCE. Anchoring here at the last FINGERTIP left the arm sheet's outboard end and
+    // the hand's first bay unconnected: at 27-33% span the trailing edge jumped forward by 86% of
+    // the widest chord in one step, held, then snapped back. Dial-invariant — identical at every cup
+    // depth swept — because it is a topology gap, not a shape. Ending the sheet at the WRIST makes
+    // the sheet and the hand share one continuous trailing polyline, which is what the comment two
+    // hundred lines down has been describing as a jump across a notch this file claims not to have.
+    const Tlast = K;
     const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
     const teMid = lerp3(Tlast, B, 0.5);
     const teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.42, teMid[1] + (K[1] - teMid[1]) * 0.42 - S(0.16), teMid[2] + (K[2] - teMid[2]) * 0.42];
@@ -1465,8 +1471,15 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
                          [[o0[0], B0, o0[1]], [o1[0], T1, o1[1]], [o0[0], T0, o0[1]]]);
           push(M.seam,   [[iA[0], B0, iA[1]], [iB[0], T1, iB[1]], [iB[0], B1, iB[1]]],
                          [[iA[0], B0, iA[1]], [iA[0], T0, iA[1]], [iB[0], T1, iB[1]]]);
-          // the struck crest — pale, on EDGES only, never a patch (AAA tell #1)
-          push(M.ashLit,
+          // ⚠ THE STRAP FAN, KILLED. This crest ran M.ashLit — chalk-pale against a body median
+          // four times darker — along the top of EVERY plate down the spar. From the shoulder that
+          // rank reads as five or six flat parallel tapes radiating across the flank with hard
+          // parallel edges and no thickness: the owner's "spokes", named by him three times, and
+          // the independent verifier's blocking #1 for four consecutive rounds. It also lit
+          // asymmetrically, strong on the left and near-absent on the right, which is the flat-tape
+          // cheap tell exactly. The plate geometry stays — it is the batten rank and it reads. Only
+          // the pale VALUE goes, down to the flank's own tier, so the rank is form and not tape.
+          push(M.scorch,
             [[o0[0], T0, o0[1]], [o1[0], T1, o1[1]], [iB[0], T1, iB[1]]],
             [[o0[0], T0, o0[1]], [iB[0], T1, iB[1]], [iA[0], T0, iA[1]]]);
           // END CAPS — both ends closed, so the plate is a solid, not a ribbon
