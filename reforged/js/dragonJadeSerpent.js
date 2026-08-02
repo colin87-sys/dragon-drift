@@ -189,14 +189,78 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const cLeadF = new THREE.Color(model.finLeadColor ?? 0x116b45);
   const cMidF = new THREE.Color(model.finMidColor ?? 0x2f9e77);
   const cTipF = new THREE.Color(model.fanTipColor ?? 0xa6ecc2);   // SATURATED pale green-mint (not pale-cyan) — stays green even under cool studio ambient (Fable gate r4)
-  const emitFan = (f, s, R, tiltUp) => {
+  const emitFan = (f, s, R, tiltUp, fi) => {
     // fan frame: radial-out = flank-outward (±B) blended up (Nn); spread = along the body (T)
     const ex = f.B.clone().multiplyScalar(s).addScaledVector(f.Nn, tiltUp).normalize();
     const ez = f.T.clone();
     const ey = new THREE.Vector3().crossVectors(ex, ez).normalize();          // fan face normal
     const P0 = f.p.clone().addScaledVector(f.B, s * f.r * OVAL_W * 0.7).addScaledVector(f.Nn, f.r * 0.15);
+    const halfArc = model.fanSpread ?? 0.9;                          // sector half-angle → a broad rounded fan
+    const nRays = Math.round(model.fanRays ?? 0);
+
+    // ── CP1 RIBBED FAN-CROWN (fanRays>0): a ribbed jade parasol — a dark hub disc, a dominant-decay
+    // row of RAISED tapering rays (real geometry proud of the membrane, so it's not a plank edge-on),
+    // membrane cupping INWARD between ray tips (a scalloped outer edge), and a core→bloom→dark value
+    // structure all in the green lane. The RAY is the creature's signature vocabulary (tail + head
+    // rhyme it). Single-winding (the material is DoubleSide) so the relief costs no extra budget. ──
+    if (nRays > 0) {
+      const nRf = 4, nA = 22;                                        // radial rows × azimuth segs
+      const hubR = R * 0.15;
+      const rayHeight = (model.fanRayRelief ?? 0.2) * R;             // proud ridge height (edge-on truth)
+      const bayDepth = (model.fanBayDepth ?? 0.12) * R;             // membrane concavity between rays
+      const cup = (model.fanCup ?? 0.12) * R;                        // gentle overall curl
+      const bayFloorR = 0.87;                                        // CP1-r2: membrane tip sits at ~0.87 of ray → a GENTLY SCALLOPED rounded parasol arc, not deep fingers/lobes (koi fan, not a palm frond)
+      const cRim = new THREE.Color(0xd8fff0);                        // near-white seafoam bound-edge rim
+      // deterministic index-hash (no Math.random): jitter azimuth/length/width so rays aren't a picket fence
+      const hsh = (i) => { const x = Math.sin(fi * 12.9898 + s * 7.233 + i * 3.771) * 43758.5453; return x - Math.floor(x); };
+      const rays = [];
+      for (let k = 0; k < nRays; k++) {
+        const ak = (k + 0.5) / nRays + (hsh(k) - 0.5) * 0.05;                 // centre azimuth [0,1] + jitter
+        const len = Math.pow(0.9, k) * (0.92 + 0.16 * hsh(k + 9));            // DOMINANT decay: front ray longest (gentler so tips stay a rounded arc)
+        const wid = (0.62 / nRays) * (0.85 + 0.3 * hsh(k + 3));               // wider ridges (more rays, subtler pleats — reads PLEATED not thorny)
+        rays.push({ ak, len, wid });
+      }
+      const ridgeAt = (a) => {                                       // smooth ridge + azimuth-weighted ray length
+        let ridge = 0, wlen = 0, wsum = 0;
+        for (const r of rays) { const d = (a - r.ak) / r.wid; const g = Math.exp(-d * d); if (g > ridge) ridge = g; wlen += g * r.len; wsum += g; }
+        return { ridge, len: wsum > 1e-4 ? wlen / wsum : 0.6 };
+      };
+      const rows = [];
+      for (let i = 0; i <= nRf; i++) {
+        const u = i / nRf; const row = [];
+        for (let j = 0; j <= nA; j++) {
+          const a = j / nA; const { ridge, len } = ridgeAt(a);
+          const outerR = R * len * (bayFloorR + (1 - bayFloorR) * ridge);     // gently-scalloped rounded outer edge
+          const rad = hubR + (outerR - hubR) * u;
+          const ang = (a - 0.5) * 2 * halfArc;                                // polar sector
+          const lx = rad * Math.cos(ang), lz = rad * Math.sin(ang);
+          const ly = rayHeight * ridge * u                                    // rays stand proud, growing outward (interior rib relief)
+            - bayDepth * (1 - ridge) * Math.sin(u * Math.PI)                   // bays dip a touch (pleat valleys, not deep cuts)
+            + cup * Math.sin(u * Math.PI * 0.5);                              // gentle overall curl
+          row.push(positions.length / 3);
+          positions.push(P0.x + ex.x * lx + ey.x * ly + ez.x * lz, P0.y + ex.y * lx + ey.y * ly + ez.y * lz, P0.z + ex.z * lx + ey.z * ly + ez.z * lz);
+          normals.push(ey.x, ey.y, ey.z);
+          // VALUE TRIAD (green lane): emerald root→mid ramp · DARK recessed bay webs + a visible dark
+          // hub disc · BLOOM pale-seafoam ray crests (outer half) · a crisp near-white rim on the edge.
+          const c = cLeadF.clone().lerp(cMidF, Math.min(1, u * 1.7));
+          if (u < 0.2) c.multiplyScalar(0.4);                                 // visible dark-jade HUB disc at the root
+          c.multiplyScalar(1 - 0.58 * (1 - ridge));                           // DARK bay webs — shadow between pleats (deeper, reads in flat chase light)
+          const bloom = ridge * ridge * Math.max(0, (u - 0.5) / 0.5);         // ray crest bloom, confined to the OUTER half of each ridge
+          c.lerp(cTipF, bloom * 0.9);                                         // BLOOM pale-seafoam crest
+          if (u > 0.9) c.lerp(cRim, 0.55);                                    // crisp near-white bound edge (survives to chase distance)
+          colors.push(c.r, c.g, c.b);
+        }
+        rows.push(row);
+      }
+      for (let i = 0; i < nRf; i++) for (let j = 0; j < nA; j++) {
+        const a = rows[i][j], b = rows[i][j + 1], d = rows[i + 1][j], e = rows[i + 1][j + 1];
+        indices.push(a, b, e, a, e, d);        // single winding (DoubleSide material renders the back)
+      }
+      return;
+    }
+
+    // ── (legacy smooth fan — kept for the lower forms / any dragon without fanRays) ──
     const nRf = 3, nAf = 10, hubF = 0.14;
-    const halfArc = model.fanSpread ?? 0.9;                          // wide sector → a broad rounded fan
     const pleatAmp = (model.fanPleat ?? 0.08) * R;
     const cup = (model.fanCup ?? 0.14) * R;                          // gentle cup so the fan isn't a flat sail
     const rows = [];
@@ -236,11 +300,11 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     const tiltUp = model.bodyFinTilt ?? 1.1;                        // how much the fan tips up vs straight out
     for (let k = 0; k < nFan; k++) {
       const kf = nFan > 1 ? k / (nFan - 1) : 0;
-      const ft = 0.22 + 0.62 * kf;
+      const ft = 0.18 + 0.70 * kf;                                   // spread the fans further along the body so the mid fans don't fuse (CP1-r2)
       const fi = Math.min(N - 1, Math.max(0, Math.round(ft * (N - 1))));
       const f = frames[fi];
       const R = f.r * finScale * (1 - 0.58 * kf) * bodyFins;         // HIERARCHY: shoulder fan is the hero, stepping down to ~0.42× at the tail (reference law)
-      for (const s of [-1, 1]) { emitFan(f, s, R, tiltUp); stampStation(fi); }   // each fan → its anchor station fi
+      for (const s of [-1, 1]) { emitFan(f, s, R, tiltUp, fi); stampStation(fi); }   // each fan → its anchor station fi
     }
   }
 
