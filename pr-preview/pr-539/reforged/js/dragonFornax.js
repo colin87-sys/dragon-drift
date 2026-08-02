@@ -1369,6 +1369,23 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // daylight seam — the carried I4 item's exact words, and half of what the owner has twice called
     // "spokes". The band stops at the notch; the root run gets the fillet instead.
     const teRootStart = trailing.length;
+    // ⚠ THE ROOT PANEL. Ending the sheet at the wrist gives one continuous trailing polyline, but on
+    // its own it AMPUTATES the wing: chord at 20% span fell 0.75 -> 0.16 and the wing met the body at
+    // a stick with sky behind it. The two are not in tension — that was a false choice. The lost area
+    // is the wedge between the wrist, the last fingertip and the body anchor, and it belongs to a
+    // panel anchored on the BODY, which is what was silently carrying the armpit all along.
+    {
+      const T = spars[NF - 1][NS];
+      // Extent swept against the verifier's bands: the panel must restore inboard area WITHOUT
+      // filling the trailing cut back in. Reaching 45% of the way to the fingertip is the point
+      // where SOLID, CUT and RAG are all inside their bands simultaneously; 0.70 refills the notch
+      // and pushes CUT back under its floor.
+      for (let k = 0; k < teN; k++) {
+        const a = tePts[k], b = tePts[k + 1];
+        const ta = lerp3(K, T, (k / teN) * 0.45), tb = lerp3(K, T, ((k + 1) / teN) * 0.45);
+        pushA(k < 2 ? M.scorch : wingMat, [a, ta, tb], [a, tb, b]);
+      }
+    }
     for (let k = 1; k <= teN; k++) trailing.push(tePts[k]);
 
     // ── THE CONNECTED KNIFE-EDGE (§4.6) — ONE strip tracing the WHOLE scalloped trailing polyline.
