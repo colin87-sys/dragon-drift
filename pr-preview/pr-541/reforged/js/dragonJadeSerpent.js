@@ -1,0 +1,633 @@
+import * as THREE from 'three';
+import { registerTorso } from './dragonRecipe.js';
+import { applyFresnelRim } from './surface.js';
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// JADE SERPENT — a purpose-built koi river-dragon skeleton (IMG_7739).
+//
+// Fresh bones, not the old koiSerpent tube: the body is lofted along a real SPINE CURVE
+// with a proper per-station frame (tangent / up-normal / side-binormal), so
+//   • the cross-section rings stay perpendicular to the curve (no z-plane shearing), and
+//   • the koi WEB-FANS mount BY THE FRAME (rooted on the side-binormal flank, fanning
+//     outward-and-up along the tangent) so they orient correctly all down a coiling body —
+//     the thing the wing-pivot rig could never do.
+//
+// One continuous single-material mesh (vertex-coloured): body tube + the row of broad
+// radiating pleated fans + the leaf-fork tail, all emitted into ONE positions/colors/index
+// buffer BEFORE the travelling-wave arrays are snapshotted, so every fan and leaf whips with
+// the swim wave for free (the moonTail trick, generalised). dragon.js ticks parts.bodyWave.
+//
+// Publishes the SAME attach + bodyWave contract koiSerpent did, so the head / pearl-wings /
+// rig / pearl-chain plumbing all attach unchanged.
+// ─────────────────────────────────────────────────────────────────────────────────────
+
+function buildJadeSerpentTorso(def, model, _bodyMat) {
+  const group = new THREE.Group();
+  const spineMats = [];
+
+  const cBody = def.body ?? 0x178a54;
+  const cBelly = def.belly ?? 0xa6e2c2;
+  const cShadow = model.bodyShadowColor ?? 0x0d5c3a;
+  const cRim = def.apexSeam ?? def.accentHue ?? 0x9ff0c8;
+  const cEye = def.eye ?? 0x8ff0c2;
+
+  const scale = model.scale ?? 1;
+  const lenHint = (model.neckSegments ?? 6) + (model.tailSegments ?? 10);
+  const N = Math.max(14, Math.min(48, Math.round(lenHint * (model.bodyLength ?? 1.0))));   // ring count
+  const K = Math.max(8, Math.round(model.bodyRadial ?? 12));                                // radial resolution
+  const leadR = (model.bodyGirth ?? 0.5) * scale;
+  const OVAL_W = model.bodyOvalW ?? 1.1, OVAL_H = model.bodyOvalH ?? 0.92;
+
+  // ── The SPINE CURVE (analytic, sinuous). z runs monotonically head→tail (the creature
+  // swims FORWARD, so it can't be a folded static coil); the S lives in x (lateral) with a
+  // gentle y undulation. Head at t=0 (front), tail at t=1 (back). ────────────────────────
+  const TOT = (model.bodyReach ?? 11) * leadR;                     // total body length along z
+  const latAmp = (model.bodyLatArc ?? 0.9) * leadR * 6;           // lateral S amplitude
+  const latWaves = model.bodyLatWaves ?? 2.2;
+  const latPhase = model.bodyLatPhase ?? 0;
+  const vertAmp = (model.bodyArcY ?? 0.16) * leadR * 6;
+  const droop = leadR * 0.4;
+  const bodyY = 0.5;
+  const latEnv = (t) => Math.pow(Math.sin(Math.min(1, t * 1.15) * Math.PI), 0.5);   // calm at the head, full mid-body
+  const cl = (t) => new THREE.Vector3(
+    latAmp * Math.sin(t * Math.PI * latWaves + latPhase) * latEnv(t),
+    bodyY - 0.02 - droop * t * t + vertAmp * Math.sin(t * Math.PI * 2.0),
+    t * TOT,
+  );
+
+  // KOI girth: plump behind the head, tapering smoothly to a fine tail tip.
+  const PEAK = 0.16;
+  const girth = (t) => {
+    const up = Math.min(t / PEAK, 1);
+    const down = Math.max(0, (t - PEAK) / (1 - PEAK));
+    // CP2: `girthFull` (apex) softens the post-peak decay so the serpent keeps visible MASS down ~70%
+    // of the body (a serpent's thickness IS its body — the old (1-down)^1.25 tapered to a wire by
+    // mid-body); the fine tail TIP still resolves (decay→0 at the tail, +0.05 floor).
+    const decay = model.girthFull ? (1 - Math.pow(down, model.girthFull)) : Math.pow(1 - down, 1.25);
+    return (0.68 + 0.32 * Math.sin(up * Math.PI * 0.5)) * decay + 0.05;
+  };
+
+  // per-station frame: tangent T, side-binormal B (≈horizontal), up-normal Nn — a stable
+  // fixed-up frame (T never nears vertical on a mostly-z serpent, so no flips).
+  const UP = new THREE.Vector3(0, 1, 0);
+  const frames = [];
+  for (let i = 0; i < N; i++) {
+    const t = N > 1 ? i / (N - 1) : 0;
+    const dt = 0.5 / (N - 1);
+    const p = cl(t);
+    const T = cl(Math.min(1, t + dt)).sub(cl(Math.max(0, t - dt))).normalize();
+    const B = new THREE.Vector3().crossVectors(T, UP).normalize();
+    const Nn = new THREE.Vector3().crossVectors(B, T).normalize();
+    frames.push({ t, p, T, B, Nn, r: leadR * girth(t) });
+  }
+  // pin the shoulder frame (form-invariant head/wing/pearl anchor)
+  let shoulderI = 1;
+  const SHOULDER_ARC = (model.shoulderArc ?? 0.9) * scale;
+  while (shoulderI < N - 1 && frames[shoulderI].p.distanceTo(frames[0].p) < SHOULDER_ARC) shoulderI++;
+
+  // ── Build the tube: N rings × K verts, oriented in each frame's B–Nn plane ────────────
+  const colBody = new THREE.Color(cBody), colBelly = new THREE.Color(cBelly), colShadow = new THREE.Color(cShadow);
+  const rb = model.crestRibbon ?? 0;
+  const colCrest = new THREE.Color(model.crestColor ?? 0xbdf5d0);
+  const positions = [], normals = [], colors = [], indices = [];
+  // CP3 RIVER-GLEAM: a per-vertex withheld-glow MASK, lockstep with `colors` (one float/vertex,
+  // 0 = matte tube, →1 = a withheld tip that catches the mint gleam). Non-zero ONLY on the fan-ray
+  // rim/bloom, the tail-leaf points, the whisker beads, and a thin line down the dorsal crest —
+  // so the gleam lights the withheld TIPS, never the whole body. Built unconditionally (cheap
+  // bookkeeping like vertStation); only published as an attribute + shader-patched when
+  // `model.riverGleam` is set (apex-only for now → every other form/dragon byte-identical).
+  const glow = [];
+  // RIBBON SPINE (Inc 0): record each vertex's HOME station (spine frame index) so the per-frame
+  // tick can re-loft the whole welded mesh from a dynamic spine. `stampStation(i)` marks every
+  // vertex pushed since the last call as belonging to station i — one call per emit block, so the
+  // bookkeeping can't silently drift as the geometry evolves. (See reforged/RIBBON-ANIMATION-PLAN.md.)
+  const vertStation = [];
+  const stampStation = (st) => { const n = positions.length / 3; while (vertStation.length < n) vertStation.push(st); };
+  const tmp = new THREE.Color();
+  const ringBase = [];
+  for (let i = 0; i < N; i++) {
+    const f = frames[i];
+    ringBase.push(positions.length / 3);
+    const rW = f.r * OVAL_W, rH = f.r * OVAL_H;
+    for (let j = 0; j < K; j++) {
+      const a = (j / K) * Math.PI * 2;
+      const cs = Math.cos(a), sn = Math.sin(a);
+      // ring vertex = spine point + cos·B·rW + sin·Nn·rH  (cross-section ⟂ the curve)
+      const px = f.p.x + cs * rW * f.B.x + sn * rH * f.Nn.x;
+      const py = f.p.y + cs * rW * f.B.y + sn * rH * f.Nn.y;
+      const pz = f.p.z + cs * rW * f.B.z + sn * rH * f.Nn.z;
+      positions.push(px, py, pz);
+      const nx = cs * f.B.x + sn * f.Nn.x, ny = cs * f.B.y + sn * f.Nn.y, nz = cs * f.B.z + sn * f.Nn.z;
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      normals.push(nx / nl, ny / nl, nz / nl);
+      // CP2 STRAKE LADDER — the hex tube's facet columns painted as a deliberate 4-step VALUE ladder
+      // (lit dorsal-flank → mid jade → shadow strake → pale belly), endpoints spread wide so the ladder
+      // survives the brightest biome (was one soft lerp that read near-monovalue). `strakeLadder` gates it.
+      if (model.strakeLadder) {
+        if (sn >= 0.5) tmp.copy(colBody).lerp(colCrest, 0.22 * (sn - 0.5) / 0.5);       // LIT dorsal-flank (lightest jade, lifted a step)
+        else if (sn >= 0.0) tmp.copy(colBody);                                          // mid jade
+        else if (sn >= -0.45) tmp.copy(colBody).lerp(colShadow, Math.min(1, -sn / 0.45));   // SHADOW strake (flanks a FULL step darker)
+        else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.45 - sn) / 0.45));      // pale belly (endpoint spread wider)
+      } else if (sn >= 0.05) tmp.copy(colBody);
+      else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
+      else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
+      // DORSAL CREST RIBBON (a≈π/2) as a HARD 3-BAND spine (reference identity, ~40% of the read):
+      // a bright pale-seafoam stripe (top column) bounded IMMEDIATELY by dark-emerald flank columns,
+      // nose→tail — a crisp graphic band, not a soft luminance gradient.
+      const dA = Math.abs(a - Math.PI / 2);
+      if (rb > 0 && sn > 0.1) {
+        const taper = f.t < 0.9 ? 1 : Math.max(0.4, 1 - (f.t - 0.9) * 4);
+        if (dA < 0.35) tmp.copy(colBody).lerp(colCrest, rb * taper);          // HARD bright pale-mint spine stripe (the top column)
+        else tmp.copy(colBody).lerp(colShadow, 0.55 * rb);                    // dark-emerald flank columns framing it
+      }
+      colors.push(tmp.r, tmp.g, tmp.b);
+      glow.push(0);                                         // matte tube — never gleams
+    }
+    stampStation(i);                                       // ring i verts → station i
+  }
+  for (let i = 0; i < N - 1; i++) {
+    const a0 = ringBase[i], b0 = ringBase[i + 1];
+    for (let j = 0; j < K; j++) {
+      const j2 = (j + 1) % K;
+      indices.push(a0 + j, b0 + j, b0 + j2, a0 + j, b0 + j2, a0 + j2);
+    }
+  }
+  // nose + tail caps
+  const f0 = frames[0], fN = frames[N - 1];
+  const noseIdx = positions.length / 3;
+  const nose = f0.p.clone().addScaledVector(f0.T, -f0.r * 0.9);
+  positions.push(nose.x, nose.y, nose.z); normals.push(-f0.T.x, -f0.T.y, -f0.T.z); colors.push(colBody.r, colBody.g, colBody.b); glow.push(0);
+  stampStation(0);                                         // nose cap → station 0
+  const tailIdx = positions.length / 3;
+  const tailP = fN.p.clone().addScaledVector(fN.T, fN.r * 1.4);
+  positions.push(tailP.x, tailP.y, tailP.z); normals.push(fN.T.x, fN.T.y, fN.T.z); colors.push(colBody.r, colBody.g, colBody.b); glow.push(0);
+  stampStation(N - 1);                                     // tail cap → station N-1
+  for (let j = 0; j < K; j++) {
+    const j2 = (j + 1) % K;
+    indices.push(noseIdx, ringBase[0] + j2, ringBase[0] + j);
+    indices.push(tailIdx, ringBase[N - 1] + j, ringBase[N - 1] + j2);
+  }
+
+  // ── DORSAL STRIPE — a continuous flat pale-seafoam BAND riding the dorsal line nose→tail, as
+  // its OWN raised strip of geometry (vertex-painting the tube column read as broken dashes and
+  // washed out — Fable gate r6). Dark-emerald seam | near-white edge | pale-seafoam centre |
+  // near-white edge | dark-emerald seam. Emitted into the mesh so it whips with the swim wave.
+  if (rb > 0) {
+    const cStripe = new THREE.Color(model.crestColor ?? 0xbdf5d0);
+    const cSeam = new THREE.Color(0xcaf2d8);                                   // pale-GREEN seam (a near-white seam drifted blue-grey under cool ambient — Fable gate r7)
+    const cDark = colBody.clone().lerp(colShadow, 0.7);                        // dark-emerald flank
+    const bw = 0.26;                                                           // half angular width around the dorsal apex
+    const angs = [-bw, -bw * 0.55, 0, bw * 0.55, bw];
+    const cols = [cDark, cSeam, cStripe, cSeam, cDark];
+    const rowsS = [];
+    for (let i = 0; i < N; i++) {
+      const f = frames[i];
+      const rW = f.r * OVAL_W * 1.02, rH = f.r * OVAL_H * 1.02;                // sit just proud of the tube
+      const row = [];
+      for (let k = 0; k < angs.length; k++) {
+        const a = Math.PI / 2 + angs[k], cs = Math.cos(a), sn = Math.sin(a);
+        row.push(positions.length / 3);
+        positions.push(
+          f.p.x + cs * rW * f.B.x + sn * rH * f.Nn.x,
+          f.p.y + cs * rW * f.B.y + sn * rH * f.Nn.y,
+          f.p.z + cs * rW * f.B.z + sn * rH * f.Nn.z);
+        normals.push(f.Nn.x, f.Nn.y, f.Nn.z);
+        const c = colBody.clone().lerp(cols[k], rb);
+        colors.push(c.r, c.g, c.b);
+        // a THIN river-gleam runs the bright centre column (k===2) — the withheld dorsal line; a faint
+        // spill onto the pale seams (k 1/3); the dark flanks (0/4) stay matte. Fades out over the tail.
+        const gTaper = f.t < 0.85 ? 1 : Math.max(0, 1 - (f.t - 0.85) * 5);
+        glow.push((k === 2 ? 0.4 : (k === 1 || k === 3 ? 0.13 : 0)) * gTaper);
+      }
+      rowsS.push(row);
+      stampStation(i);                                     // stripe row i → station i
+    }
+    for (let i = 0; i < N - 1; i++) for (let k = 0; k < angs.length - 1; k++) {
+      const a = rowsS[i][k], b = rowsS[i][k + 1], d = rowsS[i + 1][k], e = rowsS[i + 1][k + 1];
+      indices.push(a, b, e, a, e, d);
+    }
+  }
+
+  // ── VENTRAL SCUTE BAND (CP2) — a raised, SEGMENTED pale-mint belly-plate strip along the ventral
+  // line (koi underside), mirror of the dorsal-stripe technique at a=−π/2. Per-station brightness
+  // pulses read as overlapping scute PLATES with darker seams between. A second organized detail
+  // system on the tube (paper-craft), emitted into the mesh so it rides the ribbon for free. ──
+  if (model.scuteBand) {
+    const cScute = new THREE.Color(model.scuteColor ?? 0xd4f5e2);              // BRIGHT pale-mint plate (≥2 value steps over the flank)
+    const cSeamV = cScute.clone().lerp(colShadow, 0.42);                       // seam = darker mint between plates
+    const nScute = model.scuteCount ?? 12;                                     // coarser plates → resolve at chase distance
+    const bwv = 0.28;                                                          // WIDER band (~24% of circumference)
+    const angsV = [-bwv, -bwv * 0.5, 0, bwv * 0.5, bwv];
+    const rowsV = [];
+    for (let i = 0; i < N; i++) {
+      const f = frames[i];
+      const taper = Math.min(1, (f.t - 0.03) / 0.08) * (f.t < 0.74 ? 1 : Math.max(0, 1 - (f.t - 0.74) * 8));   // throat → ~75% of length
+      const seg = 0.5 + 0.5 * Math.cos(f.t * Math.PI * 2 * nScute);            // plate ridges along the body
+      const plate = cScute.clone().lerp(cSeamV, (1 - seg) * 0.6);             // bright plate → slightly darker seam
+      const proud = 1.03 + 0.08 * seg * taper;                                 // RAISED plates bulge out, seams notch in → the ventral silhouette scallops
+      const rW = f.r * OVAL_W * proud, rH = f.r * OVAL_H * proud;
+      const row = [];
+      for (let k = 0; k < angsV.length; k++) {
+        const a = -Math.PI / 2 + angsV[k], cs = Math.cos(a), sn = Math.sin(a);
+        const edge = Math.abs(angsV[k]) / bwv;                                // fade the band edges into the belly
+        row.push(positions.length / 3);
+        positions.push(
+          f.p.x + cs * rW * f.B.x + sn * rH * f.Nn.x,
+          f.p.y + cs * rW * f.B.y + sn * rH * f.Nn.y,
+          f.p.z + cs * rW * f.B.z + sn * rH * f.Nn.z);
+        normals.push(-f.Nn.x, -f.Nn.y, -f.Nn.z);
+        const c = colBelly.clone().lerp(plate, taper * (1 - 0.45 * edge * edge));
+        colors.push(c.r, c.g, c.b);
+        glow.push(0);                                        // belly scutes stay matte (withheld glow is a DORSAL/tip signature)
+      }
+      rowsV.push(row);
+      stampStation(i);                                       // scute row i → station i
+    }
+    for (let i = 0; i < N - 1; i++) for (let k = 0; k < angsV.length - 1; k++) {
+      const a = rowsV[i][k], b = rowsV[i][k + 1], d = rowsV[i + 1][k], e = rowsV[i + 1][k + 1];
+      indices.push(a, b, e, a, e, d);
+    }
+  }
+
+  // ── BODY WEB-FANS — a row of broad radiating pleated koi fans, mounted BY THE FRAME ────
+  const cLeadF = new THREE.Color(model.finLeadColor ?? 0x116b45);
+  const cMidF = new THREE.Color(model.finMidColor ?? 0x2f9e77);
+  const cTipF = new THREE.Color(model.fanTipColor ?? 0xa6ecc2);   // SATURATED pale green-mint (not pale-cyan) — stays green even under cool studio ambient (Fable gate r4)
+  const emitFan = (f, s, R, tiltUp, fi) => {
+    // fan frame: radial-out = flank-outward (±B) blended up (Nn); spread = along the body (T)
+    const ex = f.B.clone().multiplyScalar(s).addScaledVector(f.Nn, tiltUp).normalize();
+    const ez = f.T.clone();
+    const ey = new THREE.Vector3().crossVectors(ex, ez).normalize();          // fan face normal
+    const P0 = f.p.clone().addScaledVector(f.B, s * f.r * OVAL_W * 0.7).addScaledVector(f.Nn, f.r * 0.15);
+    const halfArc = model.fanSpread ?? 0.9;                          // sector half-angle → a broad rounded fan
+    const nRays = Math.round(model.fanRays ?? 0);
+
+    // ── CP1 RIBBED FAN-CROWN (fanRays>0): a ribbed jade parasol — a dark hub disc, a dominant-decay
+    // row of RAISED tapering rays (real geometry proud of the membrane, so it's not a plank edge-on),
+    // membrane cupping INWARD between ray tips (a scalloped outer edge), and a core→bloom→dark value
+    // structure all in the green lane. The RAY is the creature's signature vocabulary (tail + head
+    // rhyme it). Single-winding (the material is DoubleSide) so the relief costs no extra budget. ──
+    if (nRays > 0) {
+      const nRf = 4, nA = 22;                                        // radial rows × azimuth segs
+      const hubR = R * 0.15;
+      const rayHeight = (model.fanRayRelief ?? 0.2) * R;             // proud ridge height (edge-on truth)
+      const bayDepth = (model.fanBayDepth ?? 0.12) * R;             // membrane concavity between rays
+      const cup = (model.fanCup ?? 0.12) * R;                        // gentle overall curl
+      const bayFloorR = 0.87;                                        // CP1-r2: membrane tip sits at ~0.87 of ray → a GENTLY SCALLOPED rounded parasol arc, not deep fingers/lobes (koi fan, not a palm frond)
+      const cRim = new THREE.Color(0xd8fff0);                        // near-white seafoam bound-edge rim
+      // deterministic index-hash (no Math.random): jitter azimuth/length/width so rays aren't a picket fence
+      const hsh = (i) => { const x = Math.sin(fi * 12.9898 + s * 7.233 + i * 3.771) * 43758.5453; return x - Math.floor(x); };
+      const rays = [];
+      for (let k = 0; k < nRays; k++) {
+        const ak = (k + 0.5) / nRays + (hsh(k) - 0.5) * 0.05;                 // centre azimuth [0,1] + jitter
+        const len = Math.pow(0.9, k) * (0.92 + 0.16 * hsh(k + 9));            // DOMINANT decay: front ray longest (gentler so tips stay a rounded arc)
+        const wid = (0.62 / nRays) * (0.85 + 0.3 * hsh(k + 3));               // wider ridges (more rays, subtler pleats — reads PLEATED not thorny)
+        rays.push({ ak, len, wid });
+      }
+      const ridgeAt = (a) => {                                       // smooth ridge + azimuth-weighted ray length
+        let ridge = 0, wlen = 0, wsum = 0;
+        for (const r of rays) { const d = (a - r.ak) / r.wid; const g = Math.exp(-d * d); if (g > ridge) ridge = g; wlen += g * r.len; wsum += g; }
+        return { ridge, len: wsum > 1e-4 ? wlen / wsum : 0.6 };
+      };
+      const rows = [];
+      for (let i = 0; i <= nRf; i++) {
+        const u = i / nRf; const row = [];
+        for (let j = 0; j <= nA; j++) {
+          const a = j / nA; const { ridge, len } = ridgeAt(a);
+          const outerR = R * len * (bayFloorR + (1 - bayFloorR) * ridge);     // gently-scalloped rounded outer edge
+          const rad = hubR + (outerR - hubR) * u;
+          const ang = (a - 0.5) * 2 * halfArc;                                // polar sector
+          const lx = rad * Math.cos(ang), lz = rad * Math.sin(ang);
+          const ly = rayHeight * ridge * u                                    // rays stand proud, growing outward (interior rib relief)
+            - bayDepth * (1 - ridge) * Math.sin(u * Math.PI)                   // bays dip a touch (pleat valleys, not deep cuts)
+            + cup * Math.sin(u * Math.PI * 0.5);                              // gentle overall curl
+          row.push(positions.length / 3);
+          positions.push(P0.x + ex.x * lx + ey.x * ly + ez.x * lz, P0.y + ex.y * lx + ey.y * ly + ez.y * lz, P0.z + ex.z * lx + ey.z * ly + ez.z * lz);
+          normals.push(ey.x, ey.y, ey.z);
+          // VALUE TRIAD (green lane): emerald root→mid ramp · DARK recessed bay webs + a visible dark
+          // hub disc · BLOOM pale-seafoam ray crests (outer half) · a crisp near-white rim on the edge.
+          const c = cLeadF.clone().lerp(cMidF, Math.min(1, u * 1.7));
+          if (u < 0.2) c.multiplyScalar(0.4);                                 // visible dark-jade HUB disc at the root
+          c.multiplyScalar(1 - 0.58 * (1 - ridge));                           // DARK bay webs — shadow between pleats (deeper, reads in flat chase light)
+          const bloom = ridge * ridge * Math.max(0, (u - 0.5) / 0.5);         // ray crest bloom, confined to the OUTER half of each ridge
+          c.lerp(cTipF, bloom * 0.9);                                         // BLOOM pale-seafoam crest
+          if (u > 0.9) c.lerp(cRim, 0.55);                                    // crisp near-white bound edge (survives to chase distance)
+          colors.push(c.r, c.g, c.b);
+          // RIVER-GLEAM MASK: graded along the whole ray CREST (inner→rim), scaled by `ridge` so the
+          // recessed bays stay dark — the pleat structure survives even when flooded. A low cruise
+          // floor (gleamBase) keeps the dew RIM-weighted (rim mask ≫ inner), while Surge's high
+          // multiplier lights the full crest inner→rim so a PROFILE shot shows burning fans, not
+          // rim-lit cutouts (Fable CP3 v2: surge under-read in profile). +rim kick keeps the crisp tip.
+          glow.push(ridge * (0.15 + 0.6 * u) + (u > 0.9 ? 0.28 : 0));
+        }
+        rows.push(row);
+      }
+      for (let i = 0; i < nRf; i++) for (let j = 0; j < nA; j++) {
+        const a = rows[i][j], b = rows[i][j + 1], d = rows[i + 1][j], e = rows[i + 1][j + 1];
+        indices.push(a, b, e, a, e, d);        // single winding (DoubleSide material renders the back)
+      }
+      return;
+    }
+
+    // ── (legacy smooth fan — kept for the lower forms / any dragon without fanRays) ──
+    const nRf = 3, nAf = 10, hubF = 0.14;
+    const pleatAmp = (model.fanPleat ?? 0.08) * R;
+    const cup = (model.fanCup ?? 0.14) * R;                          // gentle cup so the fan isn't a flat sail
+    const rows = [];
+    for (let i = 0; i <= nRf; i++) {
+      const u = i / nRf; const row = [];
+      for (let j = 0; j <= nAf; j++) {
+        const af = j / nAf, fold = (j % 2) * 2 - 1;
+        const edge = Math.abs(af - 0.5) * 2;                          // 0 centre → 1 fan edge
+        const lx = R * (hubF + (1 - hubF) * u) * (1 - 0.28 * edge * edge);   // ROUND the outer corners → a fan, not a triangle
+        const lz = (af - 0.5) * 2 * (R * halfArc * (0.08 + 0.92 * u));       // chord (opens wide + rounded at the arc)
+        const ly = pleatAmp * fold * Math.sin(u * Math.PI) + cup * Math.sin(u * Math.PI * 0.5) * (1 - edge * 0.5);   // pleat ridges + a gentle overall cup
+        row.push(positions.length / 3);
+        positions.push(
+          P0.x + ex.x * lx + ey.x * ly + ez.x * lz,
+          P0.y + ex.y * lx + ey.y * ly + ez.y * lz,
+          P0.z + ex.z * lx + ey.z * ly + ez.z * lz);
+        normals.push(ey.x, ey.y, ey.z);
+        // ONE green hue ramp: deep-emerald root → mid-jade → pale-seafoam tip (Fable gate r4: the
+        // fans must be a single green ramp — NO hue alternation). Pleat + rim contrast is VALUE ONLY.
+        const c = cLeadF.clone().lerp(cMidF, Math.min(1, u * 1.9)).lerp(cTipF, Math.max(0, (u - 0.55) / 0.45));
+        if (fold < 0) c.multiplyScalar(0.82);                              // receding pleat spokes — DARKER same hue (value, not a teal)
+        if (u > 0.92 || edge > 0.92) c.multiplyScalar(0.68);              // dark rim (value) → crisp edge even edge-on
+        colors.push(c.r, c.g, c.b);
+        glow.push(0);                                                     // legacy smooth fan (lower forms) — no gleam mask
+      }
+      rows.push(row);
+    }
+    for (let i = 0; i < nRf; i++) for (let j = 0; j < nAf; j++) {
+      const a = rows[i][j], b = rows[i][j + 1], d = rows[i + 1][j], e = rows[i + 1][j + 1];
+      indices.push(a, b, e, a, e, d);        // front winding
+      indices.push(a, e, b, a, d, e);        // back winding
+    }
+  };
+  const bodyFins = model.bodyFins ?? 0;
+  if (bodyFins > 0) {
+    const nFan = Math.max(2, Math.round(model.bodyFinCount ?? 4));
+    const finScale = model.bodyFinScale ?? 4.4;
+    const tiltUp = model.bodyFinTilt ?? 1.1;                        // how much the fan tips up vs straight out
+    for (let k = 0; k < nFan; k++) {
+      const kf = nFan > 1 ? k / (nFan - 1) : 0;
+      const ft = 0.18 + 0.70 * kf;                                   // spread the fans further along the body so the mid fans don't fuse (CP1-r2)
+      const fi = Math.min(N - 1, Math.max(0, Math.round(ft * (N - 1))));
+      const f = frames[fi];
+      const R = f.r * finScale * (1 - 0.58 * kf) * bodyFins;         // HIERARCHY: shoulder fan is the hero, stepping down to ~0.42× at the tail (reference law)
+      for (const s of [-1, 1]) { emitFan(f, s, R, tiltUp, fi); stampStation(fi); }   // each fan → its anchor station fi
+    }
+  }
+
+  // ── LEAF-FORK TAIL — two long pointed koi leaves forking back-out-up from the tail tip ─
+  const caudal = model.caudalFork ?? 0;
+  if (caudal > 0) {
+    const cVein = colBody.clone().lerp(colShadow, 0.5);
+    const cBlade = colBody.clone().lerp(new THREE.Color(cRim), 0.62);
+    const cLeaf = colBody.clone().lerp(new THREE.Color(cRim), 0.94);
+    if (rb > 0) cLeaf.lerp(colCrest, rb * 0.4);
+    const Llen = leadR * (1.7 + 3.4 * caudal) * (model.tailRegalia ? 1.78 : 1);   // regalia scales the fork up so the midrib/veins/tip-seat READ at cruise distance (Fable CP4 r3: 1.55→1.78, fork still legible-but-timid in the top frame)
+    // ── CP4 TAIL REGALIA (tailRegalia): give each leaf a raised MIDRIB + herringbone VEINS + a welded
+    // bright TIP-SEAT + a river-gleam crest — the koi-leaf rhyme of the fan-CROWN's ribbed-ray
+    // vocabulary (same core→bloom→dark + rim signature, bookending the tail). Default off → every
+    // other form keeps the flat lanceolate leaf byte-identical. ──
+    const regalia = model.tailRegalia ? 1 : 0;
+    const cRimC = new THREE.Color(cRim);
+    const cSeat = new THREE.Color(0xe8fff4);                // near-white welded tip-seat (rhymes the fan rim)
+    const nU = 8, nV = regalia ? 6 : 4;
+    const nVeins = 3;                                        // herringbone vein pairs per leaf
+    for (const s of [-1, 1]) {
+      // leaf axis: mostly BACK (T) with a modest out (±B) + up (Nn) — trails aft, does NOT cross the body
+      const D = fN.T.clone().multiplyScalar(0.95).addScaledVector(fN.B, s * 0.34).addScaledVector(fN.Nn, 0.26).normalize();
+      const Wd = new THREE.Vector3().crossVectors(D, fN.Nn).normalize();
+      const Nl = new THREE.Vector3().crossVectors(D, Wd).normalize();
+      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.4).addScaledVector(fN.B, s * fN.r * 0.22);
+      const rows = [];
+      for (let iu = 0; iu <= nU; iu++) {
+        const u = iu / nU;
+        // regalia: broaden the leaf + SCALLOP the outer edge into lobes so the SILHOUETTE is serrated
+        // (a smooth leaf can't rhyme the fan pleats at distance — Fable CP4); ×3 lobes down each edge.
+        const teeth = regalia ? (0.66 + 0.34 * Math.cos(u * Math.PI * 2 * 3)) : 1;
+        // regalia BLUNTS the very tip (min-width floor) so the near-white welded TIP-SEAT has visible
+        // area instead of vanishing to a sub-pixel point (Fable CP4: no near-white node read on the tail).
+        const tipFloor = regalia ? Math.max(Math.pow(1 - u, 0.72), 0.12 * Math.min(1, u * 6)) : Math.pow(1 - u, 0.72);
+        const w = Llen * (regalia ? 0.30 : 0.26) * teeth * Math.pow(u + 0.2, 0.4) * tipFloor;   // WIDE root (visible V-junction) → lanceolate point (regalia: blunt tip node)
+        const cam = Llen * 0.05 * Math.sin(u * Math.PI);
+        const taperU = Math.pow(Math.sin(u * Math.PI), 0.5);                       // relief fades to 0 at root + tip
+        const C = B0.clone().addScaledVector(D, u * Llen).addScaledVector(Nl, cam);
+        const row = [];
+        for (let iv = 0; iv <= nV; iv++) {
+          const v = iv / nV - 0.5;
+          const mid = Math.exp(-(v / 0.16) * (v / 0.16));                          // raised central MIDRIB profile (peak at v=0)
+          const veinPh = (Math.abs(v) - u * 0.35) * Math.PI * 2 * nVeins;          // veins angle toward the tip → leaf veins, not chevrons
+          const vein = 0.5 + 0.5 * Math.cos(veinPh);
+          const relief = regalia * (Llen * 0.11 * mid * taperU + Llen * 0.018 * vein * taperU * (1 - mid));   // midrib bulge + fine vein ripple
+          row.push(positions.length / 3);
+          positions.push(
+            C.x + Wd.x * v * 2 * w + Nl.x * relief,
+            C.y + Wd.y * v * 2 * w + Nl.y * relief,
+            C.z + Wd.z * v * 2 * w + Nl.z * relief);
+          normals.push(Nl.x, Nl.y, Nl.z);
+          const c = cBlade.clone().lerp(cVein, Math.max(0, 1 - Math.abs(v) * 3) * 0.5 * (1 - u * 0.7));
+          c.lerp(cLeaf, Math.pow(u, 1.25));
+          if (regalia) {
+            // core→bloom→dark like the fans: RAISED crests (midrib + pleat peaks) CATCH light, valleys
+            // drop dark. `pleat` = radial fan-frequency striping across the leaf so the fork reads as a
+            // fan-SIBLING, not a crystal (Fable CP4 r4). Tip-seat wider/brighter → its near-white reads
+            // from above too (the fork must catch the same bloom the fans get).
+            const pleat = 0.5 + 0.5 * Math.cos(v * Math.PI * 5);                     // 5 chordwise pleats (fan-frequency)
+            c.lerp(cLeaf, Math.min(1, mid * 0.5 + pleat * 0.3) * taperU);            // LIT raised crests (was darkening the midrib → muddy top face)
+            c.multiplyScalar(1 - 0.3 * (1 - pleat) * (1 - mid));                     // pleat-valley shadows
+            c.multiplyScalar(1 - 0.16 * (1 - vein));                                 // subtle herringbone on top
+            c.lerp(cRimC, Math.pow(Math.min(1, Math.abs(v) * 2.1), 2) * 0.45 * taperU);   // bright leaf-EDGE rim
+            if (u > 0.68) c.lerp(cSeat, Math.pow((u - 0.68) / 0.32, 0.6));            // WIDE welded near-white TIP-SEAT (reads from above)
+          }
+          colors.push(c.r, c.g, c.b);
+          // gleam: leaf TIP (rhymes the fan-ray tip) + a faint line along the raised midrib crest
+          glow.push(regalia ? (Math.pow(u, 2.2) * 0.72 + mid * taperU * 0.32) : Math.pow(u, 2.4) * 0.7);
+        }
+        rows.push(row);
+      }
+      for (let iu = 0; iu < nU; iu++) for (let iv = 0; iv < nV; iv++) {
+        const a = rows[iu][iv], b = rows[iu][iv + 1], d = rows[iu + 1][iv], e = rows[iu + 1][iv + 1];
+        indices.push(a, b, e, a, e, d);
+        indices.push(a, e, b, a, d, e);
+      }
+    }
+    // whisker streamers — 3 curved filaments of DIFFERENT lengths (reference's calligraphic trail,
+    // not a fork of straight equal wires). Lengths ≈1.0 / 0.72 / 0.5, spread laterally, each bows.
+    const cWhisk = colBody.clone().lerp(new THREE.Color(cRim), 0.5);
+    const whiskSpec = [[-0.28, 1.0, 1.0], [0.05, 0.72, -1.0], [0.3, 0.5, 1.0]];   // [lateral spread, lengthMul, bendDir]
+    for (const [spread, lenMul, bendDir] of whiskSpec) {
+      const s = Math.sign(spread) || 1;
+      const D = fN.T.clone().multiplyScalar(1.0).addScaledVector(fN.B, spread * 0.5).addScaledVector(fN.Nn, -0.16).normalize();
+      const Wd = new THREE.Vector3().crossVectors(D, fN.Nn).normalize();
+      const Wlen = Llen * 1.5 * lenMul;
+      const B0 = fN.p.clone().addScaledVector(fN.T, fN.r * 0.5).addScaledVector(fN.B, spread * fN.r);
+      const nUw = 9, rowsW = [];
+      for (let iu = 0; iu <= nUw; iu++) {
+        const u = iu / nUw;
+        const w = leadR * 0.055 * Math.pow(1 - u, 0.7) + 0.006;
+        const bend = Math.sin(u * Math.PI * 0.9) * Wlen * 0.13 * bendDir;   // a clear single curve, varied per filament
+        const C = B0.clone().addScaledVector(D, u * Wlen).addScaledVector(Wd, bend).addScaledVector(fN.Nn, -Math.pow(u, 1.4) * Wlen * 0.1);
+        const c = cWhisk.clone().lerp(new THREE.Color(cRim), u * 0.5);
+        const r0 = positions.length / 3;
+        const wg = Math.pow(u, 1.8) * 0.8;                   // whisker gleam builds toward the trailing bead-tip
+        positions.push(C.x - Wd.x * w, C.y - Wd.y * w, C.z - Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b); glow.push(wg);
+        positions.push(C.x + Wd.x * w, C.y + Wd.y * w, C.z + Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b); glow.push(wg);
+        rowsW.push(r0);
+        if (iu > 0) {
+          const p = rowsW[iu - 1], q = rowsW[iu];
+          indices.push(p, p + 1, q + 1, p, q + 1, q);
+          indices.push(p, q + 1, p + 1, p, q, q + 1);
+        }
+      }
+    }
+  }
+  stampStation(N - 1);                                     // leaf-fork tail + whiskers → station N-1 (also the catch-all so vertStation.length === vcount)
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  // CP3 RIVER-GLEAM attribute — publish the withheld-glow mask (apex-only). The mask is intrinsic to
+  // each vertex, so it re-lofts through the ribbon for free (tips stay tips). Guard lockstep: if any
+  // color-push site ever forgets its glow.push, pad with 0 (matte) so the attribute never mis-sizes.
+  if (model.riverGleam) {
+    while (glow.length < positions.length / 3) glow.push(0);
+    geo.setAttribute('aGlow', new THREE.Float32BufferAttribute(glow, 1));
+  }
+
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, side: THREE.DoubleSide, flatShading: true,   // MATTE, FLAT-SHADED paper-craft jade (reference is faceted planes, not a glossy tube)
+    roughness: def.bodyRoughness ?? 0.98, metalness: 0.0,
+    envMapIntensity: def.bodyEnvIntensity ?? 0.0,   // ZERO env reflection → no cool sheen band on the tube, no teal tint on the pale fan tips (Fable gate r4)
+    emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.2,   // green self-illumination floor so shadowed fan facets stay GREEN under cool ambient, never drift teal (Fable gate r4)
+  });
+  // no fresnel rim — the reference read is matte flat-shaded, and the rim highlight was washing
+  // out the dorsal stripe at grazing angles (Fable gate r3).
+  bodyMat.userData.baseEmissive = cBody;
+  bodyMat.userData.baseIntensity = model.bodyGlow ?? 0.1;
+
+  const body = new THREE.Mesh(geo, bodyMat);
+  body.frustumCulled = false;
+  group.add(body);
+
+  // The shared head builder paints the koi skull from `mats.bodyMat.color` — but the body mesh's
+  // material.color is WHITE (its hue lives in the vertex colours), which would paint a WHITE head.
+  // Hand the head a jade-COLOURED sibling. Use a DARKER emerald base: the skull lifts its dorsal
+  // crown ×1.95, and on the mid-jade body hue that blows out to chartreuse/khaki on the muzzle
+  // (Fable gate r2) — a darker base makes ×1.95 land back at mid-jade, keeping the whole head green.
+  const headBodyMat = bodyMat.clone();
+  headBodyMat.color.set(model.headColor ?? 0x1a9459);   // BODY-value mid-jade so the head reads the same green as the body (Fable gate r3: head was near-black)
+  headBodyMat.roughness = 0.98; headBodyMat.envMapIntensity = 0.0;   // matte, no env sheen/olive patch
+
+  // ── CP3 RIVER-GLEAM shader patch (AFTER the head clone so the head sibling stays stock) ──────
+  // Add `uGleam · aGlow · gleamCol` to totalEmissiveRadiance so ONLY the masked withheld tips light
+  // (the tube's vertex colour + emissive floor are untouched). `uGleam` is a shared uniform OBJECT
+  // stashed on userData — dragon.js pulses it (cruise dew off the swim clock, flood on Surge via
+  // casOverall). Chain (never overwrite) the compile hook so a later atmosphere bind survives — the
+  // L4 lesson, inlined to avoid an atmosphere import in the torso builder. Apex-only (riverGleam).
+  if (model.riverGleam) {
+    const gleamU = { value: 0 };
+    const gleamCol = { value: new THREE.Color(model.gleamColor ?? 0x9ff0c8) };   // mint river-gleam
+    bodyMat.userData.gleamU = gleamU;
+    bodyMat.userData.gleamBase = model.gleamBase ?? 0.4;                          // cruise-dew floor intensity
+    // dragon.js's module `bodyMat` is actually THIS head sibling (dragonModel swaps mats.bodyMat in),
+    // so share the SAME uniform object onto it — that's the handle dragon.js pulses each frame.
+    headBodyMat.userData.gleamU = gleamU;
+    headBodyMat.userData.gleamBase = model.gleamBase ?? 0.4;
+    const prevOBC = bodyMat.onBeforeCompile;
+    bodyMat.onBeforeCompile = (shader, renderer) => {
+      if (prevOBC) prevOBC(shader, renderer);
+      shader.uniforms.uGleam = gleamU;
+      shader.uniforms.uGleamCol = gleamCol;
+      shader.vertexShader = 'attribute float aGlow;\nvarying float vGlow;\n' +
+        shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;');
+      shader.fragmentShader = 'uniform float uGleam;\nuniform vec3 uGleamCol;\nvarying float vGlow;\n' +
+        shader.fragmentShader.replace('#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uGleamCol * (uGleam * vGlow);');
+    };
+    bodyMat.customProgramCacheKey = () => 'jadeRiverGleam';   // partition from the stock head-clone program
+  }
+
+  // ── travelling-wave data (dragon.js flexes the tube each frame) ───────────────────────
+  // Lateral swim added along GLOBAL x + a vertical share along y, keyed to the z position, on
+  // top of the baked resting coil (baseX/baseY already hold it). ramp 0.12 head → 1 tail.
+  const leadZ = frames[0].p.z, lastZ = frames[N - 1].p.z;
+  const vcount = positions.length / 3;
+  const baseX = new Float32Array(vcount), baseY = new Float32Array(vcount), spineZ = new Float32Array(vcount), rampA = new Float32Array(vcount);
+  const denom = Math.max(0.0001, lastZ - leadZ);
+  for (let v = 0; v < vcount; v++) {
+    baseX[v] = positions[v * 3]; baseY[v] = positions[v * 3 + 1]; spineZ[v] = positions[v * 3 + 2];
+    rampA[v] = 0.12 + 0.88 * Math.min(1, Math.max(0, (spineZ[v] - leadZ) / denom));
+  }
+  const rampAt = (zq) => 0.12 + 0.88 * Math.min(1, Math.max(0, (zq - leadZ) / denom));
+  const bodyWave = {
+    geo, count: vcount, baseX, baseY, spineZ, ramp: rampA, rampAt,
+    amp: (model.bodyWaveAmp ?? 0.7) * scale,
+    ampY: (model.bodyWaveAmpY ?? 0.16) * (model.bodyWaveAmp ?? 0.7) * scale,
+    freq: model.bodyWaveFreq ?? 1.0,
+    baseSpeed: model.bodyWaveSpeed ?? 3.2,
+    breath: model.waveBreath ?? 0,
+    phase: 0, spd: 0,
+  };
+
+  // ── RIBBON SPINE (Inc 0 scaffold) ─────────────────────────────────────────────────────
+  // Decompose every vertex ONCE into (home station, offset expressed in that station's rest
+  // T/B/Nn frame). The per-frame tick can then re-loft the ENTIRE welded mesh (tube + stripe +
+  // fans + tail) from a dynamic set of station frames with ONE formula:
+  //     vertex = liveFrame[station].p + offT·T + offB·B + offN·Nn
+  // Fed the REST frames this reproduces `positions` to float precision (the Inc-0 identity proof).
+  // `restFrames` is the baked identity; `liveFrames` is what the follow-the-leader sim fills each
+  // tick (Inc 3). Everything jade-gated behind `bodyWave.ribbon` → the roster stays byte-identical.
+  const station = new Uint16Array(vcount);
+  const offT = new Float32Array(vcount), offB = new Float32Array(vcount), offN = new Float32Array(vcount);
+  for (let v = 0; v < vcount; v++) {
+    const i = vertStation[v] ?? (N - 1), f = frames[i];
+    const dx = positions[v * 3] - f.p.x, dy = positions[v * 3 + 1] - f.p.y, dz = positions[v * 3 + 2] - f.p.z;
+    station[v] = i;
+    offT[v] = dx * f.T.x + dy * f.T.y + dz * f.T.z;
+    offB[v] = dx * f.B.x + dy * f.B.y + dz * f.B.z;
+    offN[v] = dx * f.Nn.x + dy * f.Nn.y + dz * f.Nn.z;
+  }
+  const cloneFrames = () => frames.map((f) => ({
+    p: f.p.clone(), T: f.T.clone(), B: f.B.clone(), Nn: f.Nn.clone(),
+  }));
+  bodyWave.ribbon = { N, count: vcount, station, offT, offB, offN, restFrames: cloneFrames(), liveFrames: cloneFrames() };
+
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a3a2a, emissive: 0x37d67f, emissiveIntensity: 0.9 });   // r4: a SATURATED jade-green gem at 0.9 so the core reads GREEN, not white (Fable CP4); dark socket surround preserved
+
+  // ── attach contract (same shape koiSerpent published) ─────────────────────────────────
+  const segmentAnchors = [];
+  for (let i = 0; i < N; i++) { const f = frames[i]; segmentAnchors.push({ x: f.p.x, y: f.p.y, z: f.p.z, scale: f.r / leadR, r: f.r }); }
+  const sa = segmentAnchors[shoulderI];
+  const leadR2 = frames[0].r;
+  const riderSocket = { x: frames[1].p.x, y: frames[1].p.y + leadR2 * 0.8, z: leadZ + leadR2 * 0.6 };
+  const halfWidthAt = (zq) => {
+    let best = frames[0].r, bd = Infinity;
+    for (let i = 0; i < N; i++) { const d = Math.abs(frames[i].p.z - zq); if (d < bd) { bd = d; best = frames[i].r; } }
+    return best * OVAL_W;
+  };
+  const attach = {
+    headBase: { x: frames[0].p.x, y: bodyY + 0.04, z: leadZ - leadR2 * 0.7 },
+    tailAnchor: { x: fN.p.x, y: fN.p.y, z: lastZ + fN.r * 1.0 },
+    riderSocket,
+    wingRoot: (side) => ({ x: sa.x + sa.r * 0.6 * side, y: sa.y + sa.r * 0.55, z: sa.z }),
+    sideFinRoots: (side, pairIndex) => {
+      const a = segmentAnchors[Math.min(shoulderI + pairIndex * 2, N - 1)];
+      return { x: a.x + a.r * 0.7 * side, y: a.y + a.r * 0.1, z: a.z };
+    },
+    halfWidthAt,
+    segmentAnchors,
+    keelTopAt: () => bodyY + leadR,
+    tailShift: 0,
+  };
+
+  const spinePoints = segmentAnchors.map((a) => new THREE.Vector3(a.x, a.y, a.z));
+
+  return { group, attach, mats: { bodyMat: headBodyMat, eyeMat }, spineMats, spinePoints, bodyWave };
+}
+
+registerTorso('jadeSerpent', buildJadeSerpentTorso);
