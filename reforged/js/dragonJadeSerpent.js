@@ -117,10 +117,10 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       // (lit dorsal-flank → mid jade → shadow strake → pale belly), endpoints spread wide so the ladder
       // survives the brightest biome (was one soft lerp that read near-monovalue). `strakeLadder` gates it.
       if (model.strakeLadder) {
-        if (sn >= 0.55) tmp.copy(colBody).lerp(colCrest, 0.14 * (sn - 0.55) / 0.45);   // LIT dorsal-flank (lightest jade)
+        if (sn >= 0.5) tmp.copy(colBody).lerp(colCrest, 0.22 * (sn - 0.5) / 0.5);       // LIT dorsal-flank (lightest jade, lifted a step)
         else if (sn >= 0.0) tmp.copy(colBody);                                          // mid jade
-        else if (sn >= -0.42) tmp.copy(colBody).lerp(colShadow, Math.min(1, (-sn / 0.42) * 0.92));   // SHADOW strake (flanks a full step darker)
-        else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.42 - sn) / 0.5));       // pale belly
+        else if (sn >= -0.45) tmp.copy(colBody).lerp(colShadow, Math.min(1, -sn / 0.45));   // SHADOW strake (flanks a FULL step darker)
+        else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.45 - sn) / 0.45));      // pale belly (endpoint spread wider)
       } else if (sn >= 0.05) tmp.copy(colBody);
       else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
       else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
@@ -201,18 +201,19 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   // pulses read as overlapping scute PLATES with darker seams between. A second organized detail
   // system on the tube (paper-craft), emitted into the mesh so it rides the ribbon for free. ──
   if (model.scuteBand) {
-    const cScute = new THREE.Color(model.scuteColor ?? 0xbfe6cf);              // pale-mint plate
-    const cSeamV = colBelly.clone().lerp(colShadow, 0.5);                      // darker seam between plates
-    const nScute = model.scuteCount ?? 16;
-    const bwv = 0.2;                                                           // half angular width at the belly
+    const cScute = new THREE.Color(model.scuteColor ?? 0xd4f5e2);              // BRIGHT pale-mint plate (≥2 value steps over the flank)
+    const cSeamV = cScute.clone().lerp(colShadow, 0.42);                       // seam = darker mint between plates
+    const nScute = model.scuteCount ?? 12;                                     // coarser plates → resolve at chase distance
+    const bwv = 0.28;                                                          // WIDER band (~24% of circumference)
     const angsV = [-bwv, -bwv * 0.5, 0, bwv * 0.5, bwv];
     const rowsV = [];
     for (let i = 0; i < N; i++) {
       const f = frames[i];
-      const taper = Math.min(1, f.t / 0.1) * (f.t < 0.86 ? 1 : Math.max(0, 1 - (f.t - 0.86) * 6));   // fade in at neck, out before the fine tail
+      const taper = Math.min(1, (f.t - 0.03) / 0.08) * (f.t < 0.74 ? 1 : Math.max(0, 1 - (f.t - 0.74) * 8));   // throat → ~75% of length
       const seg = 0.5 + 0.5 * Math.cos(f.t * Math.PI * 2 * nScute);            // plate ridges along the body
-      const plate = cScute.clone().lerp(cSeamV, 1 - seg);                      // bright plate → dark seam
-      const rW = f.r * OVAL_W * 1.03, rH = f.r * OVAL_H * 1.03;               // just proud of the belly
+      const plate = cScute.clone().lerp(cSeamV, (1 - seg) * 0.6);             // bright plate → slightly darker seam
+      const proud = 1.03 + 0.08 * seg * taper;                                 // RAISED plates bulge out, seams notch in → the ventral silhouette scallops
+      const rW = f.r * OVAL_W * proud, rH = f.r * OVAL_H * proud;
       const row = [];
       for (let k = 0; k < angsV.length; k++) {
         const a = -Math.PI / 2 + angsV[k], cs = Math.cos(a), sn = Math.sin(a);
@@ -223,7 +224,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
           f.p.y + cs * rW * f.B.y + sn * rH * f.Nn.y,
           f.p.z + cs * rW * f.B.z + sn * rH * f.Nn.z);
         normals.push(-f.Nn.x, -f.Nn.y, -f.Nn.z);
-        const c = colBelly.clone().lerp(plate, taper * (1 - 0.5 * edge));
+        const c = colBelly.clone().lerp(plate, taper * (1 - 0.45 * edge * edge));
         colors.push(c.r, c.g, c.b);
       }
       rowsV.push(row);
