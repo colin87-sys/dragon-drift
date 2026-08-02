@@ -386,8 +386,16 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     const cBlade = colBody.clone().lerp(new THREE.Color(cRim), 0.62);
     const cLeaf = colBody.clone().lerp(new THREE.Color(cRim), 0.94);
     if (rb > 0) cLeaf.lerp(colCrest, rb * 0.4);
-    const Llen = leadR * (1.7 + 3.4 * caudal);   // modest fork — the tail is NOT the hero (Fable gate r2: shoulder fan stays the hero)
-    const nU = 8, nV = 4;
+    const Llen = leadR * (1.7 + 3.4 * caudal) * (model.tailRegalia ? 1.78 : 1);   // regalia scales the fork up so the midrib/veins/tip-seat READ at cruise distance (Fable CP4 r3: 1.55→1.78, fork still legible-but-timid in the top frame)
+    // ── CP4 TAIL REGALIA (tailRegalia): give each leaf a raised MIDRIB + herringbone VEINS + a welded
+    // bright TIP-SEAT + a river-gleam crest — the koi-leaf rhyme of the fan-CROWN's ribbed-ray
+    // vocabulary (same core→bloom→dark + rim signature, bookending the tail). Default off → every
+    // other form keeps the flat lanceolate leaf byte-identical. ──
+    const regalia = model.tailRegalia ? 1 : 0;
+    const cRimC = new THREE.Color(cRim);
+    const cSeat = new THREE.Color(0xe8fff4);                // near-white welded tip-seat (rhymes the fan rim)
+    const nU = 8, nV = regalia ? 6 : 4;
+    const nVeins = 3;                                        // herringbone vein pairs per leaf
     for (const s of [-1, 1]) {
       // leaf axis: mostly BACK (T) with a modest out (±B) + up (Nn) — trails aft, does NOT cross the body
       const D = fN.T.clone().multiplyScalar(0.95).addScaledVector(fN.B, s * 0.34).addScaledVector(fN.Nn, 0.26).normalize();
@@ -397,19 +405,46 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       const rows = [];
       for (let iu = 0; iu <= nU; iu++) {
         const u = iu / nU;
-        const w = Llen * 0.26 * Math.pow(u + 0.2, 0.4) * Math.pow(1 - u, 0.72);   // WIDE root (visible V-junction) → lanceolate point
+        // regalia: broaden the leaf + SCALLOP the outer edge into lobes so the SILHOUETTE is serrated
+        // (a smooth leaf can't rhyme the fan pleats at distance — Fable CP4); ×3 lobes down each edge.
+        const teeth = regalia ? (0.66 + 0.34 * Math.cos(u * Math.PI * 2 * 3)) : 1;
+        // regalia BLUNTS the very tip (min-width floor) so the near-white welded TIP-SEAT has visible
+        // area instead of vanishing to a sub-pixel point (Fable CP4: no near-white node read on the tail).
+        const tipFloor = regalia ? Math.max(Math.pow(1 - u, 0.72), 0.12 * Math.min(1, u * 6)) : Math.pow(1 - u, 0.72);
+        const w = Llen * (regalia ? 0.30 : 0.26) * teeth * Math.pow(u + 0.2, 0.4) * tipFloor;   // WIDE root (visible V-junction) → lanceolate point (regalia: blunt tip node)
         const cam = Llen * 0.05 * Math.sin(u * Math.PI);
+        const taperU = Math.pow(Math.sin(u * Math.PI), 0.5);                       // relief fades to 0 at root + tip
         const C = B0.clone().addScaledVector(D, u * Llen).addScaledVector(Nl, cam);
         const row = [];
         for (let iv = 0; iv <= nV; iv++) {
           const v = iv / nV - 0.5;
+          const mid = Math.exp(-(v / 0.16) * (v / 0.16));                          // raised central MIDRIB profile (peak at v=0)
+          const veinPh = (Math.abs(v) - u * 0.35) * Math.PI * 2 * nVeins;          // veins angle toward the tip → leaf veins, not chevrons
+          const vein = 0.5 + 0.5 * Math.cos(veinPh);
+          const relief = regalia * (Llen * 0.11 * mid * taperU + Llen * 0.018 * vein * taperU * (1 - mid));   // midrib bulge + fine vein ripple
           row.push(positions.length / 3);
-          positions.push(C.x + Wd.x * v * 2 * w, C.y + Wd.y * v * 2 * w, C.z + Wd.z * v * 2 * w);
+          positions.push(
+            C.x + Wd.x * v * 2 * w + Nl.x * relief,
+            C.y + Wd.y * v * 2 * w + Nl.y * relief,
+            C.z + Wd.z * v * 2 * w + Nl.z * relief);
           normals.push(Nl.x, Nl.y, Nl.z);
           const c = cBlade.clone().lerp(cVein, Math.max(0, 1 - Math.abs(v) * 3) * 0.5 * (1 - u * 0.7));
           c.lerp(cLeaf, Math.pow(u, 1.25));
+          if (regalia) {
+            // core→bloom→dark like the fans: RAISED crests (midrib + pleat peaks) CATCH light, valleys
+            // drop dark. `pleat` = radial fan-frequency striping across the leaf so the fork reads as a
+            // fan-SIBLING, not a crystal (Fable CP4 r4). Tip-seat wider/brighter → its near-white reads
+            // from above too (the fork must catch the same bloom the fans get).
+            const pleat = 0.5 + 0.5 * Math.cos(v * Math.PI * 5);                     // 5 chordwise pleats (fan-frequency)
+            c.lerp(cLeaf, Math.min(1, mid * 0.5 + pleat * 0.3) * taperU);            // LIT raised crests (was darkening the midrib → muddy top face)
+            c.multiplyScalar(1 - 0.3 * (1 - pleat) * (1 - mid));                     // pleat-valley shadows
+            c.multiplyScalar(1 - 0.16 * (1 - vein));                                 // subtle herringbone on top
+            c.lerp(cRimC, Math.pow(Math.min(1, Math.abs(v) * 2.1), 2) * 0.45 * taperU);   // bright leaf-EDGE rim
+            if (u > 0.68) c.lerp(cSeat, Math.pow((u - 0.68) / 0.32, 0.6));            // WIDE welded near-white TIP-SEAT (reads from above)
+          }
           colors.push(c.r, c.g, c.b);
-          glow.push(Math.pow(u, 2.4) * 0.7);                 // gleam pools toward the leaf POINT (tip rhymes the fan-ray tips)
+          // gleam: leaf TIP (rhymes the fan-ray tip) + a faint line along the raised midrib crest
+          glow.push(regalia ? (Math.pow(u, 2.2) * 0.72 + mid * taperU * 0.32) : Math.pow(u, 2.4) * 0.7);
         }
         rows.push(row);
       }
@@ -562,7 +597,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   }));
   bodyWave.ribbon = { N, count: vcount, station, offT, offB, offN, restFrames: cloneFrames(), liveFrames: cloneFrames() };
 
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x203a30, emissive: cEye, emissiveIntensity: 2.2 });
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a3a2a, emissive: 0x37d67f, emissiveIntensity: 0.9 });   // r4: a SATURATED jade-green gem at 0.9 so the core reads GREEN, not white (Fable CP4); dark socket surround preserved
 
   // ── attach contract (same shape koiSerpent published) ─────────────────────────────────
   const segmentAnchors = [];
