@@ -298,6 +298,7 @@ export const DRAGONS = {
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 2, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
         bodyFins: 0.6, bodyFinCount: 3, caudalFork: 0.4, bodyReach: 11,   // whelp: a few small budding web-fans + a short leaf-fork; a proper RIBBON length even on the pup (Fable ribbon gate: the body IS the ribbon → give it real length to trail)
+        girthFull: 1.25, strakeLadder: true,   // CP5 LADDER (whelp rung): a chubby-pup mass floor + the dorsal→belly value ladder (cheap paint) so the pup already reads jade-family; the ribbed fans / scutes / gleam / koi-mask stay withheld for ascension to confer
         moonTail: 0.15,                    // GLOW-UP ladder: the tiniest veiltail NUB on the pup, so the tail grows pup-nub → bud → full veiltail across the three forms (same dragon growing, not a leap)
         crestRibbon: 0.2,                  // AAA: a faint nape hint of the dorsal crest ribbon (§5 ladder) — paint only, byte-identical geometry
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
@@ -313,6 +314,9 @@ export const DRAGONS = {
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 2, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
         bodyFins: 0.85, bodyFinCount: 4, caudalFork: 0.65, bodyReach: 16,   // web-fans unfurl down the lengthening body; leaf-fork buds — a long trailing ribbon (Fable ribbon gate)
+        fanRays: 5, fanRayRelief: 0.18, fanBayDepth: 0.12, fanSpread: 0.78, girthFull: 1.5,   // CP5 LADDER (adolescent rung): the fan-CROWN buds (5 pleats, a step below the apex's 7) as "lobes unfurl"; mid-body mass holds a step below apex
+        strakeLadder: true, scuteBand: true, scuteColor: 0xcdeedd, scuteCount: 10,   // the value ladder + a coarser, dimmer ventral scute band (brightens/coarsens to the apex)
+        riverGleam: true, gleamColor: 0x8ff5cf, gleamBase: 0.45, koiMask: 0.6,   // the withheld gleam BUDS (dim dew, floods less than apex) + a LIGHT koi-mask chisel; the full flood, saturated gem eye, and the ribbed TAIL REGALIA stay the coronation reward at apex
         moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
         caudalBloom: 0.35,                 // AAA §5: the fan BUDS (split barely dimples) — ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
         crestRibbon: 0.55, bodyArcY: 0.16, bodyWaveAmpY: 0.18,   // AAA §5: the ribbon becomes a line; the vertical swim share deepens (rear-visible majesty, lateral amp untouched)
