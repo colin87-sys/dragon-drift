@@ -43,6 +43,7 @@ const setCam = (ox, oy, oz, lx, ly, lz) => page.evaluate(([ox, oy, oz, lx, ly, l
 await setCam(3.4, 2.2, 5.2, -0.2, 0.2, 2.6); await page.waitForTimeout(250); await shot('q34');
 await setCam(6.2, 0.8, 2.6, -0.5, -0.2, 2.8); await page.waitForTimeout(250); await shot('side');
 await setCam(1.8, 6.0, 4.2, 0, -0.6, 2.8); await page.waitForTimeout(250); await shot('top');
+await setCam(5.0, -2.6, 3.2, -0.5, 1.0, 3.0); await page.waitForTimeout(250); await shot('low');   // belly/underside — the ventral scute band + body mass
 
 console.log(errors.length ? '  ! errors: ' + errors.slice(0, 3).join(' | ') : '  ✓ no console errors');
 await done();

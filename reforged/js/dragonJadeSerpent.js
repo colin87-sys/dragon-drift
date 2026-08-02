@@ -60,7 +60,11 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const girth = (t) => {
     const up = Math.min(t / PEAK, 1);
     const down = Math.max(0, (t - PEAK) / (1 - PEAK));
-    return (0.68 + 0.32 * Math.sin(up * Math.PI * 0.5)) * Math.pow(1 - down, 1.25) + 0.05;
+    // CP2: `girthFull` (apex) softens the post-peak decay so the serpent keeps visible MASS down ~70%
+    // of the body (a serpent's thickness IS its body — the old (1-down)^1.25 tapered to a wire by
+    // mid-body); the fine tail TIP still resolves (decay→0 at the tail, +0.05 floor).
+    const decay = model.girthFull ? (1 - Math.pow(down, model.girthFull)) : Math.pow(1 - down, 1.25);
+    return (0.68 + 0.32 * Math.sin(up * Math.PI * 0.5)) * decay + 0.05;
   };
 
   // per-station frame: tangent T, side-binormal B (≈horizontal), up-normal Nn — a stable
@@ -109,8 +113,15 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
       const nx = cs * f.B.x + sn * f.Nn.x, ny = cs * f.B.y + sn * f.Nn.y, nz = cs * f.B.z + sn * f.Nn.z;
       const nl = Math.hypot(nx, ny, nz) || 1;
       normals.push(nx / nl, ny / nl, nz / nl);
-      // value ramp keyed on the up-component (sin): dorsal body → shadow flank → pale belly
-      if (sn >= 0.05) tmp.copy(colBody);
+      // CP2 STRAKE LADDER — the hex tube's facet columns painted as a deliberate 4-step VALUE ladder
+      // (lit dorsal-flank → mid jade → shadow strake → pale belly), endpoints spread wide so the ladder
+      // survives the brightest biome (was one soft lerp that read near-monovalue). `strakeLadder` gates it.
+      if (model.strakeLadder) {
+        if (sn >= 0.55) tmp.copy(colBody).lerp(colCrest, 0.14 * (sn - 0.55) / 0.45);   // LIT dorsal-flank (lightest jade)
+        else if (sn >= 0.0) tmp.copy(colBody);                                          // mid jade
+        else if (sn >= -0.42) tmp.copy(colBody).lerp(colShadow, Math.min(1, (-sn / 0.42) * 0.92));   // SHADOW strake (flanks a full step darker)
+        else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.42 - sn) / 0.5));       // pale belly
+      } else if (sn >= 0.05) tmp.copy(colBody);
       else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
       else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
       // DORSAL CREST RIBBON (a≈π/2) as a HARD 3-BAND spine (reference identity, ~40% of the read):
@@ -181,6 +192,45 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
     }
     for (let i = 0; i < N - 1; i++) for (let k = 0; k < angs.length - 1; k++) {
       const a = rowsS[i][k], b = rowsS[i][k + 1], d = rowsS[i + 1][k], e = rowsS[i + 1][k + 1];
+      indices.push(a, b, e, a, e, d);
+    }
+  }
+
+  // ── VENTRAL SCUTE BAND (CP2) — a raised, SEGMENTED pale-mint belly-plate strip along the ventral
+  // line (koi underside), mirror of the dorsal-stripe technique at a=−π/2. Per-station brightness
+  // pulses read as overlapping scute PLATES with darker seams between. A second organized detail
+  // system on the tube (paper-craft), emitted into the mesh so it rides the ribbon for free. ──
+  if (model.scuteBand) {
+    const cScute = new THREE.Color(model.scuteColor ?? 0xbfe6cf);              // pale-mint plate
+    const cSeamV = colBelly.clone().lerp(colShadow, 0.5);                      // darker seam between plates
+    const nScute = model.scuteCount ?? 16;
+    const bwv = 0.2;                                                           // half angular width at the belly
+    const angsV = [-bwv, -bwv * 0.5, 0, bwv * 0.5, bwv];
+    const rowsV = [];
+    for (let i = 0; i < N; i++) {
+      const f = frames[i];
+      const taper = Math.min(1, f.t / 0.1) * (f.t < 0.86 ? 1 : Math.max(0, 1 - (f.t - 0.86) * 6));   // fade in at neck, out before the fine tail
+      const seg = 0.5 + 0.5 * Math.cos(f.t * Math.PI * 2 * nScute);            // plate ridges along the body
+      const plate = cScute.clone().lerp(cSeamV, 1 - seg);                      // bright plate → dark seam
+      const rW = f.r * OVAL_W * 1.03, rH = f.r * OVAL_H * 1.03;               // just proud of the belly
+      const row = [];
+      for (let k = 0; k < angsV.length; k++) {
+        const a = -Math.PI / 2 + angsV[k], cs = Math.cos(a), sn = Math.sin(a);
+        const edge = Math.abs(angsV[k]) / bwv;                                // fade the band edges into the belly
+        row.push(positions.length / 3);
+        positions.push(
+          f.p.x + cs * rW * f.B.x + sn * rH * f.Nn.x,
+          f.p.y + cs * rW * f.B.y + sn * rH * f.Nn.y,
+          f.p.z + cs * rW * f.B.z + sn * rH * f.Nn.z);
+        normals.push(-f.Nn.x, -f.Nn.y, -f.Nn.z);
+        const c = colBelly.clone().lerp(plate, taper * (1 - 0.5 * edge));
+        colors.push(c.r, c.g, c.b);
+      }
+      rowsV.push(row);
+      stampStation(i);                                       // scute row i → station i
+    }
+    for (let i = 0; i < N - 1; i++) for (let k = 0; k < angsV.length - 1; k++) {
+      const a = rowsV[i][k], b = rowsV[i][k + 1], d = rowsV[i + 1][k], e = rowsV[i + 1][k + 1];
       indices.push(a, b, e, a, e, d);
     }
   }
