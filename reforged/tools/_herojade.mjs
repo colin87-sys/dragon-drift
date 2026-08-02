@@ -45,5 +45,12 @@ await setCam(6.2, 0.8, 2.6, -0.5, -0.2, 2.8); await page.waitForTimeout(250); aw
 await setCam(1.8, 6.0, 4.2, 0, -0.6, 2.8); await page.waitForTimeout(250); await shot('top');
 await setCam(5.0, -2.6, 3.2, -0.5, 1.0, 3.0); await page.waitForTimeout(250); await shot('low');   // belly/underside — the ventral scute band + body mass
 
+// ── SURGE frames — force fever so the WITHHELD river-gleam FLOODS the fan-ray tips / tail / whiskers.
+// The withheld-glow read is the cruise-subtle → Surge-bright CONTRAST, so the gate needs both.
+await page.evaluate(() => { if (window.__dd?.game) { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 99999; } });
+await page.waitForTimeout(1400);   // let the ignition cascade (casOverall) ramp to full
+await setCam(3.4, 2.2, 5.2, -0.2, 0.2, 2.6); await page.waitForTimeout(250); await shot('surge-q34');
+await setCam(1.8, 6.0, 4.2, 0, -0.6, 2.8); await page.waitForTimeout(250); await shot('surge-top');
+
 console.log(errors.length ? '  ! errors: ' + errors.slice(0, 3).join(' | ') : '  ✓ no console errors');
 await done();

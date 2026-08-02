@@ -90,6 +90,13 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const rb = model.crestRibbon ?? 0;
   const colCrest = new THREE.Color(model.crestColor ?? 0xbdf5d0);
   const positions = [], normals = [], colors = [], indices = [];
+  // CP3 RIVER-GLEAM: a per-vertex withheld-glow MASK, lockstep with `colors` (one float/vertex,
+  // 0 = matte tube, →1 = a withheld tip that catches the mint gleam). Non-zero ONLY on the fan-ray
+  // rim/bloom, the tail-leaf points, the whisker beads, and a thin line down the dorsal crest —
+  // so the gleam lights the withheld TIPS, never the whole body. Built unconditionally (cheap
+  // bookkeeping like vertStation); only published as an attribute + shader-patched when
+  // `model.riverGleam` is set (apex-only for now → every other form/dragon byte-identical).
+  const glow = [];
   // RIBBON SPINE (Inc 0): record each vertex's HOME station (spine frame index) so the per-frame
   // tick can re-loft the whole welded mesh from a dynamic spine. `stampStation(i)` marks every
   // vertex pushed since the last call as belonging to station i — one call per emit block, so the
@@ -134,6 +141,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         else tmp.copy(colBody).lerp(colShadow, 0.55 * rb);                    // dark-emerald flank columns framing it
       }
       colors.push(tmp.r, tmp.g, tmp.b);
+      glow.push(0);                                         // matte tube — never gleams
     }
     stampStation(i);                                       // ring i verts → station i
   }
@@ -148,11 +156,11 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const f0 = frames[0], fN = frames[N - 1];
   const noseIdx = positions.length / 3;
   const nose = f0.p.clone().addScaledVector(f0.T, -f0.r * 0.9);
-  positions.push(nose.x, nose.y, nose.z); normals.push(-f0.T.x, -f0.T.y, -f0.T.z); colors.push(colBody.r, colBody.g, colBody.b);
+  positions.push(nose.x, nose.y, nose.z); normals.push(-f0.T.x, -f0.T.y, -f0.T.z); colors.push(colBody.r, colBody.g, colBody.b); glow.push(0);
   stampStation(0);                                         // nose cap → station 0
   const tailIdx = positions.length / 3;
   const tailP = fN.p.clone().addScaledVector(fN.T, fN.r * 1.4);
-  positions.push(tailP.x, tailP.y, tailP.z); normals.push(fN.T.x, fN.T.y, fN.T.z); colors.push(colBody.r, colBody.g, colBody.b);
+  positions.push(tailP.x, tailP.y, tailP.z); normals.push(fN.T.x, fN.T.y, fN.T.z); colors.push(colBody.r, colBody.g, colBody.b); glow.push(0);
   stampStation(N - 1);                                     // tail cap → station N-1
   for (let j = 0; j < K; j++) {
     const j2 = (j + 1) % K;
@@ -186,6 +194,10 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         normals.push(f.Nn.x, f.Nn.y, f.Nn.z);
         const c = colBody.clone().lerp(cols[k], rb);
         colors.push(c.r, c.g, c.b);
+        // a THIN river-gleam runs the bright centre column (k===2) — the withheld dorsal line; a faint
+        // spill onto the pale seams (k 1/3); the dark flanks (0/4) stay matte. Fades out over the tail.
+        const gTaper = f.t < 0.85 ? 1 : Math.max(0, 1 - (f.t - 0.85) * 5);
+        glow.push((k === 2 ? 0.16 : (k === 1 || k === 3 ? 0.05 : 0)) * gTaper);
       }
       rowsS.push(row);
       stampStation(i);                                     // stripe row i → station i
@@ -226,6 +238,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         normals.push(-f.Nn.x, -f.Nn.y, -f.Nn.z);
         const c = colBelly.clone().lerp(plate, taper * (1 - 0.45 * edge * edge));
         colors.push(c.r, c.g, c.b);
+        glow.push(0);                                        // belly scutes stay matte (withheld glow is a DORSAL/tip signature)
       }
       rowsV.push(row);
       stampStation(i);                                       // scute row i → station i
@@ -300,6 +313,10 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
           c.lerp(cTipF, bloom * 0.9);                                         // BLOOM pale-seafoam crest
           if (u > 0.9) c.lerp(cRim, 0.55);                                    // crisp near-white bound edge (survives to chase distance)
           colors.push(c.r, c.g, c.b);
+          // RIVER-GLEAM MASK: the withheld gleam collects on the ray-tip RIM (u>0.9) and, softer, on
+          // the crest bloom (outer half of each ridge) — matte at the dark hub/bays. On Surge these
+          // tips flood mint (the signature ignition), at cruise a subtle dew.
+          glow.push((u > 0.9 ? 0.85 : 0) + bloom * 0.45);
         }
         rows.push(row);
       }
@@ -335,6 +352,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         if (fold < 0) c.multiplyScalar(0.82);                              // receding pleat spokes — DARKER same hue (value, not a teal)
         if (u > 0.92 || edge > 0.92) c.multiplyScalar(0.68);              // dark rim (value) → crisp edge even edge-on
         colors.push(c.r, c.g, c.b);
+        glow.push(0);                                                     // legacy smooth fan (lower forms) — no gleam mask
       }
       rows.push(row);
     }
@@ -389,6 +407,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
           const c = cBlade.clone().lerp(cVein, Math.max(0, 1 - Math.abs(v) * 3) * 0.5 * (1 - u * 0.7));
           c.lerp(cLeaf, Math.pow(u, 1.25));
           colors.push(c.r, c.g, c.b);
+          glow.push(Math.pow(u, 2.4) * 0.7);                 // gleam pools toward the leaf POINT (tip rhymes the fan-ray tips)
         }
         rows.push(row);
       }
@@ -416,8 +435,9 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         const C = B0.clone().addScaledVector(D, u * Wlen).addScaledVector(Wd, bend).addScaledVector(fN.Nn, -Math.pow(u, 1.4) * Wlen * 0.1);
         const c = cWhisk.clone().lerp(new THREE.Color(cRim), u * 0.5);
         const r0 = positions.length / 3;
-        positions.push(C.x - Wd.x * w, C.y - Wd.y * w, C.z - Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b);
-        positions.push(C.x + Wd.x * w, C.y + Wd.y * w, C.z + Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b);
+        const wg = Math.pow(u, 1.8) * 0.8;                   // whisker gleam builds toward the trailing bead-tip
+        positions.push(C.x - Wd.x * w, C.y - Wd.y * w, C.z - Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b); glow.push(wg);
+        positions.push(C.x + Wd.x * w, C.y + Wd.y * w, C.z + Wd.z * w); normals.push(fN.Nn.x, fN.Nn.y, fN.Nn.z); colors.push(c.r, c.g, c.b); glow.push(wg);
         rowsW.push(r0);
         if (iu > 0) {
           const p = rowsW[iu - 1], q = rowsW[iu];
@@ -434,6 +454,13 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
+  // CP3 RIVER-GLEAM attribute — publish the withheld-glow mask (apex-only). The mask is intrinsic to
+  // each vertex, so it re-lofts through the ribbon for free (tips stay tips). Guard lockstep: if any
+  // color-push site ever forgets its glow.push, pad with 0 (matte) so the attribute never mis-sizes.
+  if (model.riverGleam) {
+    while (glow.length < positions.length / 3) glow.push(0);
+    geo.setAttribute('aGlow', new THREE.Float32BufferAttribute(glow, 1));
+  }
 
   const bodyMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, side: THREE.DoubleSide, flatShading: true,   // MATTE, FLAT-SHADED paper-craft jade (reference is faceted planes, not a glossy tube)
@@ -458,6 +485,35 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
   const headBodyMat = bodyMat.clone();
   headBodyMat.color.set(model.headColor ?? 0x1a9459);   // BODY-value mid-jade so the head reads the same green as the body (Fable gate r3: head was near-black)
   headBodyMat.roughness = 0.98; headBodyMat.envMapIntensity = 0.0;   // matte, no env sheen/olive patch
+
+  // ── CP3 RIVER-GLEAM shader patch (AFTER the head clone so the head sibling stays stock) ──────
+  // Add `uGleam · aGlow · gleamCol` to totalEmissiveRadiance so ONLY the masked withheld tips light
+  // (the tube's vertex colour + emissive floor are untouched). `uGleam` is a shared uniform OBJECT
+  // stashed on userData — dragon.js pulses it (cruise dew off the swim clock, flood on Surge via
+  // casOverall). Chain (never overwrite) the compile hook so a later atmosphere bind survives — the
+  // L4 lesson, inlined to avoid an atmosphere import in the torso builder. Apex-only (riverGleam).
+  if (model.riverGleam) {
+    const gleamU = { value: 0 };
+    const gleamCol = { value: new THREE.Color(model.gleamColor ?? 0x9ff0c8) };   // mint river-gleam
+    bodyMat.userData.gleamU = gleamU;
+    bodyMat.userData.gleamBase = model.gleamBase ?? 0.4;                          // cruise-dew floor intensity
+    // dragon.js's module `bodyMat` is actually THIS head sibling (dragonModel swaps mats.bodyMat in),
+    // so share the SAME uniform object onto it — that's the handle dragon.js pulses each frame.
+    headBodyMat.userData.gleamU = gleamU;
+    headBodyMat.userData.gleamBase = model.gleamBase ?? 0.4;
+    const prevOBC = bodyMat.onBeforeCompile;
+    bodyMat.onBeforeCompile = (shader, renderer) => {
+      if (prevOBC) prevOBC(shader, renderer);
+      shader.uniforms.uGleam = gleamU;
+      shader.uniforms.uGleamCol = gleamCol;
+      shader.vertexShader = 'attribute float aGlow;\nvarying float vGlow;\n' +
+        shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = aGlow;');
+      shader.fragmentShader = 'uniform float uGleam;\nuniform vec3 uGleamCol;\nvarying float vGlow;\n' +
+        shader.fragmentShader.replace('#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uGleamCol * (uGleam * vGlow);');
+    };
+    bodyMat.customProgramCacheKey = () => 'jadeRiverGleam';   // partition from the stock head-clone program
+  }
 
   // ── travelling-wave data (dragon.js flexes the tube each frame) ───────────────────────
   // Lateral swim added along GLOBAL x + a vertical share along y, keyed to the z position, on
