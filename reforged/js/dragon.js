@@ -1740,7 +1740,7 @@ export function updateDragon(dt, player, time) {
     if (bodyMat && bodyMat.userData.gleamU) {
       const base = bodyMat.userData.gleamBase ?? 0.4;
       const dew = 1 + 0.22 * Math.sin(bodyWave.phase * 0.5 - 1.4);   // cruise shimmer, rearward-lagged off the swim
-      bodyMat.userData.gleamU.value = base * dew * (1 + 3.4 * casOverall);   // Surge floods the tips
+      bodyMat.userData.gleamU.value = base * dew * (1 + 3.6 * casOverall);   // Surge FLOODS the full ray-crest — a strong multiplier off a low cruise floor gives the ~4x dew→ignition delta (Fable CP3 v2: profile under-read), the fan mask's ridge-scaling keeps the pleat structure through the flood
     }
     // §4.3b: the pearl-chain walk — links 1/3/4 (satellite beads → lyre gems → streamer ribbons)
     // ignite in REARWARD phase sequence off the ONE clock, each with its own lag, so pearl-light

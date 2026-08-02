@@ -197,7 +197,7 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
         // a THIN river-gleam runs the bright centre column (k===2) — the withheld dorsal line; a faint
         // spill onto the pale seams (k 1/3); the dark flanks (0/4) stay matte. Fades out over the tail.
         const gTaper = f.t < 0.85 ? 1 : Math.max(0, 1 - (f.t - 0.85) * 5);
-        glow.push((k === 2 ? 0.16 : (k === 1 || k === 3 ? 0.05 : 0)) * gTaper);
+        glow.push((k === 2 ? 0.4 : (k === 1 || k === 3 ? 0.13 : 0)) * gTaper);
       }
       rowsS.push(row);
       stampStation(i);                                     // stripe row i → station i
@@ -313,10 +313,12 @@ function buildJadeSerpentTorso(def, model, _bodyMat) {
           c.lerp(cTipF, bloom * 0.9);                                         // BLOOM pale-seafoam crest
           if (u > 0.9) c.lerp(cRim, 0.55);                                    // crisp near-white bound edge (survives to chase distance)
           colors.push(c.r, c.g, c.b);
-          // RIVER-GLEAM MASK: the withheld gleam collects on the ray-tip RIM (u>0.9) and, softer, on
-          // the crest bloom (outer half of each ridge) — matte at the dark hub/bays. On Surge these
-          // tips flood mint (the signature ignition), at cruise a subtle dew.
-          glow.push((u > 0.9 ? 0.85 : 0) + bloom * 0.45);
+          // RIVER-GLEAM MASK: graded along the whole ray CREST (inner→rim), scaled by `ridge` so the
+          // recessed bays stay dark — the pleat structure survives even when flooded. A low cruise
+          // floor (gleamBase) keeps the dew RIM-weighted (rim mask ≫ inner), while Surge's high
+          // multiplier lights the full crest inner→rim so a PROFILE shot shows burning fans, not
+          // rim-lit cutouts (Fable CP3 v2: surge under-read in profile). +rim kick keeps the crisp tip.
+          glow.push(ridge * (0.15 + 0.6 * u) + (u > 0.9 ? 0.28 : 0));
         }
         rows.push(row);
       }
