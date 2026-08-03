@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "mcp__Higgsfield",
-      "mcp__Higgsfield__*"
+      "mcp__Higgsfield__*",
+      "mcp__blender__get_scene_info",
+      "mcp__blender__get_object_info",
+      "mcp__blender__get_viewport_screenshot"
     ]
   }
 }
