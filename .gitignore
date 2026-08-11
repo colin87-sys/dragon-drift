@@ -1,4 +1,8 @@
-.claude/
+# Local Claude Code state stays out of git, but shared config + skills are tracked
+# (git can't descend into an excluded dir, so exclude the contents, not the dir).
+.claude/*
+!.claude/settings.json
+!.claude/skills/
 *.log
 node_modules/
 reforged/tools/_angles.html
