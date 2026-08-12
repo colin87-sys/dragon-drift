@@ -1391,6 +1391,10 @@ export const DRAGONS = {
         colors: { body: 0x2e2c2f, belly: 0x3d3937, wingOuter: 0x2e2c2f, eye: 0xffb46b } },   // the banked furnace
     ],
     eyeEmissiveI: 1.2,   // hide-r5: default 2.2 ACES-clips the ember eye to cream
+    // hide-r7: matte char finish — the default semi-gloss (rough 0.38, metal
+    // 0.12) + sky envmap painted a chrome-vinyl streak on the neck/chest for
+    // six straight hide rounds. Char absorbs; it never reads wet.
+    bodyRoughness: 0.74, bodyMetalness: 0.0, bodyEnvIntensity: 0.35,
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
     hasStyle: true,
     // cruise rim: coal-not-torch — dim, wide-falloff, wings nearly rimless (the
