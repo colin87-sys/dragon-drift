@@ -372,7 +372,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const hasProp = !!(model.propatagium ?? 0);
 
   // ─ char material ladder (tops NEVER emissive — law 5) ─
-  const mkMat = (hex, rough = 0.62) => new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.0, flatShading: true, side: THREE.DoubleSide, emissive: 0x000000 });
+  const mkMat = (hex, rough = 0.72) => {
+    const m = new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.0, flatShading: true, side: THREE.DoubleSide, emissive: 0x000000 });
+    m.envMapIntensity = 0.35;   // chase-cam r1: night ambient painted the membrane magenta (law-4 adjacent)
+    return m;
+  };
   const M = {
     bone: mkMat(0x7d7264, 0.60),   // hide-r2: desaturated bone-tan — the flat-black tape bone is a registered cheap tell
     boneDim: mkMat(0x554d42, 0.62),   // hide-r3: alternating spar segments (uniform value = paper strip)
@@ -393,10 +397,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   applyFresnelRim(wingMat, def.apexSeam ?? STOKE_EMBER);
   // THE UNDERLIT material — bespoke, outside wingMat; ignited only by THE STOKE
   const underMat = new THREE.MeshStandardMaterial({
-    color: 0x141214, emissive: STOKE_EMBER, emissiveIntensity: 0.03, roughness: 0.6,
+    color: 0x141214, emissive: STOKE_EMBER, emissiveIntensity: 0.06, roughness: 0.7,
     flatShading: true, side: THREE.FrontSide,   // lit face points DOWN (law 5: tops never emissive)
   });
-  underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.03;
+  underMat.envMapIntensity = 0.3;
+  underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.06;
   underMat.userData.flareIntensityWeight = 0.5;   // amber stays amber through ACES — the leak reads as glow, not cream edges
 
   // ─ leading-edge profile (shared function — the anti-plank curve): a LOW gull
@@ -496,7 +501,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     const bandCol = (b, i, ringT) => {       // finger-referenced band, same across the chord
       const st = b[4] ?? 0;
       const c = tierCols[Math.min(4, b[3])].clone();
-      c.offsetHSL(0.006 * st, 0.24 * st, 0.20 * st + (b[3] % 2 ? 0.035 : -0.02) + jit(i * 7 + ringT * 31, 0.02));
+      c.offsetHSL(0.003 * st, 0.10 * st, 0.20 * st + (b[3] % 2 ? 0.035 : -0.02) + jit(i * 7 + ringT * 31, 0.02));   // chase-cam r1: saturation halved — painted warmth purpled under cool backlight (law 7: warmth is EMITTED)
       if (ringT >= 1) c.offsetHSL(0, -0.02, -0.075 + 0.02 * st);   // trailing edge dark
       if (ringT < 0.4) c.lerp(new THREE.Color(0x5e1c0c), (1 - st) * 0.35);   // hide-r6: banked heat in the finger crotches at the membrane root
       return c;
