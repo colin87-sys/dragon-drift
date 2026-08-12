@@ -636,8 +636,8 @@ function buildBrandSkull(def, model, mats) {
     [-L * 0.58, W * 0.10, H * 0.10, H * 0.16],   // overbite hook — drops past the jaw tip
     [-L * 0.52, W * 0.13, H * 0.26, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
     [-L * 0.30, W * 0.36, H * 0.58, H * 0.18],   // nasal keel — h-r6: ~51% of cranium width (front view = wedge)
-    [-L * 0.06, W * 0.56, H * 0.44, H * 0.34],   // brow dip — h-r6: upper CHEEK shallow; the JAW owns the lower third
-    [L * 0.16, W * 0.70, H * 0.92, H * 0.42],    // cranial dome + jugal flare (widest point)
+    [-L * 0.06, W * 0.62, H * 0.44, H * 0.34],   // brow/hinge — h-r10: the WIDEST point lives here, at the jaw line
+    [L * 0.16, W * 0.56, H * 0.72, H * 0.46],    // cranial dome — h-r10: no ball-cranium; tapers off the hinge width
     [L * 0.42, W * 0.24, H * 0.40, H * 0.32],    // occipital bevel — h-r5: the rear cranium TAPERS into the crest (no flat box)
   ];
   for (const [z, w, top, bot] of stations) {
@@ -680,7 +680,7 @@ function buildBrandSkull(def, model, mats) {
   // the mouth split + tooth line read from every angle (head-gauntlet r1 gap 1).
   // ~70% the depth of the upper muzzle; the upper hook passes its tip.
   const jstations = [
-    [0, W * 0.52, H * 0.06, H * 0.55],           // hinge root — h-r6: DEEP (the visible jaw mass, not hidden behind the cheek)
+    [0, W * 0.52, H * 0.06, H * 0.62],           // hinge root — h-r10: 0.35-0.4 of skull height
     [-L * 0.26, W * 0.42, H * 0.05, H * 0.40],
     [-L * 0.46, W * 0.26, H * 0.04, H * 0.22],
     [-L * 0.60, W * 0.12, H * 0.07, H * 0.14],   // jaw tip — chin keel answers the crest
@@ -708,13 +708,13 @@ function buildBrandSkull(def, model, mats) {
     coals.position.set(0, H * 0.028, -L * 0.20);   // banked INSIDE the maw floor — a glimpse, not a decal
     jawGrp.add(coals);
   }
-  jawGrp.rotation.x = -0.40;                     // ~23° resting gape (h-r5: menace lives in the lower third)
+  jawGrp.rotation.x = -0.48;                     // ~28° resting gape — the corner must read AFT (h-r10)
   jawGrp.add(new THREE.Mesh(jg, jawMat));
   group.add(jawGrp);
   // masseter mass — a jaw-muscle wedge over the hinge on each side (h-r5: the
   // jaw must look DRIVEN; a hinge without muscle reads as a plank on a pin)
   for (const side of [-1, 1]) {
-    const mass = new THREE.Mesh(new THREE.SphereGeometry(0.20 * hs, seg(5), seg(4)), jawMat);
+    const mass = new THREE.Mesh(new THREE.SphereGeometry(0.17 * hs, seg(5), seg(4)), jawMat);
     mass.scale.set(0.72, 1.02, 1.90);
     mass.position.set(side * W * 0.56, -H * 0.12, L * 0.30);   // h-r9: jowl — flows back over the first neck lobe
     mass.rotation.x = -0.25;
@@ -820,10 +820,10 @@ function buildBrandSkull(def, model, mats) {
     return g;
   };
   for (const side of [-1, 1]) {
-    const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.10 * hs, true);
+    const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.12 * hs, true);   // h-r10: 2x the gauge of every supporter
     h.position.set(side * W * 0.40, H * 0.48, L * 0.20);   // base SUNK into the dome — grown, not inserted
     h.rotation.z = side * -0.42;          // cant OUTWARD (a paired rank, not a picket)
-    h.rotation.x = 0.40;                  // h-r7: raked a touch further aft — foreshortens to cones head-on, still ~25° off the skull axis
+    h.rotation.x = 0.30;                  // h-r10: graded fan tier 1 (~17°)
     group.add(h);
   }
   // RANKED horn pairs behind the dominant crescent — 60% and 35% of its length
@@ -837,20 +837,20 @@ function buildBrandSkull(def, model, mats) {
       const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
       h.position.set(side * W * rankX[r], H * 0.44 - r * 0.05 * hs, L * 0.28 + rankZ[r] * hs);
       h.rotation.z = side * -(0.22 - r * 0.10);   // h-r9: >10 deg divergence from the dominant's cant
-      h.rotation.x = 0.58 + r * 0.20;             // cascade DOWN from the raked dominant
+      h.rotation.x = 0.55 + r * 0.25;             // h-r10: graded fan 31°/46°
       group.add(h);
     }
   }
   // brow-spike tier (h-r8: 0.25x — the smallest rank of the crown fan)
   for (const side of [-1, 1]) {
-    const bs = mkHorn(hornLen * 0.25, 0.045 * hs);
+    const bs = mkHorn(hornLen * 0.20, 0.040 * hs);
     bs.position.set(side * W * 0.50, H * 0.42, -L * 0.10);
     bs.rotation.z = side * -0.50;
     bs.rotation.x = 0.20;
     group.add(bs);
   }
   // crest spikes welding skull to neck — two small pairs continuing down the nape line
-  for (let k = 0; k < 2; k++) for (const side of [-1, 1]) {
+  for (let k = 0; k < 1; k++) for (const side of [-1, 1]) {   // h-r10: one weld pair — the second read as clutter
     const ns = mkHorn(hornLen * (0.22 - 0.06 * k), 0.032 * hs);
     ns.position.set(side * W * (0.20 - 0.05 * k), H * (0.30 - 0.14 * k), L * (0.50 + 0.16 * k));
     ns.rotation.z = side * -0.30;
