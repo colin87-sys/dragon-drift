@@ -1400,10 +1400,10 @@ export const DRAGONS = {
     feverWing: 0x000000, feverEye: 0xffb46b, feverWash: [0.10, 0.05, 0.02],
     hideRiderGlow: true,
     wingMembraneEmissive: 0x000000, wingEmissive: 0x000000,
-    body: 0x2e2c2f, belly: 0x3d3937,
+    body: 0x322f33, belly: 0x423d3a,
     scales: 0x39332f, horn: 0x232226,
-    bodyShadow: 0x232226, bodyFacet: 0x443e3b, bodyDorsal: 0x5c534b,
-    wingInner: 0x443e3b, wingOuter: 0x2e2c2f,
+    bodyShadow: 0x242327, bodyFacet: 0x4c4540, bodyDorsal: 0x6d6156,
+    wingInner: 0x4c4540, wingOuter: 0x322f33,
     eye: 0xff8912,
     apexEye: 0xffb46b, apexSeam: 0x7a3e0c, coreGlow: 0xff8912, surgeHi: 0xffb46b,   // apexSeam feeds the baked body rim — half-bright so spheres never halo amber
     trail: 0x8a3c14, boostTrail: 0xd96a1e,
