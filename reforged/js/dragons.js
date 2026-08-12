@@ -1347,7 +1347,7 @@ export const DRAGONS = {
       scale: 1.15, tailSegments: 7, neckSegments: 5, flapBias: 0.8, flapAmp: 0.75,
       neckBlend: 1.35,   // fuse the bead chain into a smooth taper (head-gauntlet r1: glossy-sphere neck)
       // silhouette + hull (§2/§4)
-      hullLadder: 1, headScale: 1.35, eyeScale: 0.6, tailLength: 1.0,
+      hullLadder: 1, headScale: 1.48, eyeScale: 0.6, tailLength: 1.0,   // h-r4: the skull must not be the smallest mass in the shot
       // wing planform (§5 committed numbers): LOW WIDE crescent, taut bays,
       // notch floor from bone projection; wristT top of house band
       wingDigits: 4, archRise: 0.12, wristT: 0.30, baySag: 0.08, notchDepth: 0.17,
@@ -1372,22 +1372,22 @@ export const DRAGONS = {
       { spanScale: 0.84, wingDigits: 2, seamGens: 0, hornFollowers: 0, tailRidge: 0,
         firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 0,
         wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 0.9, tipApexSweep: 0,
-        eyeScale: 1.15, headScale: 1.6,
+        eyeScale: 1.15, headScale: 1.75,
         colors: { body: 0x4c4640, belly: 0x514c47, wingOuter: 0x4c4640, eye: 0xff8912 } },   // ash-grey cold coal
       { spanScale: 0.91, wingDigits: 3, seamGens: 1, hornFollowers: 1, tailRidge: 1,
         firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 0,
         wingParts: 2, midAmp: 0.22, tipAmp: 0.30, glidePow: 1.4, tipApexSweep: 0,
-        eyeScale: 0.95, headScale: 1.5,
+        eyeScale: 0.95, headScale: 1.65,
         colors: { body: 0x3c3835, belly: 0x46413d, wingOuter: 0x3c3835, eye: 0xff8912 } },   // first kindling
       { spanScale: 0.96, wingDigits: 4, seamGens: 2, hornFollowers: 2, tailRidge: 2,
         firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 1,
         wingParts: 3, midAmp: 0.28, tipAmp: 0.50, glidePow: 1.8, tipApexSweep: 0.16,
-        eyeScale: 0.75, headScale: 1.42,
+        eyeScale: 0.75, headScale: 1.56,
         colors: { body: 0x322f30, belly: 0x403c3a, wingOuter: 0x322f30, eye: 0xffa040 } },   // the hunter, stoked
       { spanScale: 1.0, wingDigits: 4, seamGens: 3, hornFollowers: 3, tailRidge: 2,
         firebrandTip: 1, propatagium: 1, chippedBrow: 1, oxideBand: 1, legHint: 1,
         wingParts: 3, midAmp: 0.30, tipAmp: 0.62, glidePow: 2.2, tipApexSweep: 0.24,
-        eyeScale: 0.6, headScale: 1.35,
+        eyeScale: 0.6, headScale: 1.48,
         colors: { body: 0x2e2c2f, belly: 0x3d3937, wingOuter: 0x2e2c2f, eye: 0xffb46b } },   // the banked furnace
     ],
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
