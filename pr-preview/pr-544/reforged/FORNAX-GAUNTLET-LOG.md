@@ -126,6 +126,40 @@ hide-r9: 2.4 → tail was a FLAT SINGLE COLOR (real builder gap — per-joint
 tier steps added), horn ramp contrast up, hull jitter ±3.5%, membrane band
 amplitude up.
 
+## CHASE-CAM piece (the money read — real gameplay tile + rear-glide dark)
+cc-machine-1: pixel probe found MAGENTA wings in the game frame (top lit
+bucket 80/40/80) — painted membrane warmth purpling under the night scene's
+cool backlight. Saturation halved (law 7), B>G 28.3%→16.2%. Also found: the
+sail is opaque (wingOpacity no-op), tiershots ≠ rig loop (opacity/env applied
+at build only).
+cc-r1 blind: 2.3 ("the tail does not exist from the chase camera"; "an
+identity that emits zero information toward the only camera the game uses is
+a failed read, not restraint") → per-joint dorsal tail ember seam (rides the
+bone chain, Surge-ignites via spineMats), knuckle ember cracks, shoulder
+shingles darkened (pontoon discs), root fillet extended, rim 0.12→0.18.
+cc-r2: 2.2 → underside fill 0x241208+0.08 (the rear-glide membrane IS
+underMat — near-black read as bare sticks), spine seam width 0.024→0.052,
+tail dashes 2x wide, tip vane fins + bigger glow node, rim 0.24 warm.
+OWNER-CALL: the "3-5% of pixels >0.35 lum at cruise" ask is NOT met — meeting
+it = LED-blaze tell + against law 6 (cruise = coal hint; Surge ignites at
+sgm 20). Flagged for the owner's preview feel pass.
+cc-r3: 2.4 (crown + seam placement praised) → tail seam GRADES to the tip
+(0.16→0.37), underside 0x33190c+0.10, vanes up (spade ask loses to the
+never-a-spade law). Torso-mass asks measure as MET (shoulder 1.56x hip).
+
+## THE CEILING (honest terminal state of the blind protocol)
+40+ blind rounds across four axes: silhouette 13 (1.0→2.5), head 12
+(1.5→2.8), hide 9 (2.1→2.4), chase 3 (2.2→2.4) — every round vs photoreal
+MHW captures scoring 4.5–4.7. Each loop produced real, named fixes until it
+plateaued; at plateau every remaining ask either re-litigated measured-as-met
+geometry, contradicted a prior round, or demanded identity breaks (spade
+tail, unbanked cruise glow, brighter-than-char hide). The blind "Y wins" exit
+is not reachable against a photoreal bar from a low-poly engine — the honest
+verdict the protocol CAN certify is the trajectory + the machine gates, and
+per repo law the owner judges motion/feel on the PR preview. All numbers
+bind green: tricount --ci (f3 ~3.5k/6000), wingsymprobe 0.000, starters 498
+(incl. 37 new FORNAX ladder/identity locks), smoke, fire pixel probes.
+
 ## PLATEAU CONSOLIDATION (meta-law, both loops)
 Head: 6 rounds in the 2.4–2.8 band. The jaw-mass ask has now been answered
 with hinge relocation (70%), depth ownership swap (root 0.62H ≈ 0.40 of
