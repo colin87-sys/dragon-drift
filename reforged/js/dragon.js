@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { damp, makeGlowTexture, makeTrailTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
+import { applyAnimeHull } from './animeMode.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint, setSurgeDark } from './postfx.js';
 import { setFeverWarm, getHeroRim } from './environment.js';
@@ -406,6 +407,10 @@ export function createDragon(scene, def, riderDef) {
   setActiveDetail(modelDetail);
   const result = buildDragonModel(def);
   group = result.group;
+  // ANIME prototype (?anime=1): thick stable inverted-hull contour on the hero
+  // only (the Genshin outline technique). No-op without the flag; the shell
+  // lives inside the group so every rebuild/dispose path handles it for free.
+  applyAnimeHull(group);
   coronaSpin = group.getObjectByName('eclipseCorona') || null;   // Solar CP3: cache the eclipse ring for the crawl
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
