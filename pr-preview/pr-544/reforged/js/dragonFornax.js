@@ -77,7 +77,7 @@ function paintCharHull(geo, def) {
   const cBase = new THREE.Color(def.body ?? FORNAX_TIERS.charBase);
   const cScorch = new THREE.Color(def.bodyFacet ?? FORNAX_TIERS.scorchMid);
   const cAsh = new THREE.Color(def.bodyDorsal ?? FORNAX_TIERS.ashLit);
-  const cBelly = new THREE.Color(def.belly ?? FORNAX_TIERS.scorchMid);
+  const cBelly = new THREE.Color(lerpHex(def.belly ?? FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.45));   // hide-r3: lit ventral band throat->tail (kept cool-neutral)
   //         col: 0      1        2      3        4       5        6      7
   const tierByCol = [cAsh, cScorch, cBase, cShadow, cBelly, cShadow, cBase, cScorch];
   const c = new THREE.Color();
@@ -251,6 +251,17 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
       block.scale.set(1.9, 0.85, 1.7);   // ONE smooth deltoid mass the spar grows out of
       block.position.set(side * wr.x * 1.28, wr.y - 0.05, wr.z + 0.04);
       r.group.add(block);
+      // hide-r3: dorsal spine shingles aft of the wing roots (one row, value-stepped lips)
+      if (side === 1) for (let k = 0; k < 4; k++) {
+        const spMat = new THREE.MeshStandardMaterial({
+          color: lerpHex(FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.22 + 0.16 * k),
+          roughness: 0.62, metalness: 0.0, flatShading: true });
+        const sp = new THREE.Mesh(new THREE.SphereGeometry(0.24, seg(6), seg(4), 0, Math.PI * 2, 0, Math.PI / 2), spMat);
+        sp.scale.set(1.15 - 0.10 * k, 0.42, 0.85);
+        sp.position.set(0, wr.y + 0.10 - 0.05 * k, wr.z + 0.55 + 0.42 * k);
+        sp.rotation.x = 0.10 + 0.05 * k;
+        r.group.add(sp);
+      }
       // hide-r1 fix 3: the chest's proven shingle treatment extends onto the
       // shoulder — 3 overlapping plates, each forward edge a value step up
       for (let k = 0; k < 3; k++) {
@@ -342,6 +353,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const mkMat = (hex, rough = 0.62) => new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.0, flatShading: true, side: THREE.DoubleSide, emissive: 0x000000 });
   const M = {
     bone: mkMat(0x7d7264, 0.60),   // hide-r2: desaturated bone-tan — the flat-black tape bone is a registered cheap tell
+    boneDim: mkMat(0x5e564b, 0.62),   // hide-r3: alternating spar segments (uniform value = paper strip)
     boneCap: mkMat(FORNAX_TIERS.ashLit, 0.5),
     memTiers: [
       mkMat(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.30)),
@@ -458,27 +470,26 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     verts.push(K[0], K[1], K[2]);
     { const c = tierCols[1].clone(); c.offsetHSL(0, 0.04, 0.10); cols.push(c.r, c.g, c.b); }   // root bloom at the wrist
     const nB = boundary.length;
-    for (let i = 0; i < nB; i++) {           // interior ring at 55% K->edge
-      const b = boundary[i];
-      verts.push(K[0] + (b[0] - K[0]) * 0.55, K[1] + (b[1] - K[1]) * 0.55, K[2] + (b[2] - K[2]) * 0.55);
+    const bandCol = (b, i, ringT) => {       // finger-referenced band, same across the chord
       const st = b[4] ?? 0;
       const c = tierCols[Math.min(3, b[3])].clone();
-      // stretched-skin zone between fingers: up to ~1.5x base value, warm-saturated
-      c.offsetHSL(0.006 * st, 0.20 * st, 0.11 * st + (b[3] % 2 ? 0.025 : -0.012) + jit(i * 7, 0.02));
-      cols.push(c.r, c.g, c.b);
-    }
-    for (let i = 0; i < nB; i++) {           // trailing edge, darkened
-      const b = boundary[i];
-      verts.push(b[0], b[1], b[2]);
-      const st = b[4] ?? 0;
-      const c = tierCols[Math.min(3, b[3])].clone();
-      c.offsetHSL(0, -0.02, -0.075 + 0.05 * st + jit(i * 11, 0.015));   // trailing edge dark; darkest AT the finger roots
-      cols.push(c.r, c.g, c.b);
+      c.offsetHSL(0.006 * st, 0.20 * st, 0.11 * st + (b[3] % 2 ? 0.025 : -0.012) + jit(i * 7 + ringT * 31, 0.02));
+      if (ringT >= 1) c.offsetHSL(0, -0.02, -0.075 + 0.02 * st);   // trailing edge dark
+      return c;
+    };
+    for (const ringT of [0.27, 0.55, 1.0]) {
+      for (let i = 0; i < nB; i++) {
+        const b = boundary[i];
+        verts.push(K[0] + (b[0] - K[0]) * ringT, K[1] + (b[1] - K[1]) * ringT, K[2] + (b[2] - K[2]) * ringT);
+        const c = bandCol(b, i, ringT);
+        cols.push(c.r, c.g, c.b);
+      }
     }
     for (let i = 0; i < nB - 1; i++) {
-      const m0 = 1 + i, m1 = 2 + i, e0 = 1 + nB + i, e1 = 2 + nB + i;
-      idx.push(0, m0, m1);                   // hub fan to the interior ring
-      idx.push(m0, e0, e1, m0, e1, m1);      // ring->edge quad
+      const a0 = 1 + i, a1 = 2 + i, b0 = 1 + nB + i, b1 = 2 + nB + i, c0 = 1 + 2 * nB + i, c1 = 2 + 2 * nB + i;
+      idx.push(0, a0, a1);                   // hub fan to ring A
+      idx.push(a0, b0, b1, a0, b1, a1);      // ring A -> ring B
+      idx.push(b0, c0, c1, b0, c1, b1);      // ring B -> edge
     }
     const sailGeo = new THREE.BufferGeometry();
     sailGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
@@ -517,7 +528,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const sag = 0.09 * L * (0.6 + 0.5 * (i / Math.max(1, tips.length - 1)));
       const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
       ridge(hand, K, Bm, wB, wM, M.bone, M.boneCap);   // hide-r1 fix 3: every bone two-toned (tape -> horn)
-      ridge(hand, Bm, tp, wM, 0.006, M.bone, null);
+      ridge(hand, Bm, tp, wM, 0.006, M.boneDim, null);   // hide-r3: segment value break at the joint
     }
     // thumb-claw at the carpal knuckle
     hand.add(tri([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], [K[0] + 0.04 * hs, K[1] + 0.11 * hs, K[2] - 0.16 * hs]], [K, [K[0] + 0.04 * hs, K[1] + 0.11 * hs, K[2] - 0.16 * hs], [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.bone));
@@ -600,10 +611,10 @@ function buildBrandSkull(def, model, mats) {
   // breaking the top line; brow width trimmed so the muzzle projects in front view
   const stations = [
     [-L * 0.58, W * 0.10, H * 0.10, H * 0.16],   // overbite hook — drops past the jaw tip
-    [-L * 0.52, W * 0.16, H * 0.26, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
-    [-L * 0.30, W * 0.44, H * 0.58, H * 0.18],   // nasal keel (convex rise)
-    [-L * 0.06, W * 0.56, H * 0.44, H * 0.60],   // brow dip — h-r3: step deepened to ~18% of skull height
-    [L * 0.16, W * 0.70, H * 0.92, H * 0.56],    // cranial dome + jugal flare (widest point)
+    [-L * 0.52, W * 0.13, H * 0.26, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
+    [-L * 0.30, W * 0.36, H * 0.58, H * 0.18],   // nasal keel — h-r6: ~51% of cranium width (front view = wedge)
+    [-L * 0.06, W * 0.56, H * 0.44, H * 0.34],   // brow dip — h-r6: upper CHEEK shallow; the JAW owns the lower third
+    [L * 0.16, W * 0.70, H * 0.92, H * 0.42],    // cranial dome + jugal flare (widest point)
     [L * 0.42, W * 0.24, H * 0.40, H * 0.32],    // occipital bevel — h-r5: the rear cranium TAPERS into the crest (no flat box)
   ];
   for (const [z, w, top, bot] of stations) {
@@ -646,9 +657,9 @@ function buildBrandSkull(def, model, mats) {
   // the mouth split + tooth line read from every angle (head-gauntlet r1 gap 1).
   // ~70% the depth of the upper muzzle; the upper hook passes its tip.
   const jstations = [
-    [0, W * 0.52, H * 0.06, H * 0.40],           // hinge root — h-r4: at ~70% of skull length, under the orbit
-    [-L * 0.26, W * 0.42, H * 0.05, H * 0.32],
-    [-L * 0.46, W * 0.26, H * 0.04, H * 0.20],
+    [0, W * 0.52, H * 0.06, H * 0.55],           // hinge root — h-r6: DEEP (the visible jaw mass, not hidden behind the cheek)
+    [-L * 0.26, W * 0.42, H * 0.05, H * 0.40],
+    [-L * 0.46, W * 0.26, H * 0.04, H * 0.22],
     [-L * 0.60, W * 0.12, H * 0.07, H * 0.14],   // jaw tip — chin keel answers the crest
   ];
   const jv = [], ji = [];
@@ -689,7 +700,7 @@ function buildBrandSkull(def, model, mats) {
     const len = (0.085 - i * 0.012) * hs * fang;
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.024 * hs * (fang > 1 ? 1.35 : 1), len, seg(4)), toothMat);
     tooth.rotation.x = Math.PI;                  // hang from the upper gum line
-    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.26) - len * 0.4, tz);
+    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.26) - len * 0.22, tz);
     group.add(tooth);
   }
   for (const side of [-1, 1]) {                  // lower fangs rise just inside the hook
@@ -755,7 +766,7 @@ function buildBrandSkull(def, model, mats) {
       const geo = b.geometry ?? (b.children[0] && b.children[0].geometry);
       if (geo && geo.attributes && geo.attributes.position) {
         const n = geo.attributes.position.count, cols = [];
-        const base = new THREE.Color(lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.40));   // h-r3: horn a half-step LIGHT of the skull — the crown must read against the dark neck
+        const base = new THREE.Color(lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.15 + k * 0.32));   // hide-r3: hard keratin bands, root dark -> tip bone-light
         for (let i = 0; i < n; i++) {
           const c = (oxide && oxideOk && k === 2) ? cOx[Math.min(2, Math.floor((i / n) * 3))].clone().lerp(base, 0.72) : base;   // oxide on the DOMINANT pair only, muted (h-r3 regression: light base made every tip garish)
           cols.push(c.r, c.g, c.b);
@@ -779,7 +790,7 @@ function buildBrandSkull(def, model, mats) {
   const rankPairs = Math.min(2, followers);
   // h-r2: clear hierarchy — ranks shrink AND fan apart in pitch (a shared angle
   // reads as a parallel slab stack, not a composed rank)
-  const rankLen = [0.50, 0.26], rankZ = [0.15, 0.27], rankX = [0.36, 0.30];   // secondary ~0.5x, third demoted hard
+  const rankLen = [0.65, 0.40], rankZ = [0.15, 0.27], rankX = [0.36, 0.30];   // h-r6 hierarchy: 1.0 / 0.65 / 0.40, nothing else
   for (let r = 0; r < rankPairs; r++) {
     for (const side of [-1, 1]) {
       const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
@@ -789,10 +800,23 @@ function buildBrandSkull(def, model, mats) {
       group.add(h);
     }
   }
+  // continuous occipital crest ridge — the horns GROW from this, brow to nape
+  {
+    const cr = [];
+    const ridgeY = [[-L * 0.08, H * 0.50], [L * 0.02, H * 0.72], [L * 0.16, H * 0.96], [L * 0.30, H * 0.74], [L * 0.44, H * 0.46]];
+    for (let i = 0; i < ridgeY.length - 1; i++) {
+      const [z0, y0] = ridgeY[i], [z1, y1] = ridgeY[i + 1];
+      cr.push([[0, y0 + 0.06 * hs, z0], [0, y1 + 0.06 * hs, z1], [0.03 * hs, y0 - 0.02, z0]]);
+      cr.push([[0, y1 + 0.06 * hs, z1], [0.03 * hs, y1 - 0.02, z1], [0.03 * hs, y0 - 0.02, z0]]);
+      cr.push([[0, y1 + 0.06 * hs, z1], [0, y0 + 0.06 * hs, z0], [-0.03 * hs, y0 - 0.02, z0]]);
+      cr.push([[-0.03 * hs, y1 - 0.02, z1], [0, y1 + 0.06 * hs, z1], [-0.03 * hs, y0 - 0.02, z0]]);
+    }
+    group.add(flatTriMesh(cr, skullMat));
+  }
   // midline crest SCUTES continuing the decay down the nape (small, one sweep direction)
-  let fz = L * 0.46, fl = hornLen * 0.26;
+  let fz = L * 0.46, fl = hornLen * 0.16;   // scutes are a RIDGE, not more horns (comb-crest tell)
   for (let i = 0; i < followers; i++) {
-    const f = mkHorn(fl, 0.045 * hs);
+    const f = mkHorn(fl, 0.030 * hs);
     f.position.set(0, H * 0.52 - i * 0.03, fz);
     f.rotation.x = 0.72 + i * 0.08;       // scutes lie flatter down the nape
     group.add(f);
