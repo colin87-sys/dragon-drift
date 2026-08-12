@@ -265,7 +265,7 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
         const xF = side * (wr.x * (1.3 - 0.5 * t));
         const yF = wr.y - 0.14 - 0.16 * t;
         const xT = side * (wr.x * (1.45 - 0.55 * t));
-        const yT = wr.y + (0.42 - 0.58 * t) * Math.max(0, 1 - t * 0.9);
+        const yT = wr.y + 0.10 - 0.30 * t;   // skirt top tracks the pivot line, tapering aft
         wv.push(xF, yF, z, xT, Math.max(yF + 0.04, yT), z);
       }
       for (let i = 0; i < NWL; i++) { const a = i * 2; wi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
@@ -396,7 +396,9 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const base = [Ea[0] + (Eb[0] - Ea[0]) * 0.40, Ea[1] + (Eb[1] - Ea[1]) * 0.40, Ea[2] + (Eb[2] - Ea[2]) * 0.40];
       const ctrl = [base[0] + (K[0] - base[0]) * baySag * 2, base[1] + (K[1] - base[1]) * baySag * 2 - 0.015, base[2] + (K[2] - base[2]) * baySag * 2];
       for (let s2 = i === 0 ? 0 : 1; s2 <= NSEG; s2++) {
-        const p = quadB(Ea, ctrl, Eb, s2 / NSEG);
+        const t2 = s2 / NSEG;
+        const p = quadB(Ea, ctrl, Eb, t2);
+        p[1] -= 0.07 * bayChord * Math.sin(t2 * Math.PI);   // chordwise camber droop (§5 camber band)
         boundary.push([p[0], p[1], p[2], 1 + i]);
       }
       // the digit TIP projects past the membrane between bays (the notch floor):
@@ -649,7 +651,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   }
   const joints = [];
   let parent = group, zc = 0;
-  const rAt = (t) => 0.42 * Math.pow(1 - t * 0.78, 1.25) + 0.055;   // taper FLOOR ~35% of root at the tip — the shaft feeds the club  // fat aft of hip, ×3 taper
+  const rAt = (t) => 0.44 * Math.pow(1 - t * 0.80, 1.45) + 0.05;   // muscular base, exponential-feel taper, floor feeds the club  // fat aft of hip, ×3 taper
   const ridgeOn = Math.max(0, Math.round(model.tailRidge ?? 0));
   for (let j = 0; j < nJoints; j++) {
     const joint = new THREE.Group();
@@ -682,8 +684,11 @@ function buildFirebrandTail(def, model, mats, anchor) {
   // THE FIREBRAND terminus: blunt char cap + a banked-coal core that vents on Surge
   const tipZ = T / nJoints;
   const capMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.5, flatShading: true });
-  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24), capMat);
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.30), capMat);
   cap.scale.set(1.15, 0.8, 1.5);   // faceted, slightly flattened, merged with the shaft
+  for (const sd of [-1, 1]) {      // flanking char spikes blend the club into the shaft (still blunt — never a spade)
+    parent.add(bone(sd * 0.06, 0.02, tipZ - 0.28, sd * 0.20, 0.05, tipZ + 0.05, 0.055, 0.012, capMat));
+  }
   cap.position.set(0, -0.02, tipZ);
   parent.add(cap);
   const accentMats = [];
