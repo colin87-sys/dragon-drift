@@ -125,7 +125,7 @@ const FORNAX_PROFILE = (() => {
   // rBase 0.55 rendered a balloon that dwarfed the skull)
   // scale Y 0.66→0.54: h-r2 measured the neck 2.5x the SKULL's depth in profile —
   // slim vertically, keep width near the 60%-of-skull join (the two asks differ by axis)
-  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.42, rStep: 0.042, rMin: 0.14, scale: [0.8, 0.54, 1.3], yStep: 0.12, zStep: -0.22, wobbleAmp: 0.04 };
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.42, rStep: 0.036, rMin: 0.14, scale: [0.8, 0.54, 1.3], yStep: 0.12, zStep: -0.22, wobbleAmp: 0.04 };
   p.headBase = (n) => ({ x: 0, y: 0.80 + (n - 4) * 0.09, z: -3.02 - (n - 4) * 0.30 });   // h-r3: skull topline continues the neck's dorsal line (head was hanging below it)
   return p;
 })();
@@ -244,7 +244,7 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
   // every pose, plus a flank weld strip running shoulder→hip that owns the
   // membrane's body edge (kills the daylight under the raised wing).
   {
-    const saddleMat = new THREE.MeshStandardMaterial({ color: def.bodyFacet ?? FORNAX_TIERS.scorchMid, roughness: 0.6, metalness: 0.0, flatShading: true });
+    const saddleMat = new THREE.MeshStandardMaterial({ color: def.bodyFacet ?? FORNAX_TIERS.scorchMid, roughness: 0.82, metalness: 0.0, flatShading: true });   // hide-r6: no chrome streaks on plates
     const wr = r.attach.wingRoot(1);
     for (const side of [1, -1]) {
       const block = new THREE.Mesh(new THREE.SphereGeometry(0.40, seg(8), seg(6)), saddleMat);
@@ -255,7 +255,7 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
       if (side === 1) for (let k = 0; k < 4; k++) {
         const spMat = new THREE.MeshStandardMaterial({
           color: lerpHex(FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.22 + 0.16 * k),
-          roughness: 0.62, metalness: 0.0, flatShading: true });
+          roughness: 0.8, metalness: 0.0, flatShading: true });
         const sp = new THREE.Mesh(new THREE.SphereGeometry(0.24, seg(6), seg(4), 0, Math.PI * 2, 0, Math.PI / 2), spMat);
         sp.scale.set(1.15 - 0.10 * k, 0.42, 0.85);
         sp.position.set(0, wr.y + 0.10 - 0.05 * k, wr.z + 0.55 + 0.42 * k);
@@ -267,7 +267,7 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
       for (let k = 0; k < 3; k++) {
         const plateMat = new THREE.MeshStandardMaterial({
           color: lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.18 + 0.24 * k),
-          roughness: 0.6, metalness: 0.0, flatShading: true });
+          roughness: 0.8, metalness: 0.0, flatShading: true });
         const plate = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(6), seg(4), 0, Math.PI * 2, 0, Math.PI / 2), plateMat);
         plate.scale.set(1.35 - 0.22 * k, 0.5, 0.95 - 0.12 * k);
         plate.position.set(side * wr.x * (1.10 + 0.14 * k), wr.y + 0.06 - 0.02 * k, wr.z - 0.10 + 0.16 * k);
@@ -291,6 +291,28 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
       const fm = new THREE.Mesh(fg, saddleMat);
       fm.material = saddleMat;
       r.group.add(fm);
+      // hide-r6: neck shingle rows — overlapping char plates riding the chain's
+      // dorsal line (the bare sphere chain read as leather lobes for six rounds)
+      if (side === 1) {
+        const nk = FORNAX_PROFILE.neck;
+        for (let i = 0; i < 6; i++) {
+          const t = i / 5;
+          const nz = nk.z0 + t * 4 * nk.zStep;
+          const ny = nk.y0 + t * 4 * nk.yStep + 0.16;
+          const nr = (nk.rBase - t * 4 * nk.rStep) * 1.35;
+          for (const row of [-1, 1]) {
+            const shMat = new THREE.MeshStandardMaterial({
+              color: lerpHex(FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.16 + 0.05 * ((i + (row > 0 ? 0 : 1)) % 3)),
+              roughness: 0.8, metalness: 0.0, flatShading: true });
+            const sh = new THREE.Mesh(new THREE.SphereGeometry(nr * 0.52, seg(5), seg(3), 0, Math.PI * 2, 0, Math.PI / 2), shMat);
+            sh.scale.set(1.0, 0.38, 0.9);
+            sh.position.set(row * nr * 0.34, ny - Math.abs(row) * 0.02, nz + (row > 0 ? 0.05 : -0.04));
+            sh.rotation.z = row * -0.35;
+            sh.rotation.x = -0.55;      // lie along the rising neck line
+            r.group.add(sh);
+          }
+        }
+      }
       // membrane ROOT WALL: pivot→flank wedge, static in the body frame — the
       // raised sail's inner edge lands on this, killing the mast/pylon read
       const wallMat = new THREE.MeshStandardMaterial({ color: def.bodyShadow ?? FORNAX_TIERS.charShadow, roughness: 0.68, metalness: 0.0, flatShading: true, side: THREE.DoubleSide });
@@ -475,6 +497,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const c = tierCols[Math.min(3, b[3])].clone();
       c.offsetHSL(0.006 * st, 0.22 * st, 0.15 * st + (b[3] % 2 ? 0.03 : -0.015) + jit(i * 7 + ringT * 31, 0.02));
       if (ringT >= 1) c.offsetHSL(0, -0.02, -0.075 + 0.02 * st);   // trailing edge dark
+      if (ringT < 0.4) c.lerp(new THREE.Color(0x5e1c0c), (1 - st) * 0.35);   // hide-r6: banked heat in the finger crotches at the membrane root
       return c;
     };
     for (const ringT of [0.27, 0.55, 1.0]) {
@@ -692,15 +715,15 @@ function buildBrandSkull(def, model, mats) {
   // jaw must look DRIVEN; a hinge without muscle reads as a plank on a pin)
   for (const side of [-1, 1]) {
     const mass = new THREE.Mesh(new THREE.SphereGeometry(0.20 * hs, seg(5), seg(4)), jawMat);
-    mass.scale.set(0.72, 1.05, 1.30);
-    mass.position.set(side * W * 0.58, -H * 0.14, L * 0.20);   // h-r8: BEHIND the hinge
+    mass.scale.set(0.72, 1.02, 1.90);
+    mass.position.set(side * W * 0.56, -H * 0.12, L * 0.30);   // h-r9: jowl — flows back over the first neck lobe
     mass.rotation.x = -0.25;
     group.add(mass);
   }
 
   // tooth strip — lighter zig-zag along the seam (upper gum line) + tip fangs.
   // Bone-pale, NOT emissive (the menace is value contrast, not glow — law 6).
-  const toothMat = new THREE.MeshStandardMaterial({ color: 0xc9b48e, roughness: 0.6, metalness: 0.0, flatShading: true });   // hide-r4: worn ivory — teeth are keratin, not hide
+  const toothMat = new THREE.MeshStandardMaterial({ color: 0xc9b48e, roughness: 0.6, metalness: 0.0, flatShading: true, emissive: 0x2a1a0e, emissiveIntensity: 0.35 });   // worn ivory; the warm floor stops shadow-side teeth reading slate
   // h-r8: a weapon SET, not a picket fence — hero canines + two raked teeth per
   // side, all forward of mid-gape; the aft gape stays EMPTY (the dark furnace maw)
   for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
@@ -711,7 +734,7 @@ function buildBrandSkull(def, model, mats) {
     const len = (0.085 - i * 0.014) * hs * fang;
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.024 * hs * (fang > 1 ? 1.35 : 1), len, seg(4)), toothMat);
     tooth.rotation.x = Math.PI + 0.22;           // raked BACKWARD 12° (predator, not zipper)
-    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.20) - len * 0.22, tz);
+    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.20) - len * 0.04, tz);   // h-r9: rooted — ~60% exposed
     group.add(tooth);
   }
   for (const side of [-1, 1]) {                  // lower fangs rise just inside the hook
@@ -808,12 +831,12 @@ function buildBrandSkull(def, model, mats) {
   const rankPairs = Math.min(2, followers);
   // h-r2: clear hierarchy — ranks shrink AND fan apart in pitch (a shared angle
   // reads as a parallel slab stack, not a composed rank)
-  const rankLen = [0.62, 0.38], rankZ = [0.18, 0.36], rankX = [0.34, 0.26];   // h-r7: roots STAGGERED along the rear third, not one base cluster
+  const rankLen = [0.55, 0.33], rankZ = [0.18, 0.36], rankX = [0.34, 0.26];   // h-r9: clear 1.0/0.55/0.33 steps
   for (let r = 0; r < rankPairs; r++) {
     for (const side of [-1, 1]) {
       const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
       h.position.set(side * W * rankX[r], H * 0.44 - r * 0.05 * hs, L * 0.28 + rankZ[r] * hs);
-      h.rotation.z = side * -(0.42 - r * 0.14);   // same sweep family, tightening inboard
+      h.rotation.z = side * -(0.22 - r * 0.10);   // h-r9: >10 deg divergence from the dominant's cant
       h.rotation.x = 0.58 + r * 0.20;             // cascade DOWN from the raked dominant
       group.add(h);
     }
@@ -849,7 +872,7 @@ function buildBrandSkull(def, model, mats) {
   }
   // midline crest SCUTES continuing the decay down the nape (small, one sweep direction)
   let fz = L * 0.46, fl = hornLen * 0.16;   // scutes are a RIDGE, not more horns (comb-crest tell)
-  for (let i = 0; i < followers; i++) {
+  for (let i = 0; i < Math.min(2, followers); i++) {   // h-r9: cap the clutter
     const f = mkHorn(fl, 0.030 * hs);
     f.position.set(0, H * 0.52 - i * 0.03, fz);
     f.rotation.x = 0.72 + i * 0.08;       // scutes lie flatter down the nape
