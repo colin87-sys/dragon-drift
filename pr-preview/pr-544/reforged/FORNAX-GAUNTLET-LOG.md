@@ -118,7 +118,30 @@ vinyl streak on every smooth neck sphere. bodyRoughness 0.74 / bodyMetalness
 (+Base), apexSeam half-bright, eyeEmissiveI, bodyRoughness/Metalness/Env.
 hide-r8 channel note: hide-4 crop switches wing-4x → wing-top tile (the 4x
 camera showed only undersides/arm where the chord banding can't appear).
-h-r11 + hide-r8 critics running on r35.
+h-r11: 2.7 → brow stop 15%, crown yaw fan 27/35°, neck shingles grade dark
+toward the skull (hue-seam kill), fangs welded, seams raised to visible.
+h-r12: 2.7. hide-r8: 2.4 ("furnace missing") → seam cruise 0.035→0.10 (the
+hint was authored invisible), body-bay/flank membrane tier split.
+hide-r9: 2.4 → tail was a FLAT SINGLE COLOR (real builder gap — per-joint
+tier steps added), horn ramp contrast up, hull jitter ±3.5%, membrane band
+amplitude up.
+
+## PLATEAU CONSOLIDATION (meta-law, both loops)
+Head: 6 rounds in the 2.4–2.8 band. The jaw-mass ask has now been answered
+with hinge relocation (70%), depth ownership swap (root 0.62H ≈ 0.40 of
+visible skull depth — exceeds the 1/3 ask), masseter+jowl, value separation,
+and a 28° gape; r12 still reads "thin blade 15–20%". The crown carries a
+1.0/0.55/0.33 ladder with 2x gauge, graded 17/31/46° pitch fan and 27/35° yaw
+fan; r12 still reads "same-angle pile". Remaining complaints re-litigate
+measured-as-met geometry or contradict earlier rounds (r9 gape 10–15° vs r10
+30–35°; r6 backlit-light panel centers vs r9 rib-light). Verdict per the
+FLAP-DESIGN meta-law: the residual on these two axes at THIS bar (photoreal
+AAA close-ups vs low-poly studio crops) is measurement noise + rendering
+fidelity, not extractable design signal. Both loops PARK at their r36/r37
+state; they re-enter as part of the whole-dragon chase-cam piece where the
+game's own frame is the camera (the money read the roster is actually judged
+on). Loop budget moves to: FLAP (dogleg measurement — flapstrip.mjs crashed
+on fornax, diagnose), chase-cam read, silhouette re-run on the richer hide.
 
 ## NEXT (round 9 directives, from the r8 verdict)
 1. Wing root: extend inner membrane fillet aft along flank shoulder→hip

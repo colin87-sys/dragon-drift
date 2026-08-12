@@ -85,7 +85,7 @@ function paintCharHull(geo, def) {
     const col = i % 8, st = Math.floor(i / 8);
     c.copy(tierByCol[col]);
     // struck-facet jitter so adjacent strakes never posterise to flat tape
-    c.offsetHSL(0, 0, jit(i * 7 + st * 3, 0.014));
+    c.offsetHSL(0, 0, jit(i * 7 + st * 3, 0.035));
     cols.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -496,7 +496,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     const bandCol = (b, i, ringT) => {       // finger-referenced band, same across the chord
       const st = b[4] ?? 0;
       const c = tierCols[Math.min(4, b[3])].clone();
-      c.offsetHSL(0.006 * st, 0.22 * st, 0.15 * st + (b[3] % 2 ? 0.03 : -0.015) + jit(i * 7 + ringT * 31, 0.02));
+      c.offsetHSL(0.006 * st, 0.24 * st, 0.20 * st + (b[3] % 2 ? 0.035 : -0.02) + jit(i * 7 + ringT * 31, 0.02));
       if (ringT >= 1) c.offsetHSL(0, -0.02, -0.075 + 0.02 * st);   // trailing edge dark
       if (ringT < 0.4) c.lerp(new THREE.Color(0x5e1c0c), (1 - st) * 0.35);   // hide-r6: banked heat in the finger crotches at the membrane root
       return c;
@@ -808,7 +808,7 @@ function buildBrandSkull(def, model, mats) {
       const geo = b.geometry ?? (b.children[0] && b.children[0].geometry);
       if (geo && geo.attributes && geo.attributes.position) {
         const n = geo.attributes.position.count, cols = [];
-        const base = new THREE.Color(lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.15 + k * 0.32));   // hide-r3: hard keratin bands, root dark -> tip bone-light
+        const base = new THREE.Color(lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.08 + k * 0.42));   // hide-r3: hard keratin bands, root dark -> tip bone-light
         for (let i = 0; i < n; i++) {
           const c = (oxide && oxideOk && k === 2) ? cOx[Math.min(2, Math.floor((i / n) * 3))].clone().lerp(base, 0.72) : base;   // oxide on the DOMINANT pair only, muted (h-r3 regression: light base made every tip garish)
           cols.push(c.r, c.g, c.b);
@@ -897,7 +897,11 @@ function buildFirebrandTail(def, model, mats, anchor) {
   const T = (model.tailLength ?? 1) * 3.1;         // 2.6× torso read at frame scale
   const nJoints = 4;
   const segsPer = seg(3);
-  const tailMat = new THREE.MeshStandardMaterial({ color: def.body ?? FORNAX_TIERS.charBase, roughness: 0.66, flatShading: true });
+  const tailMat = new THREE.MeshStandardMaterial({ color: def.body ?? FORNAX_TIERS.charBase, roughness: 0.72, flatShading: true });
+  // hide-r9: the tail read as one flat value — per-joint tier steps down the chain
+  const tailJointMat = (j) => new THREE.MeshStandardMaterial({
+    color: lerpHex(def.body ?? FORNAX_TIERS.charBase, FORNAX_TIERS.scorchMid, [0.55, 0.20, 0.40, 0.10][j % 4]),
+    roughness: 0.72, flatShading: true });
   const ridgeMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.55, flatShading: true });
   // hip→tail fillet: a tapered collar so the tail continues the spine, not a socket
   {
@@ -921,7 +925,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
     for (let k = 0; k < segsPer; k++) {
       const t0 = (j + k / segsPer) / nJoints, t1 = (j + (k + 1) / segsPer) / nJoints;
       const z0 = (k / segsPer) * (T / nJoints), z1 = ((k + 1) / segsPer) * (T / nJoints);
-      joint.add(bone(0, 0, z0, 0, -0.015, z1, rAt(t0), rAt(t1), tailMat));
+      joint.add(bone(0, 0, z0, 0, -0.015, z1, rAt(t0), rAt(t1), tailJointMat(j)));
       // dorsal ridge crest: dominant near the hip, ×0.66 decay to the tip
       if (ridgeOn && (j * segsPer + k) % 1 === 0) {
         const i = j * segsPer + k;
