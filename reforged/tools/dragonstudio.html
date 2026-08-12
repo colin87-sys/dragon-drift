@@ -39,6 +39,15 @@
     const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
     const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
     const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+    // DARK-IDENTITY KICKER rig — ported from tools/tiershots.html, which has had it since the
+    // Vesper arc while this harness never did. A near-black hull returns ~nothing from the default
+    // rim and is unphotographable, so a dark dragon gets judged as a cutout and every surface
+    // deliverable on it gets scored on faith. We OUTLINE it with edge light plus a faint floor
+    // bounce, never GREY it (the warm key is untouched and the hull stays a black cutout).
+    // Gated on luminance(def.body) < 0.05 → every non-dark dragon renders byte-identically.
+    const kickL = new THREE.DirectionalLight(0xbfe0ff, 0); kickL.position.set(2.4, 1.2, -3.5); scene.add(kickL);
+    const bounceL = new THREE.DirectionalLight(0x2050e8, 0); bounceL.position.set(-1.5, -2.2, -2.6); scene.add(bounceL);
+    const _lum = (h) => { const r = (h >> 16 & 255) / 255, g = (h >> 8 & 255) / 255, b = (h & 255) / 255; return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 
     const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a };
 
@@ -75,6 +84,11 @@
       // §5d tick's pinned per-mat write on parts.stormArcMats. No-op for dragons without them.
       hum:    { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, storm: 0 },
       strike: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, storm: 0.5 },
+      // Two CYCLE phases at whole-creature framing, matched to glide's fill so the three sheets are
+      // directly comparable. Without these the only captures of the moving part of the beat were
+      // 4-6× crops, and at that zoom a gate cannot separate a defect from a magnification artifact.
+      settle:     { pose: 'settle',     angles: BODY_ANGLES, target: 'model', fill: 0.86 },
+      downstroke: { pose: 'downstroke', angles: BODY_ANGLES, target: 'model', fill: 0.86 },
     };
     // Replay the storm tick's PINNED output (t01: 0 = hum, 0.5 = strike peak) on the arc mats.
     // pinned env = sin(π·t01); ei = stormHum·breathe(≈1) + env·(stormPeak − stormHum). Studio has
@@ -143,6 +157,12 @@
       const def = ascendedDef(DRAGONS[key], tier, 0);
       built = buildDragonModel(def, { preview: true });   // preview: hide the gameplay aim marker
       built.def = def;
+      // Engage the kicker only for a near-black hull, and tint the floor bounce to the dragon's
+      // OWN accent so a fire creature never gets outlined in another identity's colour.
+      const night = _lum((DRAGONS[key] && DRAGONS[key].body) ?? 0xffffff) < 0.05;
+      kickL.intensity = night ? 2.8 : 0;
+      bounceL.intensity = night ? 0.6 : 0;
+      if (night && DRAGONS[key] && DRAGONS[key].accentHue != null) bounceL.color.setHex(DRAGONS[key].accentHue);
       scene.add(built.group);
       curKey = key; curTier = tier;
       return built;
@@ -150,6 +170,26 @@
     // Bounding box of a named target: whole model, the wing subtrees, or the head.
     function targetBox(part) {
       const parts = built.parts || {};
+      // TORSO target — added so a gate never spends a panel on an unbuilt part. §11 requires crop
+      // cameras to frame BUILT geometry; a creature mid-increment (Fornax's head is an I3 stub)
+      // otherwise renders solid-black panels and a third of the gate evidence is wasted. Prefers
+      // explicit part tags, falls back to the hull's central z-slice.
+      if (part === 'torso') {
+        const meshes = [];
+        built.group.traverse((o) => {
+          if (!o.isMesh) return;
+          const tag = o.userData && (o.userData.fornaxPart || o.userData.bodyPart);
+          if (tag && ['hull', 'rank', 'plate', 'cowl', 'neck', 'shoulderRoot', 'hipRoot'].includes(tag)) meshes.push(o);
+        });
+        if (meshes.length) {
+          const b = new THREE.Box3();
+          for (const o of meshes) b.union(new THREE.Box3().setFromObject(o));
+          return _box.copy(b);
+        }
+        const wb = new THREE.Box3().setFromObject(built.group), c = new THREE.Vector3(), sz = new THREE.Vector3();
+        wb.getCenter(c); wb.getSize(sz);
+        return _box.setFromCenterAndSize(c, new THREE.Vector3(sz.x * 0.35, sz.y, sz.z * 0.6));
+      }
       if (part === 'head' && parts.head) {
         // Frame the FACE, not the crest/horns: crest feathers (ExtrudeGeometry) tower over the
         // crown and rear horns/tips sweep back, so boxing the whole head group centres the fit
@@ -168,6 +208,23 @@
           return _box.copy(b);
         }
         return _box.setFromObject(parts.head);
+      }
+      // JUNCTION target — the wing-body weld, which no crop in this studio ever framed. The gate
+      // that needed it was a MOTION gate (flapclearance): the root gusset is welded to a rotating
+      // bone, so its join with the flank is the one region whose read changes through the cycle,
+      // and it was being judged from whole-body panels where it is a few pixels wide.
+      // A fixed box on the RIGHT wing pivot, scaled by the pivot's own offset from the midline so
+      // it sizes itself per creature: wide enough to hold the shoulder root, the flank it lands
+      // on, and the plagiopatagium's aft anchor, which runs well behind the joint.
+      if (part === 'junction') {
+        const pv = parts.wingPivotR || parts.wingYokeR || (parts.wingRigR && parts.wingRigR.isObject3D ? parts.wingRigR : null);
+        if (pv && pv.isObject3D) {
+          const p = pv.getWorldPosition(new THREE.Vector3());
+          const r = Math.max(0.6, Math.abs(p.x) * 2.4);
+          return _box.setFromCenterAndSize(
+            new THREE.Vector3(p.x * 0.75, p.y - r * 0.15, p.z + r * 1.05),
+            new THREE.Vector3(r * 1.7, r * 1.9, r * 3.0));
+        }
       }
       if (part === 'wing' || part === 'wingR') {
         const roots = part === 'wingR' ? WING_R : WING_ROOTS;
@@ -229,6 +286,50 @@
     // A fill-the-frame PART crop (whole/wing/head, subject ≥60%) or a 4× detail crop (zoom). Each
     // part gets its own angle + fill so the subject actually FILLS the crop: the wing crop frames a
     // SINGLE (right) wing broadside; the head crop tightens onto the face.
+    // Hide meshes by their part tag and re-render the CURRENT camera. Diagnostic seam: adding
+    // geometry to close an enclosed hole tells you nothing if you are aiming at the wrong surface
+    // (four attempts, zero pixels). Removing a candidate and watching the hole MERGE with outside
+    // sky identifies the boundary in one run instead.
+    // List the distinct materials in the wing subtrees, by colour, with tri counts. The part tagger
+    // stops at `wing`/`seam` because the wing batches per MATERIAL, so a boundary inside the wing
+    // can only be named this way.
+    window.dsWingMats = () => {
+      const out = new Map();
+      for (const k of ['wingPivotL', 'wingPivotR']) {
+        const r = built && built.parts && built.parts[k];
+        if (r && r.isObject3D) r.traverse((o) => {
+          if (!o.isMesh || !o.material) return;
+          const hex = '#' + o.material.color.getHexString();
+          const n = (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+          out.set(hex, (out.get(hex) || 0) + n);
+        });
+      }
+      return [...out.entries()].map(([hex, tris]) => ({ hex, tris })).sort((a, b) => b.tris - a.tris);
+    };
+    // Hide by material colour — the resolution the part tag cannot reach.
+    window.dsHideMat = (hexes) => {
+      const set = new Set((hexes || []).map((h) => h.toLowerCase()));
+      if (!built) return false;
+      built.group.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        if (o.userData.__dsVis === undefined) o.userData.__dsVis = o.visible;
+        o.visible = set.has(('#' + o.material.color.getHexString()).toLowerCase()) ? false : o.userData.__dsVis;
+      });
+      render();
+      return true;
+    };
+    window.dsHide = (tags) => {
+      const set = new Set(tags || []);
+      if (!built) return false;
+      built.group.traverse((o) => {
+        if (!o.isMesh) return;
+        const t = o.userData && (o.userData.fornaxPart || o.userData.bodyPart);
+        if (o.userData.__dsVis === undefined) o.userData.__dsVis = o.visible;
+        o.visible = set.has(t) ? false : o.userData.__dsVis;
+      });
+      render();
+      return true;
+    };
     window.dsCrop = (o) => {
       const b = load(o.key, o.tier);
       applySurge(b, false);   // crops are never a surge state — reset any surge mutation from a prior sheet render
@@ -240,6 +341,9 @@
       if (o.part === 'head') { dir = [-0.66, -0.12, -0.72]; fill = 0.92; target = 'head';   // front-left, a touch below level — looks INTO the cheek/eye zone
         if ((o.zoom || 1) > 1.4) aimFrac = [-0.22, -0.02, -0.34]; }   // detail crop: aim onto the NEAR (front-left) EYE on the cheek
       else if (o.part === 'wing') { dir = [0.45, 0.5, 0.62]; fill = 1.0; target = 'wingR'; }  // rear-above on ONE wing
+      // Junction: behind, above and slightly outboard — the shipped chase camera's own relationship
+      // to the weld, which is the only viewpoint whose verdict on it counts.
+      else if (o.part === 'junction') { dir = o.dir || [0.55, 0.42, 0.86]; fill = 0.95; target = 'junction'; }
       else { dir = BODY_ANGLES.rear.dir; fill = 0.95; target = 'whole'; }
       fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1, aimFrac);
       render();

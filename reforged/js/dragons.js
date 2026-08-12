@@ -682,6 +682,105 @@ export const DRAGONS = {
     trail: 0x24427a, boostTrail: 0x3d63c8,
   },
 
+  // FORNAX — "The banked furnace" (FIRE-WYVERN-BUILDSHEET.md; ranges in DRAGON-ANATOMY-REFERENCE.md).
+  // The roster's fire WYVERN: four limbs, wings that ARE the arms, hind legs splayed bat-wide into
+  // the wing–tail wedge the chase cam looks through. Fire is a FURNACE, not a torch — the glow
+  // lives inside a char-plate hide and leaks only where the armour parts, so cruise is a charred
+  // silhouette and THE STOKE runs tail-ward on Surge with the wing TOPS STAYING DARK.
+  // BUILD STATE: I0 STUB — the four builders in dragonFornax.js are contract-satisfying blockouts
+  // on the real rig conventions (3-segment wing cascade + −anchor + outer mirror, isBone tail).
+  // The char hull lands at I1, the hero wing + flap at I2, head/tail/legs at I3, fire at I4.
+  fornax: {
+    name: 'Fornax',
+    title: 'The banked furnace',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2400,
+    lanceTint: 0xff8912, lanceRune: 'bankedFurnace',   // Eternal wisp: the 2000K seam amber + the forge-brand sigil
+    accentHue: 0xff8912,   // §9 law-9 carrier: seam amber, emissive-only, Surge-only (2000K blackbody anchor)
+    parts: { torso: 'slagAnvilTorso', wings: 'underlitCrescentWings', head: 'brandSkull', tail: 'firebrandTail' },
+    stats: { speed: 1.06, handling: 1.02, drain: 0.9, regen: 1.1 },
+    // I0 dials — all nullable + default-off in dragonFornax.js. The apex numbers the sheet locks
+    // (archRise 0.12, bay sag ≤0.10 chord, the ≥0.15-chord NOTCH FLOOR, AR 7.5) arrive with the
+    // real wing at I2; what is here now is only what the blockout reads.
+    model: {
+      scale: 1.12, tailSegments: 6, neckSegments: 4, flapBias: 0.9, flapAmp: 0.68,
+      anvilScale: 1.0, wingSpan: 4.26, spanScale: 1.0, skullLen: 0.42, headScale: 1.0,
+      // I1 torso dials (nullable, default-off in dragonFornax.js). slagSeams carves the lava-lake
+      // network as UNLIT recessed channels; gen-3 hairlines are ultra-only and device-scoped.
+      slagSeams: 1, slagSeamGen3: 1, slagDeckRim: 1,
+      // GEOMETRIC DETAIL RANKS — the richness lever. Vesper carries five such ranks (knapPlates 18,
+      // dorsalNubs, haunchFlakes, glassStreak, covertRow); rounds 1-3 of this hull carried ZERO and
+      // told the plate identity with value bands alone, which is the recorded "density gap".
+      slagPlates: 22, slagCowl: 1, slagHaunchScales: 1,
+      // THE RANK SUITE (Tempest-parity structure): dorsal scutes, belly deck + gutters, the carved
+      // furnace socket, lapped armour, flank shingles, throat gorget — one accumulator, ~5 draws.
+      slagRanks: 1,
+      wristT: 0.30,        // top of the house 0.2-0.3 band — the planform split from Vesper's 0.21.
+                           // I2 flapstrip must confirm the wrist FOLD still reads at 0.30 before
+                           // this locks; the fold outranks the differentiator (audit round 2).
+      emberHaunch: 1, tailJoints: 4, tailLength: 1.0,
+      // MOTION — THE HEAVY BELLOWS. Real flap-gliders hold 5.9-10.5s between beat bursts and
+      // condors flap ~1% of flight time; compressed for game read to 2-4 beats then a 3.0-4.5s
+      // hold. High glidePow HOLDS the glide pose and pulses through it (never a sine metronome).
+      wingParts: 3, rootAmp: 0.58, midAmp: 0.30, tipAmp: 0.52, midLag: 0.45, tipLag: 1.0,
+      // ⚠ APEX V-LIFT REDUCED (0.10/0.20 -> 0.05/0.09, restLift 0.06 -> 0.03). The held glide pose
+      // stood the wings in so steep a V that from the SHIPPED behind-and-above camera each wing was
+      // an edge-on sliver — the hand anatomy was real but never projected to the camera that
+      // matters. The bank pose was the existence proof: the same asset reads well the moment its
+      // top surface faces the viewer. Motion identity (the heavy bellows, high glidePow holding the
+      // pose) is unchanged; only the ATTITUDE the pose is held AT moved.
+      glidePow: 2.4, restLift: 0.03, apexMid: 0.05, apexTip: 0.09,
+      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.30, tailRudderScale: 0.5,
+      // THE STOKE is WITHHELD: base emissive stays ~0 and the multiplier makes Surge an event.
+      // Nothing in the I0 stub emits — the seam network is I4.
+      surgeGlowMultiplier: 20,
+    },
+    // I0 ladder — placeholder rungs that are already MONOTONIC so the growth verb can never
+    // silently flatten. The real STOKING ladder (seam generations, digit count, ember counts,
+    // horn followers) lands at I5 by SUBTRACTION from the apex, never addition toward it.
+    forms: [
+      // Body value DARKENS up the ladder (more char each rung) — an inverted-but-monotonic signal,
+      // which is legal so long as it is asserted monotonic. Every rung stays inside the sourced
+      // charcoal albedo band, linear 0.02-0.045: 0x34→0.034, 0x2f→0.028, 0x2c→0.025, 0x2a→0.023.
+      // Below that band the hull crushes to the flat-black poverty the playbook bans.
+      { spanScale: 0.72, emberHaunch: 0, slagPlates: 0, slagRanks: 0, wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 1.0,
+        colors: { body: 0x34343a, belly: 0x3c3c42, wingOuter: 0x34343a, eye: 0xffd9a0 } },
+      { spanScale: 0.84, emberHaunch: 1, slagPlates: 7, slagRanks: 0.45, wingParts: 2, midAmp: 0.20, tipAmp: 0.28, glidePow: 1.4,
+        colors: { body: 0x2f2f34, belly: 0x38383e, wingOuter: 0x2f2f34, eye: 0xffd9a0 } },
+      { spanScale: 0.93, emberHaunch: 1, slagPlates: 14, slagRanks: 0.75, wingParts: 3, midAmp: 0.26, tipAmp: 0.42, glidePow: 1.9,
+        colors: { body: 0x2c2c30, belly: 0x34343a, wingOuter: 0x2c2c30, eye: 0xffdcaa } },
+      { spanScale: 1.0, emberHaunch: 1, slagPlates: 22, slagRanks: 1, wingParts: 3, midAmp: 0.30, tipAmp: 0.52, glidePow: 2.4,
+        colors: { body: 0x2a2a2c, belly: 0x322e34, wingOuter: 0x2a2a2c, eye: 0xffe0b4 } },
+    ],
+    fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
+    hasStyle: true,
+    // ⚠ THE GUARD TRIO — required from commit ONE, not deferred to I4. The rig's fever defaults
+    // are MAGENTA and `setFeverTint(def.feverWash || null)` (dragon.js:520) fires the moment the
+    // key exists, so a def without a warm feverWash flashes magenta on surgeStart and violates
+    // the identity's own colour law. feverWing black keeps the wings a silhouette through Surge;
+    // wingMembraneEmissive black is what stops the shared rig's unconditional boost term
+    // (dragon.js:1970-1990) lighting the wing TOPS on every boost.
+    feverWing: 0x000000, feverEye: 0xffb46b, feverWash: [0.10, 0.05, 0.02], surgeMotes: true,
+    wingEmissive: 0x000000,
+    wingMembraneEmissive: 0x000000,
+    hideRiderGlow: true,   // the creature owns the frame with its own accents
+    // Char albedo is COOL and never pure black (ref §7: charcoal albedo ~0.04, linear 0.02-0.045).
+    // All the warmth is EMITTED, never painted into the diffuse — that is the difference between
+    // a banked furnace and a dragon someone tinted orange.
+    body: 0x2a2a2c, belly: 0x322e34,
+    wingInner: 0x262629, wingOuter: 0x2a2a2c,
+    // horn/scales set explicitly: they feed hornMat/scalesMat in dragonModel.js and an absent
+    // field reaches `color: undefined` (harmless-but-noisy, and it works by luck rather than
+    // intent). Char horn now, cool like the hide — the temper-oxide band is a DIFFUSE close-range
+    // detail at I3, never an emitter (it is the one legitimate blue in a fire palette).
+    horn: 0x2a2426, scales: 0x241f22,
+    scaleEmissive: 0x000000, scaleEmissiveI: 0,   // no off-palette steel-blue on a char creature
+    eye: 0xffd9a0,
+    apexEye: 0xffe0b4, apexSeam: 0xff8912, coreGlow: 0xff8912, surgeHi: 0xffb46b,
+    trail: 0x7a3410, boostTrail: 0xc2560f,
+  },
+
   // GRAVELIGHT REVENANT — "Nothing stays buried" (WRAITH-GRAVELIGHT-BUILDSHEET.md §B).
   // A chalk-ivory bone-lattice drake: the roster's ONLY holes-in-the-black-fill
   // SKELETON. Ghost-fire (the Grave Heart) is seen only THROUGH bone apertures —

@@ -18,6 +18,9 @@ sheet locks a RANGE and says so.
 > **tucked hind legs** (raptors don't tuck; tucked is invisible from the chase cam — ref §3),
 > and an implied deep **keel blade** (flight muscle is 20–25% of mass, keel SHALLOW — ref §2).
 > All three are superseded below (§2, §7, §8). The rear-chase sentence was rewritten.
+> **A fourth reversal (v2, critic-forced): the bare-spine law is REVOKED** — the dorsal
+> midline now carries THE SLAG SERRATION (§2 reversal block, §4-R1). Do not resurrect
+> "clean sky above the spine" either.
 
 ---
 
@@ -25,8 +28,10 @@ sheet locks a RANGE and says so.
 
 Fresh roster key **`fornax`** — coexist-style, nothing shipped changes. Fields:
 `name:'Fornax'` · `title:'The banked furnace'` · `rarity:'SSR'` / `maxRarity:'SSSR'` ·
-`cost` owner call · `stats` (speed 1.14 / handling 0.96 / drain 0.9 / regen 1.1 — a heavy
-flyer, placeholder, owner tunes) · `fx.auraColor '255,112,16'` (furnace amber `#ff7010`) ·
+`cost 2400` (SHIPPED, `dragons.js:698` — no longer an open call; owner may retune) ·
+`stats` (SHIPPED `dragons.js:703`: speed 1.06 / handling 1.02 / drain 0.9 / regen 1.1 —
+supersedes the v0 placeholder 1.14/0.96; still a heavy flyer, owner tunes) ·
+`fx.auraColor '255,112,16'` (furnace amber `#ff7010`) ·
 `forms[]` accretive, length 4 · `hasStyle` · new module `js/dragonFornax.js`, builders
 default-off, hero opt-in only.
 
@@ -67,29 +72,60 @@ Growth verb: **STOKING** — the whelp is a cold coal; each ascension feeds the 
 One word: **BANKED.**
 
 Stylization axes (locked): taper contrast **×3 over reference** on every limb/horn/digit;
-curve-vs-straight alternation on every profile; large struck facets; **four value tiers with
-endpoints spread ≥0.05 luminance** (house §3.2); **dominant + decay on every rank** — no
-equal-pitch rank anywhere (ref §6: equal ranks have NO natural precedent).
+curve-vs-straight alternation on every profile; large struck facets; **four value tiers
+judged in RENDER space** (§4b-RL6/§11 — the v1 "≥0.05 luminance" wording was material-space
+and passed while the creature rendered at median 14/255; that ambiguity is closed);
+**dominant + decay on every rank** — no equal-pitch rank anywhere (ref §6: equal ranks have
+NO natural precedent).
 
-**Rear-chase sentence (re-rewritten — audit B4; supersedes the spade/tuck draft AND the
-chipped-brow/countable-finger draft):**
+**Rear-chase sentence (re-re-rewritten — torso-richness audit; supersedes the
+clean-sky-over-the-spine draft, which is REVOKED in §2):**
 *"A charred anvil slung between two vast low crescents, each read by its scalloped
-three-bay trailing edge, twin swept horns rising into clean sky, hind legs splayed
-bat-wide into the wing–tail gap, and a long ridge-crested tail rolling end-on to a blunt
-ember firebrand."*
+three-bay trailing edge, its spine a serrated rank of struck-slag blades running occiput
+to tail and rolling on into the tail's ridge crest, twin swept horns still the tallest
+cut, hind legs splayed bat-wide into the wing–tail gap, and a blunt ember firebrand at
+the end of it."*
 (The chipped brow is ~2–3px from the chase cam — it lives in the §11 turntable-only list,
 not in this sentence. At gameplay scale the whole dragon spans ~180px: digits are NOT
 countable; the wing's rear-chase claim is the scalloped 3-bay trailing-edge silhouette.)
 
 ## 2. Silhouette language + distinctiveness gate
 
-Primitive: **a low wide crescent-pair around a dominant anvil, punctuated above by a
-backswept horn rank and behind by a ridge-crested tail.** Mass census **4, one dominant**
+Primitive: **a low wide crescent-pair around a dominant anvil, its whole dorsal line one
+serrated blade-rank — horns dominant at the occiput, slag serration down the spine, ridge
+crest out the tail.** Mass census **4, one dominant**
 (ref §8: 3–5, mode 4): ① the anvil torso (DOMINANT), ② the wing-crescent pair,
 ③ the horned head, ④ the ridge tail. Legs are tertiary (~30% of their parent mass, ref §8).
 Primary split 70/30 torso-forward vs aft (never 50/50, ref §8). Colour 60-30-10
 (ref §8): 60 char, 30 ash/scorch midtone, 10 ember accent — accent in exactly TWO contiguous
 places (throat-keel seam + wing underside), ≤10% of area.
+
+**⚠ REVERSAL v2 — THE BARE SPINE IS REVOKED (torso-richness audit, 1.9/5 FAIL).** The
+v0–v1 spec reserved the dorsal midline — no spike rank, "clean sky" above the spine —
+saving the ridge for the tail and the horns for I3. Five build rounds honoured that law
+and it is the single biggest reason the side profile read as a crocodile lozenge: a 3.2u
+hull whose tallest dorsal event is a 0.052u scute cannot break its own outline, while the
+Tempest breaks a comparable body with vanes built to ≈**0.284u** (formula ceiling 0.337u —
+corrected figures, audit C1; the earlier "~0.37u" was a misquote). Recorded as a
+director's reversal like the spade and the tuck (do not resurrect): **the dorsal midline
+now carries THE SLAG SERRATION** — forged blade-vanes, **Hmax 0.13–0.33u** (the §4-R1
+formula's exact tall-vane range — quoted the same everywhere; short vanes sit below by
+design), rhythm **tall-tall-short period 3**, **occiput→hip at the fr schedule, decaying
+beyond per §8's tip-floor law**, kinked and swept aft like struck slag shards (build
+numbers §4-R1).
+**⚠ Collision guard (audit C1): the reversal put Fornax's spine in TEMPEST's lane** — at
+180px "dark hull + serrated spine + continuous pale ridge line" IS Tempest's read, and hue
+alone cannot split two dark frames. The serration therefore commits three split axes in
+§4-R1 (asymmetric struck-shard profile vs Tempest's symmetric tent-spike; period-3 rhythm
+vs strict alternation; a BROKEN ~60%-duty rail at I1 vs Tempest's continuous
+ridge-ribbon), gated by the NEW §12 Tempest tile and the §2 table's dorsal-line row.
+Reconciliation with §8: one rank, one owner per region — **R1's fr schedule ends at the
+HIP; §8's tip-floor decay schedule (H 0.18u→0.04u, ×0.91/vane, 17 vanes at 0.32u pitch)
+owns hip→tip**, through the tail-root and out to the firebrand; height continuity is
+built from the published **`serrationTopAt(z)`** contract key (§4), never from
+duplicated constants. Precedence: the occipital horn pair stays the
+DOMINANT of the whole dorsal line (§6 — ≥1.5× the tallest vane); "twin swept horns" now
+read over serration, not over bare sky.
 
 **Kit-coherence test (ref §9):** every landmark rhymes with the FORGE — plates are heat
 shields, seams are where slag parted, the tail tip is a firebrand, horns carry temper-oxide
@@ -104,6 +140,7 @@ earlier table was written from build-sheet titles and misdescribed Vesper):**
 | Limb plan | 6 (dragon) | 6 | wings + two TUCKED hind legs, NO forelimb builder (`dragonVesper.js:274-278`) — already a de facto wyvern silhouette | 6 | 6 | **4 by identity law, with ABDUCTED (not tucked) legs — the roster's only abducted-leg flyer** |
 | Wing | vault-bays + lances | feather ranks | FIVE-finger bat fan from a carpal knuckle, dominant finger 0, propatagium, thumb claw, root gusset, cowl plates; tall arch (`archRise 0.4`) + DEEP cups (`wingCup 0.35`), `wristT 0.21` (`dragonVesper.js:358-374,413`; `dragons.js:601-603,613`) | storm membrane | feather blades | **4-digit fan on a LOW WIDE crescent: `archRise 0.12`, TAUT FLAT bays (sag ≤0.10 bay-chord vs Vesper's 0.35 cups), `wristT 0.30` — planform + bay language, not mechanism (§5)** |
 | Surface | gold regalia | plumage | knapped glass | storm polish | — | **lava-lake char plates, T-junction seams** |
+| Dorsal line (NEW row, audit C1 — the axis the reversal collides on) | crown ring, not a spine rank | plume train | low dorsal nubs | **serrated vane rank + CONTINUOUS charged ridge-ribbon threaded through crest tips (`crestPts`, `dragonTempest.js:282,306-320`); symmetric tent-spikes (`stormSpike`), strict tall/short alternation; built Hmax ≈0.284u** | — | **BROKEN pale rail ~60% duty at I1 (fuses continuous only under THE STOKE) — the chase split; tall-tall-short period-3 rhythm; asymmetric struck-shard vanes (apex 0.60–0.70 aft, lead slope ≥3× trail — turntable scale, §11); Hmax 0.33u** |
 | Motif | ring + gem | coal arc rim/tip | starlit seam (cold) | arc crown | — | **THE STOKE — interior seam ignition, tail-ward** |
 | Glow lane | violet 262° | warm triad rim/tip | ion blue 223° | storm | pale ice | **blackbody amber ~25°, interior-leak, withheld** |
 | Darkness lane | — | — | COLD unlit black | — | — | **warm-keyed CHAR (cool albedo, emitted warmth)** |
@@ -180,12 +217,17 @@ wing membranes backlight from BENEATH; wing tops stay dark (law 5).
   magenta — a law-4 violation. Author warm, e.g. `feverWash: [0.10, 0.05, 0.02]`
   (R≥G≥B). Eyes out of the surge arrays.
 
-## 4. Torso — `slagAnvilTorso` (the dominant mass)
+## 4. Torso — `slagAnvilTorso` (the dominant mass) — REWRITTEN after the 1.9/5 torso audit
+
+Proportions (below) survived the audit unchanged. What failed was RELIEF, RECESS, VALUE
+ASSIGNMENT and the BRIGHT TIER — all now numbered laws here and generalised in §4b.
 
 - **Proportion — the sanctioned cheat (ref §2):** honest span:torso is 13–15:1 (a 70cm
   torso — unrideable); lock **span:torso 5.5:1** (ref §2 sanctioned band 5.0–6.5, ×~2.5
-  inflation of the torso, span kept honest). Engine sanity: span:total-body ≈ 2.3
-  (house norm ≤2.5).
+  inflation of the torso, span kept honest). Engine sanity — DEFINED (audit C6: the v0
+  "≈2.3" was full span ÷ the 4.0u torso-chain, mislabelled): **span:total-body = full
+  wingspan ÷ nose-to-tail length** — 8.5u ÷ ≈7.5u ≈ **1.14**, comfortably under the ≤2.5
+  house cap.
 - **Keel SHALLOW (revision):** flight muscle is 20–25% of body mass, not 40% (ref §2) —
   the depth reads as pectoral muscle WRAPPING the ribcage; **no protruding blade**. The
   "banked-ember keel" survives only as the throat-keel SEAM (§3), not as a fin.
@@ -208,60 +250,344 @@ wing membranes backlight from BENEATH; wing tops stay dark (law 5).
   see it anywhere, shop included. Gen-3 tris are budgeted inside the ultra segment
   multiplier, on top of the §10 base targets. Overlap > weld on every plate joint
   (house §3.4).
-- **Values:** 4 tiers — char shadow `≈0.03` albedo (law 7) → scorch mid → ash-lit facet →
-  ember rim — endpoints spread ≥0.05 luminance, judged on the brightest biome (house §3.2).
-- Publishes the full attach contract + `spinePoints` + seam `motifAnchor` chain.
+- **THE RANK SUITE R1–R6 — relief numbers are LAW (§4b RL1–RL2).** Structure adopted from
+  `dragonTempest.js#buildCumulonimbusTorso` (the bar), all ranks through ONE per-material
+  accumulator (~12 draws). The audit measured rounds 1–5 at 4–7× too shallow — every number
+  below is a floor, checkable on the built mesh (§11):
+  - **R1 THE SLAG SERRATION** (dorsal — the §2 reversal). Replaces the 0.052u→0.02u scute
+    rank. Height **H = (0.30|0.17)·fr + 0.06** with **fr decaying 0.9→0.4 occiput→HIP
+    (z 0.60)** → band **0.13–0.33u** (this formula IS the relief band; every quote of the
+    band elsewhere is this range). **Binding reading (v2.2): the band binds each
+    station's rank-Hmax — the TALL vanes, which compute 0.18–0.33u.** The period-3 short
+    vanes compute 0.128–0.213u and sit below the floor BY DESIGN; they are bound only by
+    RL1's 0.02u delete line — say this so nobody "fixes" them taller. **Pitch (committed
+    v2.2 — the broken rail is the load-bearing split, and a split needs a resolvable
+    gap): 15–17 vanes occiput→hip, pitch 0.14–0.16u** (2.5u run / 16 intervals ≈ 0.156u;
+    a 1–2-interval dark gap = 0.14–0.32u ≈ 3–7px at 21px/u). From the hip aft, §8's
+    tip-floor schedule owns the rank — one owner per region, never both (audit C4). **Corrected Tempest figures (audit C1):**
+    Tempest's `(0.31|0.185)·fr + 0.058` ceilings at 0.337u, but its vanes only build at
+    z ≥ −0.95 where fr ≈ 0.73 → tallest BUILT vane ≈ **0.284u**
+    (`dragonTempest.js:286-297`). Our 0.33u sits ABOVE Tempest's built max — **height is
+    NOT the split axis**; the horns stay dominant by §6's ≥1.5× law, not by shrinking
+    vanes. **THE SPLIT AXES vs Tempest's R1 (committed — gated by the §12 Tempest tile; ranked
+    honestly by where they read, v2.2):**
+    **(a) profile — asymmetric struck shard** — apex offset **0.60–0.70** of the fore-aft
+    footprint AFT, leading-face slope **≥3×** the trailing-face slope (Tempest's
+    `stormSpike` is a symmetric tent). **TURNTABLE/TIER-CARD SCALE ONLY** (v2.2 honesty
+    demotion: on a 2–3px footprint the apex offset moves 0.3–0.5px at chase distance —
+    listed in §11's turntable-only list; never present this as a chase axis);
+    **(b) rhythm — tall-tall-short, period 3**, seeded jitter (Tempest alternates strict
+    period 2) — weakly chase-real: ~6–8px double-peaks vs Tempest's 3–4px sawtooth;
+    **(c) the rail is BROKEN at I1 — ⚠ CORRECTED v2.3 after the 3.6/5 gate: the DUTY CYCLE IS NOT
+    VISIBLE.** Built and rendered, lit-rim vs unlit-ash leading faces are too close in rendered
+    value to read as "runs of 2 with dark gaps" at any distance. The split from Tempest is REAL
+    but for a different reason than this sheet claimed: Fornax reads as **discrete pale-tipped
+    serration** against Tempest's **continuous ribbon**. Keep the duty cycle (it costs nothing and
+    fuses at I4 as designed) but **stop billing it as the load-bearing read** — the load-bearing
+    split is the per-vane pale CAP vs a connected ribbon. Original spec follows: the
+    pale bone-ash tip-rail (RL5) runs in irregular lit segments of **2–4 vane intervals**
+    separated by 1–2 dark (0.14–0.32u ≈ 3–7px at the committed pitch — resolvable) —
+    **~60% duty, never continuous** (a continuous pale
+    ridge-ribbon threaded through vane tips IS Tempest's `crestPts` read,
+    `dragonTempest.js:282,306-320`); it fuses continuous only while THE STOKE runs at I4
+    — withheld completeness, on-lane. Kinked + swept, short fore-aft footprint; `char`
+    faces; pale leading edge (RL5); per-vane charcoal under-gap recess (RL2 — generic
+    recess law, not Tempest's signature).
+  - **R2 BELLY DECK** — plate lift **0.05u** (was 0.010–0.016 — sub-pixel) over a recessed
+    base, with real gutter **WALLS** (recess tier, full 0→lift height) around every plate;
+    plate tier assigned by **radial distance from the keel** (core/mid/edge), never by index.
+  - **R3 FURNACE SOCKET** — rim ring at the surface, floor sunk **≥0.15u inboard** (Tempest
+    sinks 1.5·r) so the interior falls to true shadow; lip flared outward as the lit edge;
+    cowl vanes ring the mouth. Unlit at I1 (but see open call #6 — the pilot-light
+    question is the owner's, not pre-decided here) — the void must be carved, never
+    painted.
+  - **R4 LAPPED ARMOUR** — standoff **0.055u + 0.035u cup** (was 0.014), plus **full
+    perimeter recess walls** (0→standoff) so every plate throws a shadow step and visibly
+    laps the next.
+  - **R5 FLANK SHINGLES** — cards stand proud **0.05u** (was 0.008) with a **dark recess
+    gap under every fore edge**; card size **≥0.10u** — halve round-5's count and enlarge
+    the survivors (RL4: fewer, bigger, organised).
+  - **R6 THROAT GORGET** — each band a raised step **≥0.04u** with a recessed dark seam aft
+    — stand-off geometry, not paint.
+- **Value assignment (RL3 as restated — kills the camouflage without rebuilding the
+  pooling bug):** dorsal field `char` · flank `scorch` · ventral `ash` · bright ONLY on
+  rims, the ridge-rail, and blade leading edges. **No cross-tier index-keyed material
+  pick anywhere in the module.** Corrected census (audit): at least SIX index-keyed
+  selectors ship — `i%3` scutes (`:165`), `i%2` shingles (`:250`), `i%2` gorget (`:264`),
+  `byTier[i%3]` plates (`:487`), the non-modulo `i===0?ashLit:scorch` armour pick
+  (`:230`), plus `slagBand`'s duty-hash (`:69-75`) — the one EXEMPT survivor (a one-step-
+  darker duty break that cured deck pooling, RL3). At 0.05–0.2u element size the
+  cross-tier picks ARE military camouflage. Statically asserted (§11 firewall, broadened
+  to any index-referencing selector however expressed).
+- **Values (RENDER space — closes the v1 ambiguity that passed five bad rounds):** 4 tiers,
+  judged by §11's render gate — **median ≥28/255, p10–p90 spread ≥45/255** on a
+  torso-isolated capture mask. Material hexes prove nothing (round 1–5 passed 0.133 in
+  material space while rendering at median 14/255). Lit tiers go warm-GREY per RL7:
+  ashLit `0x8f8a84` (was `0x94897c`), rim tier `0xbdb6ac` (was `0xc6b8a4`).
+- Publishes the full attach contract + `spinePoints` + seam `motifAnchor` chain. **The
+  frozen I1 attach contract is untouched by R1**: the serration rides above `keelTopAt`;
+  head/tail still mount at the frozen numbers. R1 ADDS **`serrationTopAt(z)`** (crest top
+  = hull top + local vane height, occiput→tail-root) as an **additive, nullable key** —
+  the freeze bans MOVING published numbers, not ADDING keys. §8's tail crest seeds its
+  first vane from `serrationTopAt(anchor.z)`, so "height-matched" is built FROM the
+  contract, never from duplicated constants (audit C4: `buildFirebrandTail` receives only
+  `anchor {y,z}` today — without this key the handoff was unbuildable as written).
 
-## 5. Wings — the HERO: THE UNDERLIT CRESCENT (bat fan, wing-as-arm)
+> **⚠ BINDING DEFERRAL → I2 (from the 3.6/5 gate).** The mid-back **wing-mount massif** swallows
+> 3–4 serration intervals and is the hero view's one remaining dead zone. It was deferred out of
+> the torso round because I2 rebuilds that slab when the wing mounts to it — reshaping it twice
+> is waste. **The condition, so the deferral cannot evaporate: this is an I2 ACCEPTANCE CRITERION,
+> not a note.** If I2 lands and the mid-back still reads as a featureless black box interrupting
+> the serration, that is an I2 GATE FAILURE, not a torso debt. Same round also owes: consolidating
+> the pale flank flecks (they read as debris once the rail wires were deleted) and warming the
+> bluish belly panel into the RL7 ladder.
 
-**Topology decision (ref §4): bat fan over pterosaur spar** — four digits give 3 interior
-bays + 3 knuckles; a single spar degenerates to the paper-dart read. **Honesty note
-(audit B4):** at gameplay distance the whole dragon spans ~180px and individual digits
-are NOT countable (Vesper's shipped five read only as a jagged dark trailing edge) — the
-feature that survives gameplay distance is the **scalloped 3-bay trailing-edge
-silhouette**; digit/knuckle countability is a turntable-scale read, marked in §11. All
-modern wyvern precedent agrees (ref §1 — Weta rebuilt Smaug onto two limbs so the wings
-could ACT).
+## 4b. RICHNESS LAWS (every part — I2's wing and I3's head/tail INHERIT these; never
+re-derive them per part)
 
-- **Digits:** 4, **dominant leading digit D1 = 1.6× the others** (ref §4 band 1.5–1.8);
-  D2–D4 decay at **×0.66 per rank** (adopting ref §6's 0.62–0.70 decay constant as the
-  house decay), fanning aft with contracting spacing. Fat in-plane wedges, never needles
-  (house §2.4).
-- **Planform differentiation vs Vesper (audit B1 — COMMITTED numbers, the real axis):**
-  the fingered-fan MECHANISM already ships on Vesper, so Fornax differentiates on
-  planform + bay language. **LOW WIDE crescent** against Vesper's tall scallop: carpal
-  arch **`archRise 0.12`** (Vesper ships 0.4), **`wristT 0.30`** (top of the house
-  0.2–0.3 band; Vesper ships 0.21 — longer arm, more distal knuckle), and **TAUT FLAT
-  bays**: trailing-edge bay sag **≤0.10 of bay chord** (Vesper cups at 0.35) — shallow,
-  near-straight scallop arcs that read as membrane under TENSION, not drape. Side by
-  side: Vesper is a tall deep-cupped hand, Fornax a low taut sail.
-- **⚠ THE NOTCH FLOOR (audit round 2 — the taut bay must not become the PLANE WING).**
-  Taut bays differentiate us from Vesper but put the rear-chase sentence at risk: at the
-  measured ~180 px chase span a ≤0.10-chord notch is only **3–4 px**, and a trailing edge
-  that shallow collapses to a straight-edged delta — the kill-on-sight plane wing
-  (`DRAGON-DESIGN.md` §2.1), which would gut the very silhouette claim the sentence rests
-  on. **The notch depth therefore comes from BONE PROJECTION, not membrane drape:** each
-  digit tip projects **≥0.15 of bay chord beyond the between-tip membrane line**. The
-  membrane stays taut (our identity); the SILHOUETTE stays scalloped (the read). Asserted
-  in §11 — this is a floor, not a target, and it outranks the taut-bay number if they ever
-  conflict.
-- **Stiffened leading edge (NEW, ref §4):** both real lineages actively stiffen it — the
-  leading edge gets a **forward sheet** (propatagium analog) ahead of the arm, ~**9% of
-  wing area**; armwing ~**52%**, handwing ~**39%** (ref §4 — equal-width bays ARE the
-  plane wing). Leading edge is RIGID; **only the trailing edge flutters** (ref §5 — a
-  rippling leading edge is a fabrication tell; enforce in the wobble mask).
-- **Planform:** aspect ratio **7.5** (ref §4 target 7–9; <6 reads flapper, ~15 sailplane).
-  Wing loading in the 30–80 N/m² band (ref §4) — informs how heavy the flap reads (§9).
-- **Camber:** drives off airspeed — **0.14 chord slow ↔ 0.06 chord fast** (fast end
-  corrected into the ref §4.4/§5.5 cruise band of 0.06–0.10c; the 0.14 slow end is a
-  declared high-lift exaggeration ABOVE the cruise band, launch/flare only), deepest sag
-  at **40% chord** (ref §5). One dial (`camberMix`) lerped by speed; membrane arcs ≥4
-  segments, cup toward the knuckle (house §4.3).
-- **Wing-as-arm articulation:** house `wingParts` cascade + medial wrist (`wristT`
-  **0.30**, committed in the planform bullet) + rigid-hand wrist fold + −anchor + outer-wrapper mirror (house §5, non-
-  negotiables). Thumb-claw at the carpal knuckle — the wyvern's HAND read, and the walk
-  pose (wing-knuckle gait) in the turntable. Shoulder: scapular slag-cowl plates in the
-  torso's seam language, static in the body frame.
+Written after five torso rounds failed at 1.9/5 against the Tempest bar. The critic's
+split: the gap was ~70% geometry / ~30% light — and half the light half is legally
+available at I1 (RL5). Scale anchor for every number: the whole dragon spans ~180px from
+the chase cam at ~8.5u full span → **~21px per world unit. Divide any relief number by 21
+before believing it.**
+
+- **RL1 — RELIEF FLOOR.** Relief is bought in world units and judged in pixels. Floors:
+  silhouette-breaking ranks **0.13–0.33u** (≈3–7px; the §4-R1 formula is the law — this
+  band is its exact range, stated identically in §2/§4/here, audit C3). **Binding
+  reading (v2.2, so the floor is checkable): the band binds each station's RANK-Hmax —
+  the tall vanes, 0.18–0.33u — not every element.** Period-3 short vanes (0.128–0.213u
+  at apex) sit below it by design and are bound only by the 0.02u delete line; ladder
+  rungs scale the Hmax envelope (f0 Hmax 0.14u clears the floor; its short vanes ~0.05u
+  are LEGAL under this reading — under an every-vane reading they would not be, which is
+  why the reading is stated). Any plate standoff / deck lift / card
+  stand-proud **≥0.05u** (~1px shadow step); absolute floor **0.03u** for any raised
+  element. Anything under **0.02u is sub-pixel at range — delete or merge it, never tune
+  it.** A rank that breaks no silhouette and casts no visible shadow does not exist.
+- **RL2 — RECESS PAIRING.** Every raised form owes its own shadow-casting dark recess, in
+  a tier darker than the darkest field plate: perimeter recess **walls** (full 0→standoff
+  height) around every armour plate, a **dark gap under every scale-row fore edge**, a
+  **charcoal under-gap beneath every dorsal vane**, real gutter **walls** on deck plates
+  (the Tempest pattern, verbatim). A card floating on a lift with no walls reads as a
+  decal/camo patch — exactly rounds 1–5.
+- **RL3 — ROLE DETERMINES THE TIER; INDEX MAY ONLY PERTURB WITHIN IT (restated, audit
+  C2 — the absolutist v2 wording banned the shipped fix for a failure it exists to
+  prevent).** Role map: dorsal field = `char`, flank = `scorch`, ventral = `ash`; bright
+  ONLY on rims, crest rails, blade leading edges; belly tiers by radial distance from the
+  keel. The two regimes are SCALE-SEPARATED — that is what dissolves the v2.1
+  self-contradiction (a sanctioned darker-break on a 0.1u element was simultaneously
+  condemned as camouflage two sentences earlier): **elements IN the 0.05–0.2u camo band
+  admit NO index picks in ANY direction** — index value at that scale is mid-frequency
+  noise, i.e. camouflage (the five-round failure). ABOVE that band, PURE role banding
+  rebuilds the opposite bug — it pooled all brightness into one continuous deck stripe
+  (the recorded round-2 "sheet-metal" band), and `slagBand`'s duty-hash
+  (`dragonFornax.js:69-75`) is the shipped cure — **explicitly EXEMPT as a mechanism**.
+  Sanctioned index use: value jitter WITHIN a tier, or a duty break dropping an element
+  exactly ONE step DARKER toward the field — never brighter, never ≥2 tiers — under
+  three bounds (v2.2): **(i)** duty breaks apply ONLY to elements above the 0.05–0.2u
+  camo band (station-scale facets — field-ward breaks read as shadow/wear; camo-scale
+  breaks read as mottle); **(ii)** IRREGULAR duty — never strict alternation or any even
+  on/off metronome (the picket-fence tell `slagBand`'s own comment warns against);
+  **(iii)** minimum lit run ≥2 stations. ⚠ COMPUTED (v2.2): the shipped hash
+  `((i*7+3)%5)<3` yields the period-5 pattern F,T,T,F,T — it satisfies (i) and (ii) but
+  has SINGLETON lit runs, violating (iii); the exemption covers the mechanism, and the
+  rebuild owes the one-line retune (e.g. `((i*2+1)%7)<4`: period-7, duty 4/7, lit runs
+  of 2, gaps 1–2 — computed to satisfy all three). (Tempest itself perturbs on index
+  atop a role base: `u%2` `:373`, `+(i%2)·0.7` `:229`, `u%3` `:300` — the evidence never
+  supported an absolute ban.) Bounded by the §11 anti-pooling assert.
+- **RL4 — THE BRIGHT TIER IS STROKES, NOT CONFETTI (bounded both ways).** The brightest
+  values are LINES — rails through vane tips, deck-edge rails, blade leading edges.
+  Lines read as anatomy; scattered 0.022u rim slivers read as white specks. Any bright
+  element shorter than ~0.3u that is not part of a rail: merge or delete; when in doubt,
+  halve the count and enlarge the survivors. But a stroke is a RUN, not an infinity —
+  unbounded continuity is the opposite failure twice over (the round-2 pooled deck
+  stripe, and the Tempest crest-ribbon collision, audit C1/C2): the §11 anti-pooling
+  assert caps every run, and the dorsal tip-rail specifically is BROKEN at ~60% duty
+  until THE STOKE fuses it (§4-R1c).
+- **RL5 — PALE ALBEDO IS LEGAL LIGHT.** The withheld-light law bans EMISSION before I4,
+  not VALUE. Bright pale albedo at low roughness catching the key is diffuse, not glow —
+  Tempest's `silverRim` (`0x9fb0c8`, rough 0.5, metal 0.06, emissive ≈0) is the proof.
+  Sanctioned Fornax analog: bone-ash **`0xbdb6ac`, rough 0.44–0.5, metal 0.06, emissive
+  `0x000000`** — on rails, crest lines, and blade leading edges only. This is the
+  sanctioned way to reach value extremes before I4; use it instead of waiting for embers.
+- **RL6 — VALUE TARGETS LIVE IN RENDER SPACE.** All value/ladder targets are RENDER-space
+  percentiles measured on a part-isolated mask of an actual capture (§11 gate: median
+  ≥28/255, p10–p90 ≥45/255). A material-space (albedo-hex) spread is inadmissible as
+  evidence — it is the exact ambiguity that let five failed rounds "pass".
+- **RL7 — HUE UNDER THE RIG (numeric band committed, audit C5).** The studio rig is blue
+  (hemisphere `0xbfdcff`, rim `0x7fb8ff`); warm-TAN albedo renders khaki and reads
+  military. Lit tiers are warm-GREY, band: **8 ≤ R−B ≤ 20, saturation ≤ 0.10 in HSV,
+  computed as (max−min)/max** — the formula is named because HSV and HSL disagree (HSL
+  gives 0.114 for the rim hex). Both sanctioned hexes COMPUTED, not asserted (v2.2 — the
+  first commit said ≤0.07 and failed both hexes it certified): `0x8f8a84` → R−B 11,
+  sat 11/143 = **0.077**; `0xbdb6ac` → R−B 17, sat 17/189 = **0.090**. The loose v2
+  "a couple of steps" wording is superseded by this band. The `char` field stays cool-neutral
+  (identity law 7) — RL7 binds the LIT tiers only. Probed in §11's lit-tier hue probe
+  (the fire-region channel-order probe never sees these pixels — a law without a probe is
+  how the steel-blue round shipped).
+
+## 5. Wings — the HERO: THE UNDERLIT CRESCENT (**fingered fan**, wing-as-arm)
+
+> **⚠ v2.5.** v2.4 rewrote this section onto a PTEROSAUR SPAR. The owner rejected that build on
+> sight — *"whatever plane wings u got"* — and was right: `DRAGON-DESIGN.md` §2 lists
+> **"the plane / delta-kite wing" as failure #1, KILL ON SIGHT**, including *"convex scallop lobes
+> whose valleys never cut inward"*, which is exactly what a single spar with a chord-function
+> trailing edge produces. **The house WING kit (`DRAGON-DESIGN.md` §4) is mandatory and outranks
+> both the anatomy reference and any research finding.** Reference implementation:
+> `buildOneStormforkWing` (`dragonTempest.js`) — the roster's best wing.
+>
+> **The process failure that caused it, recorded so it does not recur:** the Fable adjudication
+> that overturned the fan was given a brief that never mentioned the house kit existed or that the
+> plane wing is a named kill-on-sight failure. It ruled correctly on what it was shown. **An
+> adjudicator's confidence is bounded by the completeness of its brief — 5/5 on an incomplete
+> brief is not 5/5 on the question.**
+
+**TOPOLOGY: FINGERED FAN — 4 radiating digits off the carpal knuckle, dominant + decay.**
+Finger 0 is the longest and IS the wingtip; the rest fan aft, shorter, drooping aft-and-down.
+Azimuths **26° / 42° / 60° / 76°** aft of the wrist, lengths **1.00 / 0.86 / 0.64 / 0.44** —
+following the house reference's shallow decay rather than a steep per-rank 0.66, because too steep
+and the fingertips bunch inboard, the bay cusps overrun the next tip, and the scalloped free edge
+collapses into one broad hump (the plane wing again). Deterministic jitter on azimuth (±3°) and
+length (±6%) so the rank reads as a hand, not a comb (§2.4's picket-fence failure).
+
+**THE BAY MEMBRANES — the cup is the whole point.** Each bay is lofted onto the two bracketing
+bones' samples, so **every membrane edge IS a bone node** and the sheet cannot float off. Cups at
+**0.46 / 0.40 / 0.33**, pulled FULLY toward the knuckle in both X and Z, sampled at ≥4 segments
+(2 segments polylines into scissor-cut V teeth — §2.12). Deeper than the house table because our
+fan is 4 fingers rather than 5, so each bay must cut harder to read. Weakening the X component to
+keep cusps neatly "between" tips produces shallow bumps instead of notches — the deep V that reads
+as fingers comes from the cusp travelling a long way back toward the wrist.
+
+**Retained from the v2.4 spar work** (all of it topology-independent and all of it still correct):
+the arm chain and its gull curve (§5.1), the propatagium, the shoulder→hip attachment, the slag
+crust rank on the arm, the arm mass and elbow node, and the planform gate.
+
+### 5.1 THE LEADING EDGE IS ONE CONTINUOUS OGEE — the shape law, above all others
+
+> **⚠ v2.6.** The owner rejected the previous outline: *"the leading edge should be convex from the
+> connection to the body, and then after the wrist, where the first finger spoke creates the
+> leading frame, it should be concave."* That law was already in the repo and this sheet did not
+> carry it — `DRAGON-DESIGN.md` §4.1: *"Knuckled leading edge, never a straight bar. Two curves
+> compose it: a gull ARCH in Y … and an OGEE in Z (bow forward mid-span, sweep hard aft to the
+> tip)."* An independent art-director pass on SHAPE ALONE called the old build **not acceptable**
+> for exactly this: *"convex, corner, straight"* — a hard corner at the wrist and no concave phase.
+
+**The function** (Fornax's, after `vesperArmZ`):
+
+```
+armZ(t) = -0.10 + 0.44·hs·t^1.12 - 0.20·hs·sin(π · t^p),   p = ln(0.5)/ln(0.40)
+armY(t) = gull arch, rising to the carpal apex then easing to the tip
+wristT  = 0.30      (MEDIAL — short arm, long hand)
+```
+
+**The three laws inside it, in order of importance:**
+
+1. **ONE FUNCTION, ROOT TO TIP.** The wrist is `LE(wristT)` — a point *on* the curve, not a joint
+   *in* the silhouette — and **the wingtip is `LE(1)`**, so the leading finger is the curve's
+   continuation. Building the leading finger as a separate straight bone at a fixed azimuth is the
+   error that produced the corner; it is what makes a wing read as a spoke-fan plank.
+2. **THE FORWARD BOW PEAKS AT THE WRIST.** A plain `sin(π t)` peaks at mid-span, which leaves the
+   apex outboard of the joint and starts the concave phase too late. Warping by `t^(ln0.5/ln w)`
+   puts the peak on the wrist. Both shipped house wings sit within ~0.02 of their wrist.
+3. **THE FINGER FAN IS RELATIVE TO THE CURVE, NEVER TO THE BODY AXIS.** `phi0 = atan2(F0 − K)`,
+   then each finger rakes aft from there. Absolute azimuths are a real bug: once the edge sweeps
+   aft, fingers authored from +x point *forward* of it and the hand stops agreeing with the arm.
+   Getting this right is what makes every line in the wing agree on one direction of flow.
+
+**Tip:** finger 0's membrane runs to `LE(1)` so the leading edge and the outer membrane converge at
+**one raked point**. Free spikes belong to fingers 1..N−1 only — a multi-prong tip restates the
+spoke-fan thesis in miniature.
+
+**Fingers:** lengths `1.00 / 0.76 / 0.58 / 0.40`, fan rake `1.05 rad`, droop `0.05/0.17/0.28/0.39`.
+**Cups:** `0.44 / 0.42 / 0.38`, pulled FULLY toward the knuckle in X and Z. ⚠ **CAP THE CUT.**
+At 0.62/0.60/0.56 the cuts ran past a third of local chord and the mid-wing went *perforated* —
+sky through the sail, skeletal in the lit top planform. The wing must read as **ONE SAIL** with
+bounded scallops (Tempest's read), not as a frame with holes. Separation notch likewise: pulling
+the plagiopatagium anchor back to 0.40 of the last finger opened a wedge deeper than half the
+local chord — the one cut deep enough to threaten silhouette integrity in motion. Held at 0.66.
+
+> **The law: deep enough to READ, never deep enough to HOLLOW.** Inter-finger cuts ≈ a third of
+> local chord; the scallop law (§11 P5a) is a FLOOR, not a target, and chasing it upward turns a
+> sail into a skeleton.
+
+### 5.2 THE PLANFORM (chord + trailing edge)
+
+**Author the trailing edge as a concave curve; let chord fall out.** Ref §4.9.5 chords are
+streamwise and calibrated for a lightly swept leading edge — applied naively to our
++51° tip hook they push the trailing edge **convex** near the tip, which is a bird
+signature and banned. The outer two stations below are therefore **retapered** from the
+raw pterosaur table (0.203 → 0.180, 0.102 → 0.055) to hold concavity through the hook;
+that also gives the tapering, posteriorly-hooked tip (Itip < 1) that reads *fast predator*.
+
+Stations are **lateral x** (η is a fraction of semi-span, so it maps to x, never to along-chord L).
+
+| Station | x (u) | chord (u) | TE z (u) | fwd bow vs root-TE→tip line | % of local chord |
+|---|---|---|---|---|---|
+| **root / flank** | 0.000 | **2.164** | 2.164 | 0 | — |
+| **elbow** | 0.343 | **1.947** | 1.911 | 0.230 u | 12% |
+| **wrist** | 0.907 | **1.678** | 1.686 | 0.416 u | 25% |
+| **knuckle** | 1.592 | **1.299** | 1.605 | **0.450 u ⟵ deepest** | 35% |
+| wp1 end | 2.438 | **0.767** | 1.581 | 0.418 u | 54% |
+| near tip | 3.204 | **0.234** | 1.552 | 0.395 u | — |
+| tip | 3.810 | **0.000** | 1.906 | 0 | — |
+
+- **Trailing edge is CONCAVE at every interior station** (min 12% of local chord) — one
+  long cupped sweep from the body to the tip, bowing **inward toward the bones**.
+  **ZERO interior bays** — a single spar has none, and scallops on one mean we have drawn
+  a bat. This **kills the old "TAUT FLAT bays ≤0.10 sag" identity and the NOTCH FLOOR
+  that propped it up**: tensioned skin physically cannot be straight between anchors, and
+  a straight trailing edge is not an identity, it is a cheap tell.
+- **Chord falls monotonically**; **max chord is at the root/elbow, never a pinch at the
+  root** (that pinch is the spoon-wing / armpit-hole failure).
+- **Aspect ratio 7.14** with the body panel counted (sheet target 7.5, ref band 7–9).
+  **Full span 8.11 u** — consistent with the house ~8.5 u / ~180 px scale anchor.
+- **Camber unchanged and still required:** 0.14 chord slow ↔ 0.06–0.10 fast, deepest at
+  40% chord, ≥4 segments per arc. **A top-viewed flat plane shades uniformly and dies** —
+  from our camera, curvature *is* the value gradient.
+
+### 5.3 ATTACHMENT — a LINE, not a point
+
+- **Bonded seam runs shoulder `z −0.95` → hip `z +0.60` = 1.55 u**, i.e. the full trunk.
+  Ref §4.9.7: *if your root seam is shorter than the torso, it is wrong.* Hip (not ankle)
+  is the sanctioned choice here because **abducted legs are SETTLED** and must stay free.
+- The **root chord is 2.16 u — longer than the seam.** The trailing edge continues **aft**
+  of the hip as a **free corner at z ≈ +1.21**, which is how the chord exceeds the seam
+  without pinning membrane to a moving leg. This is the fix for the armpit hole.
+- **Fairing:** the torso's seam/plate grammar carries across the join and fades out over
+  the shoulder — no hard silhouette seam. **If the wing can be deleted and leave a clean
+  torso, it is a sticker** — and from behind-and-above the player looks *straight down into
+  that junction*, so it is more exposed here than in profile. The W5 scapular saddle lames
+  already carry this and stay static in the body frame.
+- **PROPATAGIUM — the cheapest single fix, and non-negotiable.** A free membrane sheet
+  fills the shoulder–elbow–wrist triangle and bows **forward of the bones**, ~9% of wing
+  area, forward bulge **8–10.5% of hand-wing chord** (a subtle skin scallop, **not a big
+  triangular sail**). **The arm must sit INSIDE a membrane curve, not BE the edge** — an
+  arm that *is* the leading edge reads as scaffolding. It also hides the elbow kink, as in
+  life. Omitting it is cited as the single most common dragon-wing mistake.
+- **Wrist mass (the Smaug move):** 2–3 short free clawed fingers clustered at the wrist as
+  an **armoured knuckle boss**, carrying **no membrane**. This is decoration on the spar,
+  not a topology compromise — membrane-bearing half-fingers with mini-bays would
+  reintroduce the fan's rig cost for detail below the pixel floor. It puts readable mass
+  on the chevron apex, which is what makes a forward wrist read **heavy** rather than
+  graceful, and it lands exactly where the behind-above camera looks.
+
+### 5.4 What replaces the deleted Vesper differentiators
+
+`archRise 0.12`, `wristT 0.30`-as-a-fan-hub, taut bays and the notch floor are **gone**.
+Fornax now splits from Vesper on axes that survive gameplay distance:
+
+1. **Wrist station 0.24 vs Vesper's ~0.47** — a large, readable shift in *where the leading
+   edge breaks*, visible in the planform the chase cam actually sees.
+2. **Fold grammar** — ONE dramatic hinge at the mcIV knuckle vs Vesper's soft multi-joint
+   curl. Completely different animation even foreshortened. (§9 / `FLAP-DESIGN.md`.)
+3. **Leading-edge structural mass** — a thick armoured tapering spar, read on the wing
+   TOP, which is the surface this camera is pointed at.
+4. **Edge character** — the trailing hem is **cracked, notched, battle-torn slag** with
+   ember bleed through the tears. *Damage as identity*, against Vesper's clean cupped
+   scallops.
+- **Retained non-negotiables:** house `wingParts` pivot→mid→tip cascade, **−anchor** wrist
+  compensation, **OUTER `lmirror` wrapper** (never `pivot.scale.x = -1`). Leading edge is
+  RIGID; **only the trailing edge flutters** (a rippling leading edge is a fabrication tell).
+  **Span ratio 0.70** mid-upstroke ÷ mid-downstroke — constant span reads as a rigid airframe.
 - **THE STOKE surface (REVISED — audit B3, the DoubleSide trap):** three.js emissive is
   NOT per-face-side — a DoubleSide emissive membrane lights BOTH faces and breaks law 5.
   So, explicitly: **the underside glow is a SEPARATE dropped sub-mesh** (the bay copied
@@ -280,9 +606,11 @@ could ACT).
   law 5. The hero underlight shows at BANK, at flap transitions, and partly inside the
   held high-V; during the 3.0–4.5s level glide hold it is largely OCCLUDED — and Surge
   bloom is suppressed by the no-cream law (§3), so no bloom spill rescues it past the
-  silhouette. What carries the frame through the hold: the dorsal char value ladder +
-  struck facets, the backswept horn rank in clean sky, the ridge crest rolling end-on,
-  the banked-coal seam flicker, and the drifting embers. The hero is a bank/transition
+  silhouette. What carries the frame through the hold: THE SLAG SERRATION
+  breaking the spine with its pale ridge-rail (§4-R1 — the audit's #1 fix, and the hold's
+  main carrier), the dorsal char value ladder + struck facets, the horn rank dominant
+  above the serration, the tail crest rolling end-on, the banked-coal seam flicker, and
+  the drifting embers. The hero is a bank/transition
   payoff, not a constant — the §12 gate judges it in those poses, not in the hold.
 
 ## 6. Head + horns — `brandSkull`
@@ -304,8 +632,11 @@ could ACT).
   **135° sweep** (ref §6 120–150°) — the "twin swept horns" of the sentence, a bilateral
   pair, not an equal rank — followed by **2–3 midline followers at ×0.66 decay**
   (ref §6 0.62–0.70) with contracting spacing down the nape. Followers sit on the
-  centerline (no mirror-asymmetry hazard). The occiput is the only region in clean sky
-  from the chase cam (ref §6) — this rank IS the head's play-distance read.
+  centerline (no mirror-asymmetry hazard). This rank IS the head's play-distance read —
+  and since the §2 reversal it no longer stands over bare sky: **the dominant horn pair
+  must top the whole dorsal line at ≥1.5× the tallest §4-R1 vane (≥0.50u)** so the
+  head stays the dominant cut and the serration reads as its decay, one rank
+  head→spine→tail.
 - **Named asymmetry — THE CHIPPED BROW:** the starboard dominant horn tip is struck short
   (~0.85× port) with a bright char-fresh facet — the ±1 deliberate asymmetry every sourced
   display structure shows (ref §6, Styracosaurus), done as a named marking (the house's
@@ -347,19 +678,120 @@ could ACT).
   the shoulder→hip run** (never reaching the thigh), and `flapstrip` gains an
   interpenetration check at max abduction + full downstroke + full wing fold.
 
-## 8. Tail — `firebrandTail` (REVISED: no spade)
+## 8. Tail — `firebrandTail` — **BUILT AND GATED: 4.2/5 PASS**
+
+**Gate trajectory: 3.8 → 4.2 (PASS, "by the width of the bar, and earned").**
+Continuity at the hip 4.1 · silhouette 4.1 · mass/taper 4.4 · rank 4.3 · terminus 4.1.
+
+⚠ **The 3.8 round is the one worth reading.** It said plainly that the deferred trunk cladding was
+**NOT** the blocker — *"the failing scores are form and scale problems that cladding cannot
+touch"* — so finishing the ranked build list would not have passed it. Three geometry fixes did:
+
+1. **A DECAY SCHEDULE MUST BE JUDGED AT GAME DISTANCE, NOT ON PAPER.** The ×0.91-to-0.04u schedule
+   is arithmetically correct (this sheet even shows an earlier ×0.66 version rejected for computing
+   to a dead crest) — and it still killed the rank before the tail ended. Floor 0.09u, decay 0.945.
+2. **A VANE IN THE SAGITTAL PLANE IS EDGE-ON TO THE SHIPPED CAMERA and breaks no outline there.**
+   That is why the crest scored well in profile and *zero* from behind-and-above. Alternate vanes
+   cant out to the flanks. This is a general law for any dorsal rank on this roster.
+3. **A CONSTANT PER-JOINT ARC ACCUMULATES INTO A PLUMB-BOB.** Front-load it — curve hard off the
+   hip, then straighten, so the last third trails aft and reads as a spine continuing.
+
+**Ceiling:** the gate states the tail is at or within a hair of its practical unlit ceiling, and
+warns that pushing more geometry now *"would overshoot the profile read that is currently
+correct."* Remaining residue is lighting's job plus the deferred cladding.
+
+**Carried to the polish/lighting pass (cheap tells, logged not fixed):**
+- The terminal bead is a clean sphere — bead-on-stick residue; one asymmetric facet or a heat-crack
+  notch kills the tell.
+- The vane rank repeats a near-identical quad at near-even spacing — metronome rhythm; ±15% jitter
+  on two or three vanes breaks it.
+- The bare outer trunk reads as a *second material* against the clad hip from rear-¾ — **the
+  cladding pass must FEATHER that boundary, not hard-stop it.**
+
+## 8-spec. Tail — `firebrandTail` (REVISED: no spade)
+
+> **⚠ v2.7 — THE SPEC HAD FOUR HOLES, found by an art-director pass against Tempest after the
+> owner rejected the shipped tail.** Its verdict on the I0 blockout: *"not an under-detailed tail —
+> it is NO TAIL AT ALL … a tail boom off a model aircraft,"* and on the side profile: *"you can see
+> the exact moment the creature stops being designed: the torso carries serration, shard cladding,
+> layered value breaks — and at the hip everything HALTS ON A HARD LINE."*
+>
+> **The spec below covers the CREST and the TERMINUS and would clear the bar on both. It never
+> owned the TRUNK** — and crest + firebrand mounted on the four-box stick is *"jewelry on a broom
+> handle."* Four additions, all now normative:
+>
+> **8a. THE TRUNK IS SPECIFIED, NOT ASSUMED.**
+> - **8–10 segments**, not 4 — the taper curve and the glide arc cannot exist at 4.
+> - **NON-SQUARE cross-section:** the trunk lofts on `SLAG_PROFILE`, the torso's own fixed
+>   10-column polygon. Same profile ⇒ the chine, deck and belly columns run continuously from the
+>   chest to the tail tip. `BoxGeometry` squares are banned; they are what made it read extruded.
+> - **Trunk cladding in the torso's blade language** — the spec gave the CREST the torso language
+>   and never gave it to the trunk surface.
+>
+> **8b. TAPER PROFILE — convex, then accelerating.** "Fattest aft of the hip" is necessary and not
+> sufficient: the read is *muscle at the root, whip at the tip*. Linear box steps say extruded. The
+> root must be **at least as thick as the torso it leaves** — the shipped stub was thinner, which
+> is why it attached "like a bolt-on."
+>
+> **8c. REST-POSE CURVATURE.** A dead-straight tail with a perfect crest is *"a decorated pole."*
+> The glide pose carries a gentle arc; the motion kit's sway rides on top of it. The spec was
+> static-only and never said so.
+>
+> **8d. VALUE DUTY ON THE TRUNK.** The crest gets a pale leading edge; the trunk plate edges were
+> never given one. **Under withheld light, edge-value is the only thing separating the tail from
+> the sky.** The firebrand's char cap needs an explicit pale rim or it vanishes into the dark tip.
+>
+> **BUILD ORDER (by how much each moves the read):** trunk **~50%** → crest rank hip→tip **~35%**
+> → firebrand terminus **~10%** → cladding and plate edges last, because they only land once the
+> first three exist.
+>
+> **THE ONE THING:** *kill the seam at the hip.* The tail must read as the CONTINUATION of the
+> torso's systems — its mass, its crest rank, its blade language — not as an attachment.
+> **⚠ Warning, recorded verbatim:** *"do not reach for emissive lava seams, glow, or surface noise
+> on the existing boxes — a glowing stick is still a stick."*
+
 
 - **Terminus decision (ref §1):** the spade is out — not period (Fox-Davies: Tudor tails
   end in a smooth blunt point; the barb is a recent addition) and the #1 de-kitsch target.
   The de-kitsch survey's move is RE-MOTIVATION: Fornax's terminus is **THE FIREBRAND** —
   a blunt char-capped coal tip, the anatomical end of the seam network, where THE STOKE
   terminates and vents (~the last 0.9× of the tip carries the gen-1 seam, house §2.6
-  seating law). Silhouette duty moves to the **dorsal ridge** (the Drogon/Skyrim idiom,
-  ref §1): a dominant + ×0.66-decay crest rank running hip→tip to its terminus
-  (house §3.6 — rows run to their anatomical end).
+  seating law). Silhouette duty is shared with the **dorsal ridge** (the Drogon/Skyrim
+  idiom, ref §1) — and since the §2 reversal the crest is **the CONTINUATION of §4-R1,
+  not a second rank**. Ownership is exclusive (audit C4 — the v2 draft gave R1's fr
+  schedule and this law dual authority over z 0.60→1.70, which is unbuildable): **R1's
+  fr schedule ends at the HIP (z 0.60); ONE schedule owns hip→tip** (house §3.6 — rows
+  run to their anatomical end). That schedule, re-committed v2.2 after BOTH v2.1 numbers
+  failed arithmetic:
+  **Height — decay to a TIP FLOOR: H 0.18u at the hip → 0.04u at the tip, ×0.91 per
+  vane** (the ratio is DERIVED, not free: (0.04/0.18)^(1/16) ≈ 0.91). The v2.1 "×0.66
+  per vane" was ref §6.3's per-element law for 2–3-element follower ranks; over 11+
+  vanes it computes to 0.18·0.66⁴ ≈ **0.034u at the tail root** — a dead sub-2px crest
+  that deleted §1's "rolling ridge crest" claim in arithmetic while asserting it in
+  prose.
+  **Pitch — near-constant 0.32u: 17 vanes / 16 intervals over the 5.13u hip→tip run**
+  (1.10u torso aft-body + 4.03u tail module; 16 × 0.32 = 5.12u ✓; every broken-rail
+  dark gap ≥0.32u ≈ 7px — resolvable). The v2.1 "0.24u ×0.94" series converges to
+  0.24/0.06 = **4.00u as n→∞** and spans only ≈2.0u at its own 11–12 vanes — it died
+  halfway down the tail in the same sentence that ran it to the firebrand.
+  **The TORSO module builds the aft-body vanes** (hip→tail-root, z 0.60–1.70, ~3–4
+  vanes — stated explicitly, audit: implied before, owned by nobody). The tail module
+  CONTINUES the schedule, seeding from the attach contract's **`serrationTopAt(anchor.z)`**
+  (§4, additive key) — "height-matched" is a contract read, never a duplicated constant
+  (`buildFirebrandTail` receives only `anchor {y,z}` today; the key is the missing
+  channel). Under the corrected schedule `serrationTopAt(z=1.70)` returns hull-top +
+  **≈0.13u** (0.18·0.91^3.4 — ~3px, a LIVE crest at the handoff; under v2.1's numbers it
+  returned +0.034u, and "height-matched" was satisfied trivially by a dead crest). Same blade language (asymmetric struck shards, period-3 rhythm), same
+  under-gap recess per vane (RL2), same pale leading edge (RL5), same broken-rail duty
+  (§4-R1c). If the tail crest and the torso serration ever read as two systems at the
+  handoff, the tail conforms to §4-R1, not vice versa.
 - **Mass (ref §2):** tail length is a free variable (no consistent natural relationship —
-  say so; locked at **2.6× torso length** for frame composition, a choice not a fact);
-  the **fattest segments sit just aft of the hip** (ref §2), tapering ×3 (§1 axes).
+  say so; locked at **2.6× TORSO LENGTH** for frame composition, a choice not a fact —
+  torso = 1.55u, so **4.03u absolute**). **⚠ LATENT UNIT BUG (audit C6):** the shipped
+  stub builds `(tailLength ?? 1) * 2.6` in ABSOLUTE units (`dragonFornax.js:819`) =
+  2.6u = only **1.68×** the torso. The sheet's dial is in torso multiples; I3 must
+  rebase the code (or ship `tailLength: 1.55`) — the number does not silently become
+  1.68×. The **fattest segments sit just aft of the hip** (ref §2), tapering ×3 (§1 axes).
   Radius FLOOR raised for the judged projection (AAA tell #11 — rear-chase foreshortens;
   world-space girth ≠ silhouette girth).
 - **Rig:** house 4-joint `isBone` chain, bespoke dials — vertical undulation up-biased
@@ -401,6 +833,7 @@ Every rung a CRUISE-visible earn (house §7); apex built first, ladder by subtra
 | wing digits (D1 dominant) | 2 | 3 | 4 | 4 + propatagium sheet |
 | seam generations | 0 (grooves only) | 1 | 2 | 3 (gen-3 ultra-device-gated, §4) |
 | occipital rank | dominant pair only | +1 follower | +2 | +3 followers + chipped-brow + oxide band |
+| R1 serration Hmax (§4-R1) | 0.14u | 0.20u | 0.26u | 0.33u |
 | tail | blunt nub | ridge begins | full ridge rank | ridge + FIREBRAND tip |
 | STOKE run | eye flare only | to mid-spine | full spine, 0.8s | full circuit + wing underside + firebrand vent |
 | embers (cruise/burst) | 0/0 | 12/40 | 24/70 | 32/90 (per-creature cap 120 — global-ceiling re-budget, §3) |
@@ -409,7 +842,8 @@ Every rung a CRUISE-visible earn (house §7); apex built first, ladder by subtra
 | tri target | ~1.7k | ~2.6k | ~3.7k | ~4.8k |
 
 Asserts: tris ↑ · digits 2<3<4 · seam gens 0<1<2<3 · followers 0<1<2<3 · embers ↑ ·
-span:torso ↑ · glide hold ↑ · no inverted light signal (whelp never out-glows apex).
+span:torso ↑ · glide hold ↑ · serration Hmax ↑ (and ≥0.14u even at f0 — the whelp is
+never bare-spined) · no inverted light signal (whelp never out-glows apex).
 
 ⚠ **The `seam gens 0<1<2<3` assert must build at ULTRA detail** (audit round 2). Gen-3 is
 gated on `activeDetailKey()==='ultra'` (§5/B5), so on low/high the f3 form builds only 2
@@ -425,6 +859,71 @@ math) · `flapstrip` + named-pivot amplitude table · `tiershots` · `gameshots`
 a `fornax` block in `tests/starters.mjs`.
 
 **Bespoke asserts:**
+- **⚠ PLANFORM GATE P1–P10 (v2.4 — blocks every wing sign-off).** Tool:
+  **`tools/planformprobe.mjs`**, measuring the BUILT leading- and trailing-edge polylines
+  in wing-local space, never the dials. Mirrors ref §4.9.12, with the pterosaur bands:
+
+  | # | Assertion | Fornax pass band |
+  |---|---|---|
+  | P1 | wrist station along L | **0.22–0.28** (built: 0.242) |
+  | P2 | **max forward LE deviation from the shoulder→tip chord ÷ L** | **0.085–0.125** (built: 0.113) |
+  | P3 | spanwise station of that maximum | within **±0.06 of the wrist** |
+  | P4 | included angle at the wrist, in plan | **155–168°** (built: 155°) |
+  | P5 | TE deviation from the root-TE→tip line, every interior station | **forward everywhere**, ≥12% of local chord |
+  | P6 | chord distribution | **monotonically decreasing** |
+  | P7 | max chord station; root ≥ 0.9 × elbow chord | at/just inboard of the elbow |
+  | P8 | aspect ratio `b²/S`, body panel counted | **7–9** (built: 7.14) |
+  | P9 | root seam length ÷ trunk length | **≥ 1.0** (built: 1.55/1.55 = 1.0) |
+  | P10 | arm segments before the first membrane vertex; inboard LE bows forward | **≥2 groups, ≥2% of L** |
+  | P11 | rear-view vertical extent ÷ L (the gull) | **≥0.06** |
+
+  **P2 is the highest-value assertion in the harness — it alone would have caught the
+  rejected wing on turn one** (it measured 0.035 against a 0.085 floor). ⚠ P3's band is
+  **topology-dependent**: the bow peaks at the *wrist*, so a bat build (k≈0.49) peaks near
+  mid-span and a spar build (k≈0.24) peaks at a quarter. A band calibrated for one is
+  wrong for the other — the probe reads the wrist station and derives P3 from it.
+- **⚠ RENDER-SPACE VALUE GATE (torso audit — blocks every torso/part sign-off).** Tool:
+  **`tools/valuegate.mjs`** (build it with the torso rebuild; the gate does not exist
+  until the tool does). It captures the studio frame, isolates the part by a
+  `userData.fornaxPart` id-mask render, and asserts on the masked pixels of the ACTUAL
+  capture: **median ≥28/255** and **p10–p90 spread ≥45/255**, judged on the brightest
+  biome sky. Material-space (albedo-hex) spreads are INADMISSIBLE as evidence — the five
+  failed rounds passed 0.133 in material space while rendering at median 14/255 (RL6).
+- **⚠ SPREAD-AS-STRUCTURE WARNING (why five probe-passing rounds still failed the owner):
+  the metric can't tell spread-as-structure from spread-as-noise.** A passing spread
+  arranged per-card is camouflage. The number is necessary, never sufficient — pair it
+  with (a) the RL3 role-map check: render a false-colour role-ID pass and confirm value
+  tier correlates with structural role (dorsal/flank/ventral/rim), not with element
+  index; (b) the Fable critic judging ORGANISATION, which no percentile can.
+- **RELIEF asserts (RL1, on the BUILT mesh, never on dials):** side-ortho silhouette of
+  hull+ranks must deviate **≥0.15u above the bare hull topline** over the torso run (R1
+  breaks the outline); per-rank standoff floors — armour ≥0.05, belly deck ≥0.045, flank
+  shingles ≥0.045, gorget ≥0.04; **any raised element with lift <0.02u fails the build.**
+- **RECESS-PAIRING assert (RL2):** every raised rank element has recess-tier triangles
+  within its footprint (perimeter walls / under-gaps / gutter walls) — recess tri count ≥
+  raised element count, per rank.
+- **ANTI-POOLING assert (RL3/RL4's bound — audit C2: median AND spread both pass a
+  pooled band, so the render gate alone re-admits the round-2 sheet-metal stripe):** max
+  contiguous same-tier bright (ashLit/rim) run ≤ **4 consecutive stations on any column
+  AND ≤ 4 consecutive columns on any station-ring** (v2.2 symmetry fix: a transverse
+  pooled band — all columns lit at the same stations — evades a per-column-only cap),
+  AND bright tiers ≤ **20%** of any single region's (dorsal/flank/ventral) area.
+- **INDEX-MATERIAL FIREWALL (RL3, broadened — audit):** static check on `dragonFornax.js`
+  — flag ANY material-selection expression whose selector references the loop index,
+  **however expressed**: modulo, hash, comparison, ternary (`i===0?ashLit:scorch` at
+  `:230` evades a modulo-only match). Every flagged site must be either the role map, or
+  an annotated within-tier / one-step-darker duty break per RL3 — `slagBand` (`:69-75`)
+  is the named exemption. Match statements, not prose; same mechanism as the limb-plan
+  firewall.
+- **LIT-TIER HUE PROBE (RL7 — closes the probe gap that shipped the steel-blue round):**
+  the channel-order probe below covers FIRE-REGION pixels only; additionally assert
+  **8 ≤ R−B ≤ 20 and HSV saturation ≤ 0.10** ((max−min)/max — HSV, NOT HSL; the two
+  disagree by up to 0.03 on these hexes) on lit-tier (`ashLit`/rim) masked pixels of the
+  capture, same CA-off + dither-off mode, ±2/255 tolerance.
+- **CROP FRAMING (capture harness):** every crop camera must target BUILT geometry, never
+  a stub — assert per panel: masked part coverage ≥5% of crop pixels and pixel stddev >0.
+  (Two of six panels shipped as solid black rectangles framing an I3 box stub — the owner
+  was shown nothing, and nothing failed.)
 - **⚠ NOTCH FLOOR (audit round 2, blocks I1 sign-off):** each digit tip projects **≥0.15 of
   bay chord beyond the between-tip membrane line** (§5). This is the geometry guard against
   the taut bays collapsing into the plane wing at chase distance — assert it on the built
@@ -478,8 +977,10 @@ low/high devices never see them) · temper-oxide band · eye placement detail (c
 gets only brow silhouette) · gape/breath + throat distension (Surge camera + shop) ·
 tail-prop tripod stance (shop idle) · **bay-depth value banding** (§5) · **the thumb
 claw** (§5) · **digit/knuckle countability** (the gameplay read is the 3-bay scallop
-silhouette, §5) · **THE CHIPPED BROW** (§6 — ~2–3px from the chase cam). Everything ELSE
-in this sheet must survive the rear-chase frame.
+silhouette, §5) · **THE CHIPPED BROW** (§6 — ~2–3px from the chase cam) · **serration
+vane-profile asymmetry** (§4-R1a, v2.2 demotion — a 0.60–0.70 apex offset on a 2–3px
+footprint moves 0.3–0.5px at chase scale; the chase-distance Tempest splits are rail
+duty + rhythm). Everything ELSE in this sheet must survive the rear-chase frame.
 
 ## 12. The gate + named residuals
 
@@ -490,7 +991,14 @@ in this sheet must survive the rear-chase frame.
   technique is wrong, not the numbers.
 - **Calibration tiles:** Phoenix (warm-lane collision — Fornax must read interior-leak,
   not rim/tip plumage), Ember starter (warm starter), Vesper (dark-lane split: warm char
-  vs cold glass). Standing veto: *"does any part read as a shipped dragon — or as
+  vs cold glass), **Tempest (NEW, audit C1 — dorsal-silhouette collision: the §2
+  reversal put Fornax's spine in Tempest's lane, and the v2 gate could not see it — the
+  table never gated the dorsal line and this tile list omitted Tempest entirely. The
+  tile must split on **rail duty** (broken ~60% vs continuous ridge-ribbon — THE
+  load-bearing split at 180px), **rhythm** (period-3 vs strict alternation — weakly
+  chase-real, ~6–8px double-peaks), **lane hue**, and — at turntable range only, per the
+  §11 list — **vane profile** (struck shard vs symmetric tent-spike; 0.3–0.5px at chase,
+  v2.2 demotion)).** Standing veto: *"does any part read as a shipped dragon — or as
   Smaug/Drogon/Rathalos?"* (kit-coherence, §2).
 - **Cheap-tell registry sweep** (AAA §2) run as a checklist on captures before every
   critic spawn; §2 failure modes named aloud at every render.
@@ -510,11 +1018,33 @@ in this sheet must survive the rear-chase frame.
 
 - **NO SPADE TAIL** — firebrand terminus + dorsal-ridge silhouette carry (ref §1). Any
   "add the barb back" pass reopens the kitsch the reference pass closed.
+- **THE SLAG SERRATION** — the bare spine is revoked (§2 reversal, 1.9/5 audit); the
+  dorsal midline carries blade-vanes at 0.13–0.33u Hmax **occiput→hip, decaying beyond
+  per §8's tip-floor schedule** (v2.2 — the earlier "occiput→tail" overreached: every
+  tail vane sits below 0.13u by design), continuous with the tail crest, horns dominant
+  above. The §4-R1 split axes (BROKEN ~60%-duty rail at I1 — the chase split; period-3
+  rhythm; struck-shard profile at turntable scale) are PART of the settlement — dropping
+  any of them rebuilds the Tempest collision, and dropping the rank rebuilds the
+  crocodile lozenge.
 - **ABDUCTED legs, plated-reptilian feet** — never tucked, never trailing, never
   bird-scaled (ref §3 camera logic + ref §1 cockatrice guard overrule period canon).
 - **Torso inflated / span honest, 5.5:1** — the sanctioned cheat (ref §2); the honest
   13–15:1 wyvern is unrideable and the deep keel blade is anatomy fiction.
-- **Bat fan, 4 digits, dominant D1** — not the pterosaur spar (ref §4).
+- **FINGERED FAN, 4 radiating digits, dominant + decay** — the house WING kit
+  (`DRAGON-DESIGN.md` §4), NOT the pterosaur spar. ⚠ **This entry was overturned once and then
+  RESTORED, and the round trip is the lesson.** The overturn argued that the lock's premise
+  ("a single spar degenerates to the paper-dart read") was falsified by anatomy research. The
+  premise was indeed loosely worded — but the *conclusion* was right for reasons the research
+  could not see, because `DRAGON-DESIGN.md` §2 lists **"the plane / delta-kite wing" as failure
+  #1, KILL ON SIGHT**, and defines it to include *"convex scallop lobes whose valleys never cut
+  inward"*. A single spar with a chord-function trailing edge is that failure by definition.
+  The owner rejected the spar build on sight: *"whatever plane wings u got"*.
+  **THE RULE THIS ADDS:** falsifying a SETTLED entry's stated premise is necessary but **NOT
+  sufficient** — you must also check whether a house playbook independently mandates the same
+  conclusion. A badly-argued lock can still be a correct lock.
+- **THE WING SKELETON IS THE SPEC** (v2.4, §5.1) — arm chain, wrist at 0.242 L, 155°
+  chevron at one vertex, 0.113 L forward wrist offset, concave-everywhere trailing edge,
+  propatagium, shoulder→hip seam. Never author a membrane outline and hang bones on it.
 - **R≥G≥B everywhere; no painted white; blue only as diffuse temper-oxide** (ref §7).
 - **Wing tops never emissive** — the silhouette survives THE STOKE.
 - **Eyes at 0.20 orbit; the glare is the brow bone** (ref §6) — do not inflate the eyes
@@ -528,11 +1058,31 @@ in this sheet must survive the rear-chase frame.
 4. **The chipped brow** — keep or delete (residual 5).
 5. **Boost pre-taste** — a partial half-second stoke on boost between Surges; default OFF
    (dilutes the withholding).
+6. **I1 pilot-light ember** (torso audit) — may a DIM ember sit deep in the furnace-socket
+   floor at I1 (single coal, contribution-capped under the eyes, law-6-compliant)? The
+   critic's condition: attempt ONLY if audit fixes 1–5 still measure short after the
+   rebuild. Default NO — it spends the withholding. Owner's call alone.
 
 ---
 
 ## CHANGELOG
 
+- **v2.4 (THE WING REWRITE — owner rejection of the I2 wing).** §5 replaced end to end.
+  Root cause was **a gap in this sheet**: the old §5 specified only differentiators vs
+  Vesper (`archRise`, `wristT`, bay sag) and mechanisms (notch floor, propatagium %, the
+  DoubleSide trap) and **never specified a wing** — no arm chain, no attachment line, no
+  chord distribution, no leading-edge sweep. Four Opus research passes (segments, membrane
+  planform, sweep, craft/failure-registry) fed a new **ref §4.9 PLANFORM** section, which
+  closed the identical hole in `DRAGON-ANATOMY-REFERENCE.md` (it had settled bat-vs-
+  pterosaur topology and area shares but never wing geometry, so every future winged
+  creature would have inherited the same failure). Changes: **topology flipped to the
+  pterosaur spar** (SETTLED entry overturned — premise falsified, not re-argued);
+  full skeleton station table; forward wrist offset **0.035 → 0.113 L**; single-vertex
+  **155° chevron** replacing the sine `archRise` bow; trailing edge **concave everywhere**
+  (12–37% of local chord), which **deletes the taut-bay identity and the notch floor**;
+  chord table with outer stations retapered to hold concavity through the tip hook;
+  shoulder→hip bonded seam with a free aft corner; propatagium and wrist knuckle-boss made
+  non-negotiable; ref §4.1's "build the fan" verdict superseded. New §11 assertions P1–P10.
 - **v0 (art-direction lock, post-reference synthesis).** Direction BANKED confirmed;
   three reference-forced reversals applied (spade → firebrand + dorsal ridge; tucked →
   abducted; keel blade → shallow muscle wrap + 5.5:1 sanctioned-cheat torso); rear-chase
@@ -542,10 +1092,96 @@ in this sheet must survive the rear-chase frame.
   default-off dials, per AAA-PIPELINE increments.
 - **v1 (independent technical-art audit round — REVISE 3.4/5 applied verbatim).** See
   §13 AUDIT LOG.
+- **v2 (torso-richness audit — 1.9/5 FAIL after five build rounds; richness planned, not
+  patched).** The bare-spine law REVOKED (§2 reversal → THE SLAG SERRATION, reconciled
+  with §8's tail crest as one rank); §4 rewritten around the R1–R6 rank suite with relief
+  floors; new §4b RICHNESS LAWS RL1–RL7 (relief floor, recess pairing, value-by-role,
+  strokes-not-confetti, pale-albedo light, render-space values, warm-grey hue) inherited
+  by every later part; §11 gains the render-space value gate (`tools/valuegate.mjs`,
+  median ≥28 / p10–p90 ≥45), the spread-as-structure warning, relief/recess asserts, the
+  `i % n` firewall, and the crop-framing requirement. See §13 AUDIT LOG.
+- **v2.1 (corrections round — independent audit of v2: SOUND-WITH-CORRECTIONS, six
+  fixes applied verbatim).** Tempest vane figures corrected (built ≈0.284u, not
+  "~0.37u"); the serration's Tempest collision closed with three committed split axes +
+  a §12 Tempest tile + a §2 dorsal-line row; RL3 restated (role sets tier, index
+  perturbs within — `slagBand` exempt) + anti-pooling assert; relief band unified
+  0.13–0.33u; §8 handoff made buildable (`serrationTopAt(z)` additive contract key —
+  though this round's schedule numbers were arithmetically wrong, see v2.2); RL7 numeric
+  hue band + lit-tier probe; §0/§4/§8 figures synced to shipped code (stats, cost, span
+  definition, tail unit bug). See §13.
+- **v2.2 (re-audit of v2.1 — C4/C5 re-opened on arithmetic; every number now computed
+  before assertion).** Tail schedule re-committed (pitch 0.32u near-constant, 17 vanes
+  over the 5.13u hip→tip run; height 0.18u→0.04u tip floor, ×0.91 derived — the v2.1
+  series died halfway down the tail and its decay left a dead 0.034u crest); RL7 sat
+  bound ≤0.10 HSV with the formula named (0.07 failed both certified hexes); RL3
+  scale-separated + three duty-break bounds (with a computed flag: `slagBand` violates
+  the min-run bound and owes a one-line retune); torso vane pitch committed (15–17 @
+  0.14–0.16u); profile split-axis demoted to turntable; relief band's binding reading
+  stated (rank-Hmax); anti-pooling made transverse-symmetric; SETTLED band scoped to
+  occiput→hip. See §13.
 
 ---
 
 ## 13. AUDIT LOG
+
+### I2 WING — owner rejection → rebuild (v2.4)
+
+| Round | Verdict | What it turned on |
+|---|---|---|
+| **Owner, I2 r1** | **REJECT** — "not an acceptable shape… not even close" | Membrane fanned from one hub; no humerus, no forearm. |
+| **Diagnosis** | The SHEET, not the build | §5 specified only Vesper-deltas + mechanisms. A builder could follow it exactly and still ship a spoke. Ref §4 had the same hole. |
+| **Fable art director** | PTEROSAUR SPAR, 5/5 confidence | Mass not dexterity; bat fan is Vesper's word. |
+| **Fable adjudicator** (clean-room, on the SETTLED conflict) | **OVERTURN**, 5/5 | The lock's premise — "one spar ⇒ paper dart" — misattributes to spar count a failure caused by the missing arm. |
+| **Machine, r1** | planform 12/12 · structural 16/16 | …and the wing still rendered from the rear as a razor line: **the planform is an x/z table and nothing checked Y.** Added §4.9.4b + P11. |
+| **Fable critic, r1** | **3.2/5 — FAIL** | Shape accepted. Wing top "an almost featureless black field"; shoulder slit; doubled slat; wrist gap; shard debris. |
+| **Machine, r2** | planform **13/13** · structural **16/16** · wingsym 0.000 · tricount OK | Slag crust rank, closed bosses, root skirt, drop inset, wrist overlap. |
+| **Fable critic, r2** | **3.4/5 — FAIL** | Doubled slat fixed. Shoulder slit NOT fixed (root chord ran at constant lateral offset while the torso tapers aft). Membrane interior one flat tone. |
+| **Machine, r3** | 13/13 · 16/16 | Root weld (progressive inboard dive), batten ridges, cracked-slab trailing edge. Outer chord widened — **bounded by P8**, which rejected AR 6.82 and 6.92 against the 7.0 floor. |
+| **Fable critic, r3** | **3.6/5 — FAIL** | Root weld landed. Debris chips "the worst thing in the set". Trailing-edge bites measured "a percent or two" — **they were additive triangles ON the membrane, so the outline never moved**. |
+| **Machine, r4** | 13/13 · 16/16 | Trailing edge became a *function of station* that genuinely cuts chord. Crust plates capped + skirted. Wrist overlap sunk (it was a coplanar duplicate, z-fighting as a "sky slit"). |
+| **Fable critic, r4** | **3.9/5 — FAIL** | Chips, slit, z-fighting, humerus mass, batten extrusion **all confirmed fixed**. Bites landed INBOARD only — outer 40% still a crescent ("manta with a chewed armpit"). |
+| **Machine, r5** | 13/13 · 16/16 | Four finger points across the full span, battens terminating into them, closed claws, elbow +30%. |
+| **Fable critic, r5** | **4.2/5 — PASS** | Limb 4.3 · rear-chase 4.0 · wing-top surface 4.2 · attachment 4.0 · distinctiveness 4.3. The outboard crescent — R4's stated failure test — verified fixed on the orthographic silhouette. |
+
+**I2 GATE: PASSED at 4.2/5 (marginal, earned).** The critic's closing instruction is part of the
+settlement: ***do not spend another unlit round on this wing.*** Form, silhouette and value
+structure are at or near the practical ceiling while light is withheld; the remaining 0.3–0.5
+lives in the rear-chase membrane read, which is what I4 exists to solve.
+
+**Carried into I4 (lighting), NOT re-gated on the wing:**
+1. Leading-edge chip row spacing is too regular — jitter spacing/size 20–30%.
+2. Two or three thin pale slivers in the wrist stack, visible only at 4× — weld when next
+   touching that mesh; not worth a dedicated round.
+3. Minor plate clutter at the wing root at 1×.
+4. **Re-judge the rear-chase read once the membrane has its withheld glow.**
+
+**Trajectory (fingered-kit era, after the spar was reverted):** shape judged **ACCEPTABLE** by an
+art-director pass on form alone (ogee confirmed, "the corner is gone, no slope discontinuity"),
+then quality **3.5 → 4.0 → 4.2 PASS** — *"narrowly earned, not gifted."*
+Final: limb 4.4 · rear-chase 4.2 · wing-top relief 4.1 · attachment 4.0 · distinctiveness 4.3.
+
+**The finding that unblocked it was a POSE fix, not a geometry fix.** Five rounds of geometry work
+failed to move the rear-chase score because the held glide pose stood the wings in so steep a V
+that each wing was edge-on to the shipped camera — *"the hand anatomy is real but is not projecting
+to the camera that matters."* The bank pose was the existence proof. **When a view scores badly
+round after round while every other view improves, suspect the POSE before the mesh.**
+
+**⚠ CARRIED INTO I4 — and the first one must be done BEFORE the light lands, not after:**
+1. **Merge the root straps into one continuous fillet web.** 2–3 parallel strands still cross open
+   sky per side at rear-chase/bank, and the lifted trailing band draws a daylight seam along the
+   inboard run. The gate's warning is explicit: **"Lighting the underside glow will make these
+   seams MORE visible, not less — seal before lighting."**
+2. Kill or dress the bare rectangular box on the spar (visible at wing 4×) — untextured-primitive tell.
+3. Sweep the last two or three pale sticks at the left hip and right shoulder root.
+
+**Ceiling:** the gate states the wing is essentially at its practical unlit ceiling apart from
+item 1 — the membrane's flatness and near-black poverty cannot honestly improve until I4.
+
+**Trajectory (spar era, superseded): 3.2 → 3.4 → 3.6 → 3.9 → 4.2.** Every round's gate-decider was a case of **decoration
+mistaken for structure** — see the lesson file. The three laws that came out of it (the outline is
+where the surface *ends*; a proud element that does not visibly *meet* its surface is debris; never
+close a seam with coplanar duplicates) are worth more than the wing.
+
 
 **Round 1 — independent technical-art audit, 2026-07-25. Verdict: REVISE, 3.4/5, five
 blocking defects. House protocol followed: ranked fixes applied verbatim, no argument;
@@ -628,3 +1264,386 @@ rear-chase read it cannot deliver. Standing residual for I1: the distinctiveness
 decided in the shop turntable, where the shared kit vocabulary (thumb claw + propatagium +
 cowl plates) is fully visible — §12's Vesper side-by-side tile is the control for exactly
 that.
+
+---
+
+**I1 GATE — char-plate anvil. Round 1: 3.6/5 REVISE → Round 2: 4.3/5 PASS (same critic, resumed).**
+
+Round 1 found two defects the 15/15 machine probe could not see, plus one false claim:
+- **The silhouette was severed at the throat** — hull chest-prow cap at z −1.45, neck aft station
+  at −1.50, uncapped: a 0.05u slit through the chest. A geometry probe measures what is THERE;
+  absence is not a value it can read. Fixed by burying the neck root at −1.38, plus a permanent
+  join assert.
+- **The seam network was ventral** — `for (k = 2; k <= 7)` walks chine→flank→BELLY→flank→chine,
+  under a comment promising a dorsal arc. The whole seam identity, and I4's STOKE path, sat on the
+  surface the chase camera never sees. Now walks `[2,1,0,9,8,7]`.
+- **`M.rim` was defined and never applied** — the four-tier ladder was three. Now traces the deck
+  edge as a caught rim over a dark face (confirmed round 2 as conservative, NOT the LED tell).
+
+Also corrected: the probe reported shoulder:hip 2.23× because the wing stub's arm bone fell in the
+sampling band; hull-only truth is **1.28×**. Measurements now filter on `userData.fornaxPart`.
+
+**The blue-black question — resolved as a NON-issue by measurement, not by agreement.** Fornax char
+is B−R **+2** (neutral); Vesper's hide is *painted* B−R **+13**. Fornax's rendered blue is entirely
+sky bounce (mean B−R +0.9…+2.9 at game angles; sunlit facets go warm +6; the blue vanishes under
+the gold sky). **Do not warm the albedo** — it would leave the sourced charcoal band and drift into
+the Ember surface-warm lane. If cruise ever feels too cold the levers are scene key/fill or I4's
+amber, never the diffuse.
+
+**ATTACH CONTRACT IS NOW FROZEN.** I3's `brandSkull` and `firebrandTail` mount through it.
+
+Watch items carried to I2/I3: rim rails and dorsal arcs cross at six points at identical proudness
+(no z-fight in four static views — re-check in motion); seam width may need one step at real chase
+distance (**widen, never brighten**); `brandSkull` must be sized against the real neck terminus
+(0.32) rather than I0's box (0.24).
+
+---
+
+**TORSO RICHNESS AUDIT — independent critic vs the Tempest bar, 2026-07-26.
+Verdict: 1.9/5 FAIL, after FIVE build rounds the owner rejected. Sheet rewritten so
+richness is PLANNED, not patched.**
+
+The confession first: **the sheet itself caused the biggest failure.** The v0–v1
+silhouette spec reserved the dorsal midline (no spike rank, clean sky over the spine, the
+ridge saved for the tail and the horns for I3). The builder honoured it faithfully, and it
+is the single biggest reason the side profile read as a crocodile lozenge. Revoked as a
+director's reversal in §2 (THE SLAG SERRATION, reconciled with §8's tail crest as one
+rank). Four rounds of the five were spent tuning albedo around a law that made the torso
+unrescuable.
+
+The findings, and where each became law:
+
+1. **Relief amplitude 4–7× short, all sub-pixel at range** — Tempest vanes built ≈0.284u
+   (formula ceiling 0.337u; this entry originally misquoted "~0.37u" — corrected, audit
+   C1) vs our 0.052u→0.02u scutes; armour standoff 0.014 vs 0.055+cup; deck lift
+   0.010–0.016 vs 0.05; shingles 0.008. → §4 R1–R6 floors + §4b RL1 + §11 relief asserts.
+2. **The bare-spine law** → §2 REVERSAL v2 (above).
+3. **No paired recesses** — cards floated 0.008–0.016u with no walls = decals/camo.
+   → §4b RL2 + §11 recess assert.
+4. **Value dealt by index = mid-frequency noise = military camouflage.** Census corrected
+   by the audit: at least SIX index-keyed selectors (`i%3` `:165`, `i%2` `:250`, `i%2`
+   gorget `:264`, `byTier[i%3]` `:487`, the non-modulo `i===0` ternary `:230`, plus the
+   exempt `slagBand` duty-hash `:69-75`) — not the "three" this entry first counted.
+   → §4b RL3 (as restated: role sets the tier, index perturbs within it) + the §11
+   index-material firewall (broadened past modulo) + the anti-pooling assert. The
+   critic's key line, kept verbatim because it explains how five probe-passing rounds
+   still gagged the owner: *"the metric can't tell spread-as-structure from
+   spread-as-noise."* Now in §11.
+5. **Bright tier as confetti** (0.022u rim slivers on random plates) → §4b RL4: strokes —
+   rails + leading edges; halve the count, enlarge the survivors.
+6. **A legal light source unused** — pale low-roughness albedo (Tempest `silverRim`) is
+   NOT emission and does not violate withheld light. → §4b RL5; gap ≈70% geometry / 30%
+   light, half the light half available at I1.
+7. **Hue** — warm-tan ash/rim rendered khaki under the blue rig. → §4b RL7 warm-grey
+   (`0x8f8a84` / `0xbdb6ac`).
+8. **The target that caused it** — "≥0.05 luminance spread" was satisfied in MATERIAL
+   space (0.133) while the render sat at median 14/255. → RL6 + the §11 render-space gate
+   (`tools/valuegate.mjs`: median ≥28/255, p10–p90 ≥45/255, torso-isolated mask).
+9. **Capture harness** — two of six crop panels were solid black rectangles framing an I3
+   box stub. → §11 crop-framing assert (coverage ≥5%, stddev >0).
+
+What did NOT change: BANKED, THE STOKE, the firebrand, abducted legs, the 4-digit fan,
+all proportions (§4's numbers survived the audit), and every SETTLED item. This round
+changed geometry laws and measurement honesty, not direction.
+
+**ONE open question, the owner's alone (Open owner calls #6):** whether a dim I1
+pilot-light ember may sit in the furnace-socket floor. The critic's guidance: only
+attempt it if fixes 1–5 still measure short after the rebuild. Default NO.
+
+---
+
+**v2 CORRECTIONS ROUND — independent audit of the rewrite, 2026-07-26. Verdict:
+SOUND-WITH-CORRECTIONS; all engine citations verified; six corrections applied
+verbatim.**
+
+- **C1 (the big one) — the reversal collided with Tempest, hidden by a misquote.**
+  "~0.37u" corrected everywhere to Tempest's built ≈0.284u / formula ceiling 0.337u; the
+  inverted "we sit just under it" claim deleted (our 0.33u is ABOVE Tempest's built max —
+  height is not the split axis). The rewrite had rebuilt Tempest's R1 near-verbatim,
+  including its signature continuous crest-tip ridge-ribbon, and the v2 gate was blind
+  to it (no dorsal row in §2's table, no Tempest tile in §12). Fixed: §2 dorsal-line
+  table row, §12 Tempest tile, and three committed split axes in §4-R1 — asymmetric
+  struck-shard profile (apex 0.60–0.70 aft, lead slope ≥3× trail), tall-tall-short
+  period-3 rhythm, and a BROKEN ~60%-duty rail at I1 that fuses continuous only under
+  THE STOKE.
+- **C2 — RL3's absolutism banned the shipped pooling cure.** Restated: role sets the
+  TIER, index perturbs within it (or duty-breaks ONE step darker); `slagBand` exempt by
+  name; firewall broadened past modulo (the `i===0` ternary evaded it); §11 anti-pooling
+  assert added (run ≤4 stations, bright ≤20% per region) because median + spread both
+  pass a pooled band.
+- **C3 — relief band unified to 0.13–0.33u** (the R1 formula's exact range) in §2, §4b
+  RL1, and SETTLED; §10's f0 0.14u clears the corrected floor.
+- **C4 — the handoff was unbuildable** (dual schedule authority over z 0.60→1.70; no
+  contract channel for terminal height). Fixed: fr owns occiput→hip; additive
+  `serrationTopAt(z)` contract key published (additive keys don't break the freeze).
+  ⚠ This round's schedule numbers ("×0.66 owns hip→tip; pitch 0.24u ×0.94") were both
+  arithmetically impossible — superseded by the v2.2 entry below.
+- **C5 — RL7 committed to numbers:** 8 ≤ R−B ≤ 20 plus a saturation bound; §11 gains a
+  lit-tier hue probe (the steel-blue class had a law but no probe). ⚠ The bound this
+  round committed (≤0.07) failed both hexes it certified — corrected to ≤0.10 HSV in
+  v2.2 below.
+- **C6 — figures synced:** §0 stats 1.06/1.02 + cost 2400 (shipped def); span:total-body
+  DEFINED (span ÷ nose-to-tail ≈ 1.14, the old "2.3" was span ÷ torso-chain); §8's tail
+  dial flagged as a latent unit bug (code builds 2.6 ABSOLUTE = 1.68× torso; dial is in
+  torso multiples).
+
+The meta-lesson, recorded for the ledger: a reversal that imports the bar's mechanism
+imports the bar's identity — every fix borrowed from a roster dragon must arrive with
+its OWN split axis and a gate tile against the donor, in the same edit.
+
+---
+
+**v2.2 CORRECTIONS ROUND — re-audit of v2.1, 2026-07-26. Verdict:
+SOUND-WITH-CORRECTIONS; C1/C2/C6 cleared, C4/C5 re-opened on arithmetic. Four fixes
+applied, every number computed before assertion (the specific failure of the prior
+round).**
+
+- **C4 closed — the tail schedule was impossible two independent ways.** The 0.24u
+  ×0.94 pitch series converges to 4.00u (< the 4.03u tail) and spanned ≈2.0u at its own
+  11–12 vanes; ×0.66 height decay computed to a 0.034u dead crest at the tail root
+  (sub-2px — deleting §1's "rolling ridge crest" in arithmetic). Re-committed:
+  **near-constant pitch 0.32u, 17 vanes/16 intervals over the 5.13u hip→tip run
+  (16×0.32 = 5.12 ✓); height 0.18u→0.04u tip floor, ratio derived (0.04/0.18)^(1/16) ≈
+  ×0.91**; the torso module explicitly owns the aft-body vanes; `serrationTopAt(1.70)`
+  now returns +≈0.13u — a live crest, closing the trivially-satisfiable handoff.
+- **C5 closed — the saturation bound failed both hexes it certified.** ≤0.07 vs
+  computed HSV sats 0.077 (`0x8f8a84`) and 0.090 (`0xbdb6ac`). Now **≤0.10, formula
+  named (HSV, (max−min)/max — HSL gives 0.114 for the rim hex)**, both hexes computed
+  in the law, probe updated.
+- **C2 residual closed — RL3's regimes scale-separated** (camo band 0.05–0.2u admits NO
+  index picks; duty breaks live above it) + three bounds: station-scale only, irregular
+  duty, min lit run ≥2. **Director's computed correction to the audit:** the claim that
+  `slagBand` "already satisfies" all three is FALSE for (iii) — the shipped hash's
+  period-5 pattern F,T,T,F,T has singleton lit runs. Bounds adopted anyway (they are
+  right); the exemption covers the mechanism; the rebuild owes a one-line retune
+  (e.g. `((i*2+1)%7)<4` — computed: duty 4/7, lit runs of 2, gaps 1–2).
+- **Split-axis honesty:** torso vane pitch finally committed (15–17 vanes occiput→hip,
+  0.14–0.16u — the broken rail's gaps are 3–7px, resolvable, so §12's "load-bearing
+  split" now rests on a number that exists); axis (a) profile demoted to the §11
+  turntable-only list (0.3–0.5px at chase); (b) rhythm labelled weakly chase-real.
+- **Consistency:** SETTLED's band scoped to occiput→hip Hmax; the relief band's binding
+  reading stated (rank-Hmax, tall vanes 0.18–0.33u — an every-vane reading would fail
+  f0's short vanes and the apex's own 0.128u short vanes); anti-pooling run cap made
+  transverse-symmetric (per column AND per station-ring).
+
+---
+
+### I2 WING — the MOTION gate (`flapclearance`), 2026-07-28
+
+The owner's report — *"when the wing flaps, the part that connects the trailing edge to the
+body are like spokes that collide with the body in movement"* — was never verified, only
+responded to. Every tool in this harness measures ONE POSE, and a motion collision cannot
+appear in a still. `flapclearance.mjs` is the first gate that poses the rig at all five cycle
+points and measures against the torso hull.
+
+**The law it settled on.** Not "does wing geometry enter the torso" — that is true by design
+on every dragon in the roster, because root burial is how the junction seals. Not "does burial
+get deeper" either, which is what the first revision asserted on and is the wrong thing: the
+torso occludes buried geometry at any depth. The visible defect is a **crossing** — a surface
+outside the hull at one phase and inside it at another drags a moving intersection line across
+the flank, which is exactly the "tattered, see-through" join in the owner's screenshot.
+
+| Gate | Before | After | Note |
+|---|---|---|---|
+| **C1** submerges (outside at rest → inside in motion) | **−0.480u** @ 0.38× span, downstroke | **CLEAR** at all five phases | the reported defect; fixed by the root sink |
+| **C2** surfaces (inside at rest → outside in motion) | fail | **still FAIL** | structural — see below |
+| **C3** rest burial vs midline | −0.86× | −0.94× half-width | within band |
+| planform / structural / tricount | 12/12 · 16/16 · OK | 12/12 · 16/16 · OK | no regression |
+
+**Roster calibration, run BEFORE the subject** (the planformprobe discipline): Tempest, the
+premium bar, is clear at every station beyond the root; azure likewise; revenant grazes at
+−0.012u (≈0.25px). Vesper fails C1 at −0.176u and is recorded as a **known non-conformance,
+not a reason to widen the band** — a band loose enough to pass it would be blind to the class.
+
+**Why C2 is left failing, honestly.** C2 is *vacuous* on all four other dragons: none of them
+authors membrane inside the hull beyond 0.30× span. Fornax does, because the plagiopatagium
+anchors 2.15u aft (§5.3, at the owner's request). The flap is very nearly pure roll — the
+pivot's z rotation swings 0.40 → −0.63 rad across the cycle while x moves 0.009 — so a welded
+vertex traces an arc of radius `hypot(x, y)` about that axis, and z does not enter it. That
+anchor sits at r ≈ 0.62 while the hull surface is ~0.27 from the axis, so it **must** cross.
+A 48-point sweep of (anchor x, anchor y, sink depth) with the probe as oracle found no position
+clearing both asserts. The conclusion is structural, not numeric: **a membrane rigidly welded
+to a single rolling bone cannot hold a body attachment 2.15u aft at this flap amplitude**, and
+the roster's implicit answer is "don't".
+
+**Open, specified, not built:** a STATIC body-side aft web running the flank from the shoulder
+to the tail root, so the crossing happens beneath body geometry rather than in open air. That
+is the house pattern already (root gusset buried under a static cowl, DRAGON-DESIGN §4.7). It
+must go through the critic at ≥4.2/5 like everything else.
+
+---
+
+### I2 WING — B1, the intra-wing hole census, 2026-07-28
+
+The junction re-gate came back **2.0/5 FAIL** (bar 4.2). Its most valuable finding was not a score:
+`flapclearance` measures wing-vs-**torso**, and the defect the art director could actually see was
+wing-vs-**itself** — enclosed daylight between the spar, the battens and the membrane, well
+outboard of the flank. The probe was structurally blind to it. That is the third time on this
+creature a probe has measured the wrong thing, and this one was built *after* being told the defect
+was in motion.
+
+`holecensus.mjs` closes that class: enclosed background regions inside the outline, 5 flap phases ×
+3 camera poses, rendered through the **real chase camera** so the numbers are the ones the player's
+screen produces.
+
+**A discriminator that failed, recorded so it is not retried.** The critic's distinction was that
+Tempest's holes are deliberate WINDOWS and Fornax's are slivers beside straps. Encoding that as the
+hole's narrow dimension over sqrt(planform) **did not separate the roster**: Tempest 0.125–0.237,
+Fornax 0.121–0.241, the same band. Plain hole FRACTION does separate them.
+
+**Roster calibration at chase scale** (bands set just above what the premium bar achieves):
+
+| | planform | mean hole fraction | worst pose |
+|---|---|---|---|
+| tempest (bar) | 12625 px | 3.65% | 8.70% rear/apex |
+| revenant | 10912 px | 2.93% | 6.69% |
+| azure | 11715 px | 0.08% | 0.36% |
+| **fornax, before** | 8599 px | **2.42%** | **9.44%** rear/apex |
+| **fornax, after** | 8739 px | **2.21%** | **8.86%** rear/apex |
+
+**What this says, and what it does not.** Fornax's MEAN enclosed daylight was already *below*
+Tempest's and revenant's. At the size the player actually sees, the wing is not more perforated than
+the roster. Only the **apex** pose exceeded the bar, and only just. So B1 is real but **scoped**: an
+apex-pose finding at gameplay scale, not the whole-cycle tear it reads as from a 4–6× studio crop —
+which is the uncertainty the critic itself flagged when it asked for 1× evidence.
+
+**The fix, and the instinct that was backwards.** At apex the torso swings behind the gap between the
+hand fan and the arm sheet and caps its open end, turning the separation notch into an enclosed
+window. The instinct is to shrink the notch. The sweep proved the opposite: a *shallower* notch
+encloses MORE (0.60→9.69%, 0.54→9.98%, 0.48→10.33%) because the membrane reaches further round the
+gap and seals its escape to open sky. Cutting **deeper** keeps the outboard end open so the daylight
+drains outside (0.74→9.08, 0.82→8.76, 0.90→8.37). `Tlast` 0.66 → **0.80**.
+
+**Gates after:** holecensus 2/2 · planform 12/12 · structural 16/16 · tricount 0 over budget ·
+flapclearance C1 clear, C3 pass, **C2 still failing** (that is B2's round, not this one).
+
+**Still open from the 2.0 gate:** B2 (static body-side aft web), B3 (delete the root straps for one
+continuous fillet web), B4 (value structure at the junction). Gated separately, by owner's call.
+
+---
+
+### I2 WING — B3, the root straps, 2026-07-28
+
+The owner named this twice — *"like spokes that collide with the body… there shouldn't even be
+spokes there anyway"* — and it sat as carried I4 item #1 for several rounds.
+
+**What they actually were.** Not spokes in the sense of bones. Three separate surfaces stacked along
+the same inboard run: the taut inner band, the outer band, and the CONNECTED KNIFE-EDGE strip, the
+last lifted `S(0.010)` clear of the sheet. Over the scalloped hand that band *is* the edge and earns
+its place. Along the root run it is a second surface floating just off the membrane, and at the
+grazing angles the flank view gives it, that lift opens a daylight seam — three stacked strands
+where the creature has one sheet.
+
+Compounding it, the mid-band's fold ran `0.4 + 0.6t`, *deepening* toward the body, which put the
+sharpest crease exactly at the weld. A fold is a form cue out on the sheet and a defect at the join.
+
+**The fix.** Two lines, no new geometry:
+- the knife-edge band now stops at the separation notch (`teRootStart`) and is not built along the
+  root run at all;
+- the mid-band drop tapers to nothing at the anchor (`0.95 − 0.85t`), so the root is one fillet.
+
+**Measured.** `holecensus` mean enclosed daylight **2.21% → 0.31%**, worst pose **8.86% → 1.16%** —
+against a premium bar (Tempest) of 3.65% / 8.70%. The lifted band along the root run was generating
+most of the enclosed daylight in the whole creature.
+
+**Gates after:** holecensus 2/2 · planform 12/12 · structural 16/16 · tricount 0 over budget ·
+flapclearance C1 clear, C3 pass, C2 still failing (B2's round).
+
+**A blind spot worth recording.** `holecensus` counts ENCLOSED daylight. The bars the critic saw at
+settle/flank have sky that is *open* to the outside, so the census reported 0 holes there and could
+not have caught them — the same shape of error as `flapclearance` measuring wing-vs-torso when the
+defect was wing-vs-wing. Two probes, two classes, and the art director found both. **Gates confirm a
+fix; they do not find the defect.**
+
+---
+
+### I2 WING — the armpit, located by elimination (2026-07-29)
+
+Rounds 3 and 4 spent four geometry edits on this hole and moved it by **exactly zero pixels** each
+time: the inboard gusset, the propatagium root bow (swept 0/0.55/1.0), the chord-to-curve fan on the
+shoulder fill, and a cervical sheet forward of the leading edge. Every one verifiably built — the
+tri count rose each time — and the browser was demonstrably reloading the file, because recolouring
+the materials changed the dump. Four misses in a row is not four bad guesses; it is a wrong model of
+where the region sits.
+
+**So it was located by ELIMINATION instead of by reasoning.** `dsHide` (new seam in
+`dragonstudio.html`) hides meshes by part tag and re-renders the same camera; `armpitcensus --hide=`
+drives it. If removing a surface makes the enclosed region MERGE with outside sky, that surface is
+a boundary.
+
+| hidden | armpit (top/glide) |
+|---|---|
+| *(none)* | 3079 px |
+| hull | 3357 px |
+| neck · seam · rim · shoulderRoot · saddle | **3079 px — no change at all** |
+| leg | 3022 px |
+| **wing** | **26 px** |
+
+**The hole is bounded entirely by WING geometry.** Not the torso, not the neck, not the scapular
+cowl. That refutes the art director's stated diagnosis ("terminated by a pale quad that does not
+reach the arc" — the cowl is `saddle`/`shoulderRoot`, and hiding either changes nothing) *and* the
+colour-dump reading that agreed with it. Both were plausible from a picture; neither survived the
+measurement.
+
+> **When a fix lands zero pixels twice, stop proposing causes and start removing candidates.** An
+> ablation costs one run per surface and returns a boundary, not a hypothesis. Four rounds of
+> reasoning from the code, two independent visual diagnoses, and both were wrong about which object
+> owned the edge.
+
+**Still open:** which wing surface. All wing geometry is tagged `wing`/`seam` and batches by
+material, so the part tagger cannot resolve it further — the next step is a per-material ablation,
+not another sheet. Do not add geometry for this until the owning surface is named.
+
+**Per-material ablation — and why removal cannot finish the job.** The wing carries six materials
+(`#54504c` scorch 750 tris · `#1e1e20` 694 · `#8f8a84` ashLit 212 · `#28282b` memDeep 100 ·
+`#2a2a2c` wingOuter 54 · `#262629` memGlow 36). Hiding each in turn:
+
+| hidden | armpit |
+|---|---|
+| `#54504c` | 11783 px |
+| `#8f8a84` | 5714 px |
+| `#2a2a2c` | 4040 px |
+| `#1e1e20` | 3090 px |
+| `#28282b` · `#262629` | 3079 px (no change) |
+
+**No removal merges the region with outside sky** — every one either leaves it alone or makes the
+total worse, because deleting a surface exposes MORE background elsewhere. Ablation identified the
+boundary at part granularity (it is wing, definitively) but it is the wrong instrument one level
+down: subtraction cannot isolate a rim when subtraction also manufactures sky.
+
+> **An ablation answers "is this a boundary" only while the removed surface is not itself occluding
+> other background.** Inside a dense assembly that condition fails, and the method silently stops
+> working — it keeps returning numbers, they just no longer mean what they meant one level up.
+
+The next instrument is additive or geometric, not subtractive: render each material ALONE and test
+which one's silhouette contains the region's rim pixels, or unproject the region against the depth
+buffer to get its 3D extent directly. **Still do not add geometry until the owning surface is named.**
+
+---
+
+### I2 — the "hip hole" is not at the hip (2026-07-31)
+
+Round 5 (2.3/5) named a 24×4 px block of pure sky punched through the hull at the hip, present in
+every pose, in the shipped camera, for two rounds. Ablation at part granularity pointed at the tail:
+hiding `tail` dropped the rear-chase enclosed sky 341 → 77 px, hiding `hull` → 165 px. The obvious
+mechanism followed — the hull's last station is rx 0.11 while the tail's first bone starts at
+R0 0.26, so the tail is FATTER than the hull it leaves and an open annulus sits between them.
+
+A lapped collar was built for exactly that annulus (a flare from the hull's aft station out past the
+tail root, pushed aft so the tail seats inside it). **It moved the worst hole 264 → 217 px and did
+not close it — and it added a visible flat DISC on the dorsal aft body, a plate stuck on.** Reverted.
+
+**The dump then showed why: the holes are not where the report's coordinates suggested.** Painting
+every enclosed region magenta over the render puts them in three places — thin slivers along BOTH
+WING ROOTS, and the largest as a crescent UNDER THE BELLY. The tail join is a contributor, not the
+site. Ablation said "tail is a boundary" and that was true; it does not follow that the tail join is
+where the hole lives, because removing the tail also removes what occludes the belly crescent.
+
+> **A boundary is not a location.** Ablation identifies what bounds a region; only looking identifies
+> where it is. This is the second time this creature has cost a round to that distinction — the first
+> was five edits aimed at an armpit that measured 2–339 px.
+
+**Also standing, and not yet acted on:** the two shipped gates report green on this. `holecensus`
+measures enclosed sky inside the WING outline and these are in the body; `flapclearance` measures the
+wing striking the torso and these are gaps, not collisions. Whatever closes these holes must be
+gated by a body-side census that does not yet exist.

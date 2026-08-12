@@ -135,7 +135,7 @@ ok(`${Object.keys(DRAGONS).length} dragons have expected form counts (3 starter 
 // lanceRune; every other dragon (SSR starters, asset-backed) carries neither so
 // they keep the shipped jade wisp + shared rune. ---
 const sssr = Object.entries(DRAGONS).filter(([, d]) => d.maxRarity === 'SSSR' && !d.assetBacked);
-assertEq(sssr.length, 11, 'exactly 11 Eternal-capable (SSSR, procedural) dragons');   // 7 core +vesper +vesperLean +revenant +tempest (the two new fresh heroes)
+assertEq(sssr.length, 12, 'exactly 12 Eternal-capable (SSSR, procedural) dragons');   // 7 core +vesper +vesperLean +revenant +tempest +fornax (the fire wyvern)
 for (const [key, d] of sssr) {
   assert(typeof d.lanceTint === 'number' && d.lanceTint >= 0 && d.lanceTint <= 0xffffff,
     `dragon ${key} carries a valid lanceTint hex`);
@@ -179,5 +179,43 @@ for (const [key, def] of Object.entries(BOSSES)) {
     `${key}.eyeOrgan ('${def.eyeOrgan}') is one of its lockParts`);
 }
 ok('eyeWeakPoint bosses name an eyeOrgan that is a real lockPart (decouple invariant)');
+
+// --- FORNAX (fire wyvern) — the I0 GUARD TRIO + the limb-plan firewall ---------------
+// These are not style preferences; each one is a law the shared rig will violate BY DEFAULT
+// the moment the key exists, so they are asserted from I0 rather than trusted to survive
+// until the fire lands at I4 (FIRE-WYVERN-BUILDSHEET §0).
+{
+  const f = DRAGONS.fornax;
+  assert(!!f, 'fornax is on the roster');
+  // 1. feverWash: `setFeverTint(def.feverWash || null)` (dragon.js) falls back to a MAGENTA
+  //    default, which would flash on surgeStart and break the identity's own colour law.
+  assert(Array.isArray(f.feverWash) && f.feverWash.length === 3, 'fornax carries a feverWash triple');
+  assert(f.feverWash[0] > f.feverWash[1] && f.feverWash[1] >= f.feverWash[2],
+    'fornax feverWash is WARM (R > G >= B) — the rig default is magenta');
+  // 2/3. The wing TOPS must stay dark. feverWing black keeps the wing a silhouette through
+  //    Surge; wingMembraneEmissive black is what the rig's unconditional boost term multiplies,
+  //    so without it the tops glow on every BOOST — outside Surge entirely.
+  assertEq(f.feverWing, 0x000000, 'fornax feverWing is black (wings stay silhouette on Surge)');
+  assertEq(f.wingMembraneEmissive, 0x000000, 'fornax wingMembraneEmissive is black (no boost-lit wing tops)');
+  assertEq(f.wingEmissive, 0x000000, 'fornax wingEmissive is explicitly black (never setHex(undefined) by luck)');
+  // 4. THE ACCENT LANE. R >= G >= B strictly: no blackbody between 1000-6500K has B > G, so the
+  //    moment blue outruns green the read flips from furnace to sci-fi plasma
+  //    (DRAGON-ANATOMY-REFERENCE §7.2). Assertable on the def, cheaply, forever.
+  for (const field of ['accentHue', 'apexSeam', 'coreGlow', 'surgeHi', 'lanceTint']) {
+    const hex = f[field];
+    const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff;
+    assert(r >= g && g >= b, `fornax.${field} obeys R>=G>=B (the fire channel law), got ${r},${g},${b}`);
+  }
+  // 5. THE LIMB-PLAN FIREWALL. A wyvern has FOUR limbs: the wings ARE the arms. A separate
+  //    forelimb would make it a dragon, and a shoulder-hinged wing would make it a bolted-on
+  //    kite. Match the recipe it actually declares, so a future edit cannot quietly grow limbs.
+  assertEq(f.parts.torso, 'slagAnvilTorso', 'fornax keeps its own torso builder (legs live inside it — there is no registerLegs)');
+  assertEq(f.parts.wings, 'underlitCrescentWings', 'fornax keeps its own wing builder');
+  assert(!('legs' in f.parts) && !('forelimbs' in f.parts), 'fornax declares NO separate fore-limb part (4-limb wyvern firewall)');
+  // 6. Cruise is WITHHELD: the accent is near-zero at rest and only the multiplier makes Surge
+  //    an event. A high base intensity here is the LED-strip tell arriving in data.
+  assert((f.model.surgeGlowMultiplier ?? 0) >= 10, 'fornax withholds its accent behind a high surge multiplier');
+}
+ok('fornax carries the guard trio, the R>=G>=B accent lane, and the 4-limb firewall');
 
 console.log(`\n${n} def checks passed.`);
