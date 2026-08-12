@@ -163,7 +163,7 @@ function buildStokeSeams(def, model, attach) {
     return new THREE.Mesh(g, mat);
   };
   // THE THROAT-KEEL SEAM (peak hue #ffb46b lives here ONLY — identity accent 1 of 2)
-  const throatMat = mkSeamMat(STOKE_PEAK, 0.035);
+  const throatMat = mkSeamMat(STOKE_PEAK, 0.10);   // hide-r8: 0.035 was invisible — a hint must still read
   const throatPts = [];
   for (let i = 0; i <= seg(6); i++) {
     const t = i / seg(6), z = -1.9 + t * 1.4;
@@ -171,7 +171,7 @@ function buildStokeSeams(def, model, attach) {
   }
   meshes.push(strip(throatPts, 0.028, throatMat));
   // dorsal spine seam (gen-1, emitter hue) nape→tail-root — THE STOKE's rail
-  const spineMat = mkSeamMat(STOKE_EMBER, 0.04);
+  const spineMat = mkSeamMat(STOKE_EMBER, 0.09);
   const spinePts = [];
   const z0 = -2.35, z1 = attach.tailAnchor.z + 0.1, N = seg(10);
   for (let i = 0; i <= N; i++) {
@@ -302,7 +302,7 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
           const nr = (nk.rBase - t * 4 * nk.rStep) * 1.35;
           for (const row of [-1, 1]) {
             const shMat = new THREE.MeshStandardMaterial({
-              color: lerpHex(FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.16 + 0.05 * ((i + (row > 0 ? 0 : 1)) % 3)),
+              color: lerpHex(FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, (0.26 - 0.20 * t) + 0.04 * ((i + (row > 0 ? 0 : 1)) % 3)),   // h-r11: black carries down from the skull — no hue seam
               roughness: 0.8, metalness: 0.0, flatShading: true });
             const sh = new THREE.Mesh(new THREE.SphereGeometry(nr * 0.52, seg(5), seg(3), 0, Math.PI * 2, 0, Math.PI / 2), shMat);
             sh.scale.set(1.0, 0.38, 0.9);
@@ -472,11 +472,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const NB = seg(4);
       for (let s2 = 1; s2 <= NB; s2++) {
         const t = s2 / NB;
-        boundary.push([Fl[0] + (HIP[0] - Fl[0]) * t, Fl[1] + (HIP[1] - Fl[1]) * t - 0.06 * hs * Math.sin(t * Math.PI), Fl[2] + (HIP[2] - Fl[2]) * t, 3, Math.sin(t * Math.PI)]);
+        boundary.push([Fl[0] + (HIP[0] - Fl[0]) * t, Fl[1] + (HIP[1] - Fl[1]) * t - 0.06 * hs * Math.sin(t * Math.PI), Fl[2] + (HIP[2] - Fl[2]) * t, 4, Math.sin(t * Math.PI)]);   // its OWN tier — was fused with the last finger bay
       }
     }
     // flank edge hip→shoulder (hugs the body)
-    boundary.push([-0.18, S0[1] - 0.06, S0[2] + 0.62, 3]);   // flank edge tucked under the torso
+    boundary.push([-0.18, S0[1] - 0.06, S0[2] + 0.62, 4]);   // flank edge tucked under the torso
 
     // triangulate: radial fan from K through an INTERIOR RING (hide-r1 fix 2:
     // each bay gets a root->edge value gradient, alternating bay bases, a
@@ -488,13 +488,14 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       new THREE.Color(def.wingOuter ?? FORNAX_TIERS.charBase),
       new THREE.Color(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.charShadow, 0.45)),
       new THREE.Color(FORNAX_TIERS.charShadow),
+      new THREE.Color(lerpHex(FORNAX_TIERS.charShadow, 0x1a1518, 0.5)),   // body bay + flank — its own darkest tier
     ];
     verts.push(K[0], K[1], K[2]);
     { const c = tierCols[1].clone(); c.offsetHSL(0.004, 0.10, 0.14); cols.push(c.r, c.g, c.b); }   // root bloom at the wrist
     const nB = boundary.length;
     const bandCol = (b, i, ringT) => {       // finger-referenced band, same across the chord
       const st = b[4] ?? 0;
-      const c = tierCols[Math.min(3, b[3])].clone();
+      const c = tierCols[Math.min(4, b[3])].clone();
       c.offsetHSL(0.006 * st, 0.22 * st, 0.15 * st + (b[3] % 2 ? 0.03 : -0.015) + jit(i * 7 + ringT * 31, 0.02));
       if (ringT >= 1) c.offsetHSL(0, -0.02, -0.075 + 0.02 * st);   // trailing edge dark
       if (ringT < 0.4) c.lerp(new THREE.Color(0x5e1c0c), (1 - st) * 0.35);   // hide-r6: banked heat in the finger crotches at the membrane root
@@ -635,8 +636,8 @@ function buildBrandSkull(def, model, mats) {
   const stations = [
     [-L * 0.58, W * 0.10, H * 0.10, H * 0.16],   // overbite hook — drops past the jaw tip
     [-L * 0.52, W * 0.13, H * 0.26, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
-    [-L * 0.30, W * 0.36, H * 0.58, H * 0.18],   // nasal keel — h-r6: ~51% of cranium width (front view = wedge)
-    [-L * 0.06, W * 0.62, H * 0.44, H * 0.34],   // brow/hinge — h-r10: the WIDEST point lives here, at the jaw line
+    [-L * 0.30, W * 0.36, H * 0.62, H * 0.18],   // nasal keel — h-r11: taller, so the brow STEP reads
+    [-L * 0.06, W * 0.62, H * 0.40, H * 0.34],   // brow/hinge — h-r11: ~15% step below the nasal roof
     [L * 0.16, W * 0.56, H * 0.72, H * 0.46],    // cranial dome — h-r10: no ball-cranium; tapers off the hinge width
     [L * 0.42, W * 0.24, H * 0.40, H * 0.32],    // occipital bevel — h-r5: the rear cranium TAPERS into the crest (no flat box)
   ];
@@ -734,7 +735,7 @@ function buildBrandSkull(def, model, mats) {
     const len = (0.085 - i * 0.014) * hs * fang;
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.024 * hs * (fang > 1 ? 1.35 : 1), len, seg(4)), toothMat);
     tooth.rotation.x = Math.PI + 0.22;           // raked BACKWARD 12° (predator, not zipper)
-    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.20) - len * 0.04, tz);   // h-r9: rooted — ~60% exposed
+    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.20) + len * 0.02, tz);   // h-r11: welded into the gum — no floating roots
     group.add(tooth);
   }
   for (const side of [-1, 1]) {                  // lower fangs rise just inside the hook
@@ -836,17 +837,17 @@ function buildBrandSkull(def, model, mats) {
     for (const side of [-1, 1]) {
       const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
       h.position.set(side * W * rankX[r], H * 0.44 - r * 0.05 * hs, L * 0.28 + rankZ[r] * hs);
-      h.rotation.z = side * -(0.22 - r * 0.10);   // h-r9: >10 deg divergence from the dominant's cant
+      h.rotation.z = side * -(0.48 + r * 0.14);   // h-r11: ranks fan OUTWARD in yaw (27/35 deg) — separate reads in 3/4
       h.rotation.x = 0.55 + r * 0.25;             // h-r10: graded fan 31°/46°
       group.add(h);
     }
   }
   // brow-spike tier (h-r8: 0.25x — the smallest rank of the crown fan)
   for (const side of [-1, 1]) {
-    const bs = mkHorn(hornLen * 0.20, 0.040 * hs);
+    const bs = mkHorn(hornLen * 0.14, 0.036 * hs);   // h-r11: short, and never crossing the primary pair
     bs.position.set(side * W * 0.50, H * 0.42, -L * 0.10);
     bs.rotation.z = side * -0.50;
-    bs.rotation.x = 0.20;
+    bs.rotation.x = -0.05;   // tips forward, clear of the crown fan
     group.add(bs);
   }
   // crest spikes welding skull to neck — two small pairs continuing down the nape line
