@@ -107,14 +107,18 @@ const FORNAX_PROFILE = (() => {
   // thorax carries the anvil aft — broad, low
   p.stations[4][1] = 0.62; p.stations[4][2] = 0.38; p.stations[4][3] = 0.50;
   p.keel[2][1] = 0.38;
-  // waist pinch stays (70/30 split pivot), hips carry the haunch swell
+  // waist pinch stays (70/30 split pivot), hips carry the haunch swell;
+  // aft-body LENGTHENED so the torso reads as a ribcage, not a stub
+  p.stations[5][0] = 0.85; p.stations[6][0] = 1.55; p.stations[7][0] = 2.15;
+  p.keel[3][0] = 0.85; p.keel[4][0] = 1.55; p.keel[5][0] = 2.15;
+  p.tailAnchorZ = 1.55; p.tailShiftRefZ = 2.15;
   p.stations[6][1] = 0.33; p.stations[6][2] = 0.24;
   p.keel[4][1] = 0.24;
   // BARREL not plate: pull width toward depth (ribcage ellipse, ventral keel line)
   p.stations[3][1] = 0.72; p.stations[4][1] = 0.64;
   // a longer, higher-reaching neck (2-segment S — the head leads the animal)
-  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.54, rStep: 0.048, yStep: 0.11, zStep: -0.36, wobbleAmp: 0.07 };   // overlapped loft — one tapering neck, never beads
-  p.headBase = (n) => ({ x: 0, y: 0.72 + (n - 4) * 0.10, z: -3.16 - (n - 4) * 0.34 });
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.55, rStep: 0.075, yStep: 0.10, zStep: -0.31, wobbleAmp: 0.06 };   // shoulder-thick base tapering hard to ~0.4x at the skull
+  p.headBase = (n) => ({ x: 0, y: 0.70 + (n - 4) * 0.09, z: -3.02 - (n - 4) * 0.30 });
   return p;
 })();
 
@@ -204,7 +208,7 @@ function buildEmberHaunch(def, model, legMat) {
     hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.34, 0.16, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
-    swell.scale.set(1.5, 0.95, 1.75);
+    swell.scale.set(2.0, 1.05, 2.0);
     swell.position.set(femurDir.x * 0.22, femurDir.y * 0.22 + 0.02, femurDir.z * 0.22);
     hip.add(swell);
     // knee raised + inboard so the fold reads FOLDED, not landing-gear
@@ -684,7 +688,9 @@ function buildFirebrandTail(def, model, mats, anchor) {
   // THE FIREBRAND terminus: blunt char cap + a banked-coal core that vents on Surge
   const tipZ = T / nJoints;
   const capMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.5, flatShading: true });
-  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.30), capMat);
+  parent.add(bone(0, -0.01, tipZ - 0.34, 0, -0.015, tipZ - 0.12, 0.15, 0.115, capMat));
+  parent.add(bone(0, -0.015, tipZ - 0.12, 0, -0.02, tipZ + 0.02, 0.115, 0.09, capMat));
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.26), capMat);
   cap.scale.set(1.15, 0.8, 1.5);   // faceted, slightly flattened, merged with the shaft
   for (const sd of [-1, 1]) {      // flanking char spikes blend the club into the shaft (still blunt — never a spade)
     parent.add(bone(sd * 0.06, 0.02, tipZ - 0.28, sd * 0.20, 0.05, tipZ + 0.05, 0.055, 0.012, capMat));
