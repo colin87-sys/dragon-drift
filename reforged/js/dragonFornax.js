@@ -139,6 +139,7 @@ function buildStokeSeams(def, model, attach) {
       flatShading: true, side: THREE.DoubleSide,
     });
     m.userData.baseEmissive = hex; m.userData.baseIntensity = base;
+    m.userData.flareIntensityWeight = 0.30;   // sgm 20 stays amber, never cream (law 4)
     mats.push(m); return m;
   };
   // strip helper: a thin two-column ribbon through 3D points
@@ -340,7 +341,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     flatShading: true, side: THREE.FrontSide,   // lit face points DOWN (law 5: tops never emissive)
   });
   underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.03;
-  underMat.userData.flareIntensityWeight = 0.65;
+  underMat.userData.flareIntensityWeight = 1.0;   // the underlit crescent owns the Surge frame
 
   // ─ leading-edge profile (shared function — the anti-plank curve): a LOW gull
   // arch peaking at the carpal (archRise 0.12 — wide, not tall) + a shallow ogee
