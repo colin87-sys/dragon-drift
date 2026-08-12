@@ -1285,6 +1285,12 @@ function bakePine(geo) {
 const _FRM_TRAV = [0.960, 0.900, 0.770];  // creamy sun-bleached travertine crown (warm, bright — still under HOLLOWGATE white)
 const _FRM_ALGAE = [0.230, 0.300, 0.170]; // saturated dark-olive algae line (NOT leafy green; the narrow band)
 const _FRM_DROWN = [0.115, 0.255, 0.295]; // wet slate-teal drowned base — MID value (not near-black): the emissive fold must carry it as TEAL when the front face is backlit, or it crushes to black (Fable Stage-2)
+// TERRACOTTA (roofline, PR-8.1) — the one warm-CLAY note among the pale travertine. Fable pre-assess law: a HUE
+// note, NOT a value/accent pop — matte, desaturated toward the apricot sunset key, VALUE kept BELOW travertine
+// (L≈0.48 vs 0.88) so a low villa-roof never becomes a focal rival to the gilt heroes. The wet foot desaturates
+// toward the SAME slate-teal drowned base (shared cool anchor) so the clay dissolves underwater like every other
+// forum stone — the warm note stays quarantined above the tide line.
+const _FRM_TERRA = [0.680, 0.420, 0.280]; // matte baked-clay tile crown (dry) — warm HUE, mid value, no glow
 // The tide ladder is keyed to ONE tilted waterline PLANE (key = vy − tiltX·vx), evaluated PER-VERTEX so the
 // stain line wraps CONTINUOUSLY around every face at a single consistent angle — the fix for the Fable
 // Stage-2 3.1 note: a per-FACE key quantized the tilt into hard chevron wedges ("dazzle-camo") and ate the
@@ -1342,6 +1348,37 @@ const _FRD_CAP   = [0.680, 0.545, 0.395];  // LIT up-facing cap rim (cornice/par
 const _FRD_ALGAE = [0.190, 0.240, 0.140];  // algae line — kept dark (slightly deepened off _FRM_ALGAE)
 const _FRD_DROWN = [0.100, 0.205, 0.235];  // drowned slate-teal base — kept dark (the teal anchor survives)
 const _frdHash = (x, y, z) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
+// TERRACOTTA tide-ladder bake (roofline, PR-8.1) — bake:'terracotta'. Structurally identical to bakeForumLadder
+// (one tilted waterline PLANE, per-vertex key = vy − tiltX·vx, undercut soffit darken) but the DRY crown is the
+// matte clay _FRM_TERRA instead of bright travertine, and the wet foot dissolves to the SHARED _FRM_DROWN teal —
+// so a villa roof reads as one warm-clay note that drowns into the same cool anchor as every other forum stone.
+function bakeTerracotta(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();   // face normal (undercut)
+    const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 up/side → 1 straight-down overhang (soffit)
+    const uf = 1 - 0.5 * u;
+    for (let k = 0; k < 3; k++) {
+      const key = pos.getY(i + k) - tiltX * pos.getX(i + k);   // signed height above the single tilted plane
+      const o = (i + k) * 3;
+      if (key > waterY + bandH) {
+        const t = Math.min(1, (key - (waterY + bandH)) / 0.7);   // brighten a touch toward the sunlit ridge
+        col[o] = Math.min(1, _FRM_TERRA[0] * (1 + 0.06 * t)) * uf; col[o + 1] = _FRM_TERRA[1] * (1 + 0.05 * t) * uf; col[o + 2] = _FRM_TERRA[2] * (1 + 0.04 * t) * uf;
+      } else if (key < waterY) {
+        const t = Math.min(1, (waterY - key) / 0.5);
+        const f = 1 - 0.18 * t;
+        col[o] = _FRM_DROWN[0] * f; col[o + 1] = _FRM_DROWN[1] * f; col[o + 2] = _FRM_DROWN[2] * f;
+      } else {
+        col[o] = _FRM_ALGAE[0]; col[o + 1] = _FRM_ALGAE[1]; col[o + 2] = _FRM_ALGAE[2];   // shared narrow algae line
+      }
+    }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
 function bakeForumDark(geo, waterY = 0.34, bandH = 0.05, tiltX = 0.06) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -1451,13 +1488,14 @@ function mergeLagoonParts(parts, opts = {}) {
   // BEFORE the final merge (colours are per-vertex → survive it), so one archetype can hold BOTH a
   // tide-laddered stone mass AND olive foliage in the SAME material/draw group. opts.bake:'lily' = all
   // mat-0 parts foliage (lilyraft sugar); opts.foil = the bare no-bake mass (wrackstone).
-  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], forumDarkB = [], frescoB = [], pineB = [], verdigrisB = [], bronzeEdgeB = [];
+  const accent = [], ladder = [], temple = [], foliage = [], root = [], bloom = [], wood = [], voidB = [], revealB = [], revealHiB = [], forumB = [], forumDarkB = [], frescoB = [], pineB = [], verdigrisB = [], bronzeEdgeB = [], terraB = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
     if (p.mat === 1) accent.push(g);
     else if (opts.foil) ladder.push(g);                                  // foil: one no-bake subset
     else if (p.bake === 'forum') forumB.push(g);                         // tagged → Drowned Forum travertine tide ladder (§2A)
     else if (p.bake === 'forumdark') forumDarkB.push(g);                 // tagged → REPOUSSOIR dark travertine (two-shelf masses: basilica wall + aqueduct frame)
+    else if (p.bake === 'terracotta') terraB.push(g);                    // tagged → matte baked-CLAY tide ladder (roofline villa tiles, PR-8.1)
     else if (p.bake === 'verdigris') verdigrisB.push(g);                 // tagged → VERDIGRIS BRONZE exposure patina (colossus body)
     else if (p.bake === 'bronzeEdge') bronzeEdgeB.push(g);               // tagged → worn gold-brown raised edge (colossus nails/knuckle/torn rim)
     else if (p.bake === 'fresco') frescoB.push(g);                       // tagged → Pompeian-red protected-recess fresco (§2B)
@@ -1484,6 +1522,7 @@ function mergeLagoonParts(parts, opts = {}) {
   if (revealHiB.length) { const g = revealHiB.length > 1 ? mergeGeometries(revealHiB) : revealHiB[0]; bakeReveal(g, opts.revealHi ? opts.revealHi.y0 : 0.12, opts.revealHi ? opts.revealHi.span : 0.44); stone.push(g); }
   if (forumB.length) { const g = forumB.length > 1 ? mergeGeometries(forumB) : forumB[0]; bakeForumLadder(g, opts.forumWaterY); stone.push(g); }
   if (forumDarkB.length) { const g = forumDarkB.length > 1 ? mergeGeometries(forumDarkB) : forumDarkB[0]; bakeForumDark(g, opts.forumWaterY); stone.push(g); }
+  if (terraB.length) { const g = terraB.length > 1 ? mergeGeometries(terraB) : terraB[0]; bakeTerracotta(g, opts.forumWaterY); stone.push(g); }
   if (verdigrisB.length) { const g = verdigrisB.length > 1 ? mergeGeometries(verdigrisB) : verdigrisB[0]; bakeVerdigris(g, opts.forumWaterY || 0); stone.push(g); }
   if (bronzeEdgeB.length) { const g = bronzeEdgeB.length > 1 ? mergeGeometries(bronzeEdgeB) : bronzeEdgeB[0]; bakeSolid(g, _VRD_EDGE); stone.push(g); }
   if (frescoB.length) { const g = frescoB.length > 1 ? mergeGeometries(frescoB) : frescoB[0]; bakeFresco(g); stone.push(g); }
@@ -3614,7 +3653,7 @@ const ARCHETYPES = {
   // scattered around it — leaning / lying / strayed. Every drum CLOSED-end (wrackstone w2 + viamarina law:
   // an open cylinder shows the water straight through it and reads as curled paper). No set dressing. ≤150.
   drumfall: {
-    step: 29, biomes: forumV1, matIndex: 0, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // foil rest note: floor 0.12→0.05 (Fable density pass) — near-ZERO in the breaths so the walls read as the frame; the scatter clusters ONLY in the congregation peaks (wrackstone rhythm)
+    step: 34, biomes: forumV1, matIndex: 0, comp: { floor: 0.05, sMin: 0.90, sMax: 1.08 },   // step 29→34 (64→~54 instances, still the most common prop — pyramid intact) THIN pass (Fable prop-distribution audit P2, owner's "repeating"): 64 of ONE mesh at similar scale read as a metronome; thinning + the widened size envelope below breaks the recognition. floor 0.05 near-ZERO in the breaths so the walls read as the frame; the scatter clusters ONLY in the congregation peaks (wrackstone rhythm)
     build: () => {
       const parts = [];
       const S = (g) => parts.push({ mat: 0, bake: 'forum', geo: g });   // tide ladder by world Y (ladder-only foil)
@@ -3634,13 +3673,14 @@ const ARCHETYPES = {
       // → "sliced column" (Fable df3: one round coin near the stump didn't convert the far half; the tail still
       // read as a pallet spill). The studio front-¾ camera sits toward (+x,+y,+z), so a coin stood steeply on
       // end with a small rz/ry lean cants its 8-sided top face straight at that camera family, unoccluded.
-      // COIN 1 — near the stump (the proven df3 orientation Fable praised). CLOSED, 8-sided (8 sells round). (32)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.22, 8, 1, false), { x: 0.05, z: -0.09, y: 0.15, rz: 0.42, ry: 0.2 }));
-      // COIN 2 — a flat lying coin mid-trail, axis along the fall line (rx π/2), its +z round end down-trail
-      // toward the camera. Lying profile is a rectangle regardless of segment count, so 6 is fine here. (24)
-      S(xform(new THREE.CylinderGeometry(R, R, 0.27, 6, 1, false), { x: -0.02, z: 0.12, y: R, rx: Math.PI / 2, ry: 0.05 }));
-      // COIN 3 — a SECOND on-end coin at the FAR end of the scatter, rolled off-line (+x) as it toppled, its
-      // round face canting back at the camera so the tail reads as column too, not crates. CLOSED, 8-sided. (32)
+      // TWO on-end coins (down from three — the lying mid-trail COIN 2 was dropped to fund roofline's density;
+      // Fable PR-8.1 ruling: a lying coin "is a rectangle regardless of segment count", the cheapest 24 tris here,
+      // and the two ROUND-FACE coins are the load-bearing "sliced column" cue. Re-space to keep the 3-beat
+      // sentence's LENGTH: stub(−z) → coin 1 (now the MID beat, drifted off-line) → coin 3 (the far tail).
+      // COIN 1 — the MID beat, on-end round face at the camera, rolled off-line (−x) down the fall line. (32)
+      S(xform(new THREE.CylinderGeometry(R, R, 0.22, 8, 1, false), { x: -0.03, z: 0.02, y: 0.15, rz: 0.42, ry: 0.2 }));
+      // COIN 3 — the on-end coin at the FAR end of the scatter, rolled off-line (+x) as it toppled, its round
+      // face canting back at the camera so the tail reads as column too, not crates. CLOSED, 8-sided. (32)
       S(xform(new THREE.CylinderGeometry(R, R, 0.21, 8, 1, false), { x: 0.12, z: 0.33, y: 0.15, rz: 0.55, ry: -0.35 }));
       return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.14 });   // the level tide stain cuts THROUGH the low coins at one world Y (drowned foot / travertine crown on each) — "a waterline that ignores them"
     },
@@ -3648,13 +3688,61 @@ const ARCHETYPES = {
     // low h so the stump-capital reads proud over a flat rubble field, never a tower. FREE rotY — a rubble heap
     // has no facing, and random spin kills the copy-paste tell down the lane (viamarina Stage-2 note).
     place: (side, rnd) => {
-      const r = 6 + rnd() * 3;   // r 6-9 (scatter field proportional to the taller coins)
-      const p = { x: side * (13 + 0.7 * r + rnd() * 4), h: 7 + rnd() * 2, r, tilt: side * (rnd() * 0.10 - 0.05) };   // PORTRAIT scale-up: h 4.5–6 → 7–9 (×1.55, HARD ceiling 9, no glow). x base 16→13 KICKS the foil ~3 units INTO the open channel water off the viamarina rail line (Fable: at the column feet it silhouette-merges into base rubble; ~3u of clear water buys the "distinct fallen column" read). Inner edge stays clear of the flight lane (≥~14.5) because 13 + 0.7·6 = 17.2 center at r_min.
+      const r = 6 + rnd() * 4.5;   // r 6-10.5 (Fable P2: WIDEN the scatter-field spread 6-9→6-10.5 — a ~1.75× field of one mesh reads as differently-sized ruins, not clones; r_min held at 6 so the inner edge stays legal)
+      const p = { x: side * (13 + 0.7 * r + rnd() * 4), h: 5.5 + rnd() * 4.5, r, tilt: side * (rnd() * 0.10 - 0.05) };   // h 7-9 → 5.5-10 (Fable P2: a wide COLLAPSE-STATE spread — some barely break the tide, some stand tall — is the cheapest "these are different fallen columns" signal; height is vertical only, no lane-clearance effect). x base 13; inner edge stays clear of the flight lane (≥~14.5) because 13 + 0.7·6 = 17.2 center at r_min 6.
       // Fable df4 Stage-2 note: turn the LOUD side/¾ face (the sliced-column profile down the fall line) toward
       // the lane, and keep the weak down-the-length view off the approach → fall line ≈ lane-parallel. A generous
       // ±0.6rad jitter (plus per-instance r/h/x/tilt spread) keeps a COMMON foil from reading copy-paste.
       p.rotY = (side > 0 ? Math.PI : 0) + (rnd() * 1.2 - 0.6);
       if (HERO_SET.has('drumfall')) p.rotY = Math.PI;   // debug: pin the loud sliced-column profile toward the lane camera
+      return p;
+    },
+  },
+
+  // roofline — SUNKEN VILLA ROOF (DROWNED-FORUM-BUILD-SHEET §3 #7, PR-8.1). The LOW hugger + deliberate SCALE
+  // CUE: a familiar domestic house-roof breaking the gold mirror, so the 40m civic arches/domes read as
+  // monumental (the job the pale gulls also do). Fable pre-assess 4.4/5. THE ONE THING (Fable): put the tile
+  // rhythm in the SILHOUETTE, not the surface — a dead-straight ridge dotted with ridge-cap bumps + hard
+  // triangular gable ends. Straight ridge + straight eave + transverse bump rhythm = ROOF; longitudinal
+  // curvature = the capsized-HULL failure mode (the #1 read-risk on a warm wedge breaking a gold mirror). The
+  // roof slabs are THICK (a rim face → solid, never a paper plane); the two gable ends are CLOSED (no see-through
+  // "curled paper"). Terracotta HUE note (matte, value under travertine — never a focal rival). Funded by the
+  // drumfall coin-2 trim. ~44 tris. Clusters at congregation FEET (comp floor 0 + arrivalPark) where the 8m
+  // domestic ridge shares a frame with the civic mass — a scale cue needs adjacency; a lone roof is just a wedge.
+  roofline: {
+    step: 48, biomes: forumV1, matIndex: 0, arrivalPark: true, comp: { floor: 0, sMin: 0.92, sMax: 1.10 },   // step 48 → 38 instances: the densest scale-cue population the ~53-tri mesh fits under the 50k band cap (funded by the drumfall coin-2 trim)
+    build: () => {
+      const parts = [];
+      const T = (g) => parts.push({ mat: 0, bake: 'terracotta', geo: g });
+      // GABLE PROFILE (WORLD-low Roman pitch ~17°): ridge along local X (x∈±0.68), eaves at z=±0.46, ridge
+      // y0.40 / eave y0.26 → drop 0.14 over 0.46 = 16.9° (in the 15–22° band; a steep alpine gable is the wrong
+      // culture). Randomize the RUIN (bump spacing, the broken end), never the ARCHITECTURE (this pitch/aspect).
+      const W = 0.68, D = 0.46, rY = 0.52, eY = 0.26, th = 0.05;   // ridge y0.52/eave y0.26 → drop 0.26 over 0.46 = 29.5°. CRUISE-LEGIBILITY override of the 15–22° "Roman-shallow" pre-assess guardrail: at 21° the above-behind chase camera saw both slopes at near-equal angles → equal light → a FLAT RAFT read (the shallower cousin of the boat-hull). ~30° splits the slopes into a lit face + a shadowed face → a clear ridge + peaked-roof read from above. The scale-cue JOB (reads as a house roof) outranks the exact pitch degrees; 30° still reads domestic, not alpine.
+      const pitch = Math.atan((rY - eY) / D), L = Math.hypot(D, rY - eY);   // slope tilt + slope length
+      // TWO thick roof SLABS (a rim face at every yaw → solid, not a paper plane). Each spans the full width,
+      // tilted to the pitch, centred between ridge and eave; they MEET at the dead-straight ridge line. (12+12)
+      T(xform(new THREE.BoxGeometry(2 * W, th, L), { z: D / 2, y: (rY + eY) / 2, rx: pitch }));    // +Z slope (drops toward +z)
+      T(xform(new THREE.BoxGeometry(2 * W, th, L), { z: -D / 2, y: (rY + eY) / 2, rx: -pitch }));   // −Z slope
+      // TWO closed GABLE-END triangles (kill the see-through void between the slabs — "curled paper" = open cut).
+      // Wound for an OUTWARD face normal (+X / −X); the forum bake keys its undercut off the geometric normal.
+      const tri = (a, b, c) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c], 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 2)); g.computeVertexNormals(); return g; };   // uv so the attribute set matches Box/Cone for mergeGeometries
+      T(tri([W, rY, 0], [W, eY, D], [W, eY, -D]));       // +X gable end
+      T(tri([-W, rY, 0], [-W, eY, -D], [-W, eY, D]));    // −X gable end
+      // RIDGE-CAP BUMPS (imbrex tile-ends crossing the ridge) — the SILHOUETTE rhythm that reads ROOF not hull.
+      // UNEVEN spacing with a gap on the +x end = the "one rafter gap" ruin (bumps cluster, the broken end bares
+      // the ridge). Low 3-sided caps, seated ON the ridge. (6×3) — the whole read lives here at cruise distance.
+      const bump = (x, ry) => T(xform(new THREE.ConeGeometry(0.11, 0.11, 3), { x, y: rY + 0.02, ry }));   // PROMINENT ridge-cap tiles: big enough to serrate the ridge SILHOUETTE at cruise (Fable's "one thing") — a subtle nub vanishes past 100m
+      bump(-0.46, 0.3); bump(-0.20, -0.15); bump(0.28, 0.5);
+      return mergeLagoonParts(parts, { forum: true, forumWaterY: 0.24 });   // waterline at the eave: the eaves drown/algae-stain, ridge + upper slopes stay dry clay — "a roof just breaking the surface"
+    },
+    // LOW hugger, off-lane in the shallows; the long ridge turns roughly lane-PARALLEL so the player reads the
+    // straight ridge + eave + a gable end in ¾ (the silhouette that says roof). r buys the villa FOOTPRINT, h
+    // stays low (a domestic ridge, not a tower). x clears the flight lane (inner edge ≥ ~14.5).
+    place: (side, rnd) => {
+      const r = 7 + rnd() * 3;                                   // footprint 7–10 (a roof is WIDE)
+      const p = { x: side * (15 + 0.8 * r + rnd() * 4), h: 4.5 + rnd() * 1.6, r, tilt: side * (rnd() * 0.06 - 0.03) };   // low h (ridge pokes ~2m out of the water); gentle per-instance list
+      p.rotY = (side > 0 ? -Math.PI / 2 : Math.PI / 2) + (rnd() * 0.7 - 0.35);   // ridge ≈ lane-parallel, ¾ jitter so a gable end angles at the viewer
+      if (HERO_SET.has('roofline')) p.rotY = 0;   // debug: broadside the ridge + a gable end to the studio camera
       return p;
     },
   },
@@ -4312,7 +4400,13 @@ const ARCHETYPES = {
   // _salt (from the key) decorrelates the two park hashes for free. Same place/comp/z-octave as viamarina.
   // APPENDED AT THE END of ARCHETYPES (determinism law: never reorder existing slots).
   viamarinaM: {
-    step: 46, biomes: forumV1, matIndex: 0, sizeOctave: [[0.40, 0.82], [0.80, 1.0], [1, 1.22]], octaveAxis: 'z', comp: { floor: 0.30, sMin: 0.85, sMax: 1.08 },
+    // FLANK-STAGGER (Fable prop-distribution audit P1, owner's real-play "repeating rails"): floor 0.30→0.05.
+    // viamarina keeps floor 0.30 (ONE flank stays walled through the breaths — the causeway-corridor rationale
+    // survives); its mirror drops to 0.05 so the OTHER flank OPENS to the fog line in the breaths. The breath was
+    // a ~70%-rail monoculture (both mirrors at 0.30) — "both horizons lined with identical posts" (owner shot #2).
+    // Now it reads "a rail on one side, open gold water on the other." Combined congregation density is untouched
+    // (both still swell to sMax at the peaks); only the BREATH floor of the mirror flank drops. Zero tri cost.
+    step: 46, biomes: forumV1, matIndex: 0, sizeOctave: [[0.40, 0.82], [0.80, 1.0], [1, 1.22]], octaveAxis: 'z', comp: { floor: 0.05, sMin: 0.85, sMax: 1.08 },
     build: () => buildViamarina(-1),
     place: (side, rnd) => {
       const r = 10 + rnd() * 5;
@@ -4703,6 +4797,7 @@ const FOAM_CFG = {
   colossus: { r: 0.45 },   // drowned bronze hand — one round tide collar at the wrist emergence where it rises from the mirror
   arena: false,            // amphitheater rim — NO collar: a bright foam ring on a 45+ off-lane curved massif is an artifact (the aqueduct/rampart precedent); the forumdark tide-ladder base carries the waterline weld, and the bowl's calm-water reflection is the compositional completion
   drumfall: { r: 0.6 },   // Drowned Forum foil — a round travertine tide collar where the scattered drum field meets the mirror (wrackstone precedent)
+  roofline: { r: 0.42 },  // Drowned Forum sunken villa — a small tide collar where the roof breaks the mirror (the drowning weld at the eave line; pinisle's small-collar precedent, hugs the footprint only)
   aqueduct: false,        // Drowned Forum far-massif — NO collar (a bright foam ring 80+ off-lane on the fog line is an artifact; the arcade/rampart/riftwall precedent — the drowned pier feet carry the waterline via the tide ladder)
   pinisle: { r: 0.4 },    // Drowned Forum islet — a SMALL pale tide collar hugging the rubble foot (mangrovehold's jade-anklet precedent): a near-black tree doubled in the mirror with one bright waterline thread is the most Lorrain image in the biome (hugs the rubble only, never under the canopy overhang)
   pantheon: { r: 0.9 },   // Drowned Forum mid-hero dome — a broad tide collar; the porch widens the waterline weld beyond the rotunda's 0.8
