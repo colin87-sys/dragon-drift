@@ -1345,6 +1345,7 @@ export const DRAGONS = {
     stats: { speed: 1.14, handling: 0.96, drain: 0.9, regen: 1.1 },   // heavy flyer (sheet placeholder, owner tunes)
     model: {
       scale: 1.15, tailSegments: 7, neckSegments: 5, flapBias: 0.8, flapAmp: 0.75,
+      neckBlend: 1.35,   // fuse the bead chain into a smooth taper (head-gauntlet r1: glossy-sphere neck)
       // silhouette + hull (§2/§4)
       hullLadder: 1, headScale: 1.35, eyeScale: 0.6, tailLength: 1.0,
       // wing planform (§5 committed numbers): LOW WIDE crescent, taut bays,
