@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { registerTorso } from './dragonRecipe.js';
 import { makeGlowTexture } from './util.js';
 import { applyFresnelRim } from './surface.js';
+import { cloneComposed } from './dragonSurfaceShader.js';
 import { featherGeo, hexRgb } from './dragonParts.js';
 import { seg } from './modelDetail.js';
 import { sweepProfile } from './dragonSweep.js';
@@ -147,7 +148,12 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
       [z, (z >= -1.7 && z <= 0.0) ? w * shoulderW : w, t, b]) };
   }
 
-  const torsoMat = bodyMat.clone();
+  // N18: cloneComposed, not clone(). r160's Material.copy drops onBeforeCompile,
+  // so a plain `.clone()` here has always silently stripped the fresnel rim (and
+  // any blueprint surface patches) off the biggest mesh on the dragon — the one
+  // the rim exists to give a contour to. cloneComposed re-applies the recorded
+  // stack, gated by CREATURE SHADING so this is byte-identical until switched on.
+  const torsoMat = cloneComposed(bodyMat);
   torsoMat.side = THREE.DoubleSide;
   const torsoGeo = bodyMesh ? geoFn(profile, stretch) : null;
   // POSTURE keel-bend (gate r5 dir 11): spineCurl must bend the VISIBLE body, not just the

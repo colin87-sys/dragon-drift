@@ -31,7 +31,12 @@ export const DRAGONS = {
     // stud are the only live points) and ignites on Surge, capped at ~45% of the Eternal
     // ceiling (Radiant never out-blazes Eternal). Draconic head with a keen brow-crest.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
-    parts: { torso: 'falconKeelTorso', wings: 'falconCombWings', head: 'draconic', tail: 'clean' },
+    // N18 hero: `bellyAO` gives the falcon keel a real underside — belly, under-jaw
+    // and the underside of every tail segment go dim, so the hull reads as a solid
+    // body lit from the sky rather than a shape lit evenly from nowhere. Inert
+    // (exact identity) until CREATURE SHADING is on; the graphics hero per
+    // GRAPHICS-OVERHAUL.md, which notes Azure carries no surface patches today.
+    parts: { torso: 'falconKeelTorso', wings: 'falconCombWings', head: 'draconic', tail: 'clean', surface: { shader: ['bellyAO'] } },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 6, neckSegments: 5,
       headArchetype: 'softStealth',   // round friendly base, tuned keen per form via eyeShape/brow

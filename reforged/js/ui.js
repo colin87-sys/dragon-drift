@@ -2292,6 +2292,7 @@ export const ui = {
           ${swRow('gfx', 'skyIbl', 'SKY LIGHTING', 'The sky’s colour spills onto the world as biomes change.')}
           ${swRow('gfx', 'heroShadow', 'DRAGON SHADOW', 'Your real silhouette on the water — watch the wings beat.')}
           ${swRow('gfx', 'propAO', 'PROP SHADING', 'Soft grounding shadow under the towers and crystals.')}
+          ${swRow('gfx', 'dragonShading', 'CREATURE SHADING', 'Your dragon’s own shadow — dark belly, dark scale crevices, a defined edge.')}
           ${swRow('gfx', 'atmosphere', 'ATMOSPHERE', 'Aerial haze that pools low and glows toward the sun.')}
           ${swRow('gfx', 'skyClouds', 'SKY CLOUDS', 'Drifting clouds with sun-lit silver edges.')}
           ${swRow('gfx', 'waterSwell', 'OCEAN SWELL', 'The sea rolls with a living swell.')}

@@ -22,6 +22,33 @@ import { getActiveDetail } from './modelDetail.js';
 
 const toColor = (v) => (v instanceof THREE.Color ? v : new THREE.Color(v));
 
+// --- N18 CREATURE SHADING (the shared live gate) -----------------------------
+// Every patch in this file ADDS light (`totalEmissiveRadiance +=`) or tweaks
+// roughness.
+// None of them can make anything DARKER, and detail is mostly darkness: what
+// reads as scales on a real animal is the thin dark line in every crevice, and
+// what reads as a solid body is the belly being dimmer than the back. Without a
+// subtractive term a creature can only ever get shinier, never more solid — the
+// "LED-strip glow over flat plastic" failure DRAGON-DESIGN.md names but the
+// shader seam made unavoidable.
+//
+// N18 adds the missing half: terms that multiply `diffuseColor.rgb` DOWN. This
+// is the N15 prop-AO idea (which shipped for the world) finally applied to the
+// creature. One shared uniform gates the lot — 0 = every multiply is `* 1.0`,
+// IEEE-exact identity, so the shipped roster is byte-identical with it off.
+//
+// It also gates the CLONE FIX (see cloneComposed) — one Settings switch, one
+// uniform, both halves of "the dragon can be dark".
+export const creatureShadingUniform = { value: 0 };
+// Patch stack per composed material, so cloneComposed can rebuild it. A WeakMap
+// and NOT `material.userData`: r160's Material.copy JSON-round-trips userData,
+// which would silently turn the patch descriptors into inert plain objects (the
+// same class of trap as the clone itself). Declared here — above composeSurface
+// — so a call at module-evaluation time can never hit the TDZ.
+const COMPOSED = new WeakMap();
+export function setCreatureShading(on) { creatureShadingUniform.value = on ? 1 : 0; }
+export function creatureShadingEnabled() { return creatureShadingUniform.value > 0; }
+
 // --- Patches ----------------------------------------------------------------
 
 // Grazing-angle rim light — the exact effect surface.js shipped, now a patch so
@@ -81,6 +108,48 @@ export function membraneSSSPatch(opts = {}) {
     bodyFrag: `{
       float edge = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), uSSSPower);
       totalEmissiveRadiance += uSSSColor * (edge * uSSSStrength);
+    }`,
+  };
+}
+
+// N18 — BELLY AO: the creature's own occlusion, the cheap stand-in for a real
+// self-shadow. A dragon in the sky is lit by a bright dome above and a dark sea
+// below, so every down-facing surface — belly, under-jaw, under-wing, the
+// underside of every tail segment — is genuinely the darkest part of the animal
+// before any shadow map is involved. Painting that in costs one dot product and
+// buys the single biggest "solid body, not a lit toy" cue available to us.
+//
+// The normal is read in OBJECT space (`objectNormal`, which r160 has already run
+// through <skinnormal_vertex> by our <begin_vertex> seam — verified against the
+// vendored STANDARD vertex shader), so the belly stays the belly as the tail
+// coils and the wings beat. A view-space normal would slide the shading around
+// the body as the camera swings; an object-space one is welded to the anatomy.
+//
+// Deliberately NOT the N15 prop heuristic: props are grounded (base y=0, darken
+// by height²), a flying creature has no base — height means nothing on it. The
+// down-facing term is the only one of N15's two that transfers.
+//
+// Multiplies `diffuseColor.rgb`, which the <emissivemap_fragment> seam still has
+// live (<lights_physical_fragment> consumes it after us), so the darkening flows
+// through real lighting instead of being painted on top of it.
+export function bellyAOPatch(opts = {}) {
+  return {
+    key: 'bao',
+    uniforms: {
+      uBellyAOAmt: opts.amount ?? 0.34,   // max darkening on a straight-down face
+      uBellyAOPow: opts.power ?? 1.35,    // >1 keeps the flanks clean, concentrates it underneath
+    },
+    // Live shared gate — assigned BY REFERENCE (see composeSurface), so one
+    // Settings switch drives every creature material already on the GPU.
+    sharedUniforms: { uCreatureAO: creatureShadingUniform },
+    parsVert: `varying vec3 vObjNrm;`,
+    bodyVert: `vObjNrm = objectNormal;`,
+    parsFrag: `varying vec3 vObjNrm;
+      uniform float uBellyAOAmt; uniform float uBellyAOPow; uniform float uCreatureAO;`,
+    bodyFrag: `{
+      float _baDown = clamp(-normalize(vObjNrm).y, 0.0, 1.0);
+      float _baAO = 1.0 - uBellyAOAmt * pow(_baDown, uBellyAOPow);
+      diffuseColor.rgb *= mix(1.0, _baAO, uCreatureAO);   // uCreatureAO 0 → *1.0, exact identity
     }`,
   };
 }
@@ -151,12 +220,15 @@ export function cellularScalesNormalPatch(opts = {}) {
       uScaleRough: opts.rough ?? 0.22,
       uScaleTint: toColor(opts.tint ?? 0xffffff),
       uScaleNrmAmp: opts.amp ?? 0.3,
+      // N18 cavity: how dark the recessed seam between scales goes.
+      uScaleCavity: opts.cavity ?? 0.45,
     },
+    sharedUniforms: { uCreatureAO: creatureShadingUniform },
     parsVert: `varying vec3 vSurfPos;`,
     bodyVert: `vSurfPos = position;`,
     parsFrag: `varying vec3 vSurfPos;
       uniform float uScaleSize; uniform float uScaleSheen; uniform float uScaleRough; uniform vec3 uScaleTint;
-      uniform float uScaleNrmAmp;
+      uniform float uScaleNrmAmp; uniform float uScaleCavity; uniform float uCreatureAO;
       vec3 _scHash(vec3 p){
         p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
                  dot(p, vec3(269.5, 183.3, 246.1)),
@@ -193,6 +265,13 @@ export function cellularScalesNormalPatch(opts = {}) {
       float _scH = 1.0 - smoothstep(0.0, 0.55, cell);
       vec2 _scdH = vec2(dFdx(_scH), dFdy(_scH)) * uScaleNrmAmp;
       normal = _scPerturbNormal(-vViewPosition, normalize(normal), _scdH);
+      // N18 CAVITY — the other half of relief. The perturbed normal alone only
+      // says "this facet tilts"; a bumpy surface still reads flat until the
+      // recesses are actually DARKER than the ridges. _scH is 1 at a raised
+      // scale centre and 0 in the seam, so (1-_scH) is the crevice mask.
+      // Ambient light reaches a crevice floor less than a ridge crest, and the
+      // shading normal cannot express that — only occlusion can.
+      diffuseColor.rgb *= mix(1.0, 1.0 - uScaleCavity * (1.0 - _scH), uCreatureAO);
     }`,
   };
 }
@@ -202,6 +281,7 @@ export function cellularScalesNormalPatch(opts = {}) {
 // the creature grammar/validator can't drift from what's actually buildable.
 export const SURFACE_PATCH_NAMES = Object.freeze([
   'cellularScales', 'cellularScalesNormal', 'iridescence', 'subsurface', 'membraneSSS',
+  'bellyAO',
 ]);
 
 // Map blueprint shader NAMES → patch descriptors, tinted on-brand from the def.
@@ -218,6 +298,9 @@ export function buildSurfacePatches(names, def) {
     else if (n === 'cellularScalesNormal') out.push(cellularScalesNormalPatch({ tint: def.scales ?? 0xffffff, size: def.scaleSize ?? 5.0, sheen: 0.16, rough: 0.28, amp: (def.scaleRelief ?? 0.3) * getActiveDetail().mul }));
     else if (n === 'iridescence') out.push(iridescencePatch({ tint: def.apexSeam ?? def.wingEmissive ?? 0xffffff, strength: 0.32, power: 1.8 }));
     else if (n === 'subsurface' || n === 'membraneSSS') out.push(membraneSSSPatch({ color: def.wingEmissive ?? def.apexSeam ?? 0xff9a66 }));
+    // N18 belly AO — per-dragon depth via `def.bellyAO` (a slim courier wants
+    // less than a heavy armoured hull). Inert until CREATURE SHADING is on.
+    else if (n === 'bellyAO') out.push(bellyAOPatch({ amount: def.bellyAO ?? 0.34 }));
   }
   return out;
 }
@@ -226,20 +309,46 @@ export function buildSurfacePatches(names, def) {
 // Apply N patches to one material through a single onBeforeCompile + a single
 // merged customProgramCacheKey (so stacked variants never collide in Three's
 // program cache, and an un-patched MeshStandard stays distinct).
-export function composeSurface(material, patches) {
+// `opts.gate` — a shared uniform object that fades the WHOLE spliced block in.
+// Used by cloneComposed so a re-composed clone can ship inert (gate 0 = exactly
+// the un-patched material it is today) and light up live on one Settings switch,
+// with no rebuild and no second program path to keep honest.
+export function composeSurface(material, patches, opts = {}) {
   const used = (patches || []).filter(Boolean);
   if (!used.length) return material;
-  const cacheKey = 'surf:' + used.map((p) => p.key).join('+');
+  const gate = opts.gate || null;
+  const cacheKey = 'surf:' + used.map((p) => p.key).join('+') + (gate ? '+gated' : '');
   material.onBeforeCompile = (shader) => {
     let parsV = '', bodyV = '', parsF = '', bodyF = '';
     for (const p of used) {
       for (const [name, value] of Object.entries(p.uniforms || {})) {
         shader.uniforms[name] = { value };
       }
+      // Shared uniforms are assigned BY REFERENCE (not re-wrapped in a fresh
+      // `{ value }` like the per-patch ones), so one JS object drives every
+      // compiled material at once. Re-wrapping would snapshot the value at
+      // compile time and the live toggle would silently do nothing.
+      for (const [name, uniform] of Object.entries(p.sharedUniforms || {})) {
+        shader.uniforms[name] = uniform;
+      }
       if (p.parsVert) parsV += '\n' + p.parsVert;
       if (p.bodyVert) bodyV += '\n' + p.bodyVert;
       if (p.parsFrag) parsF += '\n' + p.parsFrag;
       if (p.bodyFrag) bodyF += '\n' + p.bodyFrag;
+    }
+    if (gate) {
+      shader.uniforms.uSurfGate = gate;
+      parsF += '\nuniform float uSurfGate;';
+      // Snapshot every value the patches are allowed to touch, then lerp back.
+      // At uSurfGate 0 `mix(a,b,0)` is `a*1.0 + b*0.0` — exactly `a` — so the
+      // gated material is IEEE-identical to the plain clone it replaces.
+      bodyF = `
+      vec3 _sgE0 = totalEmissiveRadiance; float _sgR0 = roughnessFactor;
+      vec3 _sgN0 = normal; vec3 _sgD0 = diffuseColor.rgb;${bodyF}
+      totalEmissiveRadiance = mix(_sgE0, totalEmissiveRadiance, uSurfGate);
+      roughnessFactor       = mix(_sgR0, roughnessFactor,       uSurfGate);
+      normal                = mix(_sgN0, normal,                uSurfGate);
+      diffuseColor.rgb      = mix(_sgD0, diffuseColor.rgb,      uSurfGate);`;
     }
     if (parsV) shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>' + parsV);
     if (bodyV) shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>' + bodyV);
@@ -249,5 +358,38 @@ export function composeSurface(material, patches) {
   };
   material.customProgramCacheKey = () => cacheKey;
   material.needsUpdate = true;
+  COMPOSED.set(material, used);
   return material;
+}
+
+// --- N18 THE CLONE FIX ------------------------------------------------------
+// r160's `Material.copy` does NOT carry `onBeforeCompile` or
+// `customProgramCacheKey` (verified against the vendored source: neither appears
+// in its copy list). So `bodyMat.clone()` silently returns a material whose
+// onBeforeCompile has fallen back to `Material.prototype`'s empty no-op — every
+// surface patch, INCLUDING the fresnel rim that exists specifically to stop the
+// body reading as a flat mass, is dropped on the floor. No error, no warning:
+// the clone just renders as plain MeshStandard.
+//
+// That is why the torso — the largest surface on most of the roster — has never
+// had the rim its blueprint asked for. And because whether a mesh kept the rim
+// came down to whether its call site happened to clone, the damage is PATCHY,
+// which reads worse than uniform: the skull (dragonDraconicHead.js:68) and the
+// root mesh (dragonTorso.js:274) use bodyMat directly and are rimmed, while the
+// torso loft, the head shells (:195/:259) and the keen snout (:305) are not — one
+// creature, shaded inconsistently across itself. The same r160 trap the Skyforged
+// markers hit from the uniform side (GRAPHICS-OVERHAUL N17/PR-3: "NO
+// material.clone()"); creatures never got the memo.
+//
+// Only dragonTorso.js is converted here (hero-first — coexist → prove → migrate);
+// the other call sites are listed in GRAPHICS-OVERHAUL N18 as the migration list.
+//
+// cloneComposed clones and then re-applies the recorded patch stack (see the
+// COMPOSED WeakMap at the top of this file), gated so the restored patches are
+// inert until CREATURE SHADING is switched on.
+export function cloneComposed(material) {
+  const clone = material.clone();
+  const patches = COMPOSED.get(material);
+  if (patches && patches.length) composeSurface(clone, patches, { gate: creatureShadingUniform });
+  return clone;
 }

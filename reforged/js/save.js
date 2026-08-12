@@ -30,7 +30,7 @@ const DEFAULTS = {
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, modelDetail: null, reticle: true, slowMo: true, glideAssist: false, mouseSteer: true, bulletClarity: true, dev: false,
     // Graphics effects (defaults = the shipped look): dither ON, ACES colour grade, fast-particles OFF, sky-IBL OFF.
-    dither: true, toneMap: 'aces', particleBatch: false, skyIbl: false, heroShadow: false, propAO: false, atmosphere: false, skyClouds: false, waterSwell: false, waterDepth: false, waterFoam: false, dynRes: true, perfHud: false,
+    dither: true, toneMap: 'aces', particleBatch: false, skyIbl: false, heroShadow: false, propAO: false, atmosphere: false, skyClouds: false, waterSwell: false, waterDepth: false, waterFoam: false, dragonShading: false, dynRes: true, perfHud: false,
     // U14 accessibility (UI-PREMIUM-OVERHAUL.md): HUD scale/opacity land as
     // :root CSS vars (--hud-scale/--hud-alpha, honored by the Phase 3 HUD);
     // colorblind swaps the jade/danger DOM token hues via a root class.
