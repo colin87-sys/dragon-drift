@@ -113,7 +113,7 @@ const FORNAX_PROFILE = (() => {
   // BARREL not plate: pull width toward depth (ribcage ellipse, ventral keel line)
   p.stations[3][1] = 0.66; p.stations[4][1] = 0.56;
   // a longer, higher-reaching neck (2-segment S — the head leads the animal)
-  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.50, yStep: 0.105, zStep: -0.43 };
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.52, rStep: 0.062, yStep: 0.105, zStep: -0.43 };   // real chest→skull taper
   p.headBase = (n) => ({ x: 0, y: 0.62 + (n - 4) * 0.10, z: -3.30 - (n - 4) * 0.40 });
   return p;
 })();
@@ -200,7 +200,7 @@ function buildEmberHaunch(def, model, legMat) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.26, 0.16, 1.05);
     // femur: abducted out + slightly down; haunch swell at the root
-    const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.26, -0.30).normalize().multiplyScalar(L.femur);   // thigh FORWARD+out (folded Z)
+    const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.30, 0.34).normalize().multiplyScalar(L.femur);   // ABDUCTED into the wing–tail gap (sheet §7)
     hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.30, 0.15, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
@@ -209,7 +209,7 @@ function buildEmberHaunch(def, model, legMat) {
     hip.add(swell);
     // knee raised + inboard so the fold reads FOLDED, not landing-gear
     const knee = new THREE.Group(); knee.position.copy(femurDir); hip.add(knee);
-    const shinDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.30, -0.40, 0.88).normalize().multiplyScalar(L.shin);   // shank AFT-down
+    const shinDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.32, -0.34, 0.92).normalize().multiplyScalar(L.shin);   // shank aft-down, knee raised inboard
     knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.13, 0.07, legMat));
     const ankle = new THREE.Group(); ankle.position.copy(shinDir); knee.add(ankle);
     // three-toed plated foot, toes spread; ankle at 115°
@@ -226,6 +226,40 @@ function buildEmberHaunch(def, model, legMat) {
 
 registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
   const r = buildTorso(FORNAX_PROFILE, def, model, bodyMat);
+  // SCAPULAR SADDLE (body frame — sheet §5: static, in the torso's seam language):
+  // a faceted shoulder block at each wing root so the sail grows out of MUSCLE in
+  // every pose, plus a flank weld strip running shoulder→hip that owns the
+  // membrane's body edge (kills the daylight under the raised wing).
+  {
+    const saddleMat = new THREE.MeshStandardMaterial({ color: def.bodyFacet ?? FORNAX_TIERS.scorchMid, roughness: 0.6, metalness: 0.0, flatShading: true });
+    const wr = r.attach.wingRoot(1);
+    for (const side of [1, -1]) {
+      const block = new THREE.Mesh(new THREE.SphereGeometry(0.34, seg(7), seg(5)), saddleMat);
+      block.scale.set(1.5, 0.9, 1.9);
+      block.position.set(side * wr.x * 1.15, wr.y - 0.06, wr.z + 0.08);
+      r.group.add(block);
+      const delt = new THREE.Mesh(new THREE.SphereGeometry(0.22, seg(6), seg(4)), saddleMat);
+      delt.scale.set(1.7, 0.8, 1.1);
+      delt.position.set(side * (wr.x * 1.5 + 0.12), wr.y * 0.86, wr.z);
+      r.group.add(delt);
+      // flank weld strip: shoulder→hip along the torso side, just under the sail's body edge
+      const fv = [], fi = [];
+      const NW = seg(6);
+      for (let i = 0; i <= NW; i++) {
+        const t = i / NW, z = wr.z + 0.1 + (1.35 - (wr.z + 0.1)) * t;
+        const x = side * (wr.x * (1.25 - 0.45 * t));
+        const yTop = wr.y - 0.02 - 0.16 * t, yBot = yTop - 0.20 - 0.06 * Math.sin(t * Math.PI);
+        fv.push(x, yTop, z, x * 0.94, yBot, z);
+      }
+      for (let i = 0; i < NW; i++) { const a = i * 2; fi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      const fg = new THREE.BufferGeometry();
+      fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3));
+      fg.setIndex(fi); fg.computeVertexNormals();
+      const fm = new THREE.Mesh(fg, saddleMat);
+      fm.material = saddleMat;
+      r.group.add(fm);
+    }
+  }
   // paint the 4-tier char strake ladder onto the big loft mesh
   const torso = r.group.children.find((c) => c.isMesh && c.geometry && c.geometry.attributes.position && c.geometry.attributes.position.count >= 40);
   if (torso && (model.hullLadder ?? 1)) {
@@ -564,8 +598,9 @@ function buildBrandSkull(def, model, mats) {
   };
   for (const side of [-1, 1]) {
     const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.10 * hs);
-    h.position.set(side * W * 0.42, H * 0.55, L * 0.28);
-    h.rotation.z = side * -0.18;
+    h.position.set(side * W * 0.42, H * 0.50, L * 0.30);
+    h.rotation.z = side * -0.42;          // cant OUTWARD (a paired rank, not a picket)
+    h.rotation.x = 0.5;                   // lean hard AFT along the neck line
     group.add(h);
   }
   // midline followers ×0.66 decay, contracting spacing down the nape
@@ -573,6 +608,7 @@ function buildBrandSkull(def, model, mats) {
   for (let i = 0; i < followers; i++) {
     const f = mkHorn(fl, 0.065 * hs);
     f.position.set(0, H * 0.5 - i * 0.03, fz);
+    f.rotation.x = 0.55 + i * 0.06;       // followers lie flatter down the nape
     group.add(f);
     fz += 0.16 * Math.pow(0.8, i);
     fl *= 0.66;
@@ -595,6 +631,13 @@ function buildFirebrandTail(def, model, mats, anchor) {
   const segsPer = seg(3);
   const tailMat = new THREE.MeshStandardMaterial({ color: def.body ?? FORNAX_TIERS.charBase, roughness: 0.66, flatShading: true });
   const ridgeMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.55, flatShading: true });
+  // hip→tail fillet: a tapered collar so the tail continues the spine, not a socket
+  {
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.34, 0.62, seg(8)), tailMat);
+    collar.rotation.x = Math.PI / 2 - 0.06;
+    collar.position.set(0, a.y + 0.02, a.z + 0.18);
+    group.add(collar);
+  }
   const joints = [];
   let parent = group, zc = 0;
   const rAt = (t) => 0.33 * Math.pow(1 - t * 0.90, 1.25) + 0.035;   // caudofemoralis bulge just aft of the hip, ×3 taper  // fat aft of hip, ×3 taper
