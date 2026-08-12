@@ -110,6 +110,11 @@ const FORNAX_PROFILE = (() => {
   // waist pinch stays (70/30 split pivot), hips carry the haunch swell
   p.stations[6][1] = 0.33; p.stations[6][2] = 0.24;
   p.keel[4][1] = 0.24;
+  // BARREL not plate: pull width toward depth (ribcage ellipse, ventral keel line)
+  p.stations[3][1] = 0.66; p.stations[4][1] = 0.56;
+  // a longer, higher-reaching neck (2-segment S — the head leads the animal)
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.50, yStep: 0.105, zStep: -0.43 };
+  p.headBase = (n) => ({ x: 0, y: 0.62 + (n - 4) * 0.10, z: -3.30 - (n - 4) * 0.40 });
   return p;
 })();
 
@@ -195,7 +200,7 @@ function buildEmberHaunch(def, model, legMat) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.26, 0.16, 1.05);
     // femur: abducted out + slightly down; haunch swell at the root
-    const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.38, 0.42).normalize().multiplyScalar(L.femur);
+    const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.26, -0.30).normalize().multiplyScalar(L.femur);   // thigh FORWARD+out (folded Z)
     hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.30, 0.15, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
@@ -204,11 +209,11 @@ function buildEmberHaunch(def, model, legMat) {
     hip.add(swell);
     // knee raised + inboard so the fold reads FOLDED, not landing-gear
     const knee = new THREE.Group(); knee.position.copy(femurDir); hip.add(knee);
-    const shinDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.35, -Math.sin(kneeA) * 0.55, Math.cos(kneeA)).normalize().multiplyScalar(L.shin);
+    const shinDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.30, -0.40, 0.88).normalize().multiplyScalar(L.shin);   // shank AFT-down
     knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.13, 0.07, legMat));
     const ankle = new THREE.Group(); ankle.position.copy(shinDir); knee.add(ankle);
     // three-toed plated foot, toes spread; ankle at 115°
-    const footDir = new THREE.Vector3(side * 0.15, -Math.sin(ankleA - Math.PI / 2) * 0.4, Math.cos(ankleA - Math.PI / 2)).normalize().multiplyScalar(L.foot);
+    const footDir = new THREE.Vector3(side * 0.12, -0.30, 0.55).normalize().multiplyScalar(L.foot);   // toes trail aft-down (flight tuck)
     for (let toe = -1; toe <= 1; toe++) {
       const td = footDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), toe * 0.3);
       ankle.add(bone(0, 0, 0, td.x, td.y, td.z, 0.06, 0.022, legMat));
@@ -313,7 +318,92 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   function buildOneWing() {
     const arm = new THREE.Group(), hand = new THREE.Group();
 
-    // fat bowed ridge helper (in-plane wedges, never needles — taper ×3)
+    // ═ ONE CONTINUOUS SAIL ═ The whole planform is a single triangulated sheet
+    // with a single boundary: shoulder → (leading edge) → wrist → D1 tip →
+    // (scalloped trailing edge through the digit tip-notches) → hip → (flank) →
+    // shoulder. No stacked quads: propatagium, bays and body-fillet are REGIONS
+    // of one surface, value-banded by vertex color. Digit ridges ride ON it.
+    const S0 = [0.04, -0.02, -0.06];                     // shoulder root (pivot space)
+    const HIP = [0.14, -0.10 * hs, 1.42];                // flank/hip anchor
+    const boundary = [];                                  // [x,y,z,tier] rim walk
+    // leading edge S0→K→F0 (rigid, the arm line)
+    const NLE = seg(6);
+    for (let i = 0; i <= NLE; i++) {
+      const t = i / NLE;
+      const p = LE(t);
+      boundary.push([p[0], p[1], p[2], t < wristT ? 0 : 0]);
+    }
+    // trailing edge: scallop arcs D1→D2→D3→D4 through pulled-back notch points
+    const pullBack = (tip, frac) => [tip[0] + (K[0] - tip[0]) * frac, tip[1] + (K[1] - tip[1]) * frac, tip[2] + (K[2] - tip[2]) * frac];
+    const NSEG = seg(4);
+    const quadB = (a, c, b, s) => { const m = 1 - s; return [m * m * a[0] + 2 * m * s * c[0] + s * s * b[0], m * m * a[1] + 2 * m * s * c[1] + s * s * b[1], m * m * a[2] + 2 * m * s * c[2] + s * s * b[2]]; };
+    for (let i = 0; i < tips.length - 1; i++) {
+      const Fa = tips[i], Fb = tips[i + 1];
+      const bayChord = Math.hypot(Fa[0] - Fb[0], Fa[1] - Fb[1], Fa[2] - Fb[2]);
+      const La = Math.hypot(Fa[0] - K[0], Fa[1] - K[1], Fa[2] - K[2]);
+      const Lb = Math.hypot(Fb[0] - K[0], Fb[1] - K[1], Fb[2] - K[2]);
+      const Ea = i === 0 ? Fa : pullBack(Fa, Math.min(0.5, notch * bayChord / La));
+      const Eb = pullBack(Fb, Math.min(0.5, notch * bayChord / Lb));
+      const base = [Ea[0] + (Eb[0] - Ea[0]) * 0.40, Ea[1] + (Eb[1] - Ea[1]) * 0.40, Ea[2] + (Eb[2] - Ea[2]) * 0.40];
+      const ctrl = [base[0] + (K[0] - base[0]) * baySag * 2, base[1] + (K[1] - base[1]) * baySag * 2 - 0.015, base[2] + (K[2] - base[2]) * baySag * 2];
+      for (let s2 = i === 0 ? 0 : 1; s2 <= NSEG; s2++) {
+        const p = quadB(Ea, ctrl, Eb, s2 / NSEG);
+        boundary.push([p[0], p[1], p[2], 1 + i]);
+      }
+      // the digit TIP projects past the membrane between bays (the notch floor):
+      if (i < tips.length - 2) boundary.push([Fb[0], Fb[1], Fb[2], 1 + i]);
+    }
+    // body bay: last digit notch → hip (one long taut edge with gentle sag)
+    {
+      const Fl = tips[tips.length - 1];
+      const NB = seg(4);
+      for (let s2 = 1; s2 <= NB; s2++) {
+        const t = s2 / NB;
+        boundary.push([Fl[0] + (HIP[0] - Fl[0]) * t, Fl[1] + (HIP[1] - Fl[1]) * t - 0.06 * hs * Math.sin(t * Math.PI), Fl[2] + (HIP[2] - Fl[2]) * t, 3]);
+      }
+    }
+    // flank edge hip→shoulder (hugs the body)
+    boundary.push([S0[0] + 0.06, S0[1] - 0.03, S0[2] + 0.55, 3]);
+
+    // triangulate: radial fan from K (the planform is star-shaped around the wrist)
+    const verts = [], cols = [], idx = [];
+    const tierCols = [
+      new THREE.Color(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.30)),
+      new THREE.Color(def.wingOuter ?? FORNAX_TIERS.charBase),
+      new THREE.Color(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.charShadow, 0.45)),
+      new THREE.Color(FORNAX_TIERS.charShadow),
+    ];
+    verts.push(K[0], K[1], K[2]);
+    { const c = tierCols[1]; cols.push(c.r, c.g, c.b); }
+    for (let i = 0; i < boundary.length; i++) {
+      const b = boundary[i];
+      verts.push(b[0], b[1], b[2]);
+      const c = tierCols[Math.min(3, b[3])].clone();
+      c.offsetHSL(0, 0, jit(i * 11, 0.015));
+      cols.push(c.r, c.g, c.b);
+    }
+    for (let i = 0; i < boundary.length - 1; i++) idx.push(0, i + 1, i + 2);
+    const sailGeo = new THREE.BufferGeometry();
+    sailGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    sailGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    sailGeo.setIndex(idx); sailGeo.computeVertexNormals();
+    hand.add(new THREE.Mesh(sailGeo, wingMat));
+
+    // THE UNDERLIT copy — the whole sail dropped ~0.05, lit face DOWN (law 5)
+    {
+      const ug = sailGeo.clone();
+      const p = ug.attributes.position;
+      for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) - 0.05);
+      p.needsUpdate = true;
+      const ia = ug.getIndex().array;
+      for (let i = 0; i < ia.length; i += 3) { const t = ia[i + 1]; ia[i + 1] = ia[i + 2]; ia[i + 2] = t; }
+      ug.getIndex().needsUpdate = true;
+      ug.computeVertexNormals();
+      const um = new THREE.Mesh(ug, underMat);
+      hand.add(um);
+    }
+
+    // fat bowed digit ridges ON the sail (the skeletal rays — anatomy, not decoration)
     const ridgeLift = 0.10 * hs;
     const ridge = (tgt, a, b, wB, wT, mat, capMat, lift) => {
       const lf = lift ?? ridgeLift;
@@ -324,39 +414,6 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       tgt.add(tri([[aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]], mat));
       if (capMat) { const aT2 = [a[0] + px * wB * 0.28, a[1] + lf, a[2] + pz * wB * 0.28]; tgt.add(tri([[aT, bT, aT2]], capMat)); }
     };
-
-    // ARM — humerus + forearm (wing IS the arm, law 2): thick at the shoulder
-    // (the 1.4× humerus-root rule), low-lifted so it reads as muscled limb
-    const armLift = 0.035 * hs;
-    const E = LE(wristT * 0.45);
-    ridge(arm, LE(0), E, 0.22 * hs, 0.13 * hs, M.bone, null, armLift);
-    ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.bone, null, armLift);
-    { // scapular slag-cowl plates over the pivot (the shoulder MASS the sail grows from)
-      const s0c = LE(0);
-      const cw = 0.30 * hs;
-      arm.add(tri([
-        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw, s0c[1] + 0.06 * hs, s0c[2] - 0.30], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16]],
-        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16], [s0c[0] - cw * 0.3, s0c[1] + 0.05 * hs, s0c[2] + 0.34]],
-        [[s0c[0] + cw, s0c[1] + 0.06 * hs, s0c[2] - 0.30], [s0c[0] + cw * 1.3, s0c[1] - 0.05 * hs, s0c[2] + 0.05], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16]],
-      ], M.memTiers[0]));
-    }
-    { // deltoid slag-cowl mass swallowing the root
-      const s0 = LE(0);
-      const sBk = [s0[0] - 0.08 * hs, s0[1] - 0.02 * hs, s0[2] - 0.30], sUp = [s0[0] + 0.03 * hs, s0[1] + 0.10 * hs, s0[2] - 0.02];
-      const eLo = [E[0], E[1] - 0.02 * hs, E[2] + 0.05];
-      arm.add(tri([[sBk, sUp, E], [sBk, E, eLo], [sUp, s0, E], [s0, eLo, E]], M.memTiers[2]));
-    }
-    // PROPATAGIUM — the stiffened forward sheet ahead of the arm (~9% area, §5;
-    // apex-gated). Rigid leading edge: the sheet’s LE is a straight tensioned line.
-    if (hasProp) {
-      const s0 = LE(0);
-      const fwd = [K[0] * 0.55 + s0[0] * 0.45, (K[1] + s0[1]) * 0.5 + 0.02, Math.min(K[2], s0[2]) - 0.34 * hs * 0.5];
-      arm.add(tri([[s0, fwd, K], [s0, K, E]], M.memTiers[1]));
-    } else {
-      arm.add(tri([[LE(0), E, K]], M.memTiers[2]));   // inboard LE web (always — no severed arm)
-    }
-
-    // DIGITS — bowed 2-segment fat wedges K→tip; rim-catch cap on D1/D2
     for (let i = 0; i < tips.length; i++) {
       const tp = tips[i], wB = 0.085 * hs * (1 - 0.10 * i), wM = wB * 0.55;
       const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]);
@@ -365,78 +422,26 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       ridge(hand, K, Bm, wB, wM, M.bone, i < 2 ? M.boneCap : null);
       ridge(hand, Bm, tp, wM, 0.006, M.bone, null);
     }
-    // thumb-claw at the carpal (the wyvern HAND read)
+    // thumb-claw at the carpal knuckle
     hand.add(tri([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], [K[0] + 0.04 * hs, K[1] + 0.11 * hs, K[2] - 0.16 * hs]], [K, [K[0] + 0.04 * hs, K[1] + 0.11 * hs, K[2] - 0.16 * hs], [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.bone));
 
-    // MEMBRANE BAYS — TAUT: the trailing arc between adjacent digits is nearly
-    // straight (sag ≤0.10 bay chord, deepest ~40% along), and its ENDPOINTS sit
-    // NOTCH×bayChord short of each tip along the digit line — the scallop comes
-    // from BONE PROJECTION past the membrane (the notch floor), never from drape.
-    const NSEG = seg(4), trailing = [], underGlowT = [];
-    const pullBack = (tip, frac) => [tip[0] + (K[0] - tip[0]) * frac, tip[1] + (K[1] - tip[1]) * frac, tip[2] + (K[2] - tip[2]) * frac];
-    for (let i = 0; i < tips.length - 1; i++) {
-      const Fa = tips[i], Fb = tips[i + 1];
-      const bayChord = Math.hypot(Fa[0] - Fb[0], Fa[1] - Fb[1], Fa[2] - Fb[2]);
-      const La = Math.hypot(Fa[0] - K[0], Fa[1] - K[1], Fa[2] - K[2]);
-      const Lb = Math.hypot(Fb[0] - K[0], Fb[1] - K[1], Fb[2] - K[2]);
-      const Ea = pullBack(Fa, Math.min(0.5, notch * bayChord / La));
-      const Eb = pullBack(Fb, Math.min(0.5, notch * bayChord / Lb));
-      // taut concave arc between the pulled-back edge points, sag ≤ baySag×chord
-      const base = [Ea[0] + (Eb[0] - Ea[0]) * 0.40, Ea[1] + (Eb[1] - Ea[1]) * 0.40, Ea[2] + (Eb[2] - Ea[2]) * 0.40];
-      const ctrl = [base[0] + (K[0] - base[0]) * baySag * 2, base[1] + (K[1] - base[1]) * baySag * 2 - 0.015, base[2] + (K[2] - base[2]) * baySag * 2];
-      const arc = [];
-      for (let s = 0; s <= NSEG; s++) arc.push(quad(Ea, ctrl, Eb, s / NSEG));
-      // fill the bay: fan from K through the arc + weld strips to both digit lines
-      const fan = [];
-      for (let s = 0; s < NSEG; s++) fan.push([K, arc[s], arc[s + 1]]);
-      fan.push([K, Fa, arc[0]]);            // weld to digit i (tip projects past Ea)
-      fan.push([K, arc[NSEG], Fb]);         // weld to digit i+1
-      hand.add(tri(fan, M.memTiers[Math.min(i, M.memTiers.length - 1)]));
-      // THE UNDERLIT copy — the same bay dropped ~0.05 below in the STOKE mat
-      const dn = (p) => [p[0], p[1] - 0.05, p[2]];
-      for (const t3 of fan) underGlowT.push([dn(t3[0]), dn(t3[2]), dn(t3[1])]);
-      for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);
-    }
-    // BODY BAY (plagiopatagium) — the sail closes onto the flank: innermost
-    // digit edge → hip anchor line, the panel every bat/wyvern reads by. Rides
-    // the HAND so the whole sail folds as one sheet at the wrist.
+    // THE ARM — a thigh-thick humerus + forearm riding the leading edge (wing IS
+    // the arm), with the scapular slag-cowl swallowing the root into the torso
+    const armLift = 0.035 * hs;
+    const E = LE(wristT * 0.45);
+    ridge(arm, LE(0), E, 0.22 * hs, 0.13 * hs, M.bone, null, armLift);
+    ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.bone, null, armLift);
     {
-      const Fi = tips[tips.length - 1];
-      const Li = Math.hypot(Fi[0] - K[0], Fi[1] - K[1], Fi[2] - K[2]);
-      const Ei = pullBack(Fi, Math.min(0.5, notch * 0.9));
-      const hip = [0.10 + (K[0] - 0.10) * 0.35, -0.05 * hs, 1.10];   // shortened reach — the arm-frame gusset owns the last stretch to the hip
-      const NB2 = seg(4);
-      const fan2 = [];
-      for (let sx = 0; sx < NB2; sx++) {
-        const t0 = sx / NB2, t1 = (sx + 1) / NB2;
-        const a = [Ei[0] + (hip[0] - Ei[0]) * t0, Ei[1] + (hip[1] - Ei[1]) * t0 - 0.04 * Math.sin(t0 * Math.PI), Ei[2] + (hip[2] - Ei[2]) * t0];
-        const b = [Ei[0] + (hip[0] - Ei[0]) * t1, Ei[1] + (hip[1] - Ei[1]) * t1 - 0.04 * Math.sin(t1 * Math.PI), Ei[2] + (hip[2] - Ei[2]) * t1];
-        fan2.push([K, a, b]);
-      }
-      fan2.push([K, Fi, Ei]);
-      hand.add(tri(fan2, M.memTiers[3]));
-      const dn2 = (p) => [p[0], p[1] - 0.05, p[2]];
-      for (const t3 of fan2) underGlowT.push([dn2(t3[0]), dn2(t3[2]), dn2(t3[1])]);
-      for (let sx = 0; sx <= NB2; sx++) {
-        const t0 = sx / NB2;
-        trailing.push([Ei[0] + (hip[0] - Ei[0]) * t0, Ei[1] + (hip[1] - Ei[1]) * t0 - 0.04 * Math.sin(t0 * Math.PI), Ei[2] + (hip[2] - Ei[2]) * t0]);
-      }
+      const s0c = LE(0);
+      const cw = 0.30 * hs;
+      arm.add(tri([
+        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw, s0c[1] + 0.06 * hs, s0c[2] - 0.30], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16]],
+        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16], [s0c[0] - cw * 0.3, s0c[1] + 0.05 * hs, s0c[2] + 0.34]],
+      ], M.memTiers[0]));
     }
-    if (underGlowT.length) hand.add(tri(underGlowT, underMat));
-
-
-    // ROOT GUSSET — inboard membrane sweeping aft toward the hip, hem clamped at
-    // 0.65 of the shoulder→hip run (§7 — the abducted thighs own the aft wedge)
-    {
-      const r0p = LE(0);
-      const G = [r0p[0] + 0.09 * hs, r0p[1] - 0.05 * hs, r0p[2] + 1.30];   // hem ≤ 0.65 run
-      const Aaft = [K[0] * 0.82 + r0p[0] * 0.18, K[1] - 0.10 * hs, K[2] + 0.72];
-      const gm = [(r0p[0] + Aaft[0] + G[0]) / 3, (r0p[1] + Aaft[1] + G[1]) / 3 - 0.05, (r0p[2] + Aaft[2] + G[2]) / 3];
-      arm.add(tri([[r0p, K, Aaft], [r0p, Aaft, gm], [Aaft, G, gm], [G, r0p, gm]], M.memTiers[3]));
-      // underlit copy of the gusset (the crescent’s inboard leak)
-      const dn = (p) => [p[0], p[1] - 0.045, p[2]];
-      arm.add(tri([[dn(r0p), dn(Aaft), dn(K)], [dn(r0p), dn(gm), dn(Aaft)], [dn(Aaft), dn(gm), dn(G)], [dn(G), dn(gm), dn(r0p)]], underMat));
-    }
+    // arm-frame fillet: a slim triangle welded at K + shoulder + flank so the
+    // sail meets the body in EVERY pose (zero displacement at the shared pivot)
+    arm.add(tri([[S0, [S0[0] + 0.06, S0[1] - 0.03, S0[2] + 0.55], K]], M.memTiers[3]));
 
     const marker = new THREE.Object3D();
     marker.position.set(F0[0], F0[1], F0[2]);
