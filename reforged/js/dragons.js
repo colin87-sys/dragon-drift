@@ -1365,6 +1365,7 @@ export const DRAGONS = {
       apexMid: 0.09, apexTip: 0.18, tipApexSweep: 0.24,
       // tail: heavy ridge-crested rudder, vertical undulation up-biased
       tailWhip: true, tailLagScale: 0.14, tailUndulateX: 0.30, tailRudderScale: 0.45,
+      wingOpacity: 0.96,   // chase-cam r1: at the default 0.82 the purple night sky TRANSMITS through the sail — the game frame read magenta wings. Char is thick; the underside mesh owns the leak.
     },
     // THE STOKING ladder (§10): f0 Cold Coal · f1 Kindled · f2 Stoked · f3 Fornax.
     // Every rung a cruise-visible earn; apex built first, ladder by subtraction.
