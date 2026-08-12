@@ -80,6 +80,22 @@ geometry). wingMat white+vertexColors, fillet de-shared. Finger-referenced
 stretch bands (sin pi*t per bay), bone-tan 0x7d7264, skull tiers boldened
 (pale keratin bridge/crest). LAW: when a critic repeats a complaint about
 paint you shipped, CHECK THE MATERIAL FLAGS before repainting.
+hide-r3: 2.1 (membrane flat a THIRD time) → approach change: bands only lived
+ring→edge; the fan's inner 55% was the literal "faint radial gradient". Now 3
+rings (27/55/100) carry finger bands across the chord; spar segments alternate;
+keratin hard bands; ventral lift; spine shingle row.
+hide-r4: 2.4 ("banked furnace licenses darkness, not flatness") → warm
+cooling-coal bias on raised char (torso plate tops lerp 0x6b4a32 30%), ivory
+teeth 0xcdbfa3 (blue-gray teeth read as hide), membrane light tier 0.30→0.55.
+h-r6: 2.6 (front-view star, floating teeth, comb crest) → depth ownership
+SWAP (upper cheek bot 0.60→0.34H, jaw root 0.40→0.55H — the upper skull was
+physically hiding the mandible), teeth sunk 30%, muzzle 51% wedge, crest ridge
+fin brow→occiput, hierarchy 1.0/0.65/0.40.
+h-r7: 2.7 (jaw "sliver" a 7TH time) → META-LAW applied to the CAMERA: the
+r29 profile shows the deep jaw black-on-black against the cheek — a VALUE
+failure, not mass. Jaw lifted 0x5e5044 warm, lower tooth row added, crown
+raked aft + roots staggered. Scores: head 1.5→2.7 over 7 rounds (bar 4.6).
+h-r8 + hide-r5 critics running on r30.
 
 ## NEXT (round 9 directives, from the r8 verdict)
 1. Wing root: extend inner membrane fillet aft along flank shoulder→hip
