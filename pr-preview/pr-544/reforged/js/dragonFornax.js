@@ -171,7 +171,7 @@ function buildStokeSeams(def, model, attach) {
   }
   meshes.push(strip(throatPts, 0.028, throatMat));
   // dorsal spine seam (gen-1, emitter hue) nape→tail-root — THE STOKE's rail
-  const spineMat = mkSeamMat(STOKE_EMBER, 0.09);
+  const spineMat = mkSeamMat(STOKE_EMBER, 0.12);   // chase-cam r1: the dorsal rail is the rear camera's read
   const spinePts = [];
   const z0 = -2.35, z1 = attach.tailAnchor.z + 0.1, N = seg(10);
   for (let i = 0; i <= N; i++) {
@@ -266,10 +266,10 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
       // shoulder — 3 overlapping plates, each forward edge a value step up
       for (let k = 0; k < 3; k++) {
         const plateMat = new THREE.MeshStandardMaterial({
-          color: lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.18 + 0.24 * k),
-          roughness: 0.8, metalness: 0.0, flatShading: true });
-        const plate = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(6), seg(4), 0, Math.PI * 2, 0, Math.PI / 2), plateMat);
-        plate.scale.set(1.35 - 0.22 * k, 0.5, 0.95 - 0.12 * k);
+          color: lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.10 + 0.14 * k),
+          roughness: 0.8, metalness: 0.0, flatShading: true });   // chase-cam r1: the pale steps read as pontoon discs from behind
+        const plate = new THREE.Mesh(new THREE.SphereGeometry(0.26, seg(6), seg(4), 0, Math.PI * 2, 0, Math.PI / 2), plateMat);
+        plate.scale.set(1.30 - 0.22 * k, 0.5, 0.92 - 0.12 * k);
         plate.position.set(side * wr.x * (1.10 + 0.14 * k), wr.y + 0.06 - 0.02 * k, wr.z - 0.10 + 0.16 * k);
         plate.rotation.z = side * -0.28;
         plate.rotation.x = 0.12 * k;
@@ -559,6 +559,16 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       ridge(hand, K, Bm, wB, wM, M.bone, M.boneCap);   // hide-r1 fix 3: every bone two-toned (tape -> horn)
       ridge(hand, Bm, tp, wM, 0.006, M.boneDim, null);   // hide-r3: segment value break at the joint
     }
+    // carpal knuckle ember — a thin crack the REAR camera sees (chase-cam r1:
+    // 'an identity that emits zero information toward the only camera the game
+    // uses is a failed read, not restraint')
+    {
+      const km = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.12, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
+      km.userData.baseEmissive = STOKE_EMBER; km.userData.baseIntensity = 0.12;
+      km.userData.flareIntensityWeight = 0.3;
+      hand.add(tri([[[K[0] - 0.05 * hs, K[1] + 0.012, K[2] + 0.02], [K[0] + 0.06 * hs, K[1] + 0.012, K[2] + 0.04], [K[0], K[1] + 0.012, K[2] + 0.14 * hs]]], km));
+      knuckleMats.push(km);
+    }
     // thumb-claw at the carpal knuckle
     hand.add(tri([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], [K[0] + 0.04 * hs, K[1] + 0.11 * hs, K[2] - 0.16 * hs]], [K, [K[0] + 0.04 * hs, K[1] + 0.11 * hs, K[2] - 0.16 * hs], [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.bone));
 
@@ -572,7 +582,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     arm.add(tri([[[-0.15, S0[1] + 0.02, S0[2] - 0.15], LE(0.30), S0]], mkMat(def.wingOuter ?? FORNAX_TIERS.charBase)));   // NOT wingMat — no color attr
     // arm-frame fillet: a slim triangle welded at K + shoulder + flank so the
     // sail meets the body in EVERY pose (zero displacement at the shared pivot)
-    arm.add(tri([[S0, [S0[0] + 0.06, S0[1] - 0.03, S0[2] + 0.55], K]], M.memTiers[3]));
+    arm.add(tri([[S0, [S0[0] + 0.06, S0[1] - 0.04, S0[2] + 0.85], K]], M.memTiers[3]));   // chase-cam r1: no daylight at the root in any pose
 
     const marker = new THREE.Object3D();
     marker.position.set(F0[0], F0[1], F0[2]);
@@ -580,6 +590,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     return { arm, hand, marker };
   }
 
+  const knuckleMats = [];
   const pivots = {};
   for (const side of [1, -1]) {
     const root = attach.wingRoot(1);
@@ -605,7 +616,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
     },
     wingMat,
-    spineMats: [underMat],   // the underside leak ignites with THE STOKE on Surge
+    spineMats: [underMat, ...knuckleMats],   // underside + knuckle cracks ignite with THE STOKE on Surge
   };
 }
 registerWings('underlitCrescentWings', buildUnderlitCrescentWings);
@@ -915,7 +926,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
     collar.position.set(0, a.y + 0.02, a.z + 0.18);
     group.add(collar);
   }
-  const joints = [];
+  const joints = [], tailSeamMats = [];
   let parent = group, zc = 0;
   const rAt = (t) => 0.44 * Math.pow(1 - t * 0.80, 1.45) + 0.05;   // muscular base, exponential-feel taper, floor feeds the club  // fat aft of hip, ×3 taper
   const ridgeOn = Math.max(0, Math.round(model.tailRidge ?? 0));
@@ -931,6 +942,20 @@ function buildFirebrandTail(def, model, mats, anchor) {
       const t0 = (j + k / segsPer) / nJoints, t1 = (j + (k + 1) / segsPer) / nJoints;
       const z0 = (k / segsPer) * (T / nJoints), z1 = ((k + 1) / segsPer) * (T / nJoints);
       joint.add(bone(0, 0, z0, 0, -0.015, z1, rAt(t0), rAt(t1), tailJointMat(j)));
+      // chase-cam r1: dorsal ember seam segment — the rear camera's tail read
+      if (k === 0) {
+        const sm = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.15, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
+        sm.userData.baseEmissive = STOKE_EMBER; sm.userData.baseIntensity = 0.15;
+        sm.userData.flareIntensityWeight = 0.3;
+        tailSeamMats.push(sm);
+        const rw = rAt(t0) * 0.10 + 0.008;
+        const segLen = T / nJoints;
+        const sv = [ -rw, rAt(t0) * 0.98, 0,  rw, rAt(t0) * 0.98, 0,  -rw * 0.7, rAt((j + 1) / nJoints) * 0.98, segLen,  rw * 0.7, rAt((j + 1) / nJoints) * 0.98, segLen ];
+        const sgm2 = new THREE.BufferGeometry();
+        sgm2.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
+        sgm2.setIndex([0, 1, 2, 1, 3, 2]); sgm2.computeVertexNormals();
+        joint.add(new THREE.Mesh(sgm2, sm));
+      }
       // dorsal ridge crest: dominant near the hip, ×0.66 decay to the tip
       if (ridgeOn && (j * segsPer + k) % 1 === 0) {
         const i = j * segsPer + k;
@@ -961,7 +986,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   parent.add(cap);
   const accentMats = [];
   if (model.firebrandTip ?? 0) {
-    const coalMat = new THREE.MeshStandardMaterial({ color: 0x1c1a1c, emissive: STOKE_EMBER, emissiveIntensity: 0.10, roughness: 0.4, flatShading: true });
+    const coalMat = new THREE.MeshStandardMaterial({ color: 0x1c1a1c, emissive: STOKE_EMBER, emissiveIntensity: 0.16, roughness: 0.4, flatShading: true });
     coalMat.userData.baseEmissive = STOKE_EMBER; coalMat.userData.baseIntensity = 0.10;
     coalMat.userData.flareIntensityWeight = 0.35;
     const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.085), coalMat);
@@ -972,7 +997,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
     parent.add(bloom);
     accentMats.push(coalMat);
   }
-  return { group, segs: joints, tailFins: [], accentMats, spineMats: accentMats };
+  return { group, segs: joints, tailFins: [], accentMats, spineMats: [...accentMats, ...tailSeamMats] };   // seams ignite with THE STOKE on Surge
 }
 registerTail('firebrandTail', buildFirebrandTail);
 
