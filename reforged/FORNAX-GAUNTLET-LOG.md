@@ -95,7 +95,30 @@ h-r7: 2.7 (jaw "sliver" a 7TH time) → META-LAW applied to the CAMERA: the
 r29 profile shows the deep jaw black-on-black against the cheek — a VALUE
 failure, not mass. Jaw lifted 0x5e5044 warm, lower tooth row added, crown
 raked aft + roots staggered. Scores: head 1.5→2.7 over 7 rounds (bar 4.6).
-h-r8 + hide-r5 critics running on r30.
+h-r8: 2.5 ("the gape should be a dark furnace framed by teeth, not filled by
+them") → tooth economy (3/side + hero canines raked back, aft gape EMPTY),
+banked coal-bed inside the maw (identity law 1 — the furnace leaks at
+openings), masseter behind hinge, brow-spike tier, nape weld spikes.
+hide-r5: 2.3 ("the eye is cream, not ember") → eyeEmissiveI 2.2→1.2 + flare
+weight 0.5; first-cut jawline ember strips REVERTED same round (LED tape).
+h-r9: 2.4 (same 3 complaints, 6th round) → teeth rooted 60%, crown dedup,
+jowl over first neck lobe, neck ball 72% cranium. CHANNEL CHANGE: head blind
+set switches face-front mugshot → face-¾ tile (the mugshot stacked the chest
+under the head and poisoned every front-view read; logged, not hidden).
+hide-r6: 2.4 → neck shingle rows (the bare sphere chain read as "leather
+lobes" six rounds), plate roughness 0.8+ (chrome kill pt 1), warm emissive
+floor on teeth, membrane-root banked-heat gradient (albedo, law 5 held).
+h-r10: 2.8 NEW HIGH on the ¾ channel ("ball + beak") → dome shrunk, widest
+point moved DOWN to the jaw hinge, mandible 0.62H, gape 28°, graded crown fan
+17/31/46° with dominant at 2x gauge.
+hide-r7: 2.3 ("glossy black plastic") → THE SIX-ROUND CHROME CULPRIT was the
+DEF: default body finish roughness 0.38 + metalness 0.12 + full envmap =
+vinyl streak on every smooth neck sphere. bodyRoughness 0.74 / bodyMetalness
+0 / bodyEnvIntensity 0.35. Def-hook checklist grows: scales, horn, rimCruise
+(+Base), apexSeam half-bright, eyeEmissiveI, bodyRoughness/Metalness/Env.
+hide-r8 channel note: hide-4 crop switches wing-4x → wing-top tile (the 4x
+camera showed only undersides/arm where the chord banding can't appear).
+h-r11 + hide-r8 critics running on r35.
 
 ## NEXT (round 9 directives, from the r8 verdict)
 1. Wing root: extend inner membrane fillet aft along flank shoulder→hip
