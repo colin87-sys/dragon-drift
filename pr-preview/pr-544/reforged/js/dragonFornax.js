@@ -200,7 +200,7 @@ function buildEmberHaunch(def, model, legMat) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.26, 0.16, 1.05);
     // femur: abducted out + slightly down; haunch swell at the root
-    const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.30, 0.34).normalize().multiplyScalar(L.femur);   // ABDUCTED into the wing–tail gap (sheet §7)
+    const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.34, 0.10).normalize().multiplyScalar(L.femur);   // abducted, thigh biased forward — the knee reads as a fold
     hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.34, 0.16, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
@@ -213,10 +213,10 @@ function buildEmberHaunch(def, model, legMat) {
     knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.135, 0.065, legMat));
     const ankle = new THREE.Group(); ankle.position.copy(shinDir); knee.add(ankle);
     // three-toed plated foot, toes spread; ankle at 115°
-    const footDir = new THREE.Vector3(side * 0.12, -0.30, 0.55).normalize().multiplyScalar(L.foot);   // toes trail aft-down (flight tuck)
+    const footDir = new THREE.Vector3(side * 0.12, -0.30, 0.55).normalize().multiplyScalar(L.foot * 1.3);   // toes trail aft-down (flight tuck)
     for (let toe = -1; toe <= 1; toe++) {
       const td = footDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), toe * 0.3);
-      ankle.add(bone(0, 0, 0, td.x, td.y, td.z, 0.06, 0.022, legMat));
+      ankle.add(bone(0, 0, 0, td.x, td.y, td.z, 0.075, 0.028, legMat));
     }
     group.add(hip);
     legs[side === 1 ? 'legR' : 'legL'] = hip;
@@ -377,7 +377,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // shoulder. No stacked quads: propatagium, bays and body-fillet are REGIONS
     // of one surface, value-banded by vertex color. Digit ridges ride ON it.
     const S0 = [0.04, -0.02, -0.06];                     // shoulder root (pivot space)
-    const HIP = [0.14, -0.12 * hs, 1.62];                // flank/hip anchor — root chord runs to the hip
+    const HIP = [-0.30, -0.14 * hs, 1.66];               // crosses inboard of the flank — zero daylight at the root, chord runs to the hip
     const boundary = [];                                  // [x,y,z,tier] rim walk
     // leading edge S0→K→F0 (rigid, the arm line)
     const NLE = seg(6);
@@ -416,7 +416,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       }
     }
     // flank edge hip→shoulder (hugs the body)
-    boundary.push([S0[0] + 0.06, S0[1] - 0.03, S0[2] + 0.55, 3]);
+    boundary.push([-0.18, S0[1] - 0.06, S0[2] + 0.62, 3]);   // flank edge tucked under the torso
 
     // triangulate: radial fan from K (the planform is star-shaped around the wrist)
     const verts = [], cols = [], idx = [];
@@ -457,7 +457,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     }
 
     // fat bowed digit ridges ON the sail (the skeletal rays — anatomy, not decoration)
-    const ridgeLift = 0.10 * hs;
+    const ridgeLift = 0.055 * hs;
     const ridge = (tgt, a, b, wB, wT, mat, capMat, lift) => {
       const lf = lift ?? ridgeLift;
       const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
@@ -652,14 +652,14 @@ function buildFirebrandTail(def, model, mats, anchor) {
   const ridgeMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.55, flatShading: true });
   // hip→tail fillet: a tapered collar so the tail continues the spine, not a socket
   {
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.34, 0.62, seg(8)), tailMat);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.46, 0.72, seg(8)), tailMat);
     collar.rotation.x = Math.PI / 2 - 0.06;
     collar.position.set(0, a.y + 0.02, a.z + 0.18);
     group.add(collar);
   }
   const joints = [];
   let parent = group, zc = 0;
-  const rAt = (t) => 0.33 * Math.pow(1 - t * 0.90, 1.25) + 0.035;   // caudofemoralis bulge just aft of the hip, ×3 taper  // fat aft of hip, ×3 taper
+  const rAt = (t) => 0.42 * Math.pow(1 - t * 0.90, 1.3) + 0.04;   // base ~70% hip width, caudofemoralis bulge, ×3 taper  // fat aft of hip, ×3 taper
   const ridgeOn = Math.max(0, Math.round(model.tailRidge ?? 0));
   for (let j = 0; j < nJoints; j++) {
     const joint = new THREE.Group();
@@ -692,7 +692,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   // THE FIREBRAND terminus: blunt char cap + a banked-coal core that vents on Surge
   const tipZ = T / nJoints;
   const capMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.5, flatShading: true });
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, seg(6), seg(5)), capMat);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.20, seg(6), seg(5)), capMat);
   cap.scale.set(1, 0.9, 1.35);
   cap.position.set(0, -0.02, tipZ);
   parent.add(cap);
