@@ -1393,7 +1393,7 @@ export const DRAGONS = {
     hasStyle: true,
     // cruise rim: coal-not-torch — dim, wide-falloff, wings nearly rimless (the
     // amber Fresnel at full default read as glowing shoulder blobs)
-    rimCruise: 0.03, rimPowerMul: 2.0, rimWingMul: 0.18,
+    rimCruise: 0x140a04, rimCruiseBase: 0.12, rimPowerMul: 2.0, rimWingMul: 0.18,   // rimCruise is a COLOR; near-dark warm, coal-not-torch
     // Surge palette — the rig defaults to magenta; override EVERY hook. Wings
     // stay black on Surge (law 5 — tops dark, the underside sub-mesh owns the
     // leak); warm low screen wash (sheet-required); ember-amber eyes.
@@ -1405,7 +1405,7 @@ export const DRAGONS = {
     bodyShadow: 0x232226, bodyFacet: 0x443e3b, bodyDorsal: 0x5c534b,
     wingInner: 0x443e3b, wingOuter: 0x2e2c2f,
     eye: 0xff8912,
-    apexEye: 0xffb46b, apexSeam: 0xff8912, coreGlow: 0xff8912, surgeHi: 0xffb46b,
+    apexEye: 0xffb46b, apexSeam: 0x7a3e0c, coreGlow: 0xff8912, surgeHi: 0xffb46b,   // apexSeam feeds the baked body rim — half-bright so spheres never halo amber
     trail: 0x8a3c14, boostTrail: 0xd96a1e,
   },
 };
