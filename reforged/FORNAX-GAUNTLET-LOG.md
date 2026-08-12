@@ -38,6 +38,22 @@ resume blind rounds after surface value laddering lands.
 FIRE piece first target: surge tile seams clip toward cream (no-white-core law);
 underside leak weak on Surge. Calibrate emissive toward STOKE_DEEP/EMBER, boost
 underMat surge weight, then R>=G>=B pixel probe per sheet §12.
+FIRE cal 2 VERIFIED (r21 surge probe): cream pixels 0.00% (was clipping),
+brightest (229,211,178) warm-ordered. Residual "violations" (14.9%) are all
+dark blue-grey cool-ambient buckets on char hide — lighting, not fire pixels;
+law 4 holds on the fire lane. Next fire work: ember particles + STOKE cascade.
+
+## HEAD piece (fresh critic each round, face-front + face-profile tiles)
+h-r1: 1.5 vs bar 4.5 — X wins decisively. Gaps: (1) NO JAW (single closed
+wedge), (2) neck beads fatter than skull ("wedge pinned on a bead necklace",
+front view reads wattle), (3) one-horn crown, browless decal eye (startled owl).
+Fixes shipped (commit 9616f2e): lower-jaw loft hinged under the brow dip
+(~12 deg resting drop, 70% upper depth, bone-pale tooth strip + tip fangs,
+overbite hook station), neck retuned rBase 0.42/rStep 0.03/zStep -0.26 +
+neckBlend 1.35 (GOTCHA: blend MULTIPLIES radii — first try at rBase 0.55
+ballooned past the skull), trapezoid nape plate over the occiput rear, ranked
+horn pairs 60%/35% on the sweep arc + nape scutes, brow plates over eye top
+third, eyes inboard. h-r2 critic running on r21 tiles.
 
 ## NEXT (round 9 directives, from the r8 verdict)
 1. Wing root: extend inner membrane fillet aft along flank shoulder→hip
