@@ -298,6 +298,7 @@ export const DRAGONS = {
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 2, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
         bodyFins: 0.6, bodyFinCount: 3, caudalFork: 0.4, bodyReach: 11,   // whelp: a few small budding web-fans + a short leaf-fork; a proper RIBBON length even on the pup (Fable ribbon gate: the body IS the ribbon → give it real length to trail)
+        girthFull: 1.25, strakeLadder: true,   // CP5 LADDER (whelp rung): a chubby-pup mass floor + the dorsal→belly value ladder (cheap paint) so the pup already reads jade-family; the ribbed fans / scutes / gleam / koi-mask stay withheld for ascension to confer
         moonTail: 0.15,                    // GLOW-UP ladder: the tiniest veiltail NUB on the pup, so the tail grows pup-nub → bud → full veiltail across the three forms (same dragon growing, not a leap)
         crestRibbon: 0.2,                  // AAA: a faint nape hint of the dorsal crest ribbon (§5 ladder) — paint only, byte-identical geometry
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
@@ -313,6 +314,9 @@ export const DRAGONS = {
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 2, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
         bodyFins: 0.85, bodyFinCount: 4, caudalFork: 0.65, bodyReach: 16,   // web-fans unfurl down the lengthening body; leaf-fork buds — a long trailing ribbon (Fable ribbon gate)
+        fanRays: 5, fanRayRelief: 0.18, fanBayDepth: 0.12, fanSpread: 0.78, girthFull: 1.5,   // CP5 LADDER (adolescent rung): the fan-CROWN buds (5 pleats, a step below the apex's 7) as "lobes unfurl"; mid-body mass holds a step below apex
+        strakeLadder: true, scuteBand: true, scuteColor: 0xcdeedd, scuteCount: 10,   // the value ladder + a coarser, dimmer ventral scute band (brightens/coarsens to the apex)
+        riverGleam: true, gleamColor: 0x8ff5cf, gleamBase: 0.45, koiMask: 0.6,   // the withheld gleam BUDS (dim dew, floods less than apex) + a LIGHT koi-mask chisel; the full flood, saturated gem eye, and the ribbed TAIL REGALIA stay the coronation reward at apex
         moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
         caudalBloom: 0.35,                 // AAA §5: the fan BUDS (split barely dimples) — ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline
         crestRibbon: 0.55, bodyArcY: 0.16, bodyWaveAmpY: 0.18,   // AAA §5: the ribbon becomes a line; the vertical swim share deepens (rear-visible majesty, lateral amp untouched)
@@ -326,12 +330,17 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.74, eyeShape: 0.78, cuteEye: false,   // solid luminous-green gem eye (no black cartoon pupil) — Fable gate r7
+      { headScale: 0.68, snoutScale: 0.54, eyeScale: 0.95, eyeShape: 0.78, cuteEye: false,   // eyeScale 0.74→0.95: a proud GREEN gem eye so the koi-mask glower reads in the socket wedge, but not so big it blooms to a headlamp (Fable CP4 r3); solid luminous-green gem — Fable gate r7
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1, hornType: 'horn', hornLength: 1.2, hornCount: 2,
         bodyGirth: 0.46, bodyLength: 1.8,   // LONG serpentine apex — a proper river-dragon length so the row of web-fans reads proportional (IMG_7739); a touch plumper koi tube. Fable ribbon gate: the follow-the-leader body IS the ribbon, so it needs true trailing length (reach 14→20) to read as a gymnast's ribbon, not a sash.
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 3, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 0,   // pearlStage 0: drop the chin pearl entirely — it read as a floating blob under the jaw and isn't a reference feature (Fable gate r2)
         bodyFins: 1.0, bodyFinCount: 6, caudalFork: 1.0, bodyReach: 20,    // full ROW of broad koi web-fans down a LONG serpent + the grand leaf-fork tail (IMG_7739)
+        fanRays: 7, fanRayRelief: 0.22, fanBayDepth: 0.13, fanSpread: 0.82, bodyFinScale: 5.4,   // CP1 PREMIUM (r2): the ribbed fan-CROWN — 7 raised pleats per fan from a dark hub, GENTLY-scalloped rounded parasol edge (koi fan, not a frond), core→bloom→dark value triad + near-white rim. Shoulder scaled up for chase-distance presence. The RAY is jade's signature vocabulary (tail/head rhyme it). Apex-only for now (ladders down in CP5).
+        girthFull: 1.7, strakeLadder: true, scuteBand: true, scuteColor: 0xd4f5e2, scuteCount: 12,   // CP2 PREMIUM (r2): body PRESENCE — girth holds mid-body MASS through the third quarter (girthFull 1.7) · 4-step value ladder with spread endpoints (lit dorsal→mid→darker shadow strake→pale belly) · a RAISED, brighter, wider, coarser ventral scute band running throat→75% (koi underside plate system). Apex-only for now.
+        tailRegalia: true, koiMask: 1.0,   // CP4 PREMIUM: the tail leaves gain raised midribs + herringbone veins + a welded near-white tip-seat + gleam crest (the koi-leaf RHYME of the fan-crown's ribbed rays); the koi head gains an angular brow-ridge + dark eye-socket wedge + jaw-chine value chisel. Apex-only.
+        riverGleam: true, gleamColor: 0x8ff5cf, gleamBase: 0.85,   // CP3 PREMIUM (r3): lower cruise floor keeps the dew RIM-weighted; the big cruise→surge delta lives in the surge multiplier now (Fable v2: restore the ratio).
+        // (r2 note): the WITHHELD river-gleam — a per-vertex aGlow mask lights ONLY the fan-ray tips, tail-leaf points, whisker beads + a thin dorsal line; a CLEARLY-ON mint dew at cruise (breathes with the swim), blooming on Surge (casOverall). The tube never floods — withheld glow, the Tempest signature-ignition trick in jade's green lane. Apex-only.
         rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
         moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
         caudalBloom: 1.0,                  // AAA §5: THE GRAND FAN-BLOOM — 3-blade split caudal fan (the hero). ⚠ OWNER-APPROVAL (§3a.7): grows the rear outline

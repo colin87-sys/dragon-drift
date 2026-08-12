@@ -235,16 +235,43 @@ function buildKoiSkull(c) {
   const bodyC = c.mats.bodyMat.color.clone();
   const snoutC = bodyC.clone().multiplyScalar(0.72);          // a darker value step over the muzzle (law 11 tier)
   const jawC = bodyC.clone().multiplyScalar(1.25);            // jaw a LIGHT-JADE step (was the pale belly, which read slate-blue in shadow — CP2 polish); stays in the green family
+  // CP4 KOI MASK (koiMask, jade-only): angular value-break tiers chiselled onto the smooth loft — a
+  // bright BROW ridge over a dark under-brow SOCKET wedge (the eastern-dragon glower), and a crisp
+  // JAW CHINE light line along the mandible edge. Paint-only (no geometry rebuild → the shipped head
+  // silhouette + §7 asserts are untouched); default off keeps every non-jade koi head byte-identical.
+  const koiMask = c.model.koiMask ?? 0;
+  // lift the whole head a value step so the SUN-BACKLIT face still reads jade (not flat-black poverty,
+  // Fable CP4) — the chisel then rides on top. r3: gentler lift (was 1.32 → plastic-lime muzzle) +
+  // desaturate toward body jade so the head reads the same green family, not self-lit lime.
+  if (koiMask > 0) { bodyC.multiplyScalar(1.15); const g = (bodyC.r + bodyC.g + bodyC.b) / 3; bodyC.lerp(new THREE.Color(g, g, g), 0.12); }
+  const browHi = bodyC.clone().multiplyScalar(1.7);           // lit brow ridge — a bright chine that reads even backlit
+  const socketC = bodyC.clone().multiplyScalar(0.5);          // eye-socket wedge — a real dark glower under the brow
   const M = seg(14), verts = [], cols = [], idx = [], col = new THREE.Color();
   for (const [z, w, h, yc] of rings) {
     for (let k = 0; k < M; k++) {
       const a = (k / M) * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
       const keel = 1 + 0.05 * sn, yy = yc + h * sn * keel;
-      verts.push(w * cs, yy, z);
+      let px = w * cs, py = yy, pz = z;
+      if (koiMask > 0) {
+        // CHISEL THE SILHOUETTE (not just paint): flatten the snout TOP into an angular plane, raise a
+        // BROW-ridge overhang lip over the eyes, and carve an EYE-SOCKET recess on each side — so the
+        // front profile shows a straight brow + planed snout, not a round bulb (Fable CP4 r3).
+        if (z < -0.5 * sc && sn > 0.15) py -= koiMask * h * 0.5 * Math.min(1, (sn - 0.15) / 0.85);   // flat snout top-plane
+        if (z < -0.02 && z > -0.42 && sn > 0.55) { py += koiMask * h * 0.36; pz -= koiMask * 0.06; }   // brow overhang lip (up + forward) — a lit ridge edge above the socket
+        if (z < -0.34 && z > -0.64 && sn > -0.1 && sn < 0.45 && Math.abs(cs) > 0.35) { px *= (1 - koiMask * 0.16); py -= koiMask * h * 0.14; }   // eye-socket recess
+      }
+      verts.push(px, py, pz);
       col.copy(bodyC);
       if (sn > 0) col.lerp(crownC, sn * 0.75);                 // dorsal crown lift (the sunlit top reads mid-jade, not black)
       if (z < -0.72 * sc) col.copy(snoutC);                    // muzzle darker tier
       if (z < -0.42 * sc && sn < -0.12) col.copy(jawC);        // jaw underside = pale mint
+      if (koiMask > 0) {
+        // BROW ridge (top of the brow-shelf band) → a lit chine; the SOCKET just outboard/below dips dark
+        if (z < -0.06 && z > -0.5 && sn > 0.42) col.lerp(browHi, koiMask * Math.min(1, (sn - 0.42) / 0.5) * 0.85);
+        if (z < -0.3 && z > -0.66 && sn > -0.15 && sn < 0.42 && Math.abs(cs) > 0.35) col.lerp(socketC, koiMask * 0.7);   // dark socket wedge (the glower)
+        // JAW CHINE: a crisp light edge along the mandible line (the side, low but above the pale underside)
+        if (z < -0.4 && sn > -0.42 && sn < -0.12 && Math.abs(cs) > 0.5) col.lerp(jawC, koiMask * 0.7);
+      }
       cols.push(col.r, col.g, col.b);
     }
   }
@@ -258,6 +285,10 @@ function buildKoiSkull(c) {
   g.setIndex(idx); g.computeVertexNormals();
   const shellMat = c.mats.bodyMat.clone();
   shellMat.side = THREE.DoubleSide; shellMat.vertexColors = true; shellMat.color.set(0xffffff);
+  // the koi head is SUN-BACKLIT in the sunset biome; lift its green self-illumination floor so the
+  // camera-facing (shadow) face reads jade, not black (Fable CP4 flat-black-head fix). This clone is
+  // NOT the dragon.js-driven body-glow material, so the floor holds. koiMask-gated → jade-only.
+  if (koiMask > 0) shellMat.emissiveIntensity = Math.max(shellMat.emissiveIntensity || 0, 0.38);   // r3: 0.55 read plastic-lime/self-lit → 0.38 lifts the shadow face out of black without the self-lit tell
   c.head.add(new THREE.Mesh(g, shellMat));
   c.hx = 0.38; c.hy = 0.36; c.hz = 0.52;
   c.faceZ = -0.30; c.faceR = 0.38;

@@ -48,6 +48,13 @@ for (let form = 0; form <= maxT; form++) {
   const pos = bw.geo.attributes.position.array;
   const vcount = bw.geo.attributes.position.count;
 
+  // COLOR NaN guard: a bad vertex color (e.g. Color.lerp() passed a hex number, not a THREE.Color)
+  // produces NaN colors that black out the whole render but leave positions valid — the identity
+  // proof below would miss it. Catch it here.
+  const colAttr = bw.geo.attributes.color;
+  if (colAttr) { let nanC = 0; const ca = colAttr.array; for (let k = 0; k < ca.length; k++) if (!Number.isFinite(ca[k])) nanC++;
+    ok(nanC === 0, `jade f${form}: no NaN vertex colors (${nanC} bad — would black the render)`); }
+
   ok(rib.count === vcount, `jade f${form}: ribbon.count ${rib.count} === vertex count ${vcount}`);
   ok(rib.station.length === vcount && rib.offT.length === vcount && rib.offB.length === vcount && rib.offN.length === vcount,
     `jade f${form}: per-vertex arrays sized to vcount`);
