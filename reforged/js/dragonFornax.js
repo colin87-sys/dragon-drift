@@ -200,7 +200,7 @@ function buildEmberHaunch(def, model, legMat) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.22, 0.12, 1.08);
     // femur: abducted out + slightly down; haunch swell at the root
-    const femurDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.55, -0.40, 0.16).normalize().multiplyScalar(L.femur);   // tucked under the pelvis, knee fold reads
+    const femurDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.75, -0.36, 0.20).normalize().multiplyScalar(L.femur);   // tucked but reading past the sail edge in planform
     hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.34, 0.16, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
@@ -234,14 +234,10 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
     const saddleMat = new THREE.MeshStandardMaterial({ color: def.bodyFacet ?? FORNAX_TIERS.scorchMid, roughness: 0.6, metalness: 0.0, flatShading: true });
     const wr = r.attach.wingRoot(1);
     for (const side of [1, -1]) {
-      const block = new THREE.Mesh(new THREE.SphereGeometry(0.34, seg(7), seg(5)), saddleMat);
-      block.scale.set(1.5, 0.9, 1.9);
-      block.position.set(side * wr.x * 1.15, wr.y - 0.06, wr.z + 0.08);
+      const block = new THREE.Mesh(new THREE.SphereGeometry(0.40, seg(8), seg(6)), saddleMat);
+      block.scale.set(1.9, 0.85, 1.7);   // ONE smooth deltoid mass the spar grows out of
+      block.position.set(side * wr.x * 1.28, wr.y - 0.05, wr.z + 0.04);
       r.group.add(block);
-      const delt = new THREE.Mesh(new THREE.SphereGeometry(0.22, seg(6), seg(4)), saddleMat);
-      delt.scale.set(1.7, 0.8, 1.1);
-      delt.position.set(side * (wr.x * 1.5 + 0.12), wr.y * 0.86, wr.z);
-      r.group.add(delt);
       // flank weld strip: shoulder→hip along the torso side, just under the sail's body edge
       const fv = [], fi = [];
       const NW = seg(6);
@@ -377,7 +373,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // shoulder. No stacked quads: propatagium, bays and body-fillet are REGIONS
     // of one surface, value-banded by vertex color. Digit ridges ride ON it.
     const S0 = [0.04, -0.02, -0.06];                     // shoulder root (pivot space)
-    const HIP = [-0.30, -0.14 * hs, 1.66];               // crosses inboard of the flank — zero daylight at the root, chord runs to the hip
+    const HIP = [-0.26, -0.14 * hs, 2.30];               // inboard + AFT along the tail base — the planform's rear half is membrane, not rod
     const boundary = [];                                  // [x,y,z,tier] rim walk
     // leading edge S0→K→F0 (rigid, the arm line)
     const NLE = seg(6);
@@ -484,14 +480,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     const E = LE(wristT * 0.45);
     ridge(arm, LE(0), E, 0.26 * hs, 0.15 * hs, M.bone, null, armLift);
     ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.bone, null, armLift);
-    {
-      const s0c = LE(0);
-      const cw = 0.30 * hs;
-      arm.add(tri([
-        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw, s0c[1] + 0.06 * hs, s0c[2] - 0.30], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16]],
-        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16], [s0c[0] - cw * 0.3, s0c[1] + 0.05 * hs, s0c[2] + 0.34]],
-      ], M.memTiers[0]));
-    }
+    // forward fillet: closes the daylight notch between neck-side and the arm LE
+    arm.add(tri([[[-0.15, S0[1] + 0.02, S0[2] - 0.15], LE(0.30), S0]], M.memTiers[1]));
     // arm-frame fillet: a slim triangle welded at K + shoulder + flank so the
     // sail meets the body in EVERY pose (zero displacement at the shared pivot)
     arm.add(tri([[S0, [S0[0] + 0.06, S0[1] - 0.03, S0[2] + 0.55], K]], M.memTiers[3]));
