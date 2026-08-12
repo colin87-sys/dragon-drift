@@ -196,9 +196,9 @@ function buildEmberHaunch(def, model, legMat) {
     hip.position.set(side * 0.26, 0.16, 1.05);
     // femur: abducted out + slightly down; haunch swell at the root
     const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.38, 0.42).normalize().multiplyScalar(L.femur);
-    hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.24, 0.13, legMat));
+    hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.30, 0.15, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
-    const swell = new THREE.Mesh(new THREE.SphereGeometry(0.24, seg(7), seg(5)), legMat);
+    const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
     swell.scale.set(1.15, 0.85, 1.3);
     swell.position.set(femurDir.x * 0.22, femurDir.y * 0.22 + 0.02, femurDir.z * 0.22);
     hip.add(swell);
@@ -300,8 +300,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   // digit tips fan aft from K: D1 pins the envelope; D2–D4 at ×0.66 rank decay
   // off the D1=1.6× dominance (sheet §5), contracting spacing, drooping aft-down
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
-  const lenFrac = [1, 0.78, 0.61, 0.48];   // ref §4 decay band (0.62–0.82/rank) — D1 = 1.6× the mean of the others
-  const spanAft = 1.35;
+  const lenFrac = [1, 0.82, 0.68, 0.55];   // ref §4 decay band — high end, so the three bays stay comparable
+  const spanAft = 1.02;
   const tips = [F0];
   for (let i = 1; i < nDigits; i++) {
     const gap = (1 - Math.pow(0.72, i)) / (1 - Math.pow(0.72, nDigits - 1));   // contracting spacing
@@ -424,15 +424,6 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     }
     if (underGlowT.length) hand.add(tri(underGlowT, underMat));
 
-    // trailing knife-edge — one connected band inboard of the scallop polyline
-    if (trailing.length > 1) {
-      const eT = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.06, p[1] + (K[1] - p[1]) * 0.06 + 0.001, p[2] + (K[2] - p[2]) * 0.06];
-      for (let s = 0; s < trailing.length - 1; s++) {
-        const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b);
-        eT.push([a, b, bi], [a, bi, ai]);
-      }
-      hand.add(tri(eT, M.edge));
-    }
 
     // ROOT GUSSET — inboard membrane sweeping aft toward the hip, hem clamped at
     // 0.65 of the shoulder→hip run (§7 — the abducted thighs own the aft wedge)
@@ -456,7 +447,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const pivots = {};
   for (const side of [1, -1]) {
     const root = attach.wingRoot(1);
-    const pivot = new THREE.Group(); pivot.position.set(root.x * 1.35, root.y * 0.78, root.z); pivot.userData.wingRole = 'pivot';
+    const pivot = new THREE.Group(); pivot.position.set(root.x * 1.5, root.y * 0.7, root.z); pivot.userData.wingRole = 'pivot';
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
@@ -601,7 +592,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   const ridgeMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.55, flatShading: true });
   const joints = [];
   let parent = group, zc = 0;
-  const rAt = (t) => 0.27 * Math.pow(1 - t * 0.90, 1.1) + 0.035;  // fat aft of hip, ×3 taper
+  const rAt = (t) => 0.33 * Math.pow(1 - t * 0.90, 1.25) + 0.035;   // caudofemoralis bulge just aft of the hip, ×3 taper  // fat aft of hip, ×3 taper
   const ridgeOn = Math.max(0, Math.round(model.tailRidge ?? 0));
   for (let j = 0; j < nJoints; j++) {
     const joint = new THREE.Group();
