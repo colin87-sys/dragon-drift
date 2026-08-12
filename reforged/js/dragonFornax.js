@@ -537,8 +537,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // the arm), with the scapular slag-cowl swallowing the root into the torso
     const armLift = 0.06 * hs;
     const E = LE(wristT * 0.45);
-    ridge(arm, LE(0), E, 0.26 * hs, 0.15 * hs, M.bone, null, armLift);
-    ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.bone, null, armLift);
+    ridge(arm, LE(0), E, 0.26 * hs, 0.15 * hs, M.bone, M.boneCap, armLift);   // hide-r5: top facet lifts off the membrane
+    ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.boneDim, M.boneCap, armLift);
     // forward fillet: closes the daylight notch between neck-side and the arm LE
     arm.add(tri([[[-0.15, S0[1] + 0.02, S0[2] - 0.15], LE(0.30), S0]], mkMat(def.wingOuter ?? FORNAX_TIERS.charBase)));   // NOT wingMat — no color attr
     // arm-frame fillet: a slim triangle welded at K + shoulder + flank so the
@@ -676,40 +676,52 @@ function buildBrandSkull(def, model, mats) {
   jg.setIndex(ji); jg.computeVertexNormals();
   const jawGrp = new THREE.Group();
   jawGrp.position.set(0, -H * 0.10, L * 0.12);
+  {
+    const coalMat = new THREE.MeshStandardMaterial({ color: 0x1a0c06, emissive: STOKE_DEEP, emissiveIntensity: 0.22, roughness: 0.9, flatShading: true });
+    coalMat.userData.baseEmissive = STOKE_DEEP; coalMat.userData.baseIntensity = 0.22;
+    coalMat.userData.flareIntensityWeight = 0.3;
+    const coals = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.34, L * 0.18, 2, 1), coalMat);
+    coals.rotation.x = -Math.PI / 2 + 0.10;
+    coals.position.set(0, H * 0.028, -L * 0.20);   // banked INSIDE the maw floor — a glimpse, not a decal
+    jawGrp.add(coals);
+  }
   jawGrp.rotation.x = -0.40;                     // ~23° resting gape (h-r5: menace lives in the lower third)
   jawGrp.add(new THREE.Mesh(jg, jawMat));
   group.add(jawGrp);
   // masseter mass — a jaw-muscle wedge over the hinge on each side (h-r5: the
   // jaw must look DRIVEN; a hinge without muscle reads as a plank on a pin)
   for (const side of [-1, 1]) {
-    const mass = new THREE.Mesh(new THREE.SphereGeometry(0.16 * hs, seg(5), seg(4)), jawMat);
-    mass.scale.set(0.75, 1.0, 1.35);
-    mass.position.set(side * W * 0.56, -H * 0.16, L * 0.10);
+    const mass = new THREE.Mesh(new THREE.SphereGeometry(0.20 * hs, seg(5), seg(4)), jawMat);
+    mass.scale.set(0.72, 1.05, 1.30);
+    mass.position.set(side * W * 0.58, -H * 0.14, L * 0.20);   // h-r8: BEHIND the hinge
     mass.rotation.x = -0.25;
     group.add(mass);
   }
 
   // tooth strip — lighter zig-zag along the seam (upper gum line) + tip fangs.
   // Bone-pale, NOT emissive (the menace is value contrast, not glow — law 6).
-  const toothMat = new THREE.MeshStandardMaterial({ color: 0xcdbfa3, roughness: 0.45, metalness: 0.0, flatShading: true });   // hide-r4: worn ivory — teeth are keratin, not hide
-  for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
-    const t = i / 3;
-    const tz = -L * (0.48 - t * 0.30);           // strip ends BEFORE the cheek engulfs the jaw
-    const tw = W * (0.16 + t * 0.34);
-    const fang = i === 0 ? 1.9 : 1.0;            // h-r5: front pair 2x — fang-fang, not zipper
-    const len = (0.085 - i * 0.012) * hs * fang;
+  const toothMat = new THREE.MeshStandardMaterial({ color: 0xc9b48e, roughness: 0.6, metalness: 0.0, flatShading: true });   // hide-r4: worn ivory — teeth are keratin, not hide
+  // h-r8: a weapon SET, not a picket fence — hero canines + two raked teeth per
+  // side, all forward of mid-gape; the aft gape stays EMPTY (the dark furnace maw)
+  for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const t = i / 2;
+    const tz = -L * (0.50 - t * 0.18);           // strip lives in the front 40% of the mouth
+    const tw = W * (0.15 + t * 0.22);
+    const fang = i === 0 ? 2.0 : 1.0;            // hero canines near the snout tip
+    const len = (0.085 - i * 0.014) * hs * fang;
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.024 * hs * (fang > 1 ? 1.35 : 1), len, seg(4)), toothMat);
-    tooth.rotation.x = Math.PI;                  // hang from the upper gum line
-    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.26) - len * 0.22, tz);
+    tooth.rotation.x = Math.PI + 0.22;           // raked BACKWARD 12° (predator, not zipper)
+    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.20) - len * 0.22, tz);
     group.add(tooth);
   }
   for (const side of [-1, 1]) {                  // lower fangs rise just inside the hook
     const fang = new THREE.Mesh(new THREE.ConeGeometry(0.036 * hs, 0.17 * hs, seg(4)), toothMat);
     fang.position.set(side * W * 0.10, H * 0.08, -L * 0.56);
     jawGrp.add(fang);
-    for (let k = 0; k < 2; k++) {                // h-r7: a real lower row, rooted in the jaw rim
-      const lt = new THREE.Mesh(new THREE.ConeGeometry(0.022 * hs, 0.09 * hs, seg(4)), toothMat);
-      lt.position.set(side * W * (0.20 + 0.09 * k), H * 0.06, -L * (0.42 - 0.12 * k));
+    {                                            // h-r8: ONE lower tooth per side, 0.6x, forward — the aft gape stays dark
+      const lt = new THREE.Mesh(new THREE.ConeGeometry(0.020 * hs, 0.08 * hs, seg(4)), toothMat);
+      lt.rotation.x = 0.18;
+      lt.position.set(side * W * 0.20, H * 0.06, -L * 0.44);
       jawGrp.add(lt);
     }
   }
@@ -745,6 +757,7 @@ function buildBrandSkull(def, model, mats) {
   }
   // small ember eyes — inboard + forward-set under the angled brow (law 6 accent)
   const eyeMat = mats.eyeMat;
+  eyeMat.userData.flareIntensityWeight = 0.5;    // hide-r5: the eye is a FURNACE-orange ember, never ACES-cream
   for (const side of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045 * hs, seg(6), seg(4)), eyeMat);
     eye.position.set(side * W * 0.44, H * 0.30, -L * 0.17);
@@ -804,6 +817,22 @@ function buildBrandSkull(def, model, mats) {
       h.rotation.x = 0.58 + r * 0.20;             // cascade DOWN from the raked dominant
       group.add(h);
     }
+  }
+  // brow-spike tier (h-r8: 0.25x — the smallest rank of the crown fan)
+  for (const side of [-1, 1]) {
+    const bs = mkHorn(hornLen * 0.25, 0.045 * hs);
+    bs.position.set(side * W * 0.50, H * 0.42, -L * 0.10);
+    bs.rotation.z = side * -0.50;
+    bs.rotation.x = 0.20;
+    group.add(bs);
+  }
+  // crest spikes welding skull to neck — two small pairs continuing down the nape line
+  for (let k = 0; k < 2; k++) for (const side of [-1, 1]) {
+    const ns = mkHorn(hornLen * (0.22 - 0.06 * k), 0.032 * hs);
+    ns.position.set(side * W * (0.20 - 0.05 * k), H * (0.30 - 0.14 * k), L * (0.50 + 0.16 * k));
+    ns.rotation.z = side * -0.30;
+    ns.rotation.x = 0.85 + k * 0.12;
+    group.add(ns);
   }
   // continuous occipital crest ridge — the horns GROW from this, brow to nape
   {

@@ -1390,6 +1390,7 @@ export const DRAGONS = {
         eyeScale: 0.6, headScale: 1.48,
         colors: { body: 0x2e2c2f, belly: 0x3d3937, wingOuter: 0x2e2c2f, eye: 0xffb46b } },   // the banked furnace
     ],
+    eyeEmissiveI: 1.2,   // hide-r5: default 2.2 ACES-clips the ember eye to cream
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
     hasStyle: true,
     // cruise rim: coal-not-torch — dim, wide-falloff, wings nearly rimless (the
