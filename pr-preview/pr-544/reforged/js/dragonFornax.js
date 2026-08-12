@@ -102,18 +102,19 @@ const FORNAX_PROFILE = (() => {
   p.keel = ARROW_PROFILE.keel.map((s) => s.slice());
   // shoulder peak: WIDER and FLATTER than the arrow (anvil, not blade) — halfWidth
   // up, keelTop down (shallow keel), belly held (the mass wraps, §4)
-  p.stations[3][1] = 0.74; p.stations[3][2] = 0.46; p.stations[3][3] = 0.56;
+  p.stations[3][1] = 0.74; p.stations[3][2] = 0.46; p.stations[3][3] = 0.66;
   p.keel[1][1] = 0.46;
   // thorax carries the anvil aft — broad, low
-  p.stations[4][1] = 0.62; p.stations[4][2] = 0.38; p.stations[4][3] = 0.50;
+  p.stations[4][1] = 0.62; p.stations[4][2] = 0.38; p.stations[4][3] = 0.58;
   p.keel[2][1] = 0.38;
   // waist pinch stays (70/30 split pivot), hips carry the haunch swell;
   // aft-body LENGTHENED so the torso reads as a ribcage, not a stub
   p.stations[5][0] = 0.85; p.stations[6][0] = 1.55; p.stations[7][0] = 2.15;
   p.keel[3][0] = 0.85; p.keel[4][0] = 1.55; p.keel[5][0] = 2.15;
   p.tailAnchorZ = 1.55; p.tailShiftRefZ = 2.15;
-  p.stations[6][1] = 0.33; p.stations[6][2] = 0.24;
-  p.keel[4][1] = 0.24;
+  p.stations[6][1] = 0.46; p.stations[6][2] = 0.30; p.stations[6][3] = 0.30;
+  p.stations[7][1] = 0.30; p.stations[7][2] = 0.20; p.stations[7][3] = 0.18;
+  p.keel[4][1] = 0.30;
   // BARREL not plate: pull width toward depth (ribcage ellipse, ventral keel line)
   p.stations[3][1] = 0.72; p.stations[4][1] = 0.64;
   // a longer, higher-reaching neck (2-segment S — the head leads the animal)
