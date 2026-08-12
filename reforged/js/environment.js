@@ -7,7 +7,7 @@ import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint, setMireWaterPools } from './water.js';
 import { setGoldEmberTint } from './goldEmbers.js';
 import { setEmberTint } from './embers.js';
-import { createAmbient, updateAmbient } from './ambient.js';
+import { createAmbient, updateAmbient, getOrchardRafts } from './ambient.js';
 import { createRain, updateRain, setRainTier, rainGustAt, setRainFlash } from './rain.js';
 import { initStormLightning, updateStormLightning, setStormLightningEnabled, getStormFlashSky, getStormFlashRain, getStormFlashDir } from './stormLightning.js';
 import { damp } from './util.js';
@@ -6321,6 +6321,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     wakeMix: env.wakeMix,
     // uplift PR-A: water half of the value scheme + pulse-ring + mirror-smudge; 0 elsewhere = identical.
     structMix: env.empyStructMix,
+    // GHOST ORCHARD P1: raft reverse-ripples + rose discs; 0 elsewhere = byte-identical.
+    orchardMix: env.empyOrchardMix, rafts: getOrchardRafts(),
   });
   // THE EMPYREAN uplift PR-1: rose-gold pickup tint (the canary comet is the loudest warmth violation
   // on the pearl field). Rides empyMix → 0 elsewhere = the shipped gold, lerp-identity.

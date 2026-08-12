@@ -44,6 +44,41 @@ async function darkBudget(page, buf, label) {
   return ok;
 }
 
+// GHOST ORCHARD P1 probes — the petal band must FILL and rise UP. Frozen-camera pair (live1..liveN):
+// count moving rose pixels (R>B) per horizontal third of the water→sky band, and the fraction that
+// displaced screen-UP. Run on the frozen live sequence.
+async function orchardProbe(page, bufA, bufB) {
+  const r = await page.evaluate(async ([a, b]) => {
+    const load = (x) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + x; });
+    const [ia, ib] = await Promise.all([load(a), load(b)]);
+    const px = (img) => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+    const da = px(ia), db = px(ib), W = ia.width, H = ia.height;
+    // band = full frame height (petals rise water→sky); thirds by screen-Y
+    const thirds = [0, 0, 0]; let up = 0, moved = 0;
+    // Fable's near-LOD saturation gate: petals must read ROSE, not white. Sample screen HSV-sat on the
+    // moving-rose pixels (= petals + rings). satHi = fraction with sat >= 0.30. This is what catches the
+    // "GREEN band totals but WHITE near petals" split the band probe missed.
+    let satSum = 0, satHi = 0;
+    for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+      const i = (y * W + x) * 4;
+      const roseA = da[i] > da[i + 2] + 6 && da[i] > 150, roseB = db[i] > db[i + 2] + 6 && db[i] > 150;
+      const changed = Math.abs(da[i] - db[i]) > 10 || Math.abs(da[i + 2] - db[i + 2]) > 10;
+      if ((roseA || roseB) && changed) {
+        moved++;
+        thirds[Math.min(2, Math.floor(y / (H / 3)))]++;
+        const mx = Math.max(db[i], db[i + 1], db[i + 2]), mn = Math.min(db[i], db[i + 1], db[i + 2]);
+        const sat = mx > 0 ? (mx - mn) / mx : 0;
+        satSum += sat; if (sat >= 0.30) satHi++;
+        // does a rose pixel here appear ABOVE where it was? sample 8px up in A vs here in B
+        const iu = ((y - 8) * W + x) * 4;
+        if (y > 8 && db[i] > db[i + 2] + 6 && da[iu] <= da[iu + 2] + 6) up++;
+      }
+    }
+    return { thirds, upFrac: moved ? +(up / moved).toFixed(2) : 0, meanSat: moved ? +(satSum / moved).toFixed(2) : 0, satHiFrac: moved ? +(satHi / moved).toFixed(2) : 0 };
+  }, [bufA.toString('base64'), bufB.toString('base64')]);
+  console.log(`  [orchard-probe] rose/third=[${r.thirds}] upFrac=${r.upFrac} meanSat=${r.meanSat} satHiFrac=${r.satHiFrac} (bars: third>=250, upFrac>=0.5, meanSat>=0.30, satHiFrac>=0.5)`);
+}
+
 // PR-A r6 machine probes (gate r5 fix 3): verify the two contested numbers IN THE FRAMEBUFFER before
 // any critic spawn — quarter-frame flank delta at the line rows, and moving-ROSE pixels in the water.
 async function structProbes(page, bufCruise, bufL1, bufL4) {
@@ -83,11 +118,13 @@ async function session(tag, view, shots) {
   }, { timeout: 30000, polling: 500 });
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.__dd.noBoss(true));
-  let _cruiseBuf = null, _live1Buf = null, _liveLastBuf = null;
+  let _cruiseBuf = null, _live1Buf = null, _live2Buf = null, _liveLastBuf = null;
   for (const s of shots) {
     // fly to the shot's lane distance with the sim running, then settle the fog/sky lerp
     await page.evaluate((d) => { window.__dd.game.timeScale = 1; window.__dd.player.dist = d; }, s.dist);
-    await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, s.dist).catch(() => {});
+    // sweep obstacles EVERY poll while the sim advances — the ghost trees slow the headless renderer enough
+    // that the auto-flying player over-steps into a live crystal wall between shots (caught the CRASHED! screen).
+    await page.waitForFunction((d) => { window.__dd.clearObstacles && window.__dd.clearObstacles(); return window.__dd.player.dist > d + 40; }, { timeout: 8000 }, s.dist).catch(() => {});
     // settle the fog/sky lerp while SWEEPING obstacles — a gate that respawns mid-settle can crash the
     // auto-flying player before the freeze (a phone-late frame once captured the CRASHED! screen).
     for (let w = 0; w < 4; w++) {
@@ -127,7 +164,7 @@ async function session(tag, view, shots) {
           console.log(`  [motion-diff ${tag}-${s.name}${k + 1}] changed=${df}${s.frozen ? (df < 0.35 ? ' (frozen OK - shader/water motion only)' : ' (FREEZE FAILED)') : ''}`);
         }
         _prevB64 = buf.toString('base64');
-        if (k === 0) _live1Buf = buf; _liveLastBuf = buf;
+        if (k === 0) _live1Buf = buf; if (k === 1) _live2Buf = buf; _liveLastBuf = buf;
         if (k < s.burst - 1) for (let g = 0; g < 5; g++) {   // sweep DURING the live gap too — a gate respawning mid-burst kills the auto-flying player (a live3 frame once caught the death fade-to-black)
           await page.evaluate(([fz, d]) => {
             if (fz) { window.__dd.game.timeScale = 0; window.__dd.player.dist = d; }
@@ -158,6 +195,7 @@ async function session(tag, view, shots) {
     }, s.pitch);
   }
   if (_cruiseBuf && _live1Buf && _liveLastBuf) await structProbes(page, _cruiseBuf, _live1Buf, _liveLastBuf);
+  if (_live2Buf && _liveLastBuf) await orchardProbe(page, _live2Buf, _liveLastBuf);
   await done();
 }
 

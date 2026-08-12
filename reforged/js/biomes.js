@@ -333,6 +333,9 @@ export const BIOMES = [
     // Player-coupled WAKE (uplift PR-1): ripple rings radiate from the dragon on the nacre — the water
     // answers the player ("world that notices you", the audit's #1 add). 0 elsewhere → byte-identical.
     wake: 1,
+    // GHOST ORCHARD (evolution P1): rising rose-petal columns + living-water rafts. 0 elsewhere →
+    // byte-identical. Consumed by ambient.js (petals) + water.js (raft reverse-ripples).
+    orchard: 1,
     // VALUE STRUCTURE + WORLD PULSE (uplift PR-A, owner-approved theology amendment): the 3-tier value
     // scheme (darkened dusty-violet flanks framing the bright corridor to the Mote), the disc's 8s
     // pulse-ring, the mirror-smudge, orbiters and the sky ribbon. 0 elsewhere -> byte-identical.
@@ -604,6 +607,8 @@ const env = {
   wakeMix: 0,
   // THE EMPYREAN uplift PR-A — value structure + world pulse (0 elsewhere → byte-identical).
   empyStructMix: 0,
+  // GHOST ORCHARD P1 — rising petal columns + living water (0 elsewhere → byte-identical).
+  empyOrchardMix: 0,
   // THE MOTE landmark mix (§8): 0 in every non-mote biome → byte-identical (whale mesh path unchanged).
   moteMix: 0,
   // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
@@ -740,6 +745,8 @@ export function computeEnv(dist) {
   env.wakeMix = lerp(a.wake || 0, b.wake || 0, ts);
   // THE EMPYREAN uplift PR-A value-structure gate: 0 elsewhere = byte-identical sky + water.
   env.empyStructMix = lerp(a.empyStruct || 0, b.empyStruct || 0, ts);
+  // GHOST ORCHARD P1 gate: 0 elsewhere = byte-identical (petals + raft ripples).
+  env.empyOrchardMix = lerp(a.orchard || 0, b.orchard || 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);

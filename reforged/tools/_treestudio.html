@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ghost Sakura Tree Studio</title>
+  <style>html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden}#gl{position:fixed;left:0;top:0}#err{position:fixed;left:12px;top:12px;color:#ff9a9a;font:13px system-ui;white-space:pre-wrap;display:none}</style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__pserr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display='block'; e.textContent='Studio error:\n'+m; } };
+    window.addEventListener('error', (ev) => window.__pserr((ev.error && ev.error.stack) || ev.message));
+    window.addEventListener('unhandledrejection', (ev) => window.__pserr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="700" height="700"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildOrchardTree } from '../js/orchardTree.js';
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;   // match the game
+    renderer.toneMappingExposure = 1.0;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 5000);
+
+    // flat vertex-colour material — how these ship in-game (no lighting)
+    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+    let tree = null, trunkMesh = null, canopyMesh = null, monolith = null;
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+
+    // a bone-pale monolith next to the tree (material-family check)
+    function makeMonolith() {
+      const g = new THREE.CylinderGeometry(0.9, 1.2, 12, 6);
+      const col = [];
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const L = 0.72; col.push(L, L*0.975, L*1.02); }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      const m = new THREE.Mesh(g, mat); m.position.set(7, 6, 0); return m;
+    }
+
+    window.tsBuild = (seed) => {
+      if (tree) { scene.remove(tree); tree.traverse(o => o.geometry && o.geometry.dispose()); }
+      if (monolith) scene.remove(monolith);
+      const { trunk, canopy } = buildOrchardTree(seed || 1);
+      trunkMesh = new THREE.Mesh(trunk, mat);
+      canopyMesh = new THREE.Mesh(canopy, mat);
+      tree = new THREE.Group(); tree.add(trunkMesh); tree.add(canopyMesh);
+      scene.add(tree); tree.updateMatrixWorld(true);
+      return { trunkTris: trunk.attributes.position.count / 3, canopyTris: canopy.attributes.position.count / 3 };
+    };
+
+    const ANGLES = {
+      front:  { dir: [0.02, 0.12, 1] }, side: { dir: [1, 0.10, 0.03] },
+      q34:    { dir: [0.72, 0.20, 0.80] }, top: { dir: [0.001, 1, 0.001], up: [0,0,-1] },
+    };
+    const BG = { field: 0xd7cbe1, key: 0x00ff00, pale: 0xcdd6e2 };
+
+    function fit(dirArr, up, fillFrac, subject) {
+      _box.setFromObject(subject || tree); _box.getCenter(_c); _box.getSize(_s);
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      const dist = (radius / Math.tan(camera.fov*Math.PI/360)) / (fillFrac || 0.80);
+      camera.up.set(up ? up[0]:0, up ? up[1]:1, up ? up[2]:0);
+      const d = new THREE.Vector3(...dirArr).normalize();
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = Math.max(0.01, dist/500); camera.far = dist*40; camera.updateProjectionMatrix();
+      camera.lookAt(_c);
+    }
+    function sizeGL(px) { gl.width=px; gl.height=px; renderer.setSize(px,px,false); camera.aspect=1; camera.updateProjectionMatrix(); }
+
+    // full render at a named angle on a bg. monolith toggled for the family shot.
+    window.tsRender = (o) => {
+      sizeGL(o.px || 700);
+      scene.background = new THREE.Color(BG[o.bg] ?? BG.field);
+      if (o.withMono && !monolith) { monolith = makeMonolith(); }
+      if (monolith) { if (o.withMono) scene.add(monolith); else scene.remove(monolith); }
+      trunkMesh.visible = !o.canopyOnly;
+      const a = ANGLES[o.angle] || ANGLES.front;
+      fit(a.dir, a.up, o.fill, o.cruise ? tree : tree);
+      if (o.cruise) { const d = new THREE.Vector3(...a.dir).normalize(); camera.position.copy(_c).addScaledVector(d, o.cruise); camera.updateProjectionMatrix(); camera.lookAt(_c); }
+      renderer.render(scene, camera);
+      trunkMesh.visible = true;
+      return true;
+    };
+    window.tsPNG = () => gl.toDataURL('image/png').split(',')[1];
+
+    // ── PROBES (read the framebuffer) ──────────────────────────────────────────
+    function pixels() { const px = gl.width; const c = document.createElement('canvas'); c.width=px; c.height=px; const x=c.getContext('2d'); x.drawImage(gl,0,0); return { d: x.getImageData(0,0,px,px).data, W: px, H: px }; }
+    const isKey = (d,i) => d[i] < 90 && d[i+1] > 165 && d[i+2] < 90;   // green key bg
+    const lum = (d,i) => 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+
+    // sky-gap: canopy-only on key bg. Flood bg from border = "outside"; interior key pixels
+    // inside the canopy bbox that aren't outside = HOLES. Count connected holes ≥1.5% bbox.
+    window.tsGapProbe = () => {
+      const { d, W, H } = pixels();
+      // canopy bbox = non-key pixels bounds
+      let x0=W, y0=H, x1=0, y1=0, any=false;
+      for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=(y*W+x)*4; if(!isKey(d,i)){any=true; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+      if(!any) return { holes:0, sizes:[], bboxFrac:0 };
+      const bw=x1-x0+1, bh=y1-y0+1, bboxArea=bw*bh;
+      // flood "outside" key from the whole-image border
+      const out = new Uint8Array(W*H); const st=[];
+      for(let x=0;x<W;x++){ st.push(x,0, x,H-1); } for(let y=0;y<H;y++){ st.push(0,y, W-1,y); }
+      while(st.length){ const y=st.pop(), x=st.pop(); if(x<0||y<0||x>=W||y>=H) continue; const k=y*W+x; if(out[k]) continue; const i=k*4; if(!isKey(d,i)) continue; out[k]=1; st.push(x+1,y,x-1,y,x,y+1,x,y-1); }
+      // interior holes = key pixels within bbox not marked outside → CC label
+      const seen=new Uint8Array(W*H); const sizes=[];
+      for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){ const k=y*W+x; const i=k*4; if(!isKey(d,i)||out[k]||seen[k]) continue; let area=0; const s2=[x,y]; seen[k]=1; while(s2.length){ const yy=s2.pop(), xx=s2.pop(); area++; for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=xx+dx, ny=yy+dy; if(nx<x0||ny<y0||nx>x1||ny>y1) continue; const nk=ny*W+nx; if(seen[nk]||out[nk]||!isKey(d,nk*4)) continue; seen[nk]=1; s2.push(nx,ny); } } sizes.push(+(100*area/bboxArea).toFixed(2)); }
+      sizes.sort((a,b)=>b-a);
+      const big = sizes.filter(s=>s>=1.5);
+      // convexity: canopy-silhouette area / its convex-hull area. A solid disc→~1.0; a spiky, deeply
+      // notched (non-blob) canopy→lower. Compute per-row [minX,maxX] fill vs the row's solid span, plus
+      // the fraction of bbox that is silhouette (density). fillFrac low = lots of sky broken into the mass.
+      let sil = 0; // non-key pixels within bbox
+      for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){ if(!isKey(d,(y*W+x)*4)) sil++; }
+      // per-row concavity: sky pixels BETWEEN the leftmost and rightmost silhouette pixel of each row
+      let interSky = 0, span = 0;
+      for (let y=y0;y<=y1;y++){ let lo=-1, hi=-1; for(let x=x0;x<=x1;x++){ if(!isKey(d,(y*W+x)*4)){ if(lo<0)lo=x; hi=x; } } if(lo<0) continue; span += (hi-lo+1); for(let x=lo;x<=hi;x++){ if(isKey(d,(y*W+x)*4)) interSky++; } }
+      const fillFrac = +(sil/Math.max(1,bboxArea)).toFixed(2);           // 1.0=solid box, lower=airier
+      const notchFrac = +(100*interSky/Math.max(1,span)).toFixed(1);     // % of the horizontal span that is SKY between edges (deep notches / windows)
+      return { holes: big.length, sizes: sizes.slice(0,6), bboxFrac:+(100*bboxArea/(W*H)).toFixed(1), fillFrac, notchFrac };
+    };
+
+    // rose coverage + laws on the pale-field render (full tree)
+    window.tsColorProbe = () => {
+      const { d, W, H } = pixels();
+      let tree=0, rose=0, warmGreen=0; let minL=999; const lums=[];
+      for (let i=0;i<d.length;i+=4){ if(isKey(d,i)) continue; const r=d[i],g=d[i+1],b=d[i+2];
+        // background field is pale lavender (r≈b>g slightly, high L). tree pixels differ from bg.
+        const isBg = Math.abs(r-215)<10 && Math.abs(g-203)<10 && Math.abs(b-225)<10;
+        if (isBg) continue; tree++;
+        const mx=Math.max(r,g,b), mn=Math.min(r,g,b), sat=mx>0?(mx-mn)/mx:0;
+        // rose: R dominant, B second, G lowest, decent sat
+        if (r>b+8 && r>g+18 && sat>0.12) rose++;
+        // warm/green: hue 20-140 → G or R dominant in a non-rose way. Approx: green if g>r and g>b; warm if r>g>b (orange)
+        if ((g>r+6 && g>b+6) || (r>g+6 && g>b+10 && b<g)) warmGreen++;
+        const L=lum(d,i); lums.push(L); if(L<minL) minL=L;
+      }
+      lums.sort((a,b)=>a-b);
+      const p01 = lums.length ? lums[Math.floor(lums.length*0.01)] : 0;
+      return { treePx:tree, rosePct:+(100*rose/Math.max(1,tree)).toFixed(1), warmGreen, minL:+minL.toFixed(0), p01L:+p01.toFixed(0) };
+    };
+
+    try { sizeGL(700); window.__ready = true; } catch(e){ window.__pserr((e&&e.stack)||String(e)); }
+  </script>
+</body>
+</html>
