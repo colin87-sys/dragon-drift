@@ -102,10 +102,10 @@ const FORNAX_PROFILE = (() => {
   p.keel = ARROW_PROFILE.keel.map((s) => s.slice());
   // shoulder peak: WIDER and FLATTER than the arrow (anvil, not blade) — halfWidth
   // up, keelTop down (shallow keel), belly held (the mass wraps, §4)
-  p.stations[3][1] = 0.74; p.stations[3][2] = 0.46; p.stations[3][3] = 0.48;
+  p.stations[3][1] = 0.74; p.stations[3][2] = 0.46; p.stations[3][3] = 0.56;
   p.keel[1][1] = 0.46;
   // thorax carries the anvil aft — broad, low
-  p.stations[4][1] = 0.62; p.stations[4][2] = 0.38; p.stations[4][3] = 0.42;
+  p.stations[4][1] = 0.62; p.stations[4][2] = 0.38; p.stations[4][3] = 0.50;
   p.keel[2][1] = 0.38;
   // waist pinch stays (70/30 split pivot), hips carry the haunch swell
   p.stations[6][1] = 0.33; p.stations[6][2] = 0.24;
@@ -189,29 +189,29 @@ function buildEmberHaunch(def, model, legMat) {
   const hipAb = THREE.MathUtils.degToRad(model.hipAbduct ?? 45);
   const kneeA = THREE.MathUtils.degToRad(model.kneeAngle ?? 82);
   const ankleA = THREE.MathUtils.degToRad(model.ankleAngle ?? 115);
-  const L = { femur: 0.62, shin: 0.55, foot: 0.3 };
+  const L = { femur: 0.66, shin: 0.58, foot: 0.34 };
   const legs = {};
   for (const side of [1, -1]) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.26, 0.16, 1.05);
     // femur: abducted out + slightly down; haunch swell at the root
     const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.38, 0.42).normalize().multiplyScalar(L.femur);
-    hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.17, 0.10, legMat));
+    hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.24, 0.13, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
-    const swell = new THREE.Mesh(new THREE.SphereGeometry(0.19, seg(7), seg(5)), legMat);
+    const swell = new THREE.Mesh(new THREE.SphereGeometry(0.24, seg(7), seg(5)), legMat);
     swell.scale.set(1.15, 0.85, 1.3);
     swell.position.set(femurDir.x * 0.22, femurDir.y * 0.22 + 0.02, femurDir.z * 0.22);
     hip.add(swell);
     // knee raised + inboard so the fold reads FOLDED, not landing-gear
     const knee = new THREE.Group(); knee.position.copy(femurDir); hip.add(knee);
     const shinDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.35, -Math.sin(kneeA) * 0.55, Math.cos(kneeA)).normalize().multiplyScalar(L.shin);
-    knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.09, 0.055, legMat));
+    knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.13, 0.07, legMat));
     const ankle = new THREE.Group(); ankle.position.copy(shinDir); knee.add(ankle);
     // three-toed plated foot, toes spread; ankle at 115°
     const footDir = new THREE.Vector3(side * 0.15, -Math.sin(ankleA - Math.PI / 2) * 0.4, Math.cos(ankleA - Math.PI / 2)).normalize().multiplyScalar(L.foot);
     for (let toe = -1; toe <= 1; toe++) {
       const td = footDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), toe * 0.3);
-      ankle.add(bone(0, 0, 0, td.x, td.y, td.z, 0.045, 0.018, legMat));
+      ankle.add(bone(0, 0, 0, td.x, td.y, td.z, 0.06, 0.022, legMat));
     }
     group.add(hip);
     legs[side === 1 ? 'legR' : 'legL'] = hip;
@@ -254,7 +254,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const hs = (model.wingSpanReach ?? 6.2) * 0.5 * ws;   // half-span scale unit
   const archRise = model.archRise ?? 0.12;              // LOW crescent (identity number)
   const wristT = model.wristT ?? 0.30;                  // top of the house band
-  const baySag = Math.min(model.baySag ?? 0.08, 0.10);  // TAUT (≤0.10 bay chord)
+  const baySag = Math.min(model.baySag ?? 0.10, 0.10);  // TAUT (≤0.10 bay chord — use the full floor)
   const notch = Math.max(model.notchDepth ?? 0.17, 0.15); // NOTCH FLOOR ≥0.15 (bone projection)
   const hasProp = !!(model.propatagium ?? 0);
 
@@ -300,8 +300,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   // digit tips fan aft from K: D1 pins the envelope; D2–D4 at ×0.66 rank decay
   // off the D1=1.6× dominance (sheet §5), contracting spacing, drooping aft-down
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
-  const lenFrac = [1, 0.81, 0.57, 0.49];   // measured pterosaur taper (ref §4) — D1 = 1.6× the mean of the others
-  const spanAft = 1.18;
+  const lenFrac = [1, 0.78, 0.61, 0.48];   // ref §4 decay band (0.62–0.82/rank) — D1 = 1.6× the mean of the others
+  const spanAft = 1.35;
   const tips = [F0];
   for (let i = 1; i < nDigits; i++) {
     const gap = (1 - Math.pow(0.72, i)) / (1 - Math.pow(0.72, nDigits - 1));   // contracting spacing
@@ -329,8 +329,17 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // (the 1.4× humerus-root rule), low-lifted so it reads as muscled limb
     const armLift = 0.035 * hs;
     const E = LE(wristT * 0.45);
-    ridge(arm, LE(0), E, 0.16 * hs, 0.10 * hs, M.bone, null, armLift);
-    ridge(arm, E, K, 0.09 * hs, 0.05 * hs, M.bone, null, armLift);
+    ridge(arm, LE(0), E, 0.22 * hs, 0.13 * hs, M.bone, null, armLift);
+    ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.bone, null, armLift);
+    { // scapular slag-cowl plates over the pivot (the shoulder MASS the sail grows from)
+      const s0c = LE(0);
+      const cw = 0.30 * hs;
+      arm.add(tri([
+        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw, s0c[1] + 0.06 * hs, s0c[2] - 0.30], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16]],
+        [[s0c[0] - cw * 0.5, s0c[1] + 0.16 * hs, s0c[2] - 0.24], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16], [s0c[0] - cw * 0.3, s0c[1] + 0.05 * hs, s0c[2] + 0.34]],
+        [[s0c[0] + cw, s0c[1] + 0.06 * hs, s0c[2] - 0.30], [s0c[0] + cw * 1.3, s0c[1] - 0.05 * hs, s0c[2] + 0.05], [s0c[0] + cw * 0.7, s0c[1] + 0.13 * hs, s0c[2] + 0.16]],
+      ], M.memTiers[0]));
+    }
     { // deltoid slag-cowl mass swallowing the root
       const s0 = LE(0);
       const sBk = [s0[0] - 0.08 * hs, s0[1] - 0.02 * hs, s0[2] - 0.30], sUp = [s0[0] + 0.03 * hs, s0[1] + 0.10 * hs, s0[2] - 0.02];
@@ -395,7 +404,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       const Fi = tips[tips.length - 1];
       const Li = Math.hypot(Fi[0] - K[0], Fi[1] - K[1], Fi[2] - K[2]);
       const Ei = pullBack(Fi, Math.min(0.5, notch * 0.9));
-      const hip = [0.10, -0.06 * hs, 1.30];           // body anchor (pivot space)
+      const hip = [0.10 + (K[0] - 0.10) * 0.35, -0.05 * hs, 1.10];   // shortened reach — the arm-frame gusset owns the last stretch to the hip
       const NB2 = seg(4);
       const fan2 = [];
       for (let sx = 0; sx < NB2; sx++) {
@@ -430,7 +439,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     {
       const r0p = LE(0);
       const G = [r0p[0] + 0.09 * hs, r0p[1] - 0.05 * hs, r0p[2] + 1.30];   // hem ≤ 0.65 run
-      const Aaft = [K[0] * 0.6 + r0p[0] * 0.4, K[1] - 0.09 * hs, K[2] + 0.50];
+      const Aaft = [K[0] * 0.82 + r0p[0] * 0.18, K[1] - 0.10 * hs, K[2] + 0.72];
       const gm = [(r0p[0] + Aaft[0] + G[0]) / 3, (r0p[1] + Aaft[1] + G[1]) / 3 - 0.05, (r0p[2] + Aaft[2] + G[2]) / 3];
       arm.add(tri([[r0p, K, Aaft], [r0p, Aaft, gm], [Aaft, G, gm], [G, r0p, gm]], M.memTiers[3]));
       // underlit copy of the gusset (the crescent’s inboard leak)
@@ -447,7 +456,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const pivots = {};
   for (const side of [1, -1]) {
     const root = attach.wingRoot(1);
-    const pivot = new THREE.Group(); pivot.position.set(root.x, root.y, root.z); pivot.userData.wingRole = 'pivot';
+    const pivot = new THREE.Group(); pivot.position.set(root.x * 1.35, root.y * 0.78, root.z); pivot.userData.wingRole = 'pivot';
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
@@ -509,8 +518,7 @@ function buildBrandSkull(def, model, mats) {
   const sg = new THREE.BufferGeometry();
   sg.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
   sg.setIndex(si); sg.computeVertexNormals();
-  const skull = new THREE.Mesh(sg, skullMat);
-  skull.rotation.y = Math.PI;           // muzzle points −Z (forward)
+  const skull = new THREE.Mesh(sg, skullMat);   // stations already author the muzzle at −Z (forward)
   group.add(skull);
 
   // brow-prong wedges over each orbit (the menace carrier)
