@@ -113,8 +113,8 @@ const FORNAX_PROFILE = (() => {
   // BARREL not plate: pull width toward depth (ribcage ellipse, ventral keel line)
   p.stations[3][1] = 0.66; p.stations[4][1] = 0.56;
   // a longer, higher-reaching neck (2-segment S — the head leads the animal)
-  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.52, rStep: 0.062, yStep: 0.12, zStep: -0.43, wobbleAmp: 0.16 };   // chest→skull taper, shallow S
-  p.headBase = (n) => ({ x: 0, y: 0.74 + (n - 4) * 0.11, z: -3.30 - (n - 4) * 0.40 });
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.54, rStep: 0.048, yStep: 0.11, zStep: -0.36, wobbleAmp: 0.07 };   // overlapped loft — one tapering neck, never beads
+  p.headBase = (n) => ({ x: 0, y: 0.72 + (n - 4) * 0.10, z: -3.16 - (n - 4) * 0.34 });
   return p;
 })();
 
@@ -150,13 +150,13 @@ function buildStokeSeams(def, model, attach) {
     return new THREE.Mesh(g, mat);
   };
   // THE THROAT-KEEL SEAM (peak hue #ffb46b lives here ONLY — identity accent 1 of 2)
-  const throatMat = mkSeamMat(STOKE_PEAK, 0.05);
+  const throatMat = mkSeamMat(STOKE_PEAK, 0.035);
   const throatPts = [];
   for (let i = 0; i <= seg(6); i++) {
-    const t = i / seg(6), z = -2.3 + t * 1.9;
-    throatPts.push([0, -((attach.keelTopAt ? 0.34 : 0.34)) - 0.06 * Math.sin(t * Math.PI) + 0.2 - 0.38, z]);
+    const t = i / seg(6), z = -1.9 + t * 1.4;
+    throatPts.push([0, -0.62 - 0.05 * Math.sin(t * Math.PI), z]);   // low on the keel line, clear of the neck loft
   }
-  meshes.push(strip(throatPts, 0.035, throatMat));
+  meshes.push(strip(throatPts, 0.028, throatMat));
   // dorsal spine seam (gen-1, emitter hue) nape→tail-root — THE STOKE's rail
   const spineMat = mkSeamMat(STOKE_EMBER, 0.04);
   const spinePts = [];
@@ -204,7 +204,7 @@ function buildEmberHaunch(def, model, legMat) {
     hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.34, 0.16, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
-    swell.scale.set(1.15, 0.85, 1.3);
+    swell.scale.set(1.5, 0.95, 1.75);
     swell.position.set(femurDir.x * 0.22, femurDir.y * 0.22 + 0.02, femurDir.z * 0.22);
     hip.add(swell);
     // knee raised + inboard so the fold reads FOLDED, not landing-gear
@@ -377,7 +377,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // shoulder. No stacked quads: propatagium, bays and body-fillet are REGIONS
     // of one surface, value-banded by vertex color. Digit ridges ride ON it.
     const S0 = [0.04, -0.02, -0.06];                     // shoulder root (pivot space)
-    const HIP = [0.14, -0.10 * hs, 1.42];                // flank/hip anchor
+    const HIP = [0.14, -0.12 * hs, 1.62];                // flank/hip anchor — root chord runs to the hip
     const boundary = [];                                  // [x,y,z,tier] rim walk
     // leading edge S0→K→F0 (rigid, the arm line)
     const NLE = seg(6);
@@ -480,9 +480,9 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
 
     // THE ARM — a thigh-thick humerus + forearm riding the leading edge (wing IS
     // the arm), with the scapular slag-cowl swallowing the root into the torso
-    const armLift = 0.035 * hs;
+    const armLift = 0.06 * hs;
     const E = LE(wristT * 0.45);
-    ridge(arm, LE(0), E, 0.22 * hs, 0.13 * hs, M.bone, null, armLift);
+    ridge(arm, LE(0), E, 0.26 * hs, 0.15 * hs, M.bone, null, armLift);
     ridge(arm, E, K, 0.13 * hs, 0.07 * hs, M.bone, null, armLift);
     {
       const s0c = LE(0);
