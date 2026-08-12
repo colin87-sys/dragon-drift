@@ -126,7 +126,7 @@ const FORNAX_PROFILE = (() => {
   // scale Y 0.66→0.54: h-r2 measured the neck 2.5x the SKULL's depth in profile —
   // slim vertically, keep width near the 60%-of-skull join (the two asks differ by axis)
   p.neck = { ...ARROW_PROFILE.neck, rBase: 0.42, rStep: 0.033, rMin: 0.15, scale: [0.8, 0.54, 1.3], yStep: 0.10, zStep: -0.26, wobbleAmp: 0.04 };
-  p.headBase = (n) => ({ x: 0, y: 0.70 + (n - 4) * 0.09, z: -3.02 - (n - 4) * 0.30 });
+  p.headBase = (n) => ({ x: 0, y: 0.80 + (n - 4) * 0.09, z: -3.02 - (n - 4) * 0.30 });   // h-r3: skull topline continues the neck's dorsal line (head was hanging below it)
   return p;
 })();
 
@@ -545,8 +545,13 @@ registerWings('underlitCrescentWings', buildUnderlitCrescentWings);
 function buildBrandSkull(def, model, mats) {
   const group = new THREE.Group();
   const hs = model.headScale ?? 1;
-  const skullMat = new THREE.MeshStandardMaterial({ color: def.body ?? FORNAX_TIERS.charBase, roughness: 0.62, metalness: 0.0, flatShading: true, vertexColors: false });
-  const hornMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.5, metalness: 0.08, flatShading: true, vertexColors: true });
+  // h-r3 was a VALUE round: the jaw/dome/cheek masses measured as met but read
+  // black-on-black. Skull a half-step above charBase, jaw a full step lighter
+  // (the mouth split must read), horns carry their value in VERTEX color (the
+  // material is white — vertex colors multiply it).
+  const skullMat = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? FORNAX_TIERS.charBase, FORNAX_TIERS.scorchMid, 0.45), roughness: 0.62, metalness: 0.0, flatShading: true, vertexColors: false });
+  const jawMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.scorchMid, roughness: 0.60, metalness: 0.0, flatShading: true });
+  const hornMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.08, flatShading: true, vertexColors: true });
 
   // skull wedge (w:h 1.1) with the dorsal S: nasal keel, brow dip, rising occiput
   const L = 0.95 * hs;                  // skull length
@@ -564,9 +569,9 @@ function buildBrandSkull(def, model, mats) {
     [-L * 0.58, W * 0.10, H * 0.10, H * 0.16],   // overbite hook — drops past the jaw tip
     [-L * 0.52, W * 0.16, H * 0.26, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
     [-L * 0.30, W * 0.44, H * 0.58, H * 0.18],   // nasal keel (convex rise)
-    [-L * 0.06, W * 0.56, H * 0.52, H * 0.60],   // brow dip — deep cheek/hinge line below
-    [L * 0.20, W * 0.70, H * 0.86, H * 0.56],    // cranial dome + jugal flare (widest point)
-    [L * 0.42, W * 0.30, H * 0.68, H * 0.36],    // occipital shelf
+    [-L * 0.06, W * 0.56, H * 0.44, H * 0.60],   // brow dip — h-r3: step deepened to ~18% of skull height
+    [L * 0.16, W * 0.70, H * 0.92, H * 0.56],    // cranial dome + jugal flare (widest point)
+    [L * 0.42, W * 0.30, H * 0.62, H * 0.36],    // occipital shelf
   ];
   for (const [z, w, top, bot] of stations) {
     sv.push(0, top, z, -w * 0.72, top * 0.4, z, -w, -bot * 0.2, z, -w * 0.5, -bot * 0.8, z,
@@ -590,7 +595,7 @@ function buildBrandSkull(def, model, mats) {
     [0, W * 0.50, H * 0.06, H * 0.40],           // hinge root (under the deep cheek)
     [-L * 0.20, W * 0.40, H * 0.05, H * 0.32],
     [-L * 0.36, W * 0.26, H * 0.04, H * 0.20],
-    [-L * 0.46, W * 0.12, H * 0.03, H * 0.10],   // jaw tip — short of the upper hook
+    [-L * 0.48, W * 0.12, H * 0.07, H * 0.12],   // jaw tip — chin kick (tip rises + deepens)
   ];
   const jv = [], ji = [];
   for (const [z, w, top, bot] of jstations) {
@@ -606,8 +611,8 @@ function buildBrandSkull(def, model, mats) {
   jg.setIndex(ji); jg.computeVertexNormals();
   const jawGrp = new THREE.Group();
   jawGrp.position.set(0, -H * 0.10, -L * 0.02);
-  jawGrp.rotation.x = -0.21;                     // ~12° resting drop (−Z tip falls)
-  jawGrp.add(new THREE.Mesh(jg, skullMat));
+  jawGrp.rotation.x = -0.30;                     // ~17° resting drop — the mouth GAP must read (h-r3)
+  jawGrp.add(new THREE.Mesh(jg, jawMat));
   group.add(jawGrp);
 
   // tooth strip — lighter zig-zag along the seam (upper gum line) + tip fangs.
@@ -671,7 +676,7 @@ function buildBrandSkull(def, model, mats) {
   const sweepA = THREE.MathUtils.degToRad(135);
   const hornLen = 0.76 * hs;
   const oxide = !!(model.oxideBand ?? 0);
-  const mkHorn = (len, r0) => {
+  const mkHorn = (len, r0, oxideOk = false) => {
     // tapered curved horn: 3 bone segments along the 135° sweep, ×3 taper
     const g = new THREE.Group();
     const dir = new THREE.Vector3(0, Math.sin(sweepA - Math.PI / 2), Math.cos(sweepA - Math.PI / 2));
@@ -686,9 +691,9 @@ function buildBrandSkull(def, model, mats) {
       const geo = b.geometry ?? (b.children[0] && b.children[0].geometry);
       if (geo && geo.attributes && geo.attributes.position) {
         const n = geo.attributes.position.count, cols = [];
-        const base = new THREE.Color(FORNAX_TIERS.charShadow);
+        const base = new THREE.Color(lerpHex(FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.40));   // h-r3: horn a half-step LIGHT of the skull — the crown must read against the dark neck
         for (let i = 0; i < n; i++) {
-          const c = (oxide && k === 2) ? cOx[Math.min(2, Math.floor((i / n) * 3))].clone().lerp(base, 0.45) : base;
+          const c = (oxide && oxideOk && k === 2) ? cOx[Math.min(2, Math.floor((i / n) * 3))].clone().lerp(base, 0.72) : base;   // oxide on the DOMINANT pair only, muted (h-r3 regression: light base made every tip garish)
           cols.push(c.r, c.g, c.b);
         }
         geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -699,10 +704,10 @@ function buildBrandSkull(def, model, mats) {
     return g;
   };
   for (const side of [-1, 1]) {
-    const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.10 * hs);
+    const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.10 * hs, true);
     h.position.set(side * W * 0.42, H * 0.50, L * 0.30);
     h.rotation.z = side * -0.42;          // cant OUTWARD (a paired rank, not a picket)
-    h.rotation.x = 0.5;                   // lean hard AFT along the neck line
+    h.rotation.x = 0.28;                  // h-r3: raked UP ~30° off the skull axis (parallel = invisible)
     group.add(h);
   }
   // RANKED horn pairs behind the dominant crescent — 60% and 35% of its length
@@ -716,7 +721,7 @@ function buildBrandSkull(def, model, mats) {
       const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
       h.position.set(side * W * rankX[r], H * 0.54 - r * 0.04 * hs, L * 0.30 + rankZ[r] * hs);
       h.rotation.z = side * -(0.42 - r * 0.14);   // same sweep family, tightening inboard
-      h.rotation.x = 0.64 + r * 0.18;             // each rank lies visibly flatter
+      h.rotation.x = 0.50 + r * 0.22;             // cascade DOWN from the raked dominant
       group.add(h);
     }
   }
