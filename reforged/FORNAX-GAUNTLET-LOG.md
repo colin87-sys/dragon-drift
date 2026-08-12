@@ -54,6 +54,32 @@ neckBlend 1.35 (GOTCHA: blend MULTIPLIES radii — first try at rBase 0.55
 ballooned past the skull), trapezoid nape plate over the occiput rear, ranked
 horn pairs 60%/35% on the sweep arc + nape scutes, brow plates over eye top
 third, eyes inboard. h-r2 critic running on r21 tiles.
+h-r2: 1.8 (skull "one shallow wedge" 33% depth/length; neck out-massed skull;
+mustache-bar brow) → dome+cheek (43%), angled brow, horn hierarchy, neck slim Y.
+h-r3: 1.8 PLATEAU → MEASURED the asks: mandible 36% (met, black-on-black),
+horn 0.80x L (met, dark-on-dark), brow step 6% (NOT met). Round 4 = VALUE:
+skull lighter, jaw scorchMid, horn vertex-light over white mat, oxide muted +
+dominant-only, brow step 18%, gape 17deg + chin kick, horns raked up 30deg,
+head +0.10 higher. GOTCHA: mkHorn vertex colors MULTIPLY the material color —
+lighting the material does nothing while the vertex base stays dark.
+h-r4: 2.3 (eye+teeth praised; head smallest mass; pipes; hinge at 40%) →
+headScale ladder +0.13 (f3 1.48), neck rStep 0.042, hinge to 70% under orbit,
+horns to a point (taper 0.92), dominant 0.90hs on the dome.
+h-r5: 2.7 (climbing; slab cranium, massless jaw read, collar crowding) →
+occipital bevel, bases sunk, masseter wedges, gape 23deg, fang-fang 1.9x,
+hornLen 1.10hs (~1.2x L), throat cleaned (zStep -0.22, yStep 0.12).
+
+## HIDE piece (fresh critic each round, crops head tile + wing 4x tile)
+hide-r1: 2.4 vs 4.6 — "chest scutes genuinely 4/5; head a value black hole,
+membrane one dead plane, bones flat-black tape". Fixes: skull 3-tier ring
+paint, sail interior ring at 55% with per-bay gradients, bone caps everywhere,
+shoulder shingles (chest recipe extended).
+hide-r2: 2.3 — SAME membrane complaint → found THE BUG: mkMat never enabled
+vertexColors, every sail band was silently ignored (two rounds judged unpainted
+geometry). wingMat white+vertexColors, fillet de-shared. Finger-referenced
+stretch bands (sin pi*t per bay), bone-tan 0x7d7264, skull tiers boldened
+(pale keratin bridge/crest). LAW: when a critic repeats a complaint about
+paint you shipped, CHECK THE MATERIAL FLAGS before repainting.
 
 ## NEXT (round 9 directives, from the r8 verdict)
 1. Wing root: extend inner membrane fillet aft along flank shoulder→hip
