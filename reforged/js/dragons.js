@@ -1327,6 +1327,94 @@ export const DRAGONS = {
   // skeleton at load and the SHIPPED flapWing/spine-whip/tail drive animates it
   // (no baked clips, no shader hinge). rig knobs are measured defaults —
   // override here only if the preview shows a mask/placement miss.
+
+  // ── FORNAX — "The banked furnace" (FIRE-WYVERN-BUILDSHEET.md) ──────────────
+  // A four-limbed western fire WYVERN built to the sheet: the furnace is INSIDE
+  // (glow leaks only at plate seams / throat keel / wing underside), wing tops
+  // never emissive, every fire pixel R ≥ G ≥ B, char albedo cool-neutral with
+  // the warmth EMITTED. Growth verb: STOKING (f0 Cold Coal → f3 the Banked
+  // Furnace). Fully additive — coexist, nothing shipped changes.
+  fornax: {
+    name: 'Fornax',
+    title: 'The banked furnace',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2600,   // owner call (SSR band 2200–3400) — flag on the build PR
+    accentHue: 0xff7010,   // furnace amber (blackbody lane; aura + law-9 carrier)
+    parts: { torso: 'slagAnvilTorso', wings: 'underlitCrescentWings', head: 'brandSkull', tail: 'firebrandTail', surface: { shader: [] } },
+    stats: { speed: 1.14, handling: 0.96, drain: 0.9, regen: 1.1 },   // heavy flyer (sheet placeholder, owner tunes)
+    model: {
+      scale: 1.15, tailSegments: 7, neckSegments: 5, flapBias: 0.8, flapAmp: 0.75,
+      neckBlend: 1.35,   // fuse the bead chain into a smooth taper (head-gauntlet r1: glossy-sphere neck)
+      // silhouette + hull (§2/§4)
+      hullLadder: 1, headScale: 1.48, eyeScale: 0.6, tailLength: 1.0,   // h-r4: the skull must not be the smallest mass in the shot
+      // wing planform (§5 committed numbers): LOW WIDE crescent, taut bays,
+      // notch floor from bone projection; wristT top of house band
+      wingDigits: 4, archRise: 0.12, wristT: 0.30, baySag: 0.08, notchDepth: 0.17,
+      wingSpanReach: 6.3, camberMix: 0.12, propatagium: 1, spanScale: 1.0,
+      // THE STOKE + ladder dials (§3/§10)
+      seamGens: 2, hornFollowers: 3, chippedBrow: 1, oxideBand: 1,
+      tailRidge: 2, firebrandTip: 1, legHint: 1,
+      hipAbduct: 45, kneeAngle: 82, ankleAngle: 115,
+      surgeGlowMultiplier: 20,
+      // MOTION — THE HEAVY BELLOWS (§9; bespoke, no dial block copied): deep slow
+      // shoulder-led strokes, long glide holds, deep lag so the hand sign flips,
+      // in-plane apex sweep for the recovery dogleg (FLAP-DESIGN law 3)
+      wingParts: 3, rootAmp: 0.78, apexRoot: 0.26, midAmp: 0.30, tipAmp: 0.62,
+      midLag: 0.85, tipLag: 1.75, glidePow: 2.2, restLift: 0.04,
+      apexMid: 0.09, apexTip: 0.18, tipApexSweep: 0.24,
+      // tail: heavy ridge-crested rudder, vertical undulation up-biased
+      tailWhip: true, tailLagScale: 0.14, tailUndulateX: 0.30, tailRudderScale: 0.45,
+      wingOpacity: 0.96,   // chase-cam r1: at the default 0.82 the purple night sky TRANSMITS through the sail — the game frame read magenta wings. Char is thick; the underside mesh owns the leak.
+    },
+    // THE STOKING ladder (§10): f0 Cold Coal · f1 Kindled · f2 Stoked · f3 Fornax.
+    // Every rung a cruise-visible earn; apex built first, ladder by subtraction.
+    forms: [
+      { spanScale: 0.84, wingDigits: 2, seamGens: 0, hornFollowers: 0, tailRidge: 0,
+        firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 0,
+        wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 0.9, tipApexSweep: 0,
+        eyeScale: 1.15, headScale: 1.75,
+        colors: { body: 0x4c4640, belly: 0x514c47, wingOuter: 0x4c4640, eye: 0xff8912 } },   // ash-grey cold coal
+      { spanScale: 0.91, wingDigits: 3, seamGens: 1, hornFollowers: 1, tailRidge: 1,
+        firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 0,
+        wingParts: 2, midAmp: 0.22, tipAmp: 0.30, glidePow: 1.4, tipApexSweep: 0,
+        eyeScale: 0.95, headScale: 1.65,
+        colors: { body: 0x3c3835, belly: 0x46413d, wingOuter: 0x3c3835, eye: 0xff8912 } },   // first kindling
+      { spanScale: 0.96, wingDigits: 4, seamGens: 2, hornFollowers: 2, tailRidge: 2,
+        firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 1,
+        wingParts: 3, midAmp: 0.28, tipAmp: 0.50, glidePow: 1.8, tipApexSweep: 0.16,
+        eyeScale: 0.75, headScale: 1.56,
+        colors: { body: 0x322f30, belly: 0x403c3a, wingOuter: 0x322f30, eye: 0xffa040 } },   // the hunter, stoked
+      { spanScale: 1.0, wingDigits: 4, seamGens: 3, hornFollowers: 3, tailRidge: 2,
+        firebrandTip: 1, propatagium: 1, chippedBrow: 1, oxideBand: 1, legHint: 1,
+        wingParts: 3, midAmp: 0.30, tipAmp: 0.62, glidePow: 2.2, tipApexSweep: 0.24,
+        eyeScale: 0.6, headScale: 1.48,
+        colors: { body: 0x2e2c2f, belly: 0x3d3937, wingOuter: 0x2e2c2f, eye: 0xffb46b } },   // the banked furnace
+    ],
+    eyeEmissiveI: 1.2,   // hide-r5: default 2.2 ACES-clips the ember eye to cream
+    // hide-r7: matte char finish — the default semi-gloss (rough 0.38, metal
+    // 0.12) + sky envmap painted a chrome-vinyl streak on the neck/chest for
+    // six straight hide rounds. Char absorbs; it never reads wet.
+    bodyRoughness: 0.74, bodyMetalness: 0.0, bodyEnvIntensity: 0.35,
+    fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
+    hasStyle: true,
+    // cruise rim: coal-not-torch — dim, wide-falloff, wings nearly rimless (the
+    // amber Fresnel at full default read as glowing shoulder blobs)
+    rimCruise: 0x1c0e06, rimCruiseBase: 0.24, rimPowerMul: 2.0, rimWingMul: 0.18,   // rimCruise is a COLOR; near-dark warm, coal-not-torch (base 0.12->0.18: chase-cam r1 — the top edge must separate from the night sky)
+    // Surge palette — the rig defaults to magenta; override EVERY hook. Wings
+    // stay black on Surge (law 5 — tops dark, the underside sub-mesh owns the
+    // leak); warm low screen wash (sheet-required); ember-amber eyes.
+    feverWing: 0x000000, feverEye: 0xffb46b, feverWash: [0.10, 0.05, 0.02],
+    hideRiderGlow: true,
+    wingMembraneEmissive: 0x000000, wingEmissive: 0x000000,
+    body: 0x322f33, belly: 0x423d3a,
+    scales: 0x39332f, horn: 0x232226,
+    bodyShadow: 0x242327, bodyFacet: 0x4c4540, bodyDorsal: 0x6d6156,
+    wingInner: 0x4c4540, wingOuter: 0x322f33,
+    eye: 0xff8912,
+    apexEye: 0xffb46b, apexSeam: 0x7a3e0c, coreGlow: 0xff8912, surgeHi: 0xffb46b,   // apexSeam feeds the baked body rim — half-bright so spheres never halo amber
+    trail: 0x8a3c14, boostTrail: 0xd96a1e,
+  },
 };
 
 // ── A/B PREVIEW: "Nightglass Vesper · Lean" ──────────────────────────────────
