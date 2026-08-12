@@ -1391,6 +1391,9 @@ export const DRAGONS = {
     ],
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
     hasStyle: true,
+    // cruise rim: coal-not-torch — dim, wide-falloff, wings nearly rimless (the
+    // amber Fresnel at full default read as glowing shoulder blobs)
+    rimCruise: 0.05, rimPowerMul: 1.5, rimWingMul: 0.22,
     // Surge palette — the rig defaults to magenta; override EVERY hook. Wings
     // stay black on Surge (law 5 — tops dark, the underside sub-mesh owns the
     // leak); warm low screen wash (sheet-required); ember-amber eyes.

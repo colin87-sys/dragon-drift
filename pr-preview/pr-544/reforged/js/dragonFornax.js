@@ -225,6 +225,7 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
   const torso = r.group.children.find((c) => c.isMesh && c.geometry && c.geometry.attributes.position && c.geometry.attributes.position.count >= 40);
   if (torso && (model.hullLadder ?? 1)) {
     paintCharHull(torso.geometry, def);
+    torso.material = torso.material.clone();   // never mutate the shared bodyMat (fairings/neck ride it)
     torso.material.vertexColors = true;
     torso.material.color.set(0xffffff);
   }
@@ -277,7 +278,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   // THE UNDERLIT material — bespoke, outside wingMat; ignited only by THE STOKE
   const underMat = new THREE.MeshStandardMaterial({
     color: 0x141214, emissive: STOKE_EMBER, emissiveIntensity: 0.03, roughness: 0.6,
-    flatShading: true, side: THREE.DoubleSide,
+    flatShading: true, side: THREE.FrontSide,   // lit face points DOWN (law 5: tops never emissive)
   });
   underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.03;
   underMat.userData.flareIntensityWeight = 0.65;
@@ -387,11 +388,36 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       for (const t3 of fan) underGlowT.push([dn(t3[0]), dn(t3[2]), dn(t3[1])]);
       for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);
     }
+    // BODY BAY (plagiopatagium) — the sail closes onto the flank: innermost
+    // digit edge → hip anchor line, the panel every bat/wyvern reads by. Rides
+    // the HAND so the whole sail folds as one sheet at the wrist.
+    {
+      const Fi = tips[tips.length - 1];
+      const Li = Math.hypot(Fi[0] - K[0], Fi[1] - K[1], Fi[2] - K[2]);
+      const Ei = pullBack(Fi, Math.min(0.5, notch * 0.9));
+      const hip = [0.10, -0.06 * hs, 1.30];           // body anchor (pivot space)
+      const NB2 = seg(4);
+      const fan2 = [];
+      for (let sx = 0; sx < NB2; sx++) {
+        const t0 = sx / NB2, t1 = (sx + 1) / NB2;
+        const a = [Ei[0] + (hip[0] - Ei[0]) * t0, Ei[1] + (hip[1] - Ei[1]) * t0 - 0.04 * Math.sin(t0 * Math.PI), Ei[2] + (hip[2] - Ei[2]) * t0];
+        const b = [Ei[0] + (hip[0] - Ei[0]) * t1, Ei[1] + (hip[1] - Ei[1]) * t1 - 0.04 * Math.sin(t1 * Math.PI), Ei[2] + (hip[2] - Ei[2]) * t1];
+        fan2.push([K, a, b]);
+      }
+      fan2.push([K, Fi, Ei]);
+      hand.add(tri(fan2, M.memTiers[3]));
+      const dn2 = (p) => [p[0], p[1] - 0.05, p[2]];
+      for (const t3 of fan2) underGlowT.push([dn2(t3[0]), dn2(t3[2]), dn2(t3[1])]);
+      for (let sx = 0; sx <= NB2; sx++) {
+        const t0 = sx / NB2;
+        trailing.push([Ei[0] + (hip[0] - Ei[0]) * t0, Ei[1] + (hip[1] - Ei[1]) * t0 - 0.04 * Math.sin(t0 * Math.PI), Ei[2] + (hip[2] - Ei[2]) * t0]);
+      }
+    }
     if (underGlowT.length) hand.add(tri(underGlowT, underMat));
 
     // trailing knife-edge — one connected band inboard of the scallop polyline
     if (trailing.length > 1) {
-      const eT = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.10, p[1] + (K[1] - p[1]) * 0.10 + 0.004, p[2] + (K[2] - p[2]) * 0.10];
+      const eT = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.06, p[1] + (K[1] - p[1]) * 0.06 + 0.001, p[2] + (K[2] - p[2]) * 0.06];
       for (let s = 0; s < trailing.length - 1; s++) {
         const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b);
         eT.push([a, b, bi], [a, bi, ai]);
@@ -460,7 +486,7 @@ function buildBrandSkull(def, model, mats) {
   const hornMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.5, metalness: 0.08, flatShading: true, vertexColors: true });
 
   // skull wedge (w:h 1.1) with the dorsal S: nasal keel, brow dip, rising occiput
-  const L = 0.78 * hs;                  // skull length
+  const L = 0.95 * hs;                  // skull length
   const W = 0.40 * hs, H = W / 1.1;
   const sv = [], si = [];
   // stations along the skull −Z (muzzle) → +Z (occiput): [z, halfW, top, bot]
@@ -503,7 +529,7 @@ function buildBrandSkull(def, model, mats) {
   // occipital horn rank: dominant backswept PAIR at 135° sweep + midline followers
   const followers = Math.max(0, Math.round(model.hornFollowers ?? 0));
   const sweepA = THREE.MathUtils.degToRad(135);
-  const hornLen = 0.72 * hs;
+  const hornLen = 0.88 * hs;
   const oxide = !!(model.oxideBand ?? 0);
   const mkHorn = (len, r0) => {
     // tapered curved horn: 3 bone segments along the 135° sweep, ×3 taper
@@ -533,7 +559,7 @@ function buildBrandSkull(def, model, mats) {
     return g;
   };
   for (const side of [-1, 1]) {
-    const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.075 * hs);
+    const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.10 * hs);
     h.position.set(side * W * 0.42, H * 0.55, L * 0.28);
     h.rotation.z = side * -0.18;
     group.add(h);
@@ -541,7 +567,7 @@ function buildBrandSkull(def, model, mats) {
   // midline followers ×0.66 decay, contracting spacing down the nape
   let fz = L * 0.46, fl = hornLen * 0.66;
   for (let i = 0; i < followers; i++) {
-    const f = mkHorn(fl, 0.05 * hs);
+    const f = mkHorn(fl, 0.065 * hs);
     f.position.set(0, H * 0.5 - i * 0.03, fz);
     group.add(f);
     fz += 0.16 * Math.pow(0.8, i);
@@ -567,7 +593,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   const ridgeMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.55, flatShading: true });
   const joints = [];
   let parent = group, zc = 0;
-  const rAt = (t) => 0.20 * Math.pow(1 - t * 0.94, 1.1) + 0.015;  // fat aft of hip, ×3 taper
+  const rAt = (t) => 0.27 * Math.pow(1 - t * 0.90, 1.1) + 0.035;  // fat aft of hip, ×3 taper
   const ridgeOn = Math.max(0, Math.round(model.tailRidge ?? 0));
   for (let j = 0; j < nJoints; j++) {
     const joint = new THREE.Group();
@@ -600,7 +626,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
   // THE FIREBRAND terminus: blunt char cap + a banked-coal core that vents on Surge
   const tipZ = T / nJoints;
   const capMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charShadow, roughness: 0.5, flatShading: true });
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.085, seg(6), seg(5)), capMat);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, seg(6), seg(5)), capMat);
   cap.scale.set(1, 0.9, 1.35);
   cap.position.set(0, -0.02, tipZ);
   parent.add(cap);
@@ -609,7 +635,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
     const coalMat = new THREE.MeshStandardMaterial({ color: 0x1c1a1c, emissive: STOKE_EMBER, emissiveIntensity: 0.10, roughness: 0.4, flatShading: true });
     coalMat.userData.baseEmissive = STOKE_EMBER; coalMat.userData.baseIntensity = 0.10;
     coalMat.userData.flareIntensityWeight = 0.35;
-    const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.055), coalMat);
+    const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.085), coalMat);
     coal.position.set(0, -0.01, tipZ + 0.10);
     parent.add(coal);
     const bloom = softGlow(STOKE_EMBER, 0.26, 0.30);
