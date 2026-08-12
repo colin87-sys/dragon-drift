@@ -123,7 +123,9 @@ const FORNAX_PROFILE = (() => {
   // terminal spike of a tapering neck, never a wedge on a fatter bead chain)
   // NB: neckBlend multiplies these radii — author them SLIM (the 1.55 blend at
   // rBase 0.55 rendered a balloon that dwarfed the skull)
-  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.42, rStep: 0.03, rMin: 0.15, yStep: 0.10, zStep: -0.26, wobbleAmp: 0.04 };
+  // scale Y 0.66→0.54: h-r2 measured the neck 2.5x the SKULL's depth in profile —
+  // slim vertically, keep width near the 60%-of-skull join (the two asks differ by axis)
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.42, rStep: 0.033, rMin: 0.15, scale: [0.8, 0.54, 1.3], yStep: 0.10, zStep: -0.26, wobbleAmp: 0.04 };
   p.headBase = (n) => ({ x: 0, y: 0.70 + (n - 4) * 0.09, z: -3.02 - (n - 4) * 0.30 });
   return p;
 })();
@@ -555,13 +557,16 @@ function buildBrandSkull(def, model, mats) {
   // because a separate LOWER JAW loft owns the depth there (predator read: the
   // head must visibly split). The −0.58L hook station droops the beak tip past
   // the jaw line (overbite).
+  // h-r2: skull depth at the eye ≈ 0.43 of length (was 33% — "one shallow
+  // wedge"), cranial dome + jugal cheek flare behind the tooth row, brow STEP
+  // breaking the top line; brow width trimmed so the muzzle projects in front view
   const stations = [
     [-L * 0.58, W * 0.10, H * 0.10, H * 0.16],   // overbite hook — drops past the jaw tip
-    [-L * 0.52, W * 0.16, H * 0.24, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
-    [-L * 0.30, W * 0.42, H * 0.52, H * 0.16],   // nasal keel (convex rise)
-    [-L * 0.06, W * 0.62, H * 0.46, H * 0.40],   // brow dip (hinge zone — depth returns)
-    [L * 0.20, W * 0.50, H * 0.72, H * 0.48],    // rising occiput
-    [L * 0.42, W * 0.28, H * 0.62, H * 0.32],    // occipital shelf
+    [-L * 0.52, W * 0.16, H * 0.26, H * 0.10],   // muzzle tip (upper wedge — jaw owns the depth)
+    [-L * 0.30, W * 0.44, H * 0.58, H * 0.18],   // nasal keel (convex rise)
+    [-L * 0.06, W * 0.56, H * 0.52, H * 0.60],   // brow dip — deep cheek/hinge line below
+    [L * 0.20, W * 0.70, H * 0.86, H * 0.56],    // cranial dome + jugal flare (widest point)
+    [L * 0.42, W * 0.30, H * 0.68, H * 0.36],    // occipital shelf
   ];
   for (const [z, w, top, bot] of stations) {
     sv.push(0, top, z, -w * 0.72, top * 0.4, z, -w, -bot * 0.2, z, -w * 0.5, -bot * 0.8, z,
@@ -582,9 +587,9 @@ function buildBrandSkull(def, model, mats) {
   // the mouth split + tooth line read from every angle (head-gauntlet r1 gap 1).
   // ~70% the depth of the upper muzzle; the upper hook passes its tip.
   const jstations = [
-    [0, W * 0.50, H * 0.06, H * 0.34],           // hinge root (under the brow dip)
-    [-L * 0.20, W * 0.40, H * 0.05, H * 0.28],
-    [-L * 0.36, W * 0.26, H * 0.04, H * 0.18],
+    [0, W * 0.50, H * 0.06, H * 0.40],           // hinge root (under the deep cheek)
+    [-L * 0.20, W * 0.40, H * 0.05, H * 0.32],
+    [-L * 0.36, W * 0.26, H * 0.04, H * 0.20],
     [-L * 0.46, W * 0.12, H * 0.03, H * 0.10],   // jaw tip — short of the upper hook
   ];
   const jv = [], ji = [];
@@ -610,12 +615,12 @@ function buildBrandSkull(def, model, mats) {
   const toothMat = new THREE.MeshStandardMaterial({ color: 0x9a8d78, roughness: 0.5, metalness: 0.0, flatShading: true });
   for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
     const t = i / 3;
-    const tz = -L * (0.48 - t * 0.36);
-    const tw = W * (0.16 + t * 0.42);
+    const tz = -L * (0.48 - t * 0.30);           // strip ends BEFORE the cheek engulfs the jaw
+    const tw = W * (0.16 + t * 0.34);
     const len = (0.085 - i * 0.012) * hs;
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.024 * hs, len, seg(4)), toothMat);
     tooth.rotation.x = Math.PI;                  // hang from the upper gum line
-    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * 0.05) - len * 0.4, tz);
+    tooth.position.set(side * tw * 0.90, -H * (0.10 + t * t * 0.26) - len * 0.4, tz);
     group.add(tooth);
   }
   for (const side of [-1, 1]) {                  // lower fangs rise just inside the hook
@@ -627,10 +632,14 @@ function buildBrandSkull(def, model, mats) {
   // NAPE PLATE — trapezoid capping the neck join, overlapping the skull's rear
   // edge so the crown ridge continues down the neck (r1 gap 2 fix): the head
   // reads as the terminal spike of the neck, not a wedge pinned to a bead chain.
-  const npF = W * 0.86, npR = W * 0.52, npL = 0.52 * hs, npY = H * 0.58, npZ = L * 0.34;
+  // roofed (center ridge) — a flat quad read as floating cardboard from the rear
+  const npF = W * 0.86, npR = W * 0.52, npL = 0.52 * hs, npY = H * 0.66, npZ = L * 0.34;
+  const npMidF = [0, npY + 0.10 * hs, npZ], npMidR = [0, npY - 0.06 * hs, npZ + npL];
   const napeTris = [
-    [[-npF, npY, npZ], [npF, npY, npZ], [npR, npY - 0.16 * hs, npZ + npL]],
-    [[-npF, npY, npZ], [npR, npY - 0.16 * hs, npZ + npL], [-npR, npY - 0.16 * hs, npZ + npL]],
+    [[-npF, npY - 0.06 * hs, npZ], npMidF, npMidR],
+    [[-npF, npY - 0.06 * hs, npZ], npMidR, [-npR, npY - 0.22 * hs, npZ + npL]],
+    [npMidF, [npF, npY - 0.06 * hs, npZ], npMidR],
+    [[npF, npY - 0.06 * hs, npZ], [npR, npY - 0.22 * hs, npZ + npL], npMidR],
   ];
   const nape = flatTriMesh(napeTris, new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.charBase, roughness: 0.62, flatShading: true, side: THREE.DoubleSide }));
   group.add(nape);
@@ -640,20 +649,20 @@ function buildBrandSkull(def, model, mats) {
     const prong = bone(side * W * 0.5, H * 0.34, -L * 0.02, side * W * 0.72, H * 0.52, -L * 0.24, 0.055 * hs, 0.012, skullMat);
     group.add(prong);
   }
-  // brow-ridge PLATE over each orbit: the eye sits recessed under an overhang
-  // covering its top third (r1 gap 3 — raptor squint, not startled owl)
+  // brow-ridge PLATE over each orbit: angled DOWN-AND-FORWARD (h-r2 — a
+  // horizontal shelf reads as a mustache bar; menace is an overhanging brow)
   for (const side of [-1, 1]) {
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.17 * hs, 0.035 * hs, 0.24 * hs), skullMat);
-    plate.position.set(side * W * 0.52, H * 0.36, -L * 0.14);
-    plate.rotation.z = side * -0.18;             // outer edge dips over the orbit
-    plate.rotation.x = -0.10;
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.15 * hs, 0.03 * hs, 0.20 * hs), skullMat);
+    plate.position.set(side * W * 0.46, H * 0.40, -L * 0.16);
+    plate.rotation.z = side * -0.30;             // outer edge dips over the orbit
+    plate.rotation.x = -0.35;                    // nose-down toward the muzzle
     group.add(plate);
   }
-  // small ember eyes — pulled INBOARD + tucked under the brow plate (law 6 accent)
+  // small ember eyes — inboard + forward-set under the angled brow (law 6 accent)
   const eyeMat = mats.eyeMat;
   for (const side of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045 * hs, seg(6), seg(4)), eyeMat);
-    eye.position.set(side * W * 0.48, H * 0.27, -L * 0.14);
+    eye.position.set(side * W * 0.44, H * 0.30, -L * 0.17);
     group.add(eye);
   }
 
@@ -699,13 +708,15 @@ function buildBrandSkull(def, model, mats) {
   // RANKED horn pairs behind the dominant crescent — 60% and 35% of its length
   // on the same back-sweep arc (r1 gap 3: a composed rank + decay, not "one horn")
   const rankPairs = Math.min(2, followers);
-  const rankLen = [0.60, 0.35], rankZ = [0.13, 0.25], rankX = [0.36, 0.30];
+  // h-r2: clear hierarchy — ranks shrink AND fan apart in pitch (a shared angle
+  // reads as a parallel slab stack, not a composed rank)
+  const rankLen = [0.52, 0.30], rankZ = [0.13, 0.25], rankX = [0.36, 0.30];
   for (let r = 0; r < rankPairs; r++) {
     for (const side of [-1, 1]) {
-      const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.72 - r * 0.20));
-      h.position.set(side * W * rankX[r], H * 0.48 - r * 0.04 * hs, L * 0.30 + rankZ[r] * hs);
-      h.rotation.z = side * -(0.42 - r * 0.06);   // same sweep family, tightening inboard
-      h.rotation.x = 0.56 + r * 0.10;             // each rank lies flatter down the nape
+      const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
+      h.position.set(side * W * rankX[r], H * 0.54 - r * 0.04 * hs, L * 0.30 + rankZ[r] * hs);
+      h.rotation.z = side * -(0.42 - r * 0.14);   // same sweep family, tightening inboard
+      h.rotation.x = 0.64 + r * 0.18;             // each rank lies visibly flatter
       group.add(h);
     }
   }
