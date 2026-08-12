@@ -397,11 +397,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   applyFresnelRim(wingMat, def.apexSeam ?? STOKE_EMBER);
   // THE UNDERLIT material — bespoke, outside wingMat; ignited only by THE STOKE
   const underMat = new THREE.MeshStandardMaterial({
-    color: 0x241208, emissive: STOKE_EMBER, emissiveIntensity: 0.08, roughness: 0.7,   // chase-cam r2: near-black underside read as bare sticks — warm dark fill
+    color: 0x33190c, emissive: STOKE_EMBER, emissiveIntensity: 0.10, roughness: 0.7,   // chase-cam r3: >=15 L* above the night sky — the geometric scallops must READ
     flatShading: true, side: THREE.FrontSide,   // lit face points DOWN (law 5: tops never emissive)
   });
   underMat.envMapIntensity = 0.3;
-  underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.08;
+  underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.10;
   underMat.userData.flareIntensityWeight = 0.5;   // amber stays amber through ACES — the leak reads as glow, not cream edges
 
   // ─ leading-edge profile (shared function — the anti-plank curve): a LOW gull
@@ -944,8 +944,8 @@ function buildFirebrandTail(def, model, mats, anchor) {
       joint.add(bone(0, 0, z0, 0, -0.015, z1, rAt(t0), rAt(t1), tailJointMat(j)));
       // chase-cam r1: dorsal ember seam segment — the rear camera's tail read
       if (k === 0) {
-        const sm = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.26, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
-        sm.userData.baseEmissive = STOKE_EMBER; sm.userData.baseIntensity = 0.26;
+        const sm = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.16 + j * 0.07, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });   // chase-cam r3: the seam BRIGHTENS toward the tip — foreshortening reads as depth
+        sm.userData.baseEmissive = STOKE_EMBER; sm.userData.baseIntensity = 0.16 + j * 0.07;
         sm.userData.flareIntensityWeight = 0.3;
         tailSeamMats.push(sm);
         const rw = rAt(t0) * 0.20 + 0.014;   // chase-cam r2: ~3px at gameplay distance, per-joint dashes = receding stations
@@ -999,7 +999,7 @@ function buildFirebrandTail(def, model, mats, anchor) {
     // vane fins: 1.5x local shaft width, char — a silhouette landmark, still blunt
     for (const sd of [-1, 1]) {
       const vane = flatTriMesh([
-        [[sd * 0.10, 0.02, tipZ - 0.20], [sd * 0.34, 0.06, tipZ + 0.16], [sd * 0.10, -0.02, tipZ + 0.10]],
+        [[sd * 0.10, 0.02, tipZ - 0.24], [sd * 0.46, 0.07, tipZ + 0.18], [sd * 0.10, -0.02, tipZ + 0.12]],
       ], capMat);
       vane.material = capMat;
       parent.add(vane);
