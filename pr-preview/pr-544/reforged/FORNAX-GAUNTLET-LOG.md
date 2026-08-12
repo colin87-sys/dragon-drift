@@ -21,7 +21,17 @@ r5: 2.0 (body-frame scapular saddle + root wall; horn/wing confusion)
 r6: 1.5 (bead-neck = throat seam peeking; found scales/horn palette fallback →
       accent orange; found rimCruise is a COLOR — apexSeam rim was baking amber)
 r7: 2.0 (root chord 15-20% → needs 50-60%; tail stick+bead; slat ridges)
-r8: 2.5 — planform alone "3.5, legitimately good". Captures: r12.
+r8: 2.5 — planform alone "3.5, legitimately good".
+r9: 2.5 (one deltoid fairing, fwd fillet, sail aft along tail base → r14)
+r10: 2.5 (full-height root skirt, chordwise bay camber, fed club → r15; chase
+     shot switched to the REAL gameplay tiershots T3 tile — honest money read)
+r11: 2.5 (forward mass overshoot named: neck torso-thick; ribcage lengthened,
+     skull back to 1.35x, monotonic tail→club → r16)
+r12: 2.0 (lengthened aft-body read as MORE tail — widened hips/thigh shelf,
+     deeper chest keel → r17). Plateau 2.0-2.5 vs photoreal bar's 4.5-5.
+FIRE piece first target: surge tile seams clip toward cream (no-white-core law);
+underside leak weak on Surge. Calibrate emissive toward STOKE_DEEP/EMBER, boost
+underMat surge weight, then R>=G>=B pixel probe per sheet §12.
 
 ## NEXT (round 9 directives, from the r8 verdict)
 1. Wing root: extend inner membrane fillet aft along flank shoulder→hip
