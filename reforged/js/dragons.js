@@ -1401,6 +1401,7 @@ export const DRAGONS = {
     hideRiderGlow: true,
     wingMembraneEmissive: 0x000000, wingEmissive: 0x000000,
     body: 0x2e2c2f, belly: 0x3d3937,
+    scales: 0x39332f, horn: 0x232226,
     bodyShadow: 0x232226, bodyFacet: 0x443e3b, bodyDorsal: 0x5c534b,
     wingInner: 0x443e3b, wingOuter: 0x2e2c2f,
     eye: 0xff8912,
