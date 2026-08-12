@@ -29,6 +29,12 @@ r11: 2.5 (forward mass overshoot named: neck torso-thick; ribcage lengthened,
      skull back to 1.35x, monotonic tail→club → r16)
 r12: 2.0 (lengthened aft-body read as MORE tail — widened hips/thigh shelf,
      deeper chest keel → r17). Plateau 2.0-2.5 vs photoreal bar's 4.5-5.
+r13: 2.0 — META-LAW pivot: measured the critics' three asks against the BUILT
+geometry: root chord 45% of torso (ask 40-50%), thigh:shank 2.5:1 (ask 2.5-3x),
+tail base 107% of hip half-width (ask 60-70%). All MET. The residual reads are
+a VISIBILITY problem (small dark captures, char-on-dark) → belongs to the
+hide/value + chase-cam pieces. Silhouette loop parks at geometry-verified;
+resume blind rounds after surface value laddering lands.
 FIRE piece first target: surge tile seams clip toward cream (no-white-core law);
 underside leak weak on Surge. Calibrate emissive toward STOKE_DEEP/EMBER, boost
 underMat surge weight, then R>=G>=B pixel probe per sheet §12.
