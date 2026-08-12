@@ -57,10 +57,10 @@ function softGlow(color, size, opacity) {
 //   ashLit (struck facet highlight). Ember accent lives ONLY at the throat-keel
 //   seam + wing underside (§2: two contiguous places, ≤10% area).
 const FORNAX_TIERS = {
-  charShadow: 0x232226,
-  charBase: 0x2e2c2f,
-  scorchMid: 0x443e3b,
-  ashLit: 0x5c534b,
+  charShadow: 0x242327,
+  charBase: 0x322f33,
+  scorchMid: 0x4c4540,
+  ashLit: 0x6d6156,   // struck-facet highlight — wide endpoint spread, reads on bright ground
 };
 
 // blackbody lane (law 4: R ≥ G ≥ B strictly; emitter authored 2000K)
