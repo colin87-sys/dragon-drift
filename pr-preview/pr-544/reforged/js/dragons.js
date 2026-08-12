@@ -1372,22 +1372,22 @@ export const DRAGONS = {
         firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 0,
         wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 0.9, tipApexSweep: 0,
         eyeScale: 1.15, headScale: 1.85,
-        colors: { body: 0x4c4640, belly: 0x585049, wingOuter: 0x4c4640, eye: 0xff8912 } },   // ash-grey cold coal
+        colors: { body: 0x4c4640, belly: 0x514c47, wingOuter: 0x4c4640, eye: 0xff8912 } },   // ash-grey cold coal
       { spanScale: 0.91, wingDigits: 3, seamGens: 1, hornFollowers: 1, tailRidge: 1,
         firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 0,
         wingParts: 2, midAmp: 0.22, tipAmp: 0.30, glidePow: 1.4, tipApexSweep: 0,
         eyeScale: 0.95, headScale: 1.75,
-        colors: { body: 0x3c3835, belly: 0x4a443f, wingOuter: 0x3c3835, eye: 0xff8912 } },   // first kindling
+        colors: { body: 0x3c3835, belly: 0x46413d, wingOuter: 0x3c3835, eye: 0xff8912 } },   // first kindling
       { spanScale: 0.96, wingDigits: 4, seamGens: 2, hornFollowers: 2, tailRidge: 2,
         firebrandTip: 0, propatagium: 0, chippedBrow: 0, oxideBand: 0, legHint: 1,
         wingParts: 3, midAmp: 0.28, tipAmp: 0.50, glidePow: 1.8, tipApexSweep: 0.16,
         eyeScale: 0.75, headScale: 1.68,
-        colors: { body: 0x322f30, belly: 0x443e3b, wingOuter: 0x322f30, eye: 0xffa040 } },   // the hunter, stoked
+        colors: { body: 0x322f30, belly: 0x403c3a, wingOuter: 0x322f30, eye: 0xffa040 } },   // the hunter, stoked
       { spanScale: 1.0, wingDigits: 4, seamGens: 3, hornFollowers: 3, tailRidge: 2,
         firebrandTip: 1, propatagium: 1, chippedBrow: 1, oxideBand: 1, legHint: 1,
         wingParts: 3, midAmp: 0.30, tipAmp: 0.62, glidePow: 2.2, tipApexSweep: 0.24,
         eyeScale: 0.6, headScale: 1.6,
-        colors: { body: 0x2e2c2f, belly: 0x443e3b, wingOuter: 0x2e2c2f, eye: 0xffb46b } },   // the banked furnace
+        colors: { body: 0x2e2c2f, belly: 0x3d3937, wingOuter: 0x2e2c2f, eye: 0xffb46b } },   // the banked furnace
     ],
     fx: { auraColor: '255,112,16', auraIdle: 0.03, sparkle: false },
     hasStyle: true,
@@ -1400,7 +1400,7 @@ export const DRAGONS = {
     feverWing: 0x000000, feverEye: 0xffb46b, feverWash: [0.10, 0.05, 0.02],
     hideRiderGlow: true,
     wingMembraneEmissive: 0x000000, wingEmissive: 0x000000,
-    body: 0x2e2c2f, belly: 0x443e3b,
+    body: 0x2e2c2f, belly: 0x3d3937,
     bodyShadow: 0x232226, bodyFacet: 0x443e3b, bodyDorsal: 0x5c534b,
     wingInner: 0x443e3b, wingOuter: 0x2e2c2f,
     eye: 0xff8912,
