@@ -113,8 +113,8 @@ const FORNAX_PROFILE = (() => {
   // BARREL not plate: pull width toward depth (ribcage ellipse, ventral keel line)
   p.stations[3][1] = 0.66; p.stations[4][1] = 0.56;
   // a longer, higher-reaching neck (2-segment S — the head leads the animal)
-  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.52, rStep: 0.062, yStep: 0.105, zStep: -0.43 };   // real chest→skull taper
-  p.headBase = (n) => ({ x: 0, y: 0.62 + (n - 4) * 0.10, z: -3.30 - (n - 4) * 0.40 });
+  p.neck = { ...ARROW_PROFILE.neck, rBase: 0.52, rStep: 0.062, yStep: 0.12, zStep: -0.43, wobbleAmp: 0.16 };   // chest→skull taper, shallow S
+  p.headBase = (n) => ({ x: 0, y: 0.74 + (n - 4) * 0.11, z: -3.30 - (n - 4) * 0.40 });
   return p;
 })();
 
@@ -201,7 +201,7 @@ function buildEmberHaunch(def, model, legMat) {
     hip.position.set(side * 0.26, 0.16, 1.05);
     // femur: abducted out + slightly down; haunch swell at the root
     const femurDir = new THREE.Vector3(side * Math.sin(hipAb), -0.30, 0.34).normalize().multiplyScalar(L.femur);   // ABDUCTED into the wing–tail gap (sheet §7)
-    hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.30, 0.15, legMat));
+    hip.add(bone(0, 0, 0, femurDir.x, femurDir.y, femurDir.z, 0.34, 0.16, legMat));
     // haunch swell — a lofted root mass breaking the outline (never blobby)
     const swell = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(7), seg(5)), legMat);
     swell.scale.set(1.15, 0.85, 1.3);
@@ -210,7 +210,7 @@ function buildEmberHaunch(def, model, legMat) {
     // knee raised + inboard so the fold reads FOLDED, not landing-gear
     const knee = new THREE.Group(); knee.position.copy(femurDir); hip.add(knee);
     const shinDir = new THREE.Vector3(side * Math.sin(hipAb) * 0.32, -0.34, 0.92).normalize().multiplyScalar(L.shin);   // shank aft-down, knee raised inboard
-    knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.13, 0.07, legMat));
+    knee.add(bone(0, 0, 0, shinDir.x, shinDir.y, shinDir.z, 0.135, 0.065, legMat));
     const ankle = new THREE.Group(); ankle.position.copy(shinDir); knee.add(ankle);
     // three-toed plated foot, toes spread; ankle at 115°
     const footDir = new THREE.Vector3(side * 0.12, -0.30, 0.55).normalize().multiplyScalar(L.foot);   // toes trail aft-down (flight tuck)
@@ -258,6 +258,25 @@ registerTorso('slagAnvilTorso', (def, model, bodyMat) => {
       const fm = new THREE.Mesh(fg, saddleMat);
       fm.material = saddleMat;
       r.group.add(fm);
+      // membrane ROOT WALL: pivot→flank wedge, static in the body frame — the
+      // raised sail's inner edge lands on this, killing the mast/pylon read
+      const wallMat = new THREE.MeshStandardMaterial({ color: def.bodyShadow ?? FORNAX_TIERS.charShadow, roughness: 0.68, metalness: 0.0, flatShading: true, side: THREE.DoubleSide });
+      const wv = [], wi = [];
+      const NWL = seg(5);
+      for (let i = 0; i <= NWL; i++) {
+        const t = i / NWL;
+        const z = wr.z - 0.05 + (1.30 - (wr.z - 0.05)) * t;
+        const xF = side * (wr.x * (1.3 - 0.5 * t));
+        const yF = wr.y - 0.14 - 0.16 * t;
+        const xT = side * (wr.x * (1.45 - 0.55 * t));
+        const yT = wr.y + (0.42 - 0.58 * t) * Math.max(0, 1 - t * 0.9);
+        wv.push(xF, yF, z, xT, Math.max(yF + 0.04, yT), z);
+      }
+      for (let i = 0; i < NWL; i++) { const a = i * 2; wi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      const wg2 = new THREE.BufferGeometry();
+      wg2.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3));
+      wg2.setIndex(wi); wg2.computeVertexNormals();
+      r.group.add(new THREE.Mesh(wg2, wallMat));
     }
   }
   // paint the 4-tier char strake ladder onto the big loft mesh
@@ -567,7 +586,7 @@ function buildBrandSkull(def, model, mats) {
   // occipital horn rank: dominant backswept PAIR at 135° sweep + midline followers
   const followers = Math.max(0, Math.round(model.hornFollowers ?? 0));
   const sweepA = THREE.MathUtils.degToRad(135);
-  const hornLen = 0.88 * hs;
+  const hornLen = 0.76 * hs;
   const oxide = !!(model.oxideBand ?? 0);
   const mkHorn = (len, r0) => {
     // tapered curved horn: 3 bone segments along the 135° sweep, ×3 taper
@@ -604,7 +623,7 @@ function buildBrandSkull(def, model, mats) {
     group.add(h);
   }
   // midline followers ×0.66 decay, contracting spacing down the nape
-  let fz = L * 0.46, fl = hornLen * 0.66;
+  let fz = L * 0.46, fl = hornLen * 0.48;
   for (let i = 0; i < followers; i++) {
     const f = mkHorn(fl, 0.065 * hs);
     f.position.set(0, H * 0.5 - i * 0.03, fz);
