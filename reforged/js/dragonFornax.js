@@ -171,14 +171,14 @@ function buildStokeSeams(def, model, attach) {
   }
   meshes.push(strip(throatPts, 0.028, throatMat));
   // dorsal spine seam (gen-1, emitter hue) nape→tail-root — THE STOKE's rail
-  const spineMat = mkSeamMat(STOKE_EMBER, 0.12);   // chase-cam r1: the dorsal rail is the rear camera's read
+  const spineMat = mkSeamMat(STOKE_EMBER, 0.22);   // chase-cam r2: the rail must METER (>0.35 lum) at gameplay distance
   const spinePts = [];
   const z0 = -2.35, z1 = attach.tailAnchor.z + 0.1, N = seg(10);
   for (let i = 0; i <= N; i++) {
     const t = i / N, z = z0 + (z1 - z0) * t;
     spinePts.push([0, attach.keelTopAt(z) + 0.012, z]);
   }
-  meshes.push(strip(spinePts, 0.024, spineMat));
+  meshes.push(strip(spinePts, 0.052, spineMat));   // chase-cam r2: the rail must meter at gameplay distance
   // gen-2 flank seams (plate partings, dimmer, deep hue) — one long curving seam
   // per flank bounding the big anvil plates (T-junction into the spine rail)
   if (gens >= 2) {
@@ -397,11 +397,11 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   applyFresnelRim(wingMat, def.apexSeam ?? STOKE_EMBER);
   // THE UNDERLIT material — bespoke, outside wingMat; ignited only by THE STOKE
   const underMat = new THREE.MeshStandardMaterial({
-    color: 0x141214, emissive: STOKE_EMBER, emissiveIntensity: 0.06, roughness: 0.7,
+    color: 0x241208, emissive: STOKE_EMBER, emissiveIntensity: 0.08, roughness: 0.7,   // chase-cam r2: near-black underside read as bare sticks — warm dark fill
     flatShading: true, side: THREE.FrontSide,   // lit face points DOWN (law 5: tops never emissive)
   });
   underMat.envMapIntensity = 0.3;
-  underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.06;
+  underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.08;
   underMat.userData.flareIntensityWeight = 0.5;   // amber stays amber through ACES — the leak reads as glow, not cream edges
 
   // ─ leading-edge profile (shared function — the anti-plank curve): a LOW gull
@@ -563,8 +563,8 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     // 'an identity that emits zero information toward the only camera the game
     // uses is a failed read, not restraint')
     {
-      const km = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.12, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
-      km.userData.baseEmissive = STOKE_EMBER; km.userData.baseIntensity = 0.12;
+      const km = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.18, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
+      km.userData.baseEmissive = STOKE_EMBER; km.userData.baseIntensity = 0.18;
       km.userData.flareIntensityWeight = 0.3;
       hand.add(tri([[[K[0] - 0.05 * hs, K[1] + 0.012, K[2] + 0.02], [K[0] + 0.06 * hs, K[1] + 0.012, K[2] + 0.04], [K[0], K[1] + 0.012, K[2] + 0.14 * hs]]], km));
       knuckleMats.push(km);
@@ -944,11 +944,11 @@ function buildFirebrandTail(def, model, mats, anchor) {
       joint.add(bone(0, 0, z0, 0, -0.015, z1, rAt(t0), rAt(t1), tailJointMat(j)));
       // chase-cam r1: dorsal ember seam segment — the rear camera's tail read
       if (k === 0) {
-        const sm = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.15, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
-        sm.userData.baseEmissive = STOKE_EMBER; sm.userData.baseIntensity = 0.15;
+        const sm = new THREE.MeshStandardMaterial({ color: 0x140a06, emissive: STOKE_EMBER, emissiveIntensity: 0.26, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
+        sm.userData.baseEmissive = STOKE_EMBER; sm.userData.baseIntensity = 0.26;
         sm.userData.flareIntensityWeight = 0.3;
         tailSeamMats.push(sm);
-        const rw = rAt(t0) * 0.10 + 0.008;
+        const rw = rAt(t0) * 0.20 + 0.014;   // chase-cam r2: ~3px at gameplay distance, per-joint dashes = receding stations
         const segLen = T / nJoints;
         const sv = [ -rw, rAt(t0) * 0.98, 0,  rw, rAt(t0) * 0.98, 0,  -rw * 0.7, rAt((j + 1) / nJoints) * 0.98, segLen,  rw * 0.7, rAt((j + 1) / nJoints) * 0.98, segLen ];
         const sgm2 = new THREE.BufferGeometry();
@@ -992,10 +992,18 @@ function buildFirebrandTail(def, model, mats, anchor) {
     const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.085), coalMat);
     coal.position.set(0, -0.01, tipZ + 0.10);
     parent.add(coal);
-    const bloom = softGlow(STOKE_EMBER, 0.26, 0.30);
+    const bloom = softGlow(STOKE_EMBER, 0.36, 0.34);
     bloom.position.copy(coal.position);
     parent.add(bloom);
     accentMats.push(coalMat);
+    // vane fins: 1.5x local shaft width, char — a silhouette landmark, still blunt
+    for (const sd of [-1, 1]) {
+      const vane = flatTriMesh([
+        [[sd * 0.10, 0.02, tipZ - 0.20], [sd * 0.34, 0.06, tipZ + 0.16], [sd * 0.10, -0.02, tipZ + 0.10]],
+      ], capMat);
+      vane.material = capMat;
+      parent.add(vane);
+    }
   }
   return { group, segs: joints, tailFins: [], accentMats, spineMats: [...accentMats, ...tailSeamMats] };   // seams ignite with THE STOKE on Surge
 }
