@@ -75,8 +75,8 @@ function paintCharHull(geo, def) {
   const pos = geo.attributes.position, n = pos.count, cols = [];
   const cShadow = new THREE.Color(def.bodyShadow ?? FORNAX_TIERS.charShadow);
   const cBase = new THREE.Color(def.body ?? FORNAX_TIERS.charBase);
-  const cScorch = new THREE.Color(def.bodyFacet ?? FORNAX_TIERS.scorchMid);
-  const cAsh = new THREE.Color(def.bodyDorsal ?? FORNAX_TIERS.ashLit);
+  const cScorch = new THREE.Color(lerpHex(def.bodyFacet ?? FORNAX_TIERS.scorchMid, 0x6b4a32, 0.30));   // hide-r4: raised char cools WARM (ember-brown bias), never gray plastic
+  const cAsh = new THREE.Color(lerpHex(def.bodyDorsal ?? FORNAX_TIERS.ashLit, 0x7d5a3c, 0.22));
   const cBelly = new THREE.Color(lerpHex(def.belly ?? FORNAX_TIERS.scorchMid, FORNAX_TIERS.ashLit, 0.45));   // hide-r3: lit ventral band throat->tail (kept cool-neutral)
   //         col: 0      1        2      3        4       5        6      7
   const tierByCol = [cAsh, cScorch, cBase, cShadow, cBelly, cShadow, cBase, cScorch];
@@ -353,10 +353,10 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
   const mkMat = (hex, rough = 0.62) => new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.0, flatShading: true, side: THREE.DoubleSide, emissive: 0x000000 });
   const M = {
     bone: mkMat(0x7d7264, 0.60),   // hide-r2: desaturated bone-tan — the flat-black tape bone is a registered cheap tell
-    boneDim: mkMat(0x5e564b, 0.62),   // hide-r3: alternating spar segments (uniform value = paper strip)
+    boneDim: mkMat(0x554d42, 0.62),   // hide-r3: alternating spar segments (uniform value = paper strip)
     boneCap: mkMat(FORNAX_TIERS.ashLit, 0.5),
     memTiers: [
-      mkMat(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.30)),
+      mkMat(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.ashLit, 0.55)),
       mkMat(def.wingOuter ?? FORNAX_TIERS.charBase),
       mkMat(lerpHex(def.wingOuter ?? FORNAX_TIERS.charBase, FORNAX_TIERS.charShadow, 0.45)),
       mkMat(FORNAX_TIERS.charShadow),
@@ -468,12 +468,12 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
       new THREE.Color(FORNAX_TIERS.charShadow),
     ];
     verts.push(K[0], K[1], K[2]);
-    { const c = tierCols[1].clone(); c.offsetHSL(0, 0.04, 0.10); cols.push(c.r, c.g, c.b); }   // root bloom at the wrist
+    { const c = tierCols[1].clone(); c.offsetHSL(0.004, 0.10, 0.14); cols.push(c.r, c.g, c.b); }   // root bloom at the wrist
     const nB = boundary.length;
     const bandCol = (b, i, ringT) => {       // finger-referenced band, same across the chord
       const st = b[4] ?? 0;
       const c = tierCols[Math.min(3, b[3])].clone();
-      c.offsetHSL(0.006 * st, 0.20 * st, 0.11 * st + (b[3] % 2 ? 0.025 : -0.012) + jit(i * 7 + ringT * 31, 0.02));
+      c.offsetHSL(0.006 * st, 0.22 * st, 0.15 * st + (b[3] % 2 ? 0.03 : -0.015) + jit(i * 7 + ringT * 31, 0.02));
       if (ringT >= 1) c.offsetHSL(0, -0.02, -0.075 + 0.02 * st);   // trailing edge dark
       return c;
     };
@@ -594,7 +594,7 @@ function buildBrandSkull(def, model, mats) {
   // (the mouth split must read), horns carry their value in VERTEX color (the
   // material is white — vertex colors multiply it).
   const skullMat = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? FORNAX_TIERS.charBase, FORNAX_TIERS.scorchMid, 0.45), roughness: 0.62, metalness: 0.0, flatShading: true, vertexColors: false });
-  const jawMat = new THREE.MeshStandardMaterial({ color: FORNAX_TIERS.scorchMid, roughness: 0.60, metalness: 0.0, flatShading: true });
+  const jawMat = new THREE.MeshStandardMaterial({ color: 0x5e5044, roughness: 0.58, metalness: 0.0, flatShading: true });   // h-r7: the mandible was value-buried against the cheek — 'cooling coal' lift
   const hornMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.08, flatShading: true, vertexColors: true });
 
   // skull wedge (w:h 1.1) with the dorsal S: nasal keel, brow dip, rising occiput
@@ -634,8 +634,8 @@ function buildBrandSkull(def, model, mats) {
   // (the head was a "value black hole" next to the banded chest)
   {
     const tRidge = new THREE.Color(lerpHex(FORNAX_TIERS.ashLit, 0x8a7c66, 0.55));   // pale keratin — snout bridge + crest edges
-    const tPlate = new THREE.Color(FORNAX_TIERS.scorchMid);
-    const tBase = new THREE.Color(lerpHex(FORNAX_TIERS.charBase, FORNAX_TIERS.scorchMid, 0.55));
+    const tPlate = new THREE.Color(0x554639);   // hide-r4: warm cooling-coal bias on plate tops
+    const tBase = new THREE.Color(0x413830);
     const tLow = new THREE.Color(lerpHex(FORNAX_TIERS.charShadow, FORNAX_TIERS.charBase, 0.40));
     const tRecess = new THREE.Color(FORNAX_TIERS.charShadow);
     const byRing = [tRidge, tPlate, tBase, tLow, tRecess, tLow, tBase, tPlate];
@@ -691,7 +691,7 @@ function buildBrandSkull(def, model, mats) {
 
   // tooth strip — lighter zig-zag along the seam (upper gum line) + tip fangs.
   // Bone-pale, NOT emissive (the menace is value contrast, not glow — law 6).
-  const toothMat = new THREE.MeshStandardMaterial({ color: 0x9a8d78, roughness: 0.5, metalness: 0.0, flatShading: true });
+  const toothMat = new THREE.MeshStandardMaterial({ color: 0xcdbfa3, roughness: 0.45, metalness: 0.0, flatShading: true });   // hide-r4: worn ivory — teeth are keratin, not hide
   for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
     const t = i / 3;
     const tz = -L * (0.48 - t * 0.30);           // strip ends BEFORE the cheek engulfs the jaw
@@ -707,6 +707,11 @@ function buildBrandSkull(def, model, mats) {
     const fang = new THREE.Mesh(new THREE.ConeGeometry(0.036 * hs, 0.17 * hs, seg(4)), toothMat);
     fang.position.set(side * W * 0.10, H * 0.08, -L * 0.56);
     jawGrp.add(fang);
+    for (let k = 0; k < 2; k++) {                // h-r7: a real lower row, rooted in the jaw rim
+      const lt = new THREE.Mesh(new THREE.ConeGeometry(0.022 * hs, 0.09 * hs, seg(4)), toothMat);
+      lt.position.set(side * W * (0.20 + 0.09 * k), H * 0.06, -L * (0.42 - 0.12 * k));
+      jawGrp.add(lt);
+    }
   }
 
   // NAPE PLATE — trapezoid capping the neck join, overlapping the skull's rear
@@ -782,7 +787,7 @@ function buildBrandSkull(def, model, mats) {
     const h = mkHorn(hornLen * (side === 1 && (model.chippedBrow ?? 0) ? 0.85 : 1.0), 0.10 * hs, true);
     h.position.set(side * W * 0.40, H * 0.48, L * 0.20);   // base SUNK into the dome — grown, not inserted
     h.rotation.z = side * -0.42;          // cant OUTWARD (a paired rank, not a picket)
-    h.rotation.x = 0.28;                  // h-r3: raked UP ~30° off the skull axis (parallel = invisible)
+    h.rotation.x = 0.40;                  // h-r7: raked a touch further aft — foreshortens to cones head-on, still ~25° off the skull axis
     group.add(h);
   }
   // RANKED horn pairs behind the dominant crescent — 60% and 35% of its length
@@ -790,13 +795,13 @@ function buildBrandSkull(def, model, mats) {
   const rankPairs = Math.min(2, followers);
   // h-r2: clear hierarchy — ranks shrink AND fan apart in pitch (a shared angle
   // reads as a parallel slab stack, not a composed rank)
-  const rankLen = [0.65, 0.40], rankZ = [0.15, 0.27], rankX = [0.36, 0.30];   // h-r6 hierarchy: 1.0 / 0.65 / 0.40, nothing else
+  const rankLen = [0.62, 0.38], rankZ = [0.18, 0.36], rankX = [0.34, 0.26];   // h-r7: roots STAGGERED along the rear third, not one base cluster
   for (let r = 0; r < rankPairs; r++) {
     for (const side of [-1, 1]) {
       const h = mkHorn(hornLen * rankLen[r], 0.10 * hs * (0.66 - r * 0.22));
       h.position.set(side * W * rankX[r], H * 0.44 - r * 0.05 * hs, L * 0.28 + rankZ[r] * hs);
       h.rotation.z = side * -(0.42 - r * 0.14);   // same sweep family, tightening inboard
-      h.rotation.x = 0.50 + r * 0.22;             // cascade DOWN from the raked dominant
+      h.rotation.x = 0.58 + r * 0.20;             // cascade DOWN from the raked dominant
       group.add(h);
     }
   }
