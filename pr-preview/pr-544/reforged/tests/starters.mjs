@@ -626,6 +626,55 @@ if (!cp1) {
 }
 
 
+
+// ── FORNAX (SSR→SSSR premium fire wyvern, 4 forms) — THE STOKING ladder + identity-law
+// asserts (FIRE-WYVERN-BUILDSHEET §10/§12; own block — fornax is NOT a starter slot).
+// The ladder must be accretive (every rung a cruise-visible earn) and the frozen identity
+// hooks must never regress to the rig's defaults (the gauntlet's def-checklist finds:
+// scales/horn fallback, rimCruise-is-a-color, black wing emissives).
+if (!cp1) {
+  const key = 'fornax';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const defs = [];
+  for (let f = 0; f <= maxT; f++) defs.push(ascendedDef(DRAGONS[key], f, 0));
+  const dial = (name) => defs.map((d) => d.model[name] ?? 0);
+  const nondecreasing = (a) => a.every((v, i) => i === 0 || v >= a[i - 1]);
+  const nonincreasing = (a) => a.every((v, i) => i === 0 || v <= a[i - 1]);
+  for (const name of ['spanScale', 'wingDigits', 'seamGens', 'hornFollowers', 'tailRidge', 'wingParts', 'tipAmp']) {
+    ok(nondecreasing(dial(name)), `${key}: ${name} ladder accretive (${dial(name).join('→')})`);
+  }
+  ok(nonincreasing(dial('headScale')), `${key}: whelp-big head shrinks up the ladder (${dial('headScale').join('→')})`);
+  ok(nonincreasing(dial('eyeScale')), `${key}: eye tightens toward the apex (${dial('eyeScale').join('→')})`);
+  const tip = dial('firebrandTip'), prop = dial('propatagium');
+  ok(tip[0] === 0 && tip[3] === 1, `${key}: firebrand tip is an Eternal earn (${tip.join('→')})`);
+  ok(prop[0] === 0 && prop[3] === 1, `${key}: propatagium is an Eternal earn (${prop.join('→')})`);
+  // frozen identity hooks (law 5 + the def-checklist) — every form
+  for (let f = 0; f <= maxT; f++) {
+    const d = defs[f];
+    ok((d.feverWing ?? 1) === 0x000000, `${key} f${f}: feverWing BLACK (law 5)`);
+    ok((d.wingMembraneEmissive ?? 1) === 0x000000 && (d.wingEmissive ?? 1) === 0x000000, `${key} f${f}: wing emissives BLACK (law 5)`);
+    ok(d.scales != null && d.horn != null, `${key} f${f}: scales/horn set (no accent-orange fallback)`);
+    ok(d.rimCruise != null && d.rimCruiseBase != null, `${key} f${f}: rimCruise color + base set`);
+    ok(d.bodyRoughness != null && (d.bodyMetalness ?? 1) === 0, `${key} f${f}: matte char body finish (no chrome)`);
+  }
+  // tri budget: build each form, count, assert monotonic-nondecreasing + under ceiling
+  const triAt = [];
+  for (let f = 0; f <= maxT; f++) {
+    const { group } = buildDragonModel(defs[f], {});
+    let tris = 0;
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const pa = o.geometry.attributes.position; if (!pa) return;
+      tris += o.geometry.index ? o.geometry.index.count / 3 : pa.count / 3;
+    });
+    triAt.push(Math.round(tris));
+    ok(tris <= 6000, `${key} f${f}: tri budget (${Math.round(tris)} <= 6000)`);
+  }
+  ok(nondecreasing(triAt), `${key}: tri ladder accretive (${triAt.join('→')})`);
+}
+
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
+
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
 process.exit(0);
