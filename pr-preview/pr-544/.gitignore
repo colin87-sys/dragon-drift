@@ -1,0 +1,18 @@
+# Local Claude Code state stays out of git, but shared config + skills are tracked
+# (git can't descend into an excluded dir, so exclude the contents, not the dir).
+.claude/*
+!.claude/settings.json
+!.claude/skills/
+*.log
+node_modules/
+reforged/tools/_angles.html
+# Stray root-tree "Ember Gambit" feature files (untracked, not part of the reforged game)
+js/gambit.js
+tests/gambit.mjs
+.github/workflows/pages.yml
+
+# Boss design-review capture crops (checkpoint gate artifacts; not shipped)
+reforged-captures/
+
+# Derived combined ledger view (tools/build-ledger.mjs)
+leapfrog/LEDGER.md
