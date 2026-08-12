@@ -341,7 +341,7 @@ function buildUnderlitCrescentWings(def, model, attach, giM) {
     flatShading: true, side: THREE.FrontSide,   // lit face points DOWN (law 5: tops never emissive)
   });
   underMat.userData.baseEmissive = STOKE_EMBER; underMat.userData.baseIntensity = 0.03;
-  underMat.userData.flareIntensityWeight = 1.0;   // the underlit crescent owns the Surge frame
+  underMat.userData.flareIntensityWeight = 0.5;   // amber stays amber through ACES — the leak reads as glow, not cream edges
 
   // ─ leading-edge profile (shared function — the anti-plank curve): a LOW gull
   // arch peaking at the carpal (archRise 0.12 — wide, not tall) + a shallow ogee
