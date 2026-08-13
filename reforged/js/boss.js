@@ -31,6 +31,7 @@ import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lanceDmgEach, paintFromParry, dropLockPart, grantEchoPip, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
 import { makeGlowTexture, mulberry32 } from './util.js';
 import { juiceEvent, hitstopForce } from './juice.js';
+import { driftChipMult } from './drift.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -3509,7 +3510,10 @@ export function updateBoss(dt, player, time, camera) {
       // A held aim-line quickens the rider's cadence (÷ chipRateMult) — never a fire
       // button, never touching the unconditional chip; it CONDITIONS on flight state.
       const held = lockAimHeld() ? CONFIG.LOCK.chipRateMult : 1;
-      riderTimer = (B.riderShotInterval / held) * (surge ? B.surgeRiderMult : 1);   // double-fire in Surge
+      // M1: earned DRIFT quickens the chip too (÷ driftChipMult), same conditioning
+      // grammar as `held`. The helper is fever-excluded, so in Surge it's 1 and only
+      // surgeRiderMult applies — the melt frame stays shipped-identical (§4a).
+      riderTimer = (B.riderShotInterval / (held * driftChipMult())) * (surge ? B.surgeRiderMult : 1);
       fireRiderShot(player);
     }
 

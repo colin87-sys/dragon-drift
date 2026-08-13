@@ -10,9 +10,10 @@
 // (DRIFT contributes nothing above 130 m/s — consumption-side only, geometry untouched).
 // A boss is the DIFFERENT-EXPRESSION zone: bleed pauses, the meter is fed by fight verbs
 // (parry/card/mechanic/graze — §4a governors baked in: F2 pays NOTHING for Surge reflects,
-// F1/F2 carry per-encounter caps), and it expresses as faster Surge charge (M2, with the
-// in-boss D clamp) instead of world speed. M1 (faster rider chip) is deliberately ABSENT —
-// A/B-gated on the lockdps sim per the plan.
+// F1/F2 carry per-encounter caps), and it expresses as faster Surge charge (M2, in-boss
+// D clamp) and a quicker rider chip (M1, fever-EXCLUDED + D-clamped) instead of world
+// speed. M1's own gate (tests/driftchip.mjs) is what proves it — lockdps is lance-only
+// and structurally blind to the rider, so it can never fail on M1.
 //
 // Flag-gated: CONFIG.DRIFT.enabled or ?drift=1. OFF = this module is inert (subscribers
 // no-op, factor 1, perfect radius = shipped) and the roster is byte-identical.
@@ -70,6 +71,19 @@ export function driftGrazeMult() {
   const C = CONFIG.DRIFT;
   if (!driftEnabled()) return 1;
   return 1 + C.boss.grazeChargeBoost * Math.min(D, C.boss.grazeChargeDClamp);
+}
+
+// M1 — the rider chip quickens with earned DRIFT (a well-flown fight is a SHORTER
+// fight), returned as a rate multiplier the reload divides by (mirrors chipRateMult).
+// TWO governors, both load-bearing: (1) FEVER-EXCLUDED — returns 1 during Surge so M1
+// never stacks on surgeRiderMult, keeping the audited melt frame byte-identical to
+// shipped (§4a); (2) D-clamped at chipDClamp → ceiling ×1.15, the chipRateMult LAW's
+// magnitude. Off-flag / non-boss = 1 (the fight is the only call site). Conditioned-only:
+// the base D=0 channel is never touched, so VOIDMAW P1's 0.99× phase-deleter pin holds.
+export function driftChipMult() {
+  const C = CONFIG.DRIFT;
+  if (!driftEnabled() || game.feverActive) return 1;
+  return 1 + C.boss.chipRateBoost * Math.min(D, C.boss.chipDClamp);
 }
 
 // §3.3 — perfect radius half-compensates with the co-scaled factor only (F_total =
