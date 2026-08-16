@@ -6,7 +6,7 @@ If §4 already closed it, it is not in this file.
 
 ---
 
-## §0 Provenance note — READ BEFORE TRUSTING A TAG
+## Provenance note — READ BEFORE TRUSTING A TAG
 
 **`WebFetch` is globally blocked in this environment.** Confirmed this pass with
 `EGRESS_BLOCKED` on `journals.biologists.com`, `pmc.ncbi.nlm.nih.gov`, `arxiv.org`,
@@ -18,7 +18,7 @@ Calibration, so the Director can weigh a tag correctly:
 - `[S]` + a URL — the number lives at that URL. The *wording* around it is the search
   index's paraphrase unless it is in "double quotes".
 - `[D]` — computed here from `[S]` inputs. **The arithmetic is shown every time.**
-- `unknown` — searched, not found. The search terms are logged in §5. This is a result.
+- `unknown` — searched, not found. The search terms are logged under "Still unknown". This is a result.
 - `[no-assert]` — sources conflict or the field refuses to settle it.
 - ⚠ **single-pass** — retrieved once and *not* reproduced by a second, differently-worded
   search. Used exactly once below (P. vampyrus humerus/radius) and flagged in place.
@@ -27,11 +27,13 @@ No image is contributed by this stream, so there is no `refs/INDEX.md` row from 
 
 ---
 
-## §1 Headline — the five findings that most change what the wing looks like
+## Headline
+
+*The five findings that most change what the wing looks like.*
 
 **1. The wrist sits at HALF the span, not at a quarter.** With a measured bat digit-III
 chain and a measured humerus:radius, the shoulder→fingertip landmark positions fall out
-as **elbow t≈0.29, wrist t≈0.56, first knuckle t≈0.74, second knuckle t≈0.86** (§2.1).
+as **elbow t≈0.29, wrist t≈0.56, first knuckle t≈0.74, second knuckle t≈0.86** (T1).
 The hand is **~44–49% of the semi-span**. The repo's `wristT 0.20–0.30` (⇒ "hand ≈76% of
 the wing", §4.4) is **not** the bat proportion — it is roughly double the real hand share.
 
@@ -47,21 +49,21 @@ retrieved. And the palm barely fans at all: mc3 : mc4 : mc5 = **1.00 : 0.978 : 0
 
 **4. A propatagium and a straight arm are mutually exclusive — 111.0° is the hard limit.**
 Fossil taxa preserving elbow angles **> 111.0°** did not possess a propatagium; the
-forward sheet mechanically restricts elbow extension (§2.4). So the §4.4 law "a straight
+forward sheet mechanically restricts elbow extension (T4). So the §4.4 law "a straight
 leading edge is unsupported in both membrane lineages" now has a **number**: the elbow must
 read as bent by ≥ ~20° off straight, at full extension, or the forward sheet is a lie.
 
 **5. The membrane is 39–267 µm thick and ~10× stiffer chordwise than spanwise, with
 spanwise elastin bundles that WRINKLE the surface at rest.** Modulus ≈ **3 MPa spanwise
 → ≈30 MPa chordwise**; the plagiopatagium changes length by **>50% in both directions** in
-flight; skin is **4–10× thinner** than predicted for a mammal that size (§2.3). The rest
+flight; skin is **4–10× thinner** than predicted for a mammal that size (T3). The rest
 state of a real membrane is not smooth — it is a spanwise-wrinkled sheet.
 
 ---
 
-## §2 Tables
+## Tables
 
-### §2.1 Bat wing bone proportions — CLOSES `LD3/FL`, `forearm : humerus`, metacarpal:phalanx
+### T1 — Bat wing bone proportions — CLOSES `LD3/FL`, `forearm : humerus`, metacarpal:phalanx
 
 **Primary measured set.** Javid et al., *"Morphometrics of fulvous fruit bat (Rousettus
 leschenaulti) from Lahore, Pakistan"*, **Pakistan J. Zool. 24(3)**, n = 15 (9♂ 6♀). `[S]`
@@ -128,7 +130,7 @@ shoulder→tip chain. Assumption stated: shoulder offset = 0.35 FL, taken from t
 *P. vampyrus* cross-check above. Vary it 0.2–0.5 FL and the wrist moves only **0.541–0.577**
 `[D]` — the landmark is robust to the one assumption in the chain.
 
-### §2.2 Pterosaur forelimb ratios — CLOSES wing-finger : forearm : humerus for a giant
+### T2 — Pterosaur forelimb ratios — CLOSES wing-finger : forearm : humerus for a giant
 
 *Quetzalcoatlus lawsoni*, Padian et al. 2021, *Functional Morphology of Quetzalcoatlus
 Lawson 1975*, JVP 41(sp1). `[S]`
@@ -153,7 +155,7 @@ https://www.tandfonline.com/doi/full/10.1080/02724634.2020.1780247
 | **(mcIV + wing finger) / shoulder→tip** | **≈ 0.71–0.74** | `[D]` — independently tightens §4's `[S, approximate]` ">2/3" |
 
 > **Wing-finger derivation `[D]`.** Shoulder→tip = humerus + radius + mcIV + F = 24 + 37.5
-> + 46.5 + F = 108 + F cm. *Q. lawsoni* span ≈ 4.5–5.0 m `[S, §2.1]`; subtract ~10–15 cm
+> + 46.5 + F = 108 + F cm. *Q. lawsoni* span ≈ 4.5–5.0 m `[S, ANATOMY-REF §2.1]`; subtract ~10–15 cm
 > of shoulder offset ⇒ shoulder→tip ≈ 215–240 cm ⇒ **F ≈ 107–132 cm**. Sensitive to the
 > assumed span; stated as a band, not a point.
 
@@ -163,7 +165,7 @@ the ratios below are new): *Rhamphorhynchus* mcIV 148 mm, phalanges 138 / 112 / 
 **0.93, 0.81, 0.71, 0.85** `[D]` (mean **0.82**) — i.e. the pterosaur wing finger decays at
 a near-constant **~0.8 per element**, *not* the 0.62–0.70 of a crest/tooth rank (§6.3), and
 **not monotonically**: the last element decays *less* than the one before it, the same
-"long–short–long" rhythm the bat finger shows in §2.1. Two lineages, same non-monotone tell.
+"long–short–long" rhythm the bat finger shows in T1. Two lineages, same non-monotone tell.
 ⚠ Not the same specimen as the TMP 2008.41.001 wing (990 mm span) in
 https://peerj.com/articles/1191/ — do not chain the two.
 
@@ -172,7 +174,7 @@ https://peerj.com/articles/1191/ — do not chain the two.
 http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element lengths
 `unknown`. *Anhanguera* element lengths `unknown`.
 
-### §2.3 Membrane material — thickness, modulus, anisotropy, strength
+### T3 — Membrane material — thickness, modulus, anisotropy, strength
 
 | Property | Value | Tag / source |
 |---|---|---|
@@ -195,7 +197,7 @@ http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element length
 | **Tear / puncture resistance** | **`unknown`** | — |
 | Thickness split, plagiopatagium *vs* dactylopatagium | **`unknown`** — the 39–267 µm range is whole-wing; no source retrieved separated it by region | — |
 
-### §2.4 Propatagium geometry — the OPEN item, partially closed by derivation
+### T4 — Propatagium geometry — the OPEN item, partially closed by derivation
 
 | Figure | Value | Tag |
 |---|---|---|
@@ -217,7 +219,7 @@ http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element length
 > **propatagium 5.6–6.7%**, armwing 52–53%, handwing 40–41%.
 >
 > **Depth derivation `[D, wide]`.** Treat the propatagium as a triangle on
-> shoulder–elbow–wrist. Shoulder→wrist = 1.736 FL (§2.1). One wing's area ≈ 4.27 FL²
+> shoulder–elbow–wrist. Shoulder→wrist = 1.736 FL (T1). One wing's area ≈ 4.27 FL²
 > (semi-span 3.726 FL at flying-fox AR 6.5 `[S, §4.5]`). 6.2% of that = 0.265 FL².
 > Depth d = 2 × 0.265 / 1.736 = **0.305 FL**. Local root chord ≈ 1.25–1.6 FL
 > ⇒ **d / c ≈ 0.19–0.24**; against the *mean* chord (1.15 FL) it is 0.27. Reported as
@@ -229,7 +231,7 @@ http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element length
 > gives is a **defensible non-zero starting depth from bat aerodynamics**, so the builder
 > stops authoring the forward sheet as decorative piping.
 
-### §2.5 Actinofibrils — spacing still open, layer structure closed
+### T5 — Actinofibrils — spacing still open, layer structure closed
 
 | Figure | Value | Tag |
 |---|---|---|
@@ -241,11 +243,11 @@ http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element length
 | **Proximal orientation** | where present proximally they lie **perpendicular to the long axis of the wing** (vs subparallel to the spar distally) | `[S]` same |
 | Zittel-wing preservation caveat | reinterpreted as **negative impressions of closely spaced broad flat actinofibrils**, calcite-replaced, partly prepared away — the count "cannot always be determined" | `[S]` https://bioone.org/journals/journal-of-paleontology/volume-89/issue-5/jpa.2015.68/New-interpretation-of-the-wings-of-the-pterosaur-Rhamphorhynchus-muensteri/10.1017/jpa.2015.68.short |
 
-### §2.6 Folded pose and joint range of motion — mostly still open, one hard number
+### T6 — Folded pose and joint range of motion — mostly still open, one hard number
 
 | Figure | Value | Tag |
 |---|---|---|
-| **Elbow: maximum extension compatible with a propatagium** | **111.0°** | `[S]` Uno & Hirasawa 2023 (§2.4) |
+| **Elbow: maximum extension compatible with a propatagium** | **111.0°** | `[S]` Uno & Hirasawa 2023 (see T4) |
 | **Glenohumeral joint** | mammalian ball-and-socket, **five degrees of freedom** — unlike the restricted avian joint | `[S]` https://anatomypubs.onlinelibrary.wiley.com/doi/10.1002/ar.22650 (Panyutina et al. 2013, *Anat. Rec.*) |
 | Where in that envelope the flap lives | wingbeats are performed predominantly by **humerus-relative-to-girdle** motion, occupying **the caudal-most sector** of available shoulder mobility; shoulder-girdle excursion contributes **relatively little** to amplitude | `[S]` same |
 | Total kinematic freedom | **>20 degrees of freedom per wing** (jointed leg + shoulder + elbow + wrist + five multi-jointed fingers) | `[S]` https://www.sciencedirect.com/science/article/abs/pii/S002251930800324X (Riskin et al. 2008, *J. Theor. Biol.*) |
@@ -261,15 +263,15 @@ http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element length
 ⇒ §4.6 remains the weakest-sourced item in the pack. **One thing changed:** the elbow now
 has a hard *extension* bound (111.0°) that applies to the EXTENDED pose, not the folded one.
 
-### §2.7 Published aspect ratio and wing loading — CLOSES three of the four §4.5 gaps
+### T7 — Published aspect ratio and wing loading — CLOSES three of the four §4.5 gaps
 
 | Taxon | Aspect ratio | Wing loading | Tag / source |
 |---|---|---|---|
 | **Wandering albatross** (giant albatrosses) | **15.6** | `unknown` as a published N/m² | `[S]` Warham 1977, *Wing loadings, wing shapes and flight capabilities of Procellariiformes*, NZ J. Zool. 4(1) https://www.tandfonline.com/doi/abs/10.1080/03014223.1977.9517938 |
 | Storm petrel (the small end of the same clade) | **≈ 6.5** | — | `[S]` same — **AR climbs 6.5 → 15.6 across one family purely with size** |
 | Procellariiform wing-area allometry | — | log₁₀ area(cm²) = 20.42·log₁₀ mass(g) − 0.588 ⚠ leading coefficient looks like an OCR/transcription error (should plausibly be 0.42-ish); **do not use** | `[no-assert]` same |
-| **Andean condor** | **7.9** | ⚠ "≈4.5 kg/m² (≈44 N/m²)" surfaced but **conflicts** with the PNAS California-condor figure of **70.6 N/m²** `[S, §2.3]`; a 11 kg condor would need 2.4 m² of wing for 44 N/m² | AR `[S]` McGahan 1973, *Gliding flight of the Andean condor in nature*, JEB 58(1):225–237 https://journals.biologists.com/jeb/article/58/1/225/21821/ · WL `[no-assert]` |
-| ***Pteranodon*** | 9:1 `[S, §2.1]` | **`unknown` as published**; `[D]` **≈ 30 N/m²** from Bramwell & Whitfield's span 6.95 m + mass 16.6 kg at AR 9 (S = b²/AR = 5.37 m²; 16.6 × 9.81 / 5.37) | `[S]` https://royalsocietypublishing.org/doi/10.1098/rstb.1974.0007 |
+| **Andean condor** | **7.9** | ⚠ "≈4.5 kg/m² (≈44 N/m²)" surfaced but **conflicts** with the PNAS California-condor figure of **70.6 N/m²** `[S, ANATOMY-REF §2.3]`; a 11 kg condor would need 2.4 m² of wing for 44 N/m² | AR `[S]` McGahan 1973, *Gliding flight of the Andean condor in nature*, JEB 58(1):225–237 https://journals.biologists.com/jeb/article/58/1/225/21821/ · WL `[no-assert]` |
+| ***Pteranodon*** | 9:1 `[S, ANATOMY-REF §2.1]` | **`unknown` as published**; `[D]` **≈ 30 N/m²** from Bramwell & Whitfield's span 6.95 m + mass 16.6 kg at AR 9 (S = b²/AR = 5.37 m²; 16.6 × 9.81 / 5.37) | `[S]` https://royalsocietypublishing.org/doi/10.1098/rstb.1974.0007 |
 | ***Quetzalcoatlus*** | `unknown` | **72 N/m² — PUBLISHED** | `[S]` Chatterjee & Templin, *Posture, Locomotion and Paleoecology of Pterosaurs* https://www.researchgate.net/publication/280299600_Posture_Locomotion_and_Paleoecology_of_Pterosaurs |
 | **Pterosauria, full published range** | — | **7 N/m² (*Eudimorphodon*) → 72 N/m² (*Quetzalcoatlus*)**, 10 species | `[S]` same |
 | Pterosaur glide angle, giant pterodactyloids | — | **1–2°** (comparable to albatross / sailplane) | `[S]` same |
@@ -278,13 +280,13 @@ has a hard *extension* bound (111.0°) that applies to the EXTENDED pose, not th
 | **Largest flying foxes** (*P. neohibernicus*, to 1.45 kg / 1.7 m span) | **`unknown`** | **`unknown`** | — |
 
 > **⚠ THE QUETZALCOATLUS SPREAD IS THE ANSWER, and it is 3×.** Published **72 N/m²**
-> (Chatterjee & Templin, light-mass school) vs §2.7's derived **≈220 N/m²** (from Witton's
+> (Chatterjee & Templin, light-mass school) vs ANATOMY-REF §2.7's derived **≈220 N/m²** (from Witton's
 > 250 kg). Same animal, same span. The wing-loading disagreement is downstream of the
-> **mass** disagreement (200–250 kg vs 544 kg, §2.7) and cannot be averaged away. For the
+> **mass** disagreement (200–250 kg vs 544 kg, ANATOMY-REF §2.7) and cannot be averaged away. For the
 > game, §4.5's `[D]` sanity band of 30–80 N/m² is now bracketed on the low side by a real
 > published giant-pterosaur figure at **72**.
 
-### §2.8 Where the wing attaches to the body — the silhouette lever §4 barely covers
+### T8 — Where the wing attaches to the body — the silhouette lever §4 barely covers
 
 | Finding | Value | Tag |
 |---|---|---|
@@ -297,7 +299,7 @@ has a hard *extension* bound (111.0°) that applies to the EXTENDED pose, not th
 | **Numeric planform effect (ΔAR, Δarea) of moving the anchor ankle→knee→flank** | **`unknown`** — no source quantified it | — |
 | Pterosaur equivalent: the **wing-root fairing** | direct soft-tissue evidence of a fairing smoothing the wing–body junction, **made of muscle** rather than fur or feathers (unlike bats and birds), used for wing-root control and to contribute to wing elevation / anterior wing motion | `[S]` https://www.pnas.org/doi/10.1073/pnas.2107631118 (PNAS 2021) |
 
-### §2.9 Camber and twist along the span
+### T9 — Camber and twist along the span
 
 | Figure | Value | Tag |
 |---|---|---|
@@ -312,9 +314,9 @@ has a hard *extension* bound (111.0°) that applies to the EXTENDED pose, not th
 
 ---
 
-## §3 Build implications
+## Build implications
 
-Each row is a number from §2 turned into an instruction. Numbers with no row here were cut.
+Each row is a number from the Tables turned into an instruction. Numbers with no row here were cut.
 
 1. **Move the wrist outboard to t ≈ 0.50–0.56.** `wristT 0.20–0.30` (§4.4) is not the bat
    proportion — the measured chain puts the wrist at **0.560** from the midline. Because
@@ -369,12 +371,12 @@ Each row is a number from §2 turned into an instruction. Numbers with no row he
 12. **Drive inboard camber from the LEG and outboard camber from digit V and the tip.**
     Four controls, and they are spatially separated. A single global `cup` parameter
     cannot express this; the inner bay's camber should be a function of the hindlimb pose,
-    which also means the fold and the leg pose are coupled (and §2.2's warning applies:
+    which also means the fold and the leg pose are coupled (and ANATOMY-REF §2.2's warning applies:
     that coupling is permanent).
 13. **Twist the wing so tip pitch leads root pitch, and let camber COLLAPSE with speed.**
     Measured spanwise pitch spans **35° → 130°** across a stroke, increasing root→tip on
     the upstroke. At cruise the wing should be flatter, smaller in area and lower in AoA
-    than at hover — §4.5 already gives the 3.5× camber change; §2.9 says area and AoA go
+    than at hover — §4.5 already gives the 3.5× camber change; T9 says area and AoA go
     with it, so cruise should shrink all three together, not just flatten the sag.
 14. **Fold by wrist supination + elbow retraction, and expect ~35% of the inertial saving
     to be visible as the wing getting SHORTER, not thinner.** The fold shortens the span
@@ -395,7 +397,7 @@ Each row is a number from §2 turned into an instruction. Numbers with no row he
 
 ---
 
-## §4 What this rules out
+## What this rules out
 
 **Kills the proportions**
 - **A wrist at 20–30% of the span**, with the hand making up 70–80% of the wing. The
@@ -448,7 +450,7 @@ Each row is a number from §2 turned into an instruction. Numbers with no row he
 
 ---
 
-## §5 Still unknown
+## Still unknown
 
 Every row was searched. The search terms are given so the next stream does not repeat them.
 
@@ -471,5 +473,5 @@ Every row was searched. The search terms are given so the next stream does not r
 | ***Pteranodon* wing loading** as a published number | `unknown`; `[D]` ≈30 N/m² from span+mass at AR 9 | `Pteranodon wing area aspect ratio wing loading Bramwell Whitfield 1974` |
 | **Largest flying foxes** (*P. neohibernicus*, *P. vampyrus*) AR and WL | `unknown`. Closest published: *P. livingstonii* 6.52 / 25.8 N/m² | `Norberg Rayner 1987 Pteropus vampyrus wing loading aspect ratio`; `flying fox wing loading largest megabat N/m2` |
 | **Static washout in degrees**, and **camber at named span stations** | `unknown` | `bat wing spanwise twist washout degrees root tip`; `bat wing camber varies along span proximal distal values` |
-| **Planform effect of moving the hindlimb anchor** (ankle → knee → flank), numerically | `unknown` — the *qualitative* variation is well sourced (§2.8), the ΔAR is not | `bat plagiopatagium attaches ankle knee flank families`; `Myotis wing membrane attached base of toes ankle diagnostic` |
+| **Planform effect of moving the hindlimb anchor** (ankle → knee → flank), numerically | `unknown` — the *qualitative* variation is well sourced (T8), the ΔAR is not | `bat plagiopatagium attaches ankle knee flank families`; `Myotis wing membrane attached base of toes ankle diagnostic` |
 | **Absolute airspeed at which the trailing edge flutters** (§4.5's open item) | `unknown` — not re-attempted this pass; §4.5 already establishes it is governed by a dimensionless number, so an absolute speed may not exist as a published quantity | — |
