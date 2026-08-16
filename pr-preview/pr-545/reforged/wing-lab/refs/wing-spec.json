@@ -1,0 +1,14 @@
+{
+  "_note": "PARTIAL. Only fully-sourced values are present. Sections awaiting research streams are absent rather than guessed — see 00-BRIEF.md tagging law.",
+  "camber": {
+    "caption": "All values [S] from DRAGON-ANATOMY-REFERENCE.md 4.5. Camber falls 3.5x from hover to cruise.",
+    "xSag": 0.40,
+    "note": "A flat sheet has no sourced analogue anywhere. Deepest sag at the trailing edge is a kite tell.",
+    "sections": [
+      { "label": "cruise, 7 m/s", "value": 0.04 },
+      { "label": "hover / launch", "value": 0.14, "hot": true },
+      { "label": "optimal aeroelastic", "value": 0.175 },
+      { "label": "high load, low stiffness", "value": 0.26 }
+    ]
+  }
+}

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Lumen Mire Hero Studio</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0d0a08;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #sheet{position:fixed;left:0;top:0;display:none;background:#0d0a08}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ffd0a0;font-size:13px;white-space:pre-wrap;
+      background:rgba(30,16,8,.8);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__pserr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Studio error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__pserr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__pserr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="600" height="600"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildArchetypeMesh } from '../js/environment.js';
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 200000);
+
+    // The Mire shipping-light rig: a DIM night with a warm amber ground-up bounce (the
+    // biome is lit from below/within). The hero's crown-colony glow is EMISSIVE so it
+    // self-lights regardless — the dim rig just keeps the dark cap reading as dark matter.
+    const rigs = {};
+    function makeRig(name, fn) { const g = new THREE.Group(); fn(g); g.visible = false; scene.add(g); rigs[name] = g; }
+    // THE MIRE RIG = THE BIOME'S ACTUAL LIGHT (Fable 60-ruling §3). The old rig (hemi 0.9 + 3 dirs at
+    // 0.45/0.4/0.35 ≈ 4× the biome's incident light) FLATTERED low-emissive props — a tree that gated
+    // 4.4 here vanished in-game. These are the biomes.js biome-4 values verbatim so a studio pass now
+    // PREDICTS the in-game read. Rule of record: the 'mire' rig is the biome's light or it is nothing.
+    makeRig('mire', (g) => {
+      g.add(new THREE.HemisphereLight(0x12101a, 0x4c3818, 1.0));           // biome-4 hemi (dark sky / warm amber ground)
+      const key = new THREE.DirectionalLight(0xff9a3c, 0.2); key.position.set(-2.4, 2.2, 3.0); g.add(key);  // sun at sunI 0.2 (there IS no key light in the swamp)
+      const floor = new THREE.DirectionalLight(0xf79a2e, 0.15); floor.position.set(0.4, -2.2, 1.2); g.add(floor); // faint amber mirror-bounce
+      const rim = new THREE.DirectionalLight(0xffc266, 0.1); rim.position.set(2.6, 1.4, -2.2); g.add(rim);   // token back-rim (no real rim in a fog-roofed night)
+    });
+    makeRig('neutral', (g) => {
+      g.add(new THREE.HemisphereLight(0xcfd8e6, 0x3a3d47, 1.1));
+      const k = new THREE.DirectionalLight(0xffffff, 1.3); k.position.set(2.5, 3, 4); g.add(k);
+      const r = new THREE.DirectionalLight(0xdfeaff, 0.85); r.position.set(-3, 1.5, -3); g.add(r);
+    });
+    function setRig(name) { for (const k in rigs) rigs[k].visible = (k === name); }
+    setRig('mire');
+
+    const BG = { dark: 0x0d0a08, mire: 0x1a1006, pale: 0xcdd6e2 };
+    function setBg(bg) { scene.background = new THREE.Color(BG[bg] ?? BG.dark); }
+
+    // Angles. GAMEPLAY = the real chase-cam read: elevated, looking down-front at the hero
+    // (the colony shoulder faces the approach, +z local → -z world via authored rotY π, so the
+    // camera sits on -z). TOP = the flying camera's straight-down plan. WORM = "feel colossal".
+    const ANGLES = {
+      gameplay: { dir: [0.14, 0.40, -1],  up: [0, 1, 0] },
+      hero3q:   { dir: [0.72, 0.30, -0.7], up: [0, 1, 0] },
+      worm:     { dir: [0.10, -0.14, -1], up: [0, 1, 0] },
+      top:      { dir: [0.0001, 1, 0.0001], up: [0, 0, -1] },
+      front:    { dir: [0.04, 0.20, -1],  up: [0, 1, 0] },
+      side:     { dir: [1, 0.16, 0.03],   up: [0, 1, 0] },
+    };
+
+    let built = null;
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+    function dispose() { if (!built) return; scene.remove(built); built.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); built = null; }
+    function build(key, opts) { dispose(); built = buildArchetypeMesh(key, opts || {}); scene.add(built); built.updateMatrixWorld(true); return built; }
+    function fit(dir, up, fillFrac) {
+      _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      const vfov = camera.fov * Math.PI / 180;
+      const dist = (radius / Math.tan(vfov / 2)) / (fillFrac || 0.78);
+      camera.up.set(up[0], up[1], up[2]);
+      const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = Math.max(0.01, dist / 500); camera.far = dist * 40;
+      camera.updateProjectionMatrix(); camera.lookAt(_c);
+    }
+    function render() { renderer.render(scene, camera); }
+    function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
+
+    // FAR-BAND capture (Fable 60-ruling §3): scale the prop to its real place-size + dolly the camera to
+    // a world distance with the biome fog on, so a FAR beacon (glowtree) is judged WITH the ~50% fog tax it
+    // pays in-game — not at flattering portrait distance. `far = { r, h, dist }` (place r/h + camera metres).
+    function fitFar(built, dir, up, far) {
+      built.scale.set(far.r, far.h, far.r); built.updateMatrixWorld(true);
+      _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      camera.up.set(up[0], up[1], up[2]);
+      const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      camera.position.copy(_c).addScaledVector(d, far.dist);
+      // telephoto: frame the distant prop to ~70% without moving the camera (so the FOG at far.dist is intact)
+      camera.fov = 2 * Math.atan(radius / (far.dist * 0.52)) * 180 / Math.PI;
+      camera.near = 0.1; camera.far = far.dist * 20; camera.updateProjectionMatrix(); camera.lookAt(_c);
+    }
+    window.psRender = (o) => {
+      build(o.key, o.opts || { single: true }); setBg(o.bg || 'dark'); setRig(o.rig || 'mire');
+      const a = ANGLES[o.angle] || ANGLES.gameplay;
+      if (o.far) { scene.fog = new THREE.Fog(0x473217, 48, 255); fitFar(built, a.dir, a.up, o.far); }
+      else { scene.fog = null; camera.fov = 42; camera.updateProjectionMatrix(); fit(a.dir, a.up, o.fill); }
+      render(); return true;
+    };
+    // grab the ACTUAL gl canvas (preserveDrawingBuffer) — the sheet overlay can't corrupt this.
+    window.psGrab = () => gl.toDataURL('image/png');
+    window.psReframe = (o) => { if (o.bg) setBg(o.bg); if (o.rig) setRig(o.rig); const a = ANGLES[o.angle] || ANGLES.gameplay; fit(a.dir, a.up, o.fill); render(); return true; };
+
+    const _sheet = document.getElementById('sheet');
+    window.psSheetInit = (cols, rows, cell) => { _sheet.width = cols * cell; _sheet.height = rows * cell; _sheet.style.display = 'block'; const ctx = _sheet.getContext('2d'); ctx.fillStyle = '#0d0a08'; ctx.fillRect(0, 0, _sheet.width, _sheet.height); _sheet.__cell = cell; _sheet.__cols = cols; sizeGL(cell); return true; };
+    window.psTile = (quad, label) => {
+      const cell = _sheet.__cell, cols = _sheet.__cols; const ctx = _sheet.getContext('2d');
+      const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell; ctx.drawImage(gl, ox, oy, cell, cell);
+      if (label) { ctx.font = '600 22px system-ui, sans-serif'; ctx.textBaseline = 'top'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 14, oy + 14); ctx.fillStyle = '#ffd08a'; ctx.fillText(label, ox + 14, oy + 14); }
+      return true;
+    };
+
+    try { renderer.setSize(600, 600, false); window.__ready = true; }
+    catch (e) { window.__pserr((e && e.stack) || String(e)); throw e; }
+  </script>
+</body>
+</html>

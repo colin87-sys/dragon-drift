@@ -1,0 +1,193 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>wing plate</title>
+<style>
+  body { margin: 0; background: #0d0f12; }
+  canvas { display: block; }
+</style>
+<canvas id="plate" width="1400" height="900"></canvas>
+<script>
+// Draws labelled anatomical plates for the wing lab from a single spec of RATIOS.
+// Every drawn proportion comes from reforged/wing-lab/refs/wing-spec.json — nothing
+// here invents a number. Entries the research left open are drawn as an explicit
+// "unknown" marker instead of a plausible guess.
+const C = document.getElementById('plate');
+const g = C.getContext('2d');
+
+const INK   = '#e8e2d6';   // labels
+const DIM   = '#6d7480';   // guides
+const BONE  = '#d9cfba';   // skeleton
+const MEMB  = 'rgba(190,120,90,0.16)';
+const RULE  = '#3a4048';
+const HOT   = '#ff7000';   // the sourced 1573K "white hot" chromaticity
+
+let SPEC = null;
+
+function clear() {
+  g.fillStyle = '#0d0f12';
+  g.fillRect(0, 0, C.width, C.height);
+}
+
+function text(s, x, y, { size = 15, col = INK, align = 'left', style = '' } = {}) {
+  g.fillStyle = col;
+  g.font = `${style} ${size}px ui-monospace, Menlo, monospace`;
+  g.textAlign = align;
+  g.fillText(s, x, y);
+}
+
+function title(main, sub) {
+  text(main, 40, 52, { size: 26, style: '600' });
+  if (sub) text(sub, 40, 78, { size: 14, col: DIM });
+  g.strokeStyle = RULE; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(40, 96); g.lineTo(C.width - 40, 96); g.stroke();
+}
+
+// A tapered bone: thick at the proximal end, thin at the distal, drawn as a
+// closed outline rather than a line, so a spar never reads as flat tape.
+function bone(x0, y0, x1, y1, w0, w1, label) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+  const nx = -dy / L, ny = dx / L;
+  g.beginPath();
+  g.moveTo(x0 + nx * w0, y0 + ny * w0);
+  g.lineTo(x1 + nx * w1, y1 + ny * w1);
+  g.lineTo(x1 - nx * w1, y1 - ny * w1);
+  g.lineTo(x0 - nx * w0, y0 - ny * w0);
+  g.closePath();
+  g.fillStyle = BONE; g.fill();
+  g.strokeStyle = '#8d8471'; g.lineWidth = 1; g.stroke();
+  if (label) text(label, (x0 + x1) / 2 + nx * (w0 + 12), (y0 + y1) / 2 + ny * (w0 + 12), { size: 12, col: DIM });
+}
+
+function joint(x, y, r = 5) {
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+  g.fillStyle = '#f3ecdc'; g.fill();
+  g.strokeStyle = '#8d8471'; g.stroke();
+}
+
+// A cambered chord section. camber = max sag as a fraction of chord;
+// xSag = chordwise position of deepest sag (fraction from the leading edge).
+// Uses the NACA mean camber line, whose maximum sits EXACTLY at xSag — a Bézier
+// control point placed at xSag does not, and this plate exists to teach that number.
+function camberLine(t, m, p) {
+  return t <= p
+    ? (m / (p * p)) * (2 * p * t - t * t)
+    : (m / ((1 - p) * (1 - p))) * ((1 - 2 * p) + 2 * p * t - t * t);
+}
+
+function chordSection(x, y, chord, camber, xSag, label, col = BONE) {
+  g.beginPath();
+  for (let i = 0; i <= 64; i++) {
+    const t = i / 64;
+    const px = x + t * chord, py = y + camberLine(t, camber, xSag) * chord;
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.strokeStyle = col; g.lineWidth = 2.5; g.stroke();
+  g.beginPath(); g.moveTo(x, y); g.lineTo(x + chord, y);
+  g.strokeStyle = DIM; g.lineWidth = 1; g.setLineDash([4, 4]); g.stroke(); g.setLineDash([]);
+  const sx = x + chord * xSag, sy = y + camber * chord;
+  g.beginPath(); g.moveTo(sx, y); g.lineTo(sx, sy);
+  g.strokeStyle = DIM; g.setLineDash([2, 3]); g.stroke(); g.setLineDash([]);
+  if (label) text(label, x, y - 14, { size: 13 });
+}
+
+function unknownBox(x, y, w, h, what) {
+  g.strokeStyle = '#7a5252'; g.lineWidth = 1; g.setLineDash([5, 4]);
+  g.strokeRect(x, y, w, h); g.setLineDash([]);
+  text('unknown', x + w / 2, y + h / 2 - 4, { size: 13, col: '#c98a8a', align: 'center' });
+  text(what, x + w / 2, y + h / 2 + 14, { size: 11, col: '#7a5252', align: 'center' });
+}
+
+// ---------------------------------------------------------------- plate: skeleton
+// Lays the forelimb out to the spec's ratios and hangs the membrane on it.
+function plateSkeleton() {
+  clear();
+  const s = SPEC.skeleton;
+  title('PLATE 1 — WING SKELETON, TO RATIO', s.caption || '');
+
+  const root = { x: 210, y: 470 };
+  const U = s.unitPx || 250;           // one "forearm length" in pixels
+  const hum = s.humerus * U, fore = s.forearm * U;
+
+  // shoulder -> elbow -> wrist, laid out along the sourced arch rather than a straight bar
+  const elbow = { x: root.x + hum * 0.94, y: root.y - hum * 0.34 };
+  const wrist = { x: elbow.x + fore * 0.97, y: elbow.y - fore * 0.20 };
+
+  // membrane outline first, so bones sit on top of it
+  const tips = s.digits.map((d, i) => {
+    const a = (s.spreadDeg[0] + (s.spreadDeg[1] - s.spreadDeg[0]) * (i / (s.digits.length - 1))) * Math.PI / 180;
+    const L = d.len * U;
+    return { x: wrist.x + Math.cos(a) * L, y: wrist.y + Math.sin(a) * L, len: d.len, name: d.name };
+  });
+  const anchor = { x: root.x + s.bodyAnchor.x * U, y: root.y + s.bodyAnchor.y * U };
+
+  g.beginPath();
+  g.moveTo(root.x, root.y);
+  g.quadraticCurveTo(elbow.x, elbow.y - 40, wrist.x, wrist.y);     // propatagium (fwd sheet)
+  tips.forEach((t, i) => {
+    const prev = i === 0 ? wrist : tips[i - 1];
+    const mx = (prev.x + t.x) / 2, my = (prev.y + t.y) / 2;
+    g.quadraticCurveTo(mx, my + s.cupPx, t.x, t.y);                // scalloped bays
+  });
+  g.quadraticCurveTo((tips[tips.length - 1].x + anchor.x) / 2, anchor.y + 30, anchor.x, anchor.y);
+  g.closePath();
+  g.fillStyle = MEMB; g.fill();
+  g.strokeStyle = '#b0785e'; g.lineWidth = 1.5; g.stroke();
+
+  bone(root.x, root.y, elbow.x, elbow.y, 15, 10, 'humerus');
+  bone(elbow.x, elbow.y, wrist.x, wrist.y, 10, 7, 'radius/ulna');
+  tips.forEach((t, i) => {
+    bone(wrist.x, wrist.y, t.x, t.y, 7 - i * 0.9, 2.2 - i * 0.3, null);
+    text(`${t.name} ${t.len.toFixed(2)}`, t.x + 8, t.y + 4, { size: 12, col: DIM });
+  });
+  joint(root.x, root.y, 9); joint(elbow.x, elbow.y, 7); joint(wrist.x, wrist.y, 7);
+  text('shoulder', root.x - 12, root.y + 26, { size: 12, col: DIM, align: 'right' });
+  text('elbow', elbow.x, elbow.y + 24, { size: 12, col: DIM, align: 'center' });
+  text('wrist', wrist.x, wrist.y - 16, { size: 12, col: DIM, align: 'center' });
+  text('body anchor', anchor.x, anchor.y + 20, { size: 12, col: DIM, align: 'center' });
+
+  // the ratio legend — the whole point of the plate
+  let y = 640;
+  text('RATIOS DRAWN (unit = forearm length)', 40, y, { size: 14, style: '600' }); y += 26;
+  for (const row of s.legend) { text(row, 40, y, { size: 13, col: DIM }); y += 21; }
+}
+
+// ---------------------------------------------------------------- plate: camber
+function plateCamber() {
+  clear();
+  const c = SPEC.camber;
+  title('PLATE 2 — CAMBER, AND WHERE THE SAG SITS', c.caption || '');
+  const COLS = 2, CW = 560, RH = 220;
+  c.sections.forEach((s, i) => {
+    const x = 110 + (i % COLS) * CW, y = 210 + Math.floor(i / COLS) * RH;
+    if (s.value == null) unknownBox(x, y - 40, 380, 100, s.label);
+    else chordSection(x, y, 380, s.value, c.xSag, `${s.label} — ${(s.value * 100).toFixed(0)}% chord`, s.hot ? HOT : BONE);
+  });
+  text(`deepest sag at ${(c.xSag * 100).toFixed(0)}% of chord from the leading edge`, 40, 820, { size: 14 });
+  text(c.note || '', 40, 848, { size: 12, col: DIM });
+}
+
+// ---------------------------------------------------------------- plate: heat
+function plateHeat() {
+  clear();
+  const h = SPEC.heat;
+  title('PLATE 3 — WHERE THE HEAT LIVES', h.caption || '');
+  const cx = 700, cy = 430;
+  for (const band of h.bands) {
+    g.beginPath();
+    g.ellipse(cx, cy, band.rx, band.ry, -0.25, 0, Math.PI * 2);
+    g.fillStyle = band.col; g.fill();
+  }
+  let y = 700;
+  for (const row of h.legend) { text(row, 40, y, { size: 13, col: DIM }); y += 21; }
+  text(`emissive area target: ${h.emissiveFraction}`, 40, 660, { size: 15, col: HOT, style: '600' });
+}
+
+const PLATES = { skeleton: plateSkeleton, camber: plateCamber, heat: plateHeat };
+
+window.drawPlate = async (name) => {
+  if (!SPEC) SPEC = await (await fetch('/reforged/wing-lab/refs/wing-spec.json')).json();
+  PLATES[name]();
+  return true;
+};
+window.__ready = true;
+</script>
