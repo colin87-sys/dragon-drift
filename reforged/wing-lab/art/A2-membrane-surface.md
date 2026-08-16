@@ -536,6 +536,24 @@ thickness across the vermilion) and that it is **hairless and glandless** — so
 sheen, no scale specular in the band itself. Visually it should read as a **warm blush** where
 blood first starts showing through, exactly as the vermilion does.
 
+### §3.6 The unification with stream F1 — one vertex float drives BOTH
+
+Stream F1 (`data/F1-fire-wing.md`) derives the thermal-emission side of the same sheet as
+`ε = 1 − exp(−κd / cos θ)`. This stream derives the transmission side as `T = exp(−σ d)`. **These
+are the same equation.** By Kirchhoff, absorptivity = emissivity, and for a non-reflecting thin
+sheet `ε = 1 − T`. `[D]`
+
+⇒ **The `aMemThick` attribute of §3.1.1 drives the fire glow and the sunlight transmission from a
+single `exp()`.** Where the sheet is thick (root gusset, deep cup, hem) it **emits** strongly and
+**transmits** weakly; where it is thin (the taut inter-digital stretch) it **transmits** strongly
+and **emits** weakly. That is a free, physically-consistent, *anti-correlated* pair of value
+structures on one attribute — and it means the wing's fire read and its backlit read never fight
+each other or need separate authoring.
+
+⇒ It also resolves the apparent conflict between the two streams' edge findings. F1: emission
+peaks **edge-on** (path lengthens as `1/cos θ`). A2: transmission **troughs** edge-on, for exactly
+the same reason. Both are right; they are two ends of one exponential.
+
 ---
 
 ## §4 What this rules out
