@@ -57,8 +57,8 @@ see §0).
 
 > `[D]` **The derived thickness ramp** (Beer–Lambert on the `skin1` DMFP ratio 1 : 0.373 : 0.185,
 > normalised so the luminance-weighted transmittance hits the measured ~0.15):
-> **thin `#D59553` → nominal `#AB5416` → thick `#711600` → opaque black.**
-> Hue rotates ~17° *toward red* and saturation *rises* as the sheet thickens. Full working in §2.2.
+> **thin `#D19554` → nominal `#AB5415` → thick `#711600` → near-black `#2E0000`.**
+> Hue rotates ~19° *toward red* and saturation *rises* as the sheet thickens. Full working in §2.2.
 
 ⇒ **One `exp(-thickness * sigmaRGB)` replaces every texture map anyone would author for this.**
 
@@ -154,12 +154,12 @@ luminance-weighted transmittance matches the **measured** bat-wing value of ≈0
 
 | `x = d/ℓ_red` | linear RGB transmittance | luminance Y | sRGB hex | reads as |
 |---|---|---|---|---|
-| 0.45 (half nominal) | 0.638, 0.299, 0.087 | 0.44 | **`#D59553`** | pale amber — the taut, stretched, thinnest sheet |
-| **0.90 (nominal — matches measured 0.15)** | 0.407, 0.090, 0.008 | **0.151** | **`#AB5416`** | ember orange — the main glow field |
+| 0.45 (half nominal) | 0.638, 0.299, 0.088 | 0.356 | **`#D19554`** | pale amber — the taut, stretched, thinnest sheet |
+| **0.90 (nominal — matches measured 0.15)** | 0.407, 0.090, 0.008 | **0.151** | **`#AB5415`** | ember orange — the main glow field |
 | 1.80 (double) | 0.165, 0.008, ~0.000 | 0.041 | **`#711600`** | blood red — the deep cup and the hem |
-| 3.60 (quadruple) | 0.027, ~0.000, 0 | 0.006 | **near black, faint red** | the root gusset and anywhere bone is behind |
+| 3.60 (quadruple) | 0.027, ~0.000, 0 | 0.006 | **`#2E0000`** | the root gusset, and anywhere a bone is behind the sheet |
 
-Hue rotates **28° → 22° → 11°** as the sheet thickens; **saturation rises while value falls**.
+Hue rotates **30.5° → 25.0° → 11.7°** as the sheet thickens; **saturation rises while value falls**.
 This is exactly AAA-PIPELINE §1's core→bloom→dark ladder, except it is not an art decision —
 it falls out of one exponential of a vertex attribute.
 
@@ -373,10 +373,10 @@ cannot be baked, tinted in, or approximated with a constant emissive.
 
 | Tier | Where | `k` | Front-lit value | Backlit value & hue | Note |
 |---|---|---|---|---|---|
-| **V0 root gusset** | body↔wing junction, furred, thickest | ~4 | darkest (fur, no specular) | **near black**, faint red | never glows; it is the anchor the eye reads the glow against |
+| **V0 root gusset** | body↔wing junction, furred, thickest | ~4 | darkest (fur, no specular) | **`#2E0000`** near-black | never glows; it is the anchor the eye reads the glow against |
 | **V1 deep cup** | plagiopatagium's deepest sag (~40 % chord, prior art §4.4) | ~2 | dark, slightly warmer (bounce) | **`#711600`** blood red | the deepest sag = the LONGEST path = the DARKEST transmitted, not the brightest |
-| **V2 main field** | handwing bays, mid-membrane | 1 | mid-dark | **`#AB5416`** ember | the reference tier the other four are read against |
-| **V3 taut stretch** | inter-digital sheet near the MCP knuckles; the propatagium's leading sheet | ~0.5 | slightly lighter | **`#D59553`** pale amber — **the brightest membrane on the wing** | thinnest + most stretched; this is where the "hero" light punches through |
+| **V2 main field** | handwing bays, mid-membrane | 1 | mid-dark | **`#AB5415`** ember | the reference tier the other four are read against |
+| **V3 taut stretch** | inter-digital sheet near the MCP knuckles; the propatagium's leading sheet | ~0.5 | slightly lighter | **`#D19554`** pale amber — **the brightest membrane on the wing** | thinnest + most stretched; this is where the "hero" light punches through |
 | **V4 hem** | trailing free edge, widening 7.6× toward the tip | ~2 | a dark line | **`#711600`** → black at the tip | a DARK cord, 2–4 px |
 | **V5 fringe** | hairs outboard of the hem | n/a | faint sheen | **brightest pixels on the wing**, broken and irregular | this is the *only* legitimate bright outline; it is HAIR, not membrane |
 | **V6 spar shadow** | membrane immediately over/behind a bone | ∞ | bone value (bright) | **pure black silhouette** | the contrast spine, both regimes |
@@ -400,3 +400,225 @@ wing bones makes a 30 m dragon read as a bat.** This is A1's ripple-wavelength s
 cheap-tell #13) restated in light instead of geometry, and it points the same way: *fine and sharp
 = enormous.*
 
+### §2.9 Two late findings that change the material, not the geometry
+
+| Finding | Value | Tag |
+|---|---|---|
+| **The membrane is oiled, not matte** | bat wing membranes carry a distinct **sebaceous surface lipid** layer; "**squalene/sterol ratio is highest in wing sebum**", and secreted wing lipid is richer in saturated free fatty acids and monoacylglycerides than integral wing or hair lipid | `[S]` https://royalsocietypublishing.org/rspb/article/283/1833/20160636/78178/ ; https://pubmed.ncbi.nlm.nih.gov/24327437/ ; https://pubmed.ncbi.nlm.nih.gov/25227993/ |
+| ⇒ appearance | `[D]` a sebum film means a **real, tight specular lobe** — the membrane is a *wet-looking* sheet, not a dry one. (The index generalised "the oil film… gives a **glossy sheen**" from hair to skin; the *lipid chemistry* is `[S]`, the **gloss inference is `[D]`** — no paper measured membrane gloss) | `[D]` |
+| **Depigmented/translucent wings are real, not a fantasy licence** | ~**30 species** across **3 families** (Emballonuridae, Molossidae, Vespertilionidae) have white or clear wings; some are "almost translucent"/"semi-translucent", some have **transparent** patagia | `[S]` *White and clear wings in bats (Chiroptera)*, *Can. J. Zool.*, https://cdnsciencepub.com/doi/10.1139/cjz-2019-0182 |
+| **Pattern precedent** | a **reticulated (net-like) pattern on otherwise translucent wings** in *Glauconycteris variegata*; "pale but coloured (not whitish) wings and reticulated patterns… may be variations on the same theme" | `[S]` ibid. |
+| Why it exists | reduced contrast **against the sky**; also **prevents overheating** in daylight flight | `[S]` ibid. |
+
+⇒ `[D]` A translucent, **patterned** membrane is anatomically legitimate. The pattern that is
+sourced is **reticulated** — a net of cells — which is exactly what a Murray tree of vessels
+(§2.4) plus the orthogonal fibre net (§2.5) *produces*. It is not a decorative overlay; it is the
+structure showing through.
+
+---
+
+## §3 Build implications
+
+Each item is a statement about geometry, silhouette, motion, or shading, in the order a builder
+would do them.
+
+### §3.1 Geometry — what must exist before any shader can work
+
+1. **A per-vertex THICKNESS attribute (`aMemThick`, 1 float).** This is the load-bearing change.
+   Everything in §2.2 and §2.8 is a function of it. Author it procedurally as the max of four
+   terms the wing already knows: **root falloff** (V0), **spar proximity** (V6 — thicker where the
+   sheet wraps a bone), **chordwise cup depth** (V1 — the deepest sag has the longest path), and
+   the **hem band** (V4, ramping 1× → 2× toward the tip per the sourced 7.6× taper). Cost: 4 bytes
+   per membrane vertex.
+2. **A (span, chord) UV on the membrane.** The wing is procedural, so this is free — it is the
+   parameter the bays are already generated from. It unlocks the vein texture (§3.3) and the
+   wrinkle field, and A1's cheap-tell fixes need nothing from it.
+3. **Tessellation floor: ≥4 chordwise segments per bay** (already mandated by prior art §4.4 for
+   camber) **and ≥6 spanwise**, because the V0→V3 value ladder is carried by *interpolated vertex
+   thickness*. A 2-segment bay cannot express a 5-tier ramp.
+4. **The hem is geometry, not a shader trick.** A 2–4 px dark cord along the trailing edge that
+   **widens toward the tip**, with the hair fringe outboard of it. One extra edge loop.
+5. **The transition band at the arm.** Scales must *shrink and stop overlapping* over a visible
+   band before the membrane starts (§2.7). Geometrically: the last rank of plates becomes small
+   isolated domes; the membrane's thickness attribute ramps down through that same band.
+
+### §3.2 Shading — the one patch that changes everything
+
+Replace `membraneSSSPatch` (a view-only Fresnel) with a **light-direction-dependent transmission**
+patch. Sketch, at the existing seams in `js/dragonSurfaceShader.js`:
+
+```glsl
+// pars (after <common>) — vertex side declares: attribute float aMemThick; varying float vMemThick;
+uniform vec3  uMemSigma;    // LOCKED RATIO (1.00, 2.68, 5.40) from §2.2; one scalar scales all three
+uniform vec3  uMemTint;     // blood/identity tint; start at (1,1,1) and let exp() do the colour
+uniform float uMemScale, uMemPower, uMemDistort, uMemAmbient;
+varying float vMemThick;
+
+// body (after <emissivemap_fragment>) — `normal`, `vViewPosition` and
+// `directionalLights[i].direction` are ALL view-space here, so no new varyings are needed.
+#if NUM_DIR_LIGHTS > 0
+{
+  vec3  N  = normalize( normal );
+  vec3  V  = normalize( vViewPosition );              // fragment -> camera
+  vec3  L  = directionalLights[ 0 ].direction;        // fragment -> light
+  vec3  Lt = normalize( -( L + N * uMemDistort ) );   // Frostbite "through" vector
+  float back = pow( saturate( dot( V, Lt ) ), uMemPower );   // fires ONLY when the sun is behind
+  float wrap = saturate( dot( N, L ) * 0.5 + 0.5 );          // soft floor, never a hard cut
+  float d    = 0.30 + vMemThick * 3.30;               // 0.30 .. 3.60 == §2.2's x column
+  vec3  T    = exp( -uMemSigma * d );                 // <— THE RAMP. 3 exps, no texture, no LUT.
+  totalEmissiveRadiance += directionalLights[0].color * uMemTint * T
+                         * ( back * uMemScale + uMemAmbient * wrap );
+}
+#endif
+```
+
+- **Cost `[D]`:** ~2 normalize, 2 dot, 1 pow, 3 exp ≈ **20 ALU per pixel, one light, zero texture
+  fetches, zero extra passes, one extra varying (float)**. The published reference implementation
+  is "**approximately 13 ALU**" and notes the `pow` can be precomputed away `[S]`
+  Barré-Brisebois & Bouchard GDC 2011. **The machine judge must measure this on the mobile profile
+  — the ALU figure is an estimate, not a measurement.**
+- **The colour is not authored.** `exp(-sigma*d)` *is* the `#D19554 → #AB5415 → #711600 → #2E0000`
+  ladder. Do not add a second tint that fights it. `uMemTint` exists only to shift the dragon's
+  identity hue, and should stay near white for a fire dragon (the physics already lands on ember).
+- **Diffuse albedo must come DOWN.** Per §2.1 the membrane reflects 3–7 %. Its base colour should
+  be near-black-warm, and the roughness should be **low-ish (0.30–0.45), not 0.9** — the sheet is
+  sebum-coated (§2.9), so it keeps a tight specular. A `roughness 0.94` membrane is the
+  "leather-tarp" tell (A1 #3) written as a number.
+- **Demote the Fresnel to a FRINGE term.** Keep `fresnelRimPatch`, but **mask it to the hem band
+  and break it** with a deterministic index hash along the span so it is not a continuous outline.
+  That is the difference between "hair fringe" and AAA cheap-tell #4 **chrome outline**.
+- **Shadowing caveat:** `totalEmissiveRadiance` is added before the light loop, so the transmission
+  is **not shadowed**. Either accept it, or add a third seam after `<lights_fragment_begin>` where
+  `directLight.color` already carries the shadow term.
+
+### §3.3 The vein network — how to get a Murray tree with no texture file
+
+Generate the tree at load with the §2.4 rules — taper **0.794** per bifurcation, **24°/52°**
+asymmetric forks, **4–5 orders**, drawn as **doublets** (venule 1.45× the arteriole, darker) —
+and then choose one of three carriers, cheapest first:
+
+| Carrier | How | Cost | Limit |
+|---|---|---|---|
+| **A. Baked into `aMemThick`** | rasterise the tree into the *thickness* channel at build time — veins simply become locally thicker sheet, so they darken the transmission for free | **zero** extra runtime cost | resolution capped by mesh density; good for the 2–3 largest orders only |
+| **B. Runtime `DataTexture`** | rasterise the tree in JS into a 256×256 R8 `DataTexture` (≈64 KB, **generated, not a file** — the house already mandates `DataTexture` over `CanvasTexture` because builders run in Node, AAA #5) and multiply `d` by it | 1 texture fetch | needs the §3.1.2 UV |
+| **C. Fragment SDF of N segments** | pass ~24 segments as uniforms and evaluate min-distance | ~190 ALU/px | **too expensive** for the mobile profile — listed only to be ruled out |
+
+**Recommendation `[D]`: A for the trunk orders + B for orders 3–5.** Both stay inside "100 %
+procedural, no asset files". **Veins modulate `d` (thickness), never `emissive`.** A vein that
+adds light is physically inverted (§1.3) and is AAA cheap-tell #3 (**LED strip**).
+
+### §3.4 Motion — the surface must animate, and one detail is a free win
+
+- **Wrinkles are a TENSION READ-OUT, and they cost nothing.** Elastin bears load "at very low
+  stress" (§2.5): the wrinkle field **pulls flat as the wing loads and blooms back as it unloads**.
+  Implement as a modulation of `d` in the fragment shader from the span-parameterised UV:
+  `d *= 1.0 + uWrinkleAmp * slack * sin( vSpanChord.x * uWrinkleFreq )`, with `slack` driven by the
+  flap solver's existing tension/extension state. **~4 ALU, no geometry, no texture** — and it
+  reads as fine dark spanwise striations inside the ember glow that vanish on the power stroke.
+  Fade `uWrinkleAmp` with `fwidth()` so it does not alias at distance.
+- **Crest lines run SPANWISE** (root→tip), *never* chordwise. Frequency: high — the sourced fact is
+  that natural wrinkle frequency is **an order of magnitude denser** than the matrix alone gives.
+- **The value inversion must be automatic.** §2.8: membrane:bone value swings ~0.35 → ~3.3 between
+  front-lit and backlit. Because the patch is light-direction dependent, this happens for free
+  every time the dragon banks — which is the single strongest argument for the whole change.
+- **Hairs are never geometry.** At 1 hair/mm² they are far sub-pixel. Their entire visual budget
+  is (a) the broken fringe on the free edge and (b) a small grazing-angle sheen multiplier where
+  density is high (**proximal >> distal**, sourced).
+
+### §3.5 The scale → membrane band
+
+Three levers change **together** across one visible band, never at a line: **plate size**
+(large → small), **overlap** (overlapping → isolated domes → none), **transmission** (0 → partial
+→ full). The sourced analogue says the band is narrow but real (lip epithelium changes ~2.5× in
+thickness across the vermilion) and that it is **hairless and glandless** — so no fringe, no
+sheen, no scale specular in the band itself. Visually it should read as a **warm blush** where
+blood first starts showing through, exactly as the vermilion does.
+
+---
+
+## §4 What this rules out
+
+Each of these is an automatic LOSS at the Membrane gate.
+
+1. **A membrane that is a mid-tone in front light.** Measured albedo is 3–7 %; the sheet must be
+   the **darkest element on the dragon** with the sun behind the camera. A wing whose membrane
+   reads lighter than its own bones in front light has inverted the physics by ~10×.
+2. **A wing that glows the same with the sun in front of it as behind it.** That is a view-only
+   Fresnel wearing translucency's clothes — and it is what the repo ships today.
+3. **A continuous bright outline around the whole membrane.** The real edge is a **dark hem** with
+   a **broken hair fringe** outboard of it. A clean bright rim is AAA cheap-tell #4 chrome outline;
+   here it is also anatomically backwards.
+4. **Glowing veins.** Venous blood absorbs ~10× more red than arterial and owns 80 % of the
+   vascular volume: backlit, the network is **dark lines subtracted from the glow**. Emissive veins
+   are AAA #3 (LED strip) plus a physics inversion.
+5. **A single unpaired vein line.** Vessels run as artery+vein **doublets**; a lone line is a
+   diagram.
+6. **A symmetric Y-fork vein tree.** Equal 37.5°/37.5° daughters with no taper reads as a circuit
+   board. Real forks are asymmetric: **24° at 90 % width / 52° at 65 % width**.
+7. **Chordwise accordion creases** — ribs running leading-edge-to-trailing-edge between the
+   fingers. Wrinkles run **parallel to the spanwise elastin**. This also compounds A1's cheap-tell
+   #4 (accordion pleats in the fold).
+8. **A soft glowing halo bleeding around the wing bones.** Lateral bleed is capped by a **fixed
+   1–4 mm** diffusion length; on a 30 m dragon that is a fraction of a pixel. Soft bone shadows
+   inside the glow make the dragon read **bat-sized**.
+9. **The deepest cup rendered as the brightest membrane.** Deepest sag = longest optical path =
+   **darkest** transmitted. The bright tier is the **taut, thin, stretched** inter-digital sheet.
+10. **A hard straight line where scales stop and membrane begins.** Both real analogues (vermilion
+    border, scutate→reticulate) grade it over a band, through **size + overlap + transmission**
+    simultaneously.
+11. **`MeshPhysicalMaterial.transmission` on the membrane.** It costs an entire extra scene render
+    plus a mip chain per frame, and produces a *worse* membrane than 20 ALU, because it models
+    refraction of the background rather than emission from the far side.
+12. **A `roughness ≈ 0.9` membrane.** The sheet carries a sebaceous lipid film; it holds a tight
+    specular. High roughness is the "leather tarp" tell (A1 #3) expressed as a material dial.
+13. **An even diamond cross-hatch of detail.** The real fibre net is **two unequal orthogonal
+    families** — dense compliant spanwise elastin, sparse stiff chordwise structure. An even grid
+    averages away the entire anisotropy.
+14. **Static surface detail.** Wrinkle amplitude is a tension read-out: if the membrane's creases
+    look identical at the bottom of the downstroke and the top of the upstroke, the sheet is a
+    printed decal.
+15. **A pale desaturated pink backlit membrane.** The derived ramp goes *toward* saturated red as
+    the sheet thickens. Pale amber is legitimate only on the thinnest, most stretched tier.
+16. **Modelled hair strands on the membrane.** 1 hair/mm² is sub-pixel; they are an edge treatment
+    and a sheen multiplier, never geometry.
+17. **A membrane authored with texture maps.** Everything above is a per-vertex float, three
+    `exp()`s, and (optionally) one runtime-generated `DataTexture`. Anything more is a regression
+    against the repo's constraint, not an upgrade.
+
+---
+
+## §5 Still unknown
+
+| Question | What I searched | Status |
+|---|---|---|
+| **Melanin absorption exponent/coefficient** (the power law that makes pigment darken *and* redden) | omlc.org melanosome absorption; Jacques skin optics; the specific coefficient/exponent | `unknown` — **omlc.org is egress-blocked** and no index summary returned the numbers. The *direction* (monotonic decrease with wavelength) is `[S]`; the exponent is not |
+| **Wrinkle wavelength / spacing in mm** | Cheney 2015 for a wavelength figure; membrane wrinkle spacing | `unknown` — paper paywalled. Only the **fibre** spacing (500–1500 µm) is sourced, and the relative fact ("an order of magnitude denser with elastin") |
+| **Vascular density gradient root→tip** | bat wing vascular density proximal vs distal; patagium capillary density gradient | `unknown` — only the **sensory-hair** gradient (higher proximally) was retrievable |
+| **Do vessels track the digits?** | bat wing vessels interdigital / parallel to bones / vascular tracing figures | `unknown` — qualitative "throughout the membrane" only. A tracing figure exists (researchgate fig. for *P. pipistrellus*) but images are unfetchable here |
+| **Wiedeman's full vessel-order table** (diameters and lengths per order) | the 1963 *Circ Res* paper directly | `unknown` — **ahajournals.org is egress-blocked**; only the endpoints (76.2 / 52.6 / 3.7 µm) and the summary statements came back |
+| **Jensen 2001 Table 1 verbatim** | the Stanford PDF directly | `[S]` **via index summary only** — **graphics.stanford.edu is egress-blocked**. The RenderMan docs independently corroborate the DMFP/albedo/IOR rows, so the numbers are cross-checked, but I have not read the table |
+| **Measured gloss / specular of a bat membrane** | bat wing membrane gloss, matte, sheen, surface lipids | `unknown` as a measurement. The lipid film is `[S]`; "therefore glossy" is `[D]` |
+| **Refractive index of wing membrane** | bat membrane refractive index | `unknown` — 1.3 is borrowed from Jensen's `skin1`/`skin2`, which is `[S]` for skin generally, not for a patagium |
+| **Which source carries the 130–300 µm thickness range** | bat wing membrane thickness histology | `[S]` but **unattributed between two candidate papers** (biorxiv 2023 fibre-reinforced membrane wings; *Sci. Adv.* ade7511). Flagged rather than silently attributed |
+| **What fraction of a membrane's area shows visible vessels** | bat wing vein coverage / visible vasculature fraction | `unknown` — no published figure, and A1 records the same gap for damage coverage |
+| **Any studio's published scale→membrane transition method** | Weta / Pixomondo / Image Engine coverage | `unknown` — the scale *counts* and the wrinkle *sim* are documented; the transition is not |
+| **Whether the 24°/52° fork holds in a planar sheet** | Murray's law in planar/2-D vascular beds; wing-vein branching angle measurements | `[no-assert]` — the 37.5° symmetric result and the 75–100° band are `[S]` for 3-D arterial trees and for *Lepidoptera wing veins*; **no one measured a bat patagium**. Use it as a generative rule, not as a claim about bats |
+
+---
+
+### Sources (the load-bearing ones)
+
+- Speakman & Hays 1992, *Albedo and transmittance of short-wave radiation for bat wings*, **J Thermal Biology 17:317–321** — https://www.sciencedirect.com/science/article/abs/pii/030645659290040M
+- Thomson & Speakman 1999, *Absorption of visible spectrum radiation by the wing membranes of living pteropodid bats*, **J Comp Physiol B 169:187–194** — https://pubmed.ncbi.nlm.nih.gov/10335616/
+- Jensen, Marschner, Levoy & Hanrahan 2001, *A Practical Model for Subsurface Light Transport*, SIGGRAPH — https://graphics.stanford.edu/papers/bssrdf/bssrdf.pdf (blocked; values via https://renderman.jp/subsurface.html)
+- Donner & Jensen 2005, *Light Diffusion in Multi-Layered Translucent Materials*, SIGGRAPH — https://dl.acm.org/doi/10.1145/1186822.1073308
+- Barré-Brisebois & Bouchard, GDC 2011, *Approximating Translucency…* — https://colinbarrebrisebois.com/2011/03/07/gdc-2011-approximating-translucency-for-a-fast-cheap-and-convincing-subsurface-scattering-look/
+- Cheney, Konow et al. 2015, *A wrinkle in flight…*, **J R Soc Interface 12(106):20141286** — https://royalsocietypublishing.org/rsif/article/12/106/20141286/35567/
+- Swartz et al. 1996, *Mechanical properties of bat wing membrane skin*, **J Zool** — https://zslpublications.onlinelibrary.wiley.com/doi/10.1111/j.1469-7998.1996.tb05455.x
+- Wiedeman 1963, *Dimensions of Blood Vessels from Distributing Artery to Collecting Vein*, **Circ Res 12:375** — https://www.ahajournals.org/doi/10.1161/01.RES.12.4.375
+- Rummel et al. 2023, *Hair, there and everywhere*, **Anat. Rec.** — https://anatomypubs.onlinelibrary.wiley.com/doi/10.1002/ar.25176
+- Sterbing-D'Angelo et al., *Functional role of airflow-sensing hairs on the bat wing*, **J Neurophysiol** — https://journals.physiology.org/doi/full/10.1152/jn.00261.2016
+- *Life on the Trailing Edge: Muscle and Elastin Structure in Bat Wings*, SICB — https://sicb.org/abstracts/life-on-the-trailing-edge-muscle-and-elastin-structure-in-bat-wings/
+- *White and clear wings in bats (Chiroptera)*, **Can J Zool** — https://cdnsciencepub.com/doi/10.1139/cjz-2019-0182
+- *The cutaneous lipid composition of bat wing and tail membranes*, **Proc R Soc B 283:20160636** — https://royalsocietypublishing.org/rspb/article/283/1833/20160636/78178/
+- Murray's law + bifurcation angle — https://en.wikipedia.org/wiki/Murray%27s_law ; https://www.researchgate.net/publication/225387758_Murray's_law_and_the_bifurcation_angle_in_the_arterial_micro-circulation_system_and_their_application_to_the_design_of_microfluidics ; https://link.springer.com/article/10.1186/s12915-021-01130-0
