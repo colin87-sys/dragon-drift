@@ -52,10 +52,10 @@
       top:      { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'model', fill: 0.88 },
       front:    { dir: [0.0, 0.16, -1], up: [0,1,0], t: 'model', fill: 0.86 },
       // Single-RIGHT-wing framings — the lab's money crops.
-      wing:     { dir: [0.45, 0.50, 0.62], up: [0,1,0], t: 'wingR', fill: 1.00 },  // rear-above broadside (studio's wing crop)
+      wing:     { dir: [-0.30, 0.44, 0.85], up: [0,1,0], t: 'wingR', fill: 0.94 }, // rear-above from the OFF side: the right wing sweeps across frame
       wingtop:  { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'wingR', fill: 0.94 },// PLANFORM — the shape/finger read
-      wingfront:{ dir: [0.0, 0.10, -1], up: [0,1,0], t: 'wingR', fill: 0.94 },     // head-on — dihedral + camber
-      wingside: { dir: [1.0, 0.10, 0.02], up: [0,1,0], t: 'wingR', fill: 0.94 },   // edge-on — thickness/plank test
+      wingfront:{ dir: [0.0, 0.10, -1], up: [0,1,0], t: 'model', fill: 0.90 },     // head-on — dihedral + camber (whole span)
+      wingside: { dir: [1.0, 0.10, 0.02], up: [0,1,0], t: 'model', fill: 0.90 },   // edge-on — thickness/plank test
       wingrear: { dir: [0.06, 0.18, 0.98], up: [0,1,0], t: 'wingR', fill: 0.94 },  // the chase-cam read of ONE wing
     };
 
@@ -81,25 +81,61 @@
       curKey = key; curTier = tier;
       return built;
     }
+    // MESH-ONLY bounding box. `Box3.setFromObject` (what dragonstudio uses) includes the
+    // idle-aura SPRITE — a 9.1u additive billboard on Vesper — which silently doubles the
+    // box and shrinks every dragon to ~40% of the frame. Sprites/Points are FX, never
+    // silhouette; skip them (and anything invisible).
+    function boxOfMeshes(root, into) {
+      into.makeEmpty();
+      const b = new THREE.Box3();
+      root.traverse((o) => {
+        if (!o.visible || !o.isMesh || o.isSprite || o.isPoints || !o.geometry) return;
+        b.setFromObject(o);
+        if (b.isEmpty() || !isFinite(b.min.x) || !isFinite(b.max.x)) return;
+        into.union(b);
+      });
+      if (into.isEmpty()) into.setFromObject(root);
+      return into;
+    }
+    const _wbox = new THREE.Box3(), _tmpbox = new THREE.Box3();
     function targetBox(part) {
       const parts = built.parts || {};
       if (part === 'wingR' || part === 'wing') {
         const roots = part === 'wingR' ? WING_R : WING_ROOTS;
-        const b = new THREE.Box3(); b.makeEmpty();
-        for (const k of roots) if (parts[k] && parts[k].isObject3D) b.expandByObject(parts[k]);
-        if (!b.isEmpty()) return _box.copy(b);
+        _wbox.makeEmpty();
+        for (const k of roots) if (parts[k] && parts[k].isObject3D) _wbox.union(boxOfMeshes(parts[k], _tmpbox));
+        if (!_wbox.isEmpty()) return _box.copy(_wbox);
       }
-      return _box.setFromObject(built.group);
+      return boxOfMeshes(built.group, _box);
     }
+    // PERPENDICULAR-EXTENT fit. Two fits were wrong before this one:
+    //  * dragonstudio's sphere fit (radius = max(sx,sy,sz)/2) CLIPS a long oblique wing;
+    //  * a naive perspective fit on the 8 box corners BLOWS OUT on the rear-chase view,
+    //    because the tail tip sits close to the lens and its NDC explodes — the dragon
+    //    ends up a speck.
+    // Measure the box's extent along the SCREEN axes only (depth ignored), then solve the
+    // distance in closed form. `zoom` > 1 magnifies (a detail crop).
+    const _right = new THREE.Vector3(), _tup = new THREE.Vector3(), _v = new THREE.Vector3();
     function fit(dir, up, box, fillFrac, zoom) {
-      box.getCenter(_c); box.getSize(_s);
-      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      box.getCenter(_c);
       const vfov = camera.fov * Math.PI / 180;
-      const dist = (radius / Math.tan(vfov / 2)) / (fillFrac * (zoom || 1));
-      camera.up.set(up[0], up[1], up[2]);
       const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      const u0 = new THREE.Vector3(up[0], up[1], up[2]);
+      _right.crossVectors(d, u0).normalize();
+      if (!isFinite(_right.x) || _right.lengthSq() < 1e-6) _right.set(1, 0, 0);
+      _tup.crossVectors(_right, d).normalize();
+      let ex = 0, ey = 0;
+      for (let i = 0; i < 8; i++) {
+        _v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(_c);
+        ex = Math.max(ex, Math.abs(_v.dot(_right)));
+        ey = Math.max(ey, Math.abs(_v.dot(_tup)));
+      }
+      const half = Math.max(ex, ey, 1e-3);                       // square frame → one number
+      const target = Math.max(0.05, fillFrac * (zoom || 1));
+      const dist = half / (Math.tan(vfov / 2) * target);
+      camera.up.copy(u0);
       camera.position.copy(_c).addScaledVector(d, dist);
-      camera.near = Math.max(0.01, dist / 200); camera.far = dist * 30;
+      camera.near = Math.max(0.01, dist / 400); camera.far = dist * 40;
       camera.updateProjectionMatrix();
       camera.lookAt(_c);
     }
@@ -110,14 +146,23 @@
     window.wlStates = () => WING_DEBUG_STATES.slice();
     window.wlMaxTier = (key) => maxTierFor(key);
     window.wlKeys = () => Object.keys(DRAGONS);
+    // `framePose` freezes the camera on ANOTHER pose's bounding box — so a 5-frame cycle
+    // strip shares ONE camera and the poses are directly comparable (a per-pose refit
+    // rescales every tile and hides the very amplitude the strip exists to show).
     window.wlRender = (o) => {
       const b = load(o.key, o.tier);
       const pose = WING_DEBUG_STATES.includes(o.pose) ? o.pose : 'glide';
+      const a = ANGLES[o.angle] || ANGLES.wing;
+      let fb = null;
+      if (o.framePose) {
+        setFlapDebugPose(b.parts || {}, b.def.model, o.framePose);
+        b.group.updateMatrixWorld(true);
+        fb = targetBox(a.t).clone();
+      }
       setFlapDebugPose(b.parts || {}, b.def.model, pose);
       b.group.updateMatrixWorld(true);
       scene.background = new THREE.Color(BG[o.bg] ?? BG.pale);
-      const a = ANGLES[o.angle] || ANGLES.wing;
-      fit(a.dir, a.up, targetBox(a.t), o.fill ?? a.fill, o.zoom || 1);
+      fit(a.dir, a.up, fb || targetBox(a.t), o.fill ?? a.fill, o.zoom || 1);
       renderer.render(scene, camera);
       return true;
     };
