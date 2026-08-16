@@ -5,8 +5,6 @@ A1 owns silhouette, proportion, acting, damage and the art-side cheap-tell regis
 **A2 owns the SURFACE**: what the sheet is made of, what light does when it passes through it,
 what is drawn on it, what its edge looks like, and the value structure across it.
 
-> **STATUS: IN PROGRESS.** Written incrementally so a container restart cannot wipe it.
-
 ---
 
 ## §0 Provenance note
@@ -103,6 +101,15 @@ https://anatomypubs.onlinelibrary.wiley.com/doi/10.1002/ar.25176.
 than at the root, so 7.6× less transmissive), and *outside it* a **bright broken hair fringe**. A
 pure-Fresnel edge glow reproduces neither and produces AAA-PIPELINE cheap-tell #4 (**chrome
 outline**) exactly.
+
+**COROLLARY (a sixth finding, but it is a consequence of #2, so it is not counted): the SHARPNESS
+of the bones' shadow inside the glow is a SIZE cue.** Lateral light-bleed around an occluder in
+skin is bounded by the diffuse mean free path — **0.68–3.67 mm**, a **fixed physical length that
+does not scale with the animal**. `[D]` On a 0.25 m bat wing filling 400 px that bleed is **1–6 px:
+visibly soft**. On a 6 m dragon wing filling the same 400 px it is **0.07–0.27 px: razor sharp**.
+⇒ **A soft glowing halo around the wing bones makes a 30 m dragon read as a bat.** This is A1's
+ripple-wavelength scale cue (A1 §1.5, cheap-tell #13) restated in *light* instead of *geometry*,
+and it points the same way: **fine and sharp = enormous.**
 
 ---
 
@@ -449,7 +456,7 @@ patch. Sketch, at the existing seams in `js/dragonSurfaceShader.js`:
 
 ```glsl
 // pars (after <common>) — vertex side declares: attribute float aMemThick; varying float vMemThick;
-uniform vec3  uMemSigma;    // LOCKED RATIO (1.00, 2.68, 5.40) from §2.2; one scalar scales all three
+uniform vec3  uMemSigma;    // LOCKED RATIO (1.00, 2.68, 5.41) from §2.2; one scalar scales all three
 uniform vec3  uMemTint;     // blood/identity tint; start at (1,1,1) and let exp() do the colour
 uniform float uMemScale, uMemPower, uMemDistort, uMemAmbient;
 varying float vMemThick;
