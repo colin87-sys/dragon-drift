@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Wing Lab Shot</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #sheet{position:fixed;left:0;top:0;display:none;background:#0a0e1a}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ff9a9a;font-size:13px;white-space:pre-wrap;
+      background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../../lib/three.module.js" } }</script>
+  <script>
+    window.__wlerr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display='block'; e.textContent = 'Wing-lab error:\n' + m; } window.__wlErrText = m; };
+    window.addEventListener('error', (ev) => window.__wlerr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__wlerr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="600" height="600"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '../../js/dragons.js';
+    import { ascendedDef, maxTierFor } from '../../js/ascension.js';
+    import { buildDragonModel } from '../../js/dragonModel.js';
+    import { setFlapDebugPose, WING_DEBUG_STATES } from '../../js/wingDebugPose.js';
+
+    // ── Neutral lit stage — copied verbatim from tools/dragonstudio.html so a wing-lab
+    //    frame is directly comparable to a shipped studio gate frame. ACES, same 4 lights.
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 400);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a, sky: 0x8fb8dd };
+
+    // Angles. `t` = which bounding box to frame ('model' | 'wingR').
+    const ANGLES = {
+      rear:     { dir: [0.06, 0.20, 0.95], up: [0,1,0], t: 'model', fill: 0.86 },
+      rear3q:   { dir: [0.72, 0.42, 0.72], up: [0,1,0], t: 'model', fill: 0.82 },
+      side:     { dir: [1.0, 0.14, 0.001], up: [0,1,0], t: 'model', fill: 0.86 },
+      top:      { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'model', fill: 0.88 },
+      front:    { dir: [0.0, 0.16, -1], up: [0,1,0], t: 'model', fill: 0.86 },
+      // Single-RIGHT-wing framings — the lab's money crops.
+      wing:     { dir: [0.45, 0.50, 0.62], up: [0,1,0], t: 'wingR', fill: 1.00 },  // rear-above broadside (studio's wing crop)
+      wingtop:  { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'wingR', fill: 0.94 },// PLANFORM — the shape/finger read
+      wingfront:{ dir: [0.0, 0.10, -1], up: [0,1,0], t: 'wingR', fill: 0.94 },     // head-on — dihedral + camber
+      wingside: { dir: [1.0, 0.10, 0.02], up: [0,1,0], t: 'wingR', fill: 0.94 },   // edge-on — thickness/plank test
+      wingrear: { dir: [0.06, 0.18, 0.98], up: [0,1,0], t: 'wingR', fill: 0.94 },  // the chase-cam read of ONE wing
+    };
+
+    const WING_ROOTS = ['wingYokeL','wingYokeR','wingRigL','wingRigR','wingPivotL','wingPivotR','wingPivot2L','wingPivot2R'];
+    const WING_R = ['wingYokeR','wingRigR','wingPivotR','wingPivot2R'];
+
+    let built = null, curKey = null, curTier = null;
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+
+    function disposeCur() {
+      if (!built) return;
+      scene.remove(built.group);
+      built.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
+      built = null;
+    }
+    function load(key, tier) {
+      if (built && key === curKey && tier === curTier) return built;
+      disposeCur();
+      const def = ascendedDef(DRAGONS[key], tier, 0);
+      built = buildDragonModel(def, { preview: true });
+      built.def = def;
+      scene.add(built.group);
+      curKey = key; curTier = tier;
+      return built;
+    }
+    function targetBox(part) {
+      const parts = built.parts || {};
+      if (part === 'wingR' || part === 'wing') {
+        const roots = part === 'wingR' ? WING_R : WING_ROOTS;
+        const b = new THREE.Box3(); b.makeEmpty();
+        for (const k of roots) if (parts[k] && parts[k].isObject3D) b.expandByObject(parts[k]);
+        if (!b.isEmpty()) return _box.copy(b);
+      }
+      return _box.setFromObject(built.group);
+    }
+    function fit(dir, up, box, fillFrac, zoom) {
+      box.getCenter(_c); box.getSize(_s);
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      const vfov = camera.fov * Math.PI / 180;
+      const dist = (radius / Math.tan(vfov / 2)) / (fillFrac * (zoom || 1));
+      camera.up.set(up[0], up[1], up[2]);
+      const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = Math.max(0.01, dist / 200); camera.far = dist * 30;
+      camera.updateProjectionMatrix();
+      camera.lookAt(_c);
+    }
+
+    // ── public API ────────────────────────────────────────────────────────────
+    // Any of the SEVEN wingDebug states is a legal pose here (the shipped studio only
+    // maps glide/fold/bank and silently falls back to glide for the cycle states).
+    window.wlStates = () => WING_DEBUG_STATES.slice();
+    window.wlMaxTier = (key) => maxTierFor(key);
+    window.wlKeys = () => Object.keys(DRAGONS);
+    window.wlRender = (o) => {
+      const b = load(o.key, o.tier);
+      const pose = WING_DEBUG_STATES.includes(o.pose) ? o.pose : 'glide';
+      setFlapDebugPose(b.parts || {}, b.def.model, pose);
+      b.group.updateMatrixWorld(true);
+      scene.background = new THREE.Color(BG[o.bg] ?? BG.pale);
+      const a = ANGLES[o.angle] || ANGLES.wing;
+      fit(a.dir, a.up, targetBox(a.t), o.fill ?? a.fill, o.zoom || 1);
+      renderer.render(scene, camera);
+      return true;
+    };
+    // Report the posed wing's world-space extents — geometry ground truth beside the pixels.
+    window.wlMeasure = (o) => {
+      const b = load(o.key, o.tier);
+      setFlapDebugPose(b.parts || {}, b.def.model, o.pose || 'glide');
+      b.group.updateMatrixWorld(true);
+      const wb = new THREE.Box3(); wb.makeEmpty();
+      for (const k of WING_ROOTS) if (b.parts[k] && b.parts[k].isObject3D) wb.expandByObject(b.parts[k]);
+      const mb = new THREE.Box3().setFromObject(b.group);
+      let tris = 0, wingTris = 0;
+      b.group.traverse((o2) => { if (o2.isMesh && o2.geometry) { const g = o2.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+      for (const k of WING_R.concat(['wingPivotL','wingRigL','wingYokeL','wingPivot2L'])) {
+        const n = b.parts[k]; if (!n || !n.isObject3D) continue;
+        n.traverse((o2) => { if (o2.isMesh && o2.geometry) { const g = o2.geometry; wingTris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+      }
+      const sz = new THREE.Vector3(); wb.getSize(sz);
+      const msz = new THREE.Vector3(); mb.getSize(msz);
+      const tm = b.parts.tipMarkerR, tp = new THREE.Vector3();
+      if (tm) tm.getWorldPosition(tp);
+      return { pose: o.pose || 'glide', wingSpanX: +sz.x.toFixed(3), wingRiseY: +sz.y.toFixed(3), wingChordZ: +sz.z.toFixed(3),
+        bodyLenZ: +msz.z.toFixed(3), modelSpanX: +msz.x.toFixed(3), tris: Math.round(tris), wingTris: Math.round(wingTris),
+        tipR: tm ? [+tp.x.toFixed(3), +tp.y.toFixed(3), +tp.z.toFixed(3)] : null };
+    };
+    // in-page contact sheet (dragonstudio pattern)
+    const _sheet = document.getElementById('sheet');
+    window.wlSheetInit = (cols, rows, cell) => {
+      _sheet.width = cols * cell; _sheet.height = rows * cell; _sheet.style.display = 'block';
+      const ctx = _sheet.getContext('2d');
+      ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height);
+      _sheet.__cell = cell; _sheet.__cols = cols;
+      gl.width = cell; gl.height = cell; renderer.setSize(cell, cell, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      return true;
+    };
+    window.wlTile = (quad, label) => {
+      const cell = _sheet.__cell, cols = _sheet.__cols, ctx = _sheet.getContext('2d');
+      const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell;
+      ctx.drawImage(gl, ox, oy, cell, cell);
+      ctx.strokeStyle = 'rgba(140,200,255,0.22)'; ctx.lineWidth = 2; ctx.strokeRect(ox+1, oy+1, cell-2, cell-2);
+      if (label) {
+        ctx.font = '600 20px system-ui, sans-serif'; ctx.textBaseline = 'top';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 12, oy + 12);
+        ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 12, oy + 12);
+      }
+      return true;
+    };
+    window.__ready = true;
+  </script>
+</body>
+</html>
