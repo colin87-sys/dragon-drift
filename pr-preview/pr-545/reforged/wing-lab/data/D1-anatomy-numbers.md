@@ -125,7 +125,8 @@ Direction agrees with the sourced qualitative law (§4.3: elongation increases d
 
 Hand (wrist→tip) = **44.0%** of the semi-span from the midline; **48.6%** of the
 shoulder→tip chain. Assumption stated: shoulder offset = 0.35 FL, taken from the
-*P. vampyrus* cross-check above. Vary it 0.2–0.5 FL and the wrist moves only 0.545–0.573.
+*P. vampyrus* cross-check above. Vary it 0.2–0.5 FL and the wrist moves only **0.541–0.577**
+`[D]` — the landmark is robust to the one assumption in the chain.
 
 ### §2.2 Pterosaur forelimb ratios — CLOSES wing-finger : forearm : humerus for a giant
 
@@ -158,8 +159,11 @@ https://www.tandfonline.com/doi/full/10.1080/02724634.2020.1780247
 
 **Cross-lineage taper for the wing finger** (already `[S]` in §4.3, repeated only because
 the ratios below are new): *Rhamphorhynchus* mcIV 148 mm, phalanges 138 / 112 / 79 / 67 mm.
-⇒ phalanx-to-phalanx decay **0.81, 0.81, 0.71, 0.85** `[D]` — i.e. the pterosaur wing
-finger decays at a near-constant **~0.8 per element**, *not* the 0.62–0.70 of a crest rank.
+⇒ **successive** element-to-element decay down the chain 148→138→112→79→67 is
+**0.93, 0.81, 0.71, 0.85** `[D]` (mean **0.82**) — i.e. the pterosaur wing finger decays at
+a near-constant **~0.8 per element**, *not* the 0.62–0.70 of a crest/tooth rank (§6.3), and
+**not monotonically**: the last element decays *less* than the one before it, the same
+"long–short–long" rhythm the bat finger shows in §2.1. Two lineages, same non-monotone tell.
 ⚠ Not the same specimen as the TMP 2008.41.001 wing (990 mm span) in
 https://peerj.com/articles/1191/ — do not chain the two.
 

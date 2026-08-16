@@ -5,8 +5,6 @@ A1 owns silhouette, proportion, acting, damage and the art-side cheap-tell regis
 **A2 owns the SURFACE**: what the sheet is made of, what light does when it passes through it,
 what is drawn on it, what its edge looks like, and the value structure across it.
 
-> **STATUS: IN PROGRESS.** Written incrementally so a container restart cannot wipe it.
-
 ---
 
 ## §0 Provenance note
@@ -25,7 +23,7 @@ Convention (matching A1 so the director can read both with one calibration):
 
 ## §1 Headline — the five findings that most change what the wing looks like
 
-**1. A real membrane TRANSMITS 2–4× more light than it REFLECTS — and absorbs almost all the
+**1. A real membrane TRANSMITS ~3× more light than it REFLECTS — and absorbs almost all the
 rest.** Measured on taut wing segments of five bat species: **albedo 0.026–0.069** (2.6–6.9 %),
 **transmittance 0.077–0.194** (7.7–19.4 %), and "**transmittance exceeded albedo in all species
 studied**" `[S]` Speakman & Hays 1992, *J. Thermal Biology* 17:317–321,
@@ -103,6 +101,15 @@ https://anatomypubs.onlinelibrary.wiley.com/doi/10.1002/ar.25176.
 than at the root, so 7.6× less transmissive), and *outside it* a **bright broken hair fringe**. A
 pure-Fresnel edge glow reproduces neither and produces AAA-PIPELINE cheap-tell #4 (**chrome
 outline**) exactly.
+
+**COROLLARY (a sixth finding, but it is a consequence of #2, so it is not counted): the SHARPNESS
+of the bones' shadow inside the glow is a SIZE cue.** Lateral light-bleed around an occluder in
+skin is bounded by the diffuse mean free path — **0.68–3.67 mm**, a **fixed physical length that
+does not scale with the animal**. `[D]` On a 0.25 m bat wing filling 400 px that bleed is **1–6 px:
+visibly soft**. On a 6 m dragon wing filling the same 400 px it is **0.07–0.27 px: razor sharp**.
+⇒ **A soft glowing halo around the wing bones makes a 30 m dragon read as a bat.** This is A1's
+ripple-wavelength scale cue (A1 §1.5, cheap-tell #13) restated in *light* instead of *geometry*,
+and it points the same way: **fine and sharp = enormous.**
 
 ---
 
@@ -391,14 +398,9 @@ boundary never moves; only its polarity flips. `[D]` **⇒ Spend the wing's cont
 boundary and nowhere else.** A membrane tinted up until it approaches bone value has spent the
 wing's only reliable read.
 
-**`[D]` THE SCALE COROLLARY — how sharp the bone's shadow is inside the glow is a SIZE cue.**
-Lateral light-bleed around an occluder in skin is bounded by the diffuse mean free path,
-**0.68–3.67 mm** (§2.2) — a **fixed physical length that does not scale with the animal**. On a
-0.25 m bat wing filling 400 px, that bleed is **1–6 px: visibly soft**. On a 6 m dragon wing
-filling the same 400 px it is **0.07–0.27 px: razor sharp**. ⇒ **A soft, glowing halo around the
-wing bones makes a 30 m dragon read as a bat.** This is A1's ripple-wavelength scale cue (A1 §1.5,
-cheap-tell #13) restated in light instead of geometry, and it points the same way: *fine and sharp
-= enormous.*
+**The scale corollary applies here** (derived in full in §1): the softness of the V6 bone shadow
+inside the glow is bounded by a **fixed 0.68–3.67 mm** diffusion length, so at dragon scale it is
+**sub-pixel**. V6 is a **hard-edged black silhouette**, not a soft one.
 
 ### §2.9 Two late findings that change the material, not the geometry
 
@@ -449,7 +451,7 @@ patch. Sketch, at the existing seams in `js/dragonSurfaceShader.js`:
 
 ```glsl
 // pars (after <common>) — vertex side declares: attribute float aMemThick; varying float vMemThick;
-uniform vec3  uMemSigma;    // LOCKED RATIO (1.00, 2.68, 5.40) from §2.2; one scalar scales all three
+uniform vec3  uMemSigma;    // LOCKED RATIO (1.00, 2.68, 5.41) from §2.2; one scalar scales all three
 uniform vec3  uMemTint;     // blood/identity tint; start at (1,1,1) and let exp() do the colour
 uniform float uMemScale, uMemPower, uMemDistort, uMemAmbient;
 varying float vMemThick;
