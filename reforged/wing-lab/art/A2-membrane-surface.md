@@ -314,7 +314,7 @@ wing.**
 | Band | Width (screen) | Value | Why |
 |---|---|---|---|
 | **inner sheet** | — | the §2.2 ramp | nominal thickness |
-| **the hem** | ~2–4 px, **widening toward the tip** (7.6× taper is sourced) | **DARKEST band on the whole wing when backlit** | double optical path ⇒ `T` drops from 0.15 to ~0.02 (the `#711600`→black end of §2.2's ramp) |
+| **the hem** | ~2–4 px, **widening toward the tip** (7.6× taper is sourced) | **DARKEST band on the whole wing when backlit** | double optical path ⇒ luminous transmittance drops **0.151 → 0.041** (the `#711600` row of §2.2's ramp) |
 | **the fringe** | ~1–2 px, **broken and irregular** | **BRIGHTEST**, and it is *hair*, catching a specular/rim highlight | present in all species; it is the only structure outboard of the hem |
 
 ⇒ **The trailing edge is DARK with a BRIGHT BROKEN FUZZ outside it.** That is core→bloom→dark
@@ -369,11 +369,14 @@ sRGB the membrane sits at ≈ **63/255** while the bone sits at ≈ **180/255**.
 
 `[D]` **Backlit** (sun behind the wing). Membrane transmits 0.15 × direct sun; the bone is now
 facing away and receives only ambient (~0.1 × sun) at albedo 0.45 ⇒ 0.045. Ratio
-**0.15 / 0.045 ≈ 3.3×**: the membrane is now **3× brighter than the bone**.
+**0.15 / 0.045 ≈ 3.3×**: the membrane is now **3× brighter than the bone** in linear radiance
+(**108 : 60** in displayed sRGB).
 
-⇒ **The membrane : bone value ratio swings from ≈0.35 to ≈3.3 — a ~10× inversion — and that
-inversion IS the wing's drama.** It must fall out of the shader every time the dragon banks. It
-cannot be baked, tinted in, or approximated with a constant emissive.
+⇒ **The membrane : bone radiance ratio swings from ≈0.11 to ≈3.3 — a ~30× inversion — and that
+inversion IS the wing's drama.** On screen, after tone-map and sRGB, that is the membrane going
+from **63 : 179** (about a third of the bone's value) to **108 : 60** (about 1.8× it) — a clean,
+readable polarity flip in displayed values. It must fall out of the shader every time the dragon
+banks. It cannot be baked, tinted in, or approximated with a constant emissive.
 
 **THE VALUE TIERS ACROSS THE SHEET.** `k` = local optical path relative to nominal; colours from
 §2.2's derived ramp.
