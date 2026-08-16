@@ -58,6 +58,27 @@ Every factual claim carries exactly one tag:
 honest `unknown`s beats a pack of plausible inventions, because the Fable director
 will art-direct the gaps deliberately instead of trusting a hallucination.
 
+### ⚠ What `[S]` can and cannot mean in THIS environment
+
+**`WebFetch` is blocked by the network egress proxy on every domain** — confirmed on
+wikipedia, PMC, arxiv, fxguide, artofvfx. `WebSearch` works. So no agent in this lab has
+actually *read* a source page; everything comes from **search-result summaries of named
+URLs**. That is a real limit on how hard any number here can be leaned on, and it must
+stay visible rather than being smoothed over.
+
+The convention every stream uses, so the director can calibrate:
+
+- `[S]` + URL — a real, retrievable, named source that the search index attributes this
+  claim to. It does **not** mean the page was opened and read.
+- **Text in "double quotes" is verbatim as the search index returned it.** Unquoted text
+  is the index's paraphrase — the claim is sourced, the *wording* is not the author's.
+- Where it is unclear **which** URL in a result set a paraphrase came from, say so inline.
+  **Never silently attribute.**
+
+Consequence for the director: a number that would change the build significantly and rests
+on a single unquoted paraphrase should be treated as `[D]`-grade, not `[S]`-grade, and
+art-directed with that uncertainty acknowledged.
+
 ## Output format
 
 Write ONE markdown file into `data/` or `art/` named `<stream-id>-<slug>.md`. Structure:
