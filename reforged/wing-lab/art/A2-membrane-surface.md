@@ -23,7 +23,7 @@ Convention (matching A1 so the director can read both with one calibration):
 
 ## §1 Headline — the five findings that most change what the wing looks like
 
-**1. A real membrane TRANSMITS 2–4× more light than it REFLECTS — and absorbs almost all the
+**1. A real membrane TRANSMITS ~3× more light than it REFLECTS — and absorbs almost all the
 rest.** Measured on taut wing segments of five bat species: **albedo 0.026–0.069** (2.6–6.9 %),
 **transmittance 0.077–0.194** (7.7–19.4 %), and "**transmittance exceeded albedo in all species
 studied**" `[S]` Speakman & Hays 1992, *J. Thermal Biology* 17:317–321,
@@ -398,14 +398,9 @@ boundary never moves; only its polarity flips. `[D]` **⇒ Spend the wing's cont
 boundary and nowhere else.** A membrane tinted up until it approaches bone value has spent the
 wing's only reliable read.
 
-**`[D]` THE SCALE COROLLARY — how sharp the bone's shadow is inside the glow is a SIZE cue.**
-Lateral light-bleed around an occluder in skin is bounded by the diffuse mean free path,
-**0.68–3.67 mm** (§2.2) — a **fixed physical length that does not scale with the animal**. On a
-0.25 m bat wing filling 400 px, that bleed is **1–6 px: visibly soft**. On a 6 m dragon wing
-filling the same 400 px it is **0.07–0.27 px: razor sharp**. ⇒ **A soft, glowing halo around the
-wing bones makes a 30 m dragon read as a bat.** This is A1's ripple-wavelength scale cue (A1 §1.5,
-cheap-tell #13) restated in light instead of geometry, and it points the same way: *fine and sharp
-= enormous.*
+**The scale corollary applies here** (derived in full in §1): the softness of the V6 bone shadow
+inside the glow is bounded by a **fixed 0.68–3.67 mm** diffusion length, so at dragon scale it is
+**sub-pixel**. V6 is a **hard-edged black silhouette**, not a soft one.
 
 ### §2.9 Two late findings that change the material, not the geometry
 
