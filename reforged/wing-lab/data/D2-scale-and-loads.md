@@ -130,7 +130,7 @@ Scale a flyer by linear factor **L**, holding shape (isometry). Then `W ∝ L³`
 **Root bending moment.** Elliptical spanwise lift distribution; centroid of the half-wing load at
 `ȳ = 4/(3π)·s` = 0.4244 × 6 m = **2.546 m** from the root `[D]`.
 
-> `M_root = n · (W/2) · ȳ = n × 3679 N × 2.546 m = n × 9366 N·m` `[D]`
+> `M_root = n · (W/2) · ȳ = n × 3679 N × 2.546 m = n × 9368 N·m` `[D]`
 
 **Load factor `n` — derived from a sourced pair, not guessed.** Kirkpatrick 1994 gives bird
 humerus safety factors of **6.63 in gliding** and **2.22 in hovering** `[S]`
@@ -158,7 +158,7 @@ wolf 156 MPa `[S]` same result set). Take bird-grade 125 MPa ÷ the sourced hove
 
 > `R = [ 4M / (π σ (1−K⁴)) ]^(1/3)` `[D]`
 
-At `M = 3 × 9366 = 28 098 N·m`, `σ = 56.3 MPa`:
+At `M = 3 × 9368 = 28 104 N·m`, `σ = 56.3 MPa`:
 
 | K | 1−K⁴ | R | **Outer diameter** | Wall t | Section mass/length (ρ_bone 2000 `[assumed]`) |
 |---|---|---|---|---|---|
@@ -226,12 +226,12 @@ Megachiroptera laws in §4.5.)
 Bat baseline: `E = 3 MPa spanwise to 30 MPa chordwise` `[S]` Swartz *et al.* 1996,
 https://zslpublications.onlinelibrary.wiley.com/doi/10.1111/j.1469-7998.1996.tb05455.x;
 `h = 0.039 – 0.267 mm` `[S]` (same paper's measurement range). Take `E·h = 30 MPa × 0.15 mm =
-4500 N/m`. **Required: 77 × 4500 = 346 500 N/m.**
+4500 N/m`. **Required: 76.9 × 4500 = 346 050 N/m.**
 
 | Route | What it costs | Verdict |
 |---|---|---|
-| **A — thicker skin, same material.** `h = 346 500/30e6 =` **11.6 mm** | 11.6 mm × 1100 kg/m³ `[assumed]` = 12.7 kg/m² × 18 m² = **230 kg** = **31% of body mass**. Birds' *entire* flight musculature is ~20% of body mass `[S]` https://www.cell.com/current-biology/fulltext/S0960-9822(22)01084-3 | **DEAD** `[D]` |
-| **B — GPa-class fibres in a thin compliant skin.** Skin 0.5 mm + cords carrying 331 500 N/m | Cords: `E_f(πd²/4)/s = 331 500` with `E_f = 2.5 GPa` `[assumed]` (keratin class) ⇒ `d²/s = 1.69×10⁻⁴ m`. Skin 10 kg + cords 3.1 kg = **13 kg** | **THIS ONE** `[D]` |
+| **A — thicker skin, same material.** `h = 346 050/30e6 =` **11.6 mm** | 11.6 mm × 1100 kg/m³ `[assumed]` = 12.7 kg/m² × 18 m² = **230 kg** = **31% of body mass**. Birds' *entire* flight musculature is ~20% of body mass `[S]` https://www.cell.com/current-biology/fulltext/S0960-9822(22)01084-3 | **DEAD** `[D]` |
+| **B — GPa-class fibres in a thin compliant skin.** Skin 0.5 mm + cords carrying 331 050 N/m | Cords: `E_f(πd²/4)/s = 331 050` with `E_f = 2.5 GPa` `[assumed]` (keratin class) ⇒ `d²/s = 1.686×10⁻⁴ m`. Skin 10 kg + cords 3.1 kg = **13 kg** | **THIS ONE** `[D]` |
 
 **Derived fibre geometry `[D]`:**
 
@@ -369,7 +369,7 @@ All values converted to N/m² by me where the source gave kg/m² or lb/ft² (`1 
 | AR | 5 | 6 | 7 | 8 | 9 |
 |---|---|---|---|---|---|
 | S (m²) | 28.8 | 24.0 | 20.6 | 18.0 | 16.0 |
-| **W/S (N/m²)** | **255** | **307** | **357** | **409** | **460** |
+| **W/S (N/m²)** | **255** | **307** | **358** | **409** | **460** |
 
 Even at AR 5 — a broad, bat-like, low-AR planform that §4.5 says reads as a *forest manoeuvrer* —
 the creature is **still above the 245 N/m² bird ceiling**. Reaching §4.5's "plausible" 30–80 N/m²

@@ -106,11 +106,13 @@ https://ejournal.uin-suka.ac.id/saintek/icse/article/download/2680/2094
 Direction agrees with the sourced qualitative law (§4.3: elongation increases distally).
 
 > **CROSS-CHECK THAT PASSES `[D]`.** Build a *P. vampyrus* half-wing from the two
-> independent sources: FL 200 mm (published range 180–220 `[S]`), humerus 0.736 × 200 =
-> 147 mm, digit III 1.640 × 200 = 328 mm, plus a shoulder offset from the body midline of
-> ~70 mm. Semi-span = 745 mm ⇒ **span ≈ 1.49 m**. Published *P. vampyrus* wingspan is
-> ~1.5 m `[S]`. Two unrelated papers and a third species' ratio agree to **<1%**. The
-> humerus:radius figure survives the check.
+> independent sources: FL 200 mm (published range **180–220 mm** `[S]`
+> https://animaldiversity.org/accounts/Pteropus_vampyrus/), humerus 0.736 × 200 = 147 mm,
+> digit III 1.640 × 200 = 328 mm, plus a shoulder offset from the body midline of ~70 mm.
+> Semi-span = 745 mm ⇒ **span ≈ 1.49 m**. Published *P. vampyrus* wingspan **~1.5 m**
+> `[S]` https://boneclones.com/product/articulated-greater-flying-fox-skeleton-SC-312-A
+> ("wingspan of five feet"). Two unrelated papers and a third species' ratio agree to
+> **<1%**. The humerus:radius figure survives the check.
 
 **Span landmarks — the table the modeller actually needs** `[D]`, from the chain above,
 `t` measured from the body midline to the fingertip (semi-span = 3.726 forearm-lengths):
@@ -255,7 +257,7 @@ http://pterodata.blogspot.com/2011/03/whitfield-pteranodon.html). Element length
 | Mechanism of the fold | handwing **supinates at the wrist**; the wing **retracts along the span by elbow flexion**; folding is implemented primarily by **wrist flexion/extension** | `[S]` https://journals.biologists.com/jeb/article/218/5/653/14631/Bat-flight-aerodynamics-kinematics-and-flight |
 | Payoff of folding | wing folding may reduce the **inertial cost by as much as 35%** vs holding the wing outstretched | `[S]` https://www.researchgate.net/publication/223977454_Upstroke_wing_flexion_and_the_inertial_cost_of_bat_flight |
 | Span ratio, defined | **SR = span at mid-upstroke ÷ span at mid-downstroke** | `[S]` https://pmc.ncbi.nlm.nih.gov/articles/PMC3522884/ |
-| Span ratio, valued | **`unknown` as a number.** Sourced only as a trend: SR is **lower at low speed** (deeper fold when slow) | `[S]` trend / `unknown` value |
+| Span ratio, valued | **`unknown` as a number.** Sourced only as a trend: SR is **lower at low speed** (deeper fold when slow) | `[S]` trend (same URL as the row above) / `unknown` value |
 | **Roosting folded-pose joint angles (shoulder / elbow / wrist, in degrees)** | **`unknown`** — searched five ways; every source is qualitative ("folds like an umbrella", "wraps the body") | — |
 | **Folded span ÷ extended span** | **`unknown`** for the roosting pose | — |
 | **Shoulder / wrist / MCP ROM in degrees** | **`unknown`** — no source retrieved gave a degree-valued envelope for any bat joint | — |
