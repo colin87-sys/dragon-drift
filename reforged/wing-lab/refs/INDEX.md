@@ -27,10 +27,15 @@ Plates are driven entirely by `refs/wing-spec.json`. To add a number to a plate,
 to the spec — the spec carries only values the research actually closed, and sections
 awaiting research are **absent rather than guessed**.
 
-> ⚠ **`tools/wingplate.mjs` is NOT in the repo** (checked 2026-08-16: no `reforged/tools/wingplate.mjs`,
-> no `wing-lab/tools/wingplate.mjs`). `plate-camber.png` is therefore currently **un-regenerable** —
-> the image is real, the command above is not. Whoever produced the plate owes the tool a commit.
-> — flagged by R1.
+> ✅ **Resolved.** R1 flagged the plate as un-regenerable after finding no
+> `reforged/tools/wingplate.mjs` and no `wing-lab/tools/wingplate.mjs`. Both those paths are
+> genuinely empty — the tool lives at the **repo root**, `tools/wingplate.mjs` (+ `.html`),
+> committed in `7cf0d6e`. Re-verified running on 2026-08-16.
+>
+> **Path convention, since this bit one stream already:** `wingplate` is run from the
+> **repo root** (`node tools/wingplate.mjs camber`), while `wingshot` is run from
+> **`reforged/`** (`cd reforged && node wing-lab/tools/wingshot.mjs vesper`). Check your cwd
+> before concluding a tool is missing.
 
 ---
 
