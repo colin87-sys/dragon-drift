@@ -44,8 +44,8 @@ the `-detail.png` sheets.
 
 **H5. The rigging traps are already solved and are non-negotiable.** The `−anchor` wrist
 (`tip.position=+K`, `hand.position=−K`) and the outer `scale.x=−1` LEFT wrapper are copied
-verbatim in all three heroes [S] `dragonVesper.js:634-645`, `dragonRevenant.js:499-508`,
-`dragonTempest.js:846-855`. Deviating from either is a known-cost bug (mirror desync
+verbatim in all three heroes [S] `dragonVesper.js:630-641`, `dragonRevenant.js:500-511`,
+`dragonTempest.js:846-857`. Deviating from either is a known-cost bug (mirror desync
 `wingsymprobe` Δ0.000 → ~3.0; a per-side sign + a mirror double-flips).
 
 ---
@@ -129,7 +129,8 @@ Registered but **used by no dragon** (reachable only from tests): `membrane`, `c
 **Not in the toolbox** (each hero re-implements it privately): the leading-edge profile function,
 the finger fan, the bézier `quad`/`bez` helper, the `ridge()` tent-wedge bone, the membrane bay
 loft, the knife-edge strip, the covert row, the per-bay value tier. Vesper's `ridge` is
-`dragonVesper.js:410`, Revenant's is `:383`, Tempest's is `stormSpike` at `:600`. **Three
+`dragonVesper.js:400`, Revenant's is `dragonRevenant.js:384`, Tempest's is `stormSpike` at
+`dragonTempest.js:610`. **Three
 independent copies of the same four ideas.**
 
 ### T3 — The legacy `buildMembraneWings` dial reference `[S] js/dragonWings.js:37-554`
@@ -145,7 +146,7 @@ independent copies of the same four ideas.**
 | `model.wingShape` | `'feather'`\|— | 77 | — | none (0) | swaps the planform for the flat-feather cut-out |
 | `model.wingForm` | int index | via `wingSpecFor` `dragonParts.js:64` | → `DEFAULT_WING` | 0–3 (ember only, `wingForms` at `dragons.js:429`) | picks the per-form planform `{tips, lead, scallop, flame, arc}` |
 | `spec.rootChord` | float | `dragonParts.js:73` | 0.28 | none | lengthens the ROOT attach chord (kills the pinched bolted-on root) |
-| `spec.arc {bow,hump,humpAt,hook}` | 4 floats | `dragonParts.js:99` | all 0 (flat) | ember forms | the gull-arch lift profile along span |
+| `spec.arc {bow,hump,humpAt,hook}` | 4 floats | `dragonParts.js:100` | all 0 (flat) | ember forms | the gull-arch lift profile along span |
 | `spec.scallop` | float | `dragonParts.js:83` | 0.50 | 0.22–0.50 | trailing-edge festoon depth between finger tips |
 | `spec.flame` | bool | `dragonParts.js:79` | false | ember f3 | V-notches the OUTER 2 webs only |
 | `model.wingBillow` | float | 56 | 0.12 | none (0) | chordwise panel billow (curved path) |
@@ -241,9 +242,9 @@ still **4.7× Vesper's** and **2.8× Tempest's**. `tricount --ci` is the gate (e
 
 Two counter-facts the budget table hides:
 - **Draw calls, not triangles, are the real cost.** Tempest batches the whole wing into a
-  handful of `flatTriMesh` calls via per-material accumulators (`dragonTempest.js:653-656`);
+  handful of `flatTriMesh` calls via per-material accumulators (`dragonTempest.js:654-657`);
   Vesper's constellations were explicitly re-batched from one draw per fleck into one mesh
-  (`dragonVesper.js:520`). A 3000-tri wing in 8 draws is cheap; a 600-tri wing in 60 draws is not.
+  (`dragonVesper.js:532`). A 3000-tri wing in 8 draws is cheap; a 600-tri wing in 60 draws is not.
 - **`[S] reforged/leapfrog/lessons/2026-07-11-tris-buy-smoothness-facets-and-light-buy-richness.md`
   — triangles buy SMOOTHNESS; facets, value tiers and lights buy RICHNESS.** Azure spends 2320
   wing tris on curvature interpolation and reads poorer than Solar's flat-shaded facets. Do not
@@ -395,7 +396,7 @@ Honest list of things a director might ask for that have **no path** in this rep
 | 5 | **Shadow-casting wings / self-shadowing membrane** | No mesh in the wing path sets `castShadow`; the studio stage has no shadow map at all. | Unknown-to-high — a real-time shadow pass is a renderer-wide decision (`GRAPHICS-OVERHAUL.md` territory), not a wing change. |
 | 6 | **A texture / normal map on the membrane** | The whole game is **100% procedural, no asset files** (CLAUDE.md). Textures exist only as `DataTexture`/`CanvasTexture` generated in code (`makeGlowTexture`, `glowTexture()`), and `tricount`'s node shim gives canvas a *stubbed* 2D context — a `CanvasTexture` in the build path **throws in the node tests**. | Medium: procedural `DataTexture` only, and it must be DOM-free. |
 | 7 | **Per-vertex skinning driven by the flap** | Exists (`skinnedMembrane` / `skinnedTube` / `flapWing` cascade) but is **used by no shipped dragon** and is a different rig branch (`parts.wingRigL` short-circuits `setFlapDebugPose` at `:61`). None of the three heroes' craft (spar-sample welds, per-bay tiers) has ever been built on it. | Medium: real, but unproven at premium quality — you would be the first. |
-| 8 | **Two-sided membrane with a different ventral surface** | Every membrane is a `side: THREE.DoubleSide` single sheet — the underside is the same material, lit from behind. Vesper fakes a ventral layer by duplicating the bay geometry 0.05 below it in a second material (`dragonVesper.js:492-497`). | Low: duplicate-and-offset is the shipped pattern; ~2× the membrane tris. |
+| 8 | **Two-sided membrane with a different ventral surface** | Every membrane is a `side: THREE.DoubleSide` single sheet — the underside is the same material, lit from behind. Vesper fakes a ventral layer by duplicating the bay geometry 0.05 below it in a second material (`dragonVesper.js:458-464`). | Low: duplicate-and-offset is the shipped pattern; ~2× the membrane tris. |
 | 9 | **Aerodynamically responsive pose** (wing loading, gust response) | The poser is a pure function of `phase` + a few scalar bias inputs. There is no physics; `wingDebugPose` is deliberately **clock-free and deterministic** (a deliverable — see `wingDebugPose.js:32`). | High, and it would break determinism-of-capture, which the whole gate process depends on. |
 | 10 | **A wing whose planform changes with tier by more than dial values** | `ascendedDef` merges `forms[t]` cumulatively into `model`; there is no per-form BUILDER swap. | Low: branch inside your own builder on `model.formLevel` / `glowLevel` (Tempest already does: `struts`, `forkN`, `spur` all key off `glow ≥ 0.95`). |
 | 11 | **Membrane transparency that reads through to the far wing** | `transparent:true` with no explicit `depthWrite`/render-order management — sorting artifacts between the two wings and the body are not solved anywhere. | Low–medium and fiddly; the shipped answer is to keep opacity ≥0.82 and let it read opaque. |
@@ -436,7 +437,7 @@ Honest list of things a director might ask for that have **no path** in this rep
    `detail` sheet's 4th tile exists for exactly this.
 
 6. **Use the −anchor + outer-mirror boilerplate verbatim.** It is 8 lines
-   (`dragonTempest.js:846-855`) and it is the difference between `wingsymprobe` Δ0.000 and a
+   (`dragonTempest.js:846-857`) and it is the difference between `wingsymprobe` Δ0.000 and a
    gate-blocking desync. Copy, don't reinvent.
 
 7. **Publish the fold.** If the design wants a real furl (and the §7 law says 0.7×), it must be
@@ -487,3 +488,21 @@ Honest list of things a director might ask for that have **no path** in this rep
 - **Actual fps on a weak mobile device** for any wing configuration. No profiling tool in the
   repo measures device fps; `tools/framecap.mjs` and `tools/perfprobe.mjs`/`_perfprobe.mjs` exist
   and were not run. `unknown`.
+
+---
+
+## Appendix — where the pixels are
+
+The thirteen in-engine renders in `../refs/` are now indexed in `../refs/INDEX.md`:
+**§B** gives every file a row (what it is, which dragon and dial set, the exact regenerating
+command, what it is evidence OF) and **§C is the honest per-wing read** — one line per wing per
+sheet describing what is actually on screen today. §C is the companion to this file: this document
+is what the engine CAN do, §C is what it currently DOES.
+
+Two findings recorded there that belong here too:
+
+- **No hero has a working fold.** vesper 0.838 · revenant 0.932 · tempest 0.986 span-contraction
+  vs. the §7 law's 0.7×. Only azure (0.475) and ember (0.429) pass, both through bespoke furl
+  branches (`poseBladePivots` / `poseLobePivots`) that no premium hero publishes.
+- **`tools/wingplate.mjs` does not exist in the repo**, so `refs/plate-camber.png` is currently
+  un-regenerable. Flagged in `refs/INDEX.md §A`.
