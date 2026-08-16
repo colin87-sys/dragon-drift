@@ -85,10 +85,10 @@ Registered but **used by no dragon** (reachable only from tests): `membrane`, `c
 |---|---|---|
 | `def` | object | palette + identity: `wingEmissive`, `wingMembraneEmissive`, `wingInner/wingOuter`, `apexSeam`, `accentHue`, `horn`, `body`, `eye`, `wingForms` |
 | `model` | object | the RESOLVED per-form dial bag (apex `model` merged with `forms[tier]` by `ascendedDef`) |
-| `attach` | object | `wingRoot(side)→{x,y,z}` · `headBase` · `tailAnchor` · `keelTopAt(z)` · `halfWidthAt(z)` · `bodyMatDouble` · `bodyMidY` · `riderSocket` [S] `dragonTorso.js:342-356`, contract doc `dragonTorso.js:17-27` |
+| `attach` | object | `wingRoot(side)→{x,y,z}` · `headBase` · `tailAnchor` · `keelTopAt(z)` · `halfWidthAt(z)` · `bodyMatDouble` · `bodyMidY` · `riderSocket` [S] `dragonTorso.js:342-356`, contract doc `dragonTorso.js:16-25` |
 | `giM` | number | global-illumination multiplier (scales emissive intensities) |
 
-**Out** — `{ group, parts, wingMat, spineMats, … }` [S] destructured at `dragonModel.js:330-344`:
+**Out** — `{ group, parts, wingMat, spineMats, … }` [S] destructured at `dragonModel.js:340-345`:
 
 | key | required | meaning |
 |---|---|---|
@@ -473,7 +473,7 @@ Honest list of things a director might ask for that have **no path** in this rep
 ## Still unknown
 
 - **The real draw-call count per wing.** `tricount` counts triangles only and says so explicitly
-  (`tools/tricount.mjs:13`). I found no tool that reports draws per part. The Seraph lesson
+  (`tools/tricount.mjs:13-15`). I found no tool that reports draws per part. The Seraph lesson
   (104→24) had to census it by hand. `unknown` — searched `tools/` for `drawcall|draws|renderer.info`.
 - **Whether the wings cast into the water-mirror / god-ray aux passes**, and therefore what a
   wing's real per-frame cost multiplier is. The Seraph lesson says the aux passes re-submit
