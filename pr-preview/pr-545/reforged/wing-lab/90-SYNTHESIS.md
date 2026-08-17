@@ -162,8 +162,15 @@ geometry seed (±4% bay widths, jitter) and weathering history (§7.4), never in
 
 ## §3 Landmarks — the decided table
 
-`t` = fraction of the semi-span measured from the **body midline**. Semi-span (apex form)
-`hs = spanScale · 4.2` — shipped-premium size (span/body ≥ 1.1; the 56%-size lesson is law).
+`t` = fraction of the semi-span measured from the **body midline**. Semi-span `hs` is NOT a
+prescribed dial number: **the contract is the measured outcome** — glide `spanX / bodyZ` ∈
+**1.10–1.20** at the apex form, asserted in the landmark dump (the Tempest, the bar, measures
+1.18; the 56%-size lesson is law; kill #63's hard floor stays at 1.0). `hs` is the builder's
+lever, scaled **uniformly** (span and chord together, so AR holds ≈ 8–9). On a Tempest-class
+body this lands near `spanScale · 5.9–6.1`. *(Amended Round 1: the original `4.2` was a dial
+number masquerading as a measurement — the shipped heroes' `halfSpan` dial is not their true
+world semi-span — and it measured span/body 0.79 on the test body, failing this spec's own
+kill #63. Builder-caught, Director-owned.)*
 
 | t | Landmark | Notes |
 |---|---|---|
@@ -640,6 +647,17 @@ everything else.** Phrased so a critic can point at pixels.
 63. A wing sized under the shipped premium bar (span/body < 1.0 at apex).
 64. Craft that lives only on the membrane face — invisible 40% of the beat; every feature must
     state its edge-on read or accept it has none.
+
+**Added in rounds** — the kill-list is live; each addition names the round that earned it.
+
+65. *(R1)* A membrane vertex that must stay on the body, living in a group that rotates with
+    the limb — the inboard-aft corner peels off the flank into a floating card during the beat
+    (the shipped Revenant trap, reproduced in this lab at 0.77 u). Inboard membrane edges
+    terminate near the pivot (short lever); flank coverage below that line is a **body-frame
+    skirt** the wing membrane overlaps by ≥ 0.15 chord — overlap, never weld, never a shared
+    silhouette edge.
+66. *(R1)* Any free membrane edge that is machine-straight with square corners — **a rectangle
+    in a silhouette**. Every free hem is a designed curve and carries the hem cord.
 
 ---
 
