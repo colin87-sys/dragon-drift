@@ -97,10 +97,20 @@ function forgeMats(def) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ONE CANONICAL (+X) WING. Returns { arm, hand, root, frame, K, tip, dump } where
-//   arm   → rides `mid`  (humerus + forearm + propatagium + plagiopatagium + coverts)
-//   hand  → rides `tip`  (carpal cluster + 4 digits + the 3 handwing bays)
+//   arm   → rides `pivot` (humerus + propatagium + plagiopatagium + arm hem + coverts)
+//   fore  → rides `mid`  at the ELBOW landmark t=0.28 (forearm + wrist ridge)
+//   hand  → rides `tip`  at the WRIST landmark t=0.50 (carpal cluster + digits + bays)
 //   root  → rides `pivot` (the muscular root fairing — the one root element that deforms)
-//   frame → rides the BODY (scapular cowl + the raised flank line — static through the flap)
+//   frame → rides the BODY (scapular cowl + the flank skirt — static through the flap)
+//
+// I1.1 moved `mid` OFF the pivot and onto the elbow, via the same −anchor trick as the
+// wrist (`mid.position = +E`, `fore.position = −E`), so the assembled rest pose is
+// byte-identical and the joint now sits at the §3 landmark instead of doubling the
+// shoulder. It is driven at AMPLITUDE ZERO for now (`midAmp: 0`, `apexMid: 0` on the def) —
+// I4 owns making the elbow flex — but the rig topology is right, so I4's fold is no longer
+// blocked on a rig change. The sheets that SPAN the elbow (propatagium, plagiopatagium)
+// deliberately stay on `pivot`: a membrane welded across a moving joint tears, and keeping
+// them proximal is also what holds the root-drift assertion at zero.
 // `dump` carries the pure-math landmark table the verify chain checks against §3.
 // ═══════════════════════════════════════════════════════════════════════════════
 function buildOneForgewing(M, d) {
@@ -108,7 +118,7 @@ function buildOneForgewing(M, d) {
   const X0 = d.rootX;             // the torso's published wing root, in model space
   const NDIG = Math.max(2, Math.min(4, d.digits));
 
-  const arm = new THREE.Group(), hand = new THREE.Group(), root = new THREE.Group(), frame = new THREE.Group();
+  const arm = new THREE.Group(), fore = new THREE.Group(), hand = new THREE.Group(), root = new THREE.Group(), frame = new THREE.Group();
 
   // per-(group) per-material accumulators → a handful of draws (the Tempest batching discipline)
   const accs = new Map();
@@ -268,23 +278,31 @@ function buildOneForgewing(M, d) {
   }
 
   // ── THE ARM (humerus + forearm) ──────────────────────────────────────────────
-  // Rides `mid`. Shoulder→elbow→wrist, with the elbow held at ~150° included so the arm
-  // NEVER reads straight while the propatagium exists.
+  // Shoulder→elbow→wrist, with the elbow held at ~150° included so the arm NEVER reads
+  // straight while the propatagium exists. Split across the elbow joint: the HUMERUS rides
+  // `pivot`, the FOREARM rides `fore` (the elbow's −anchor). Both tubes share the fattened
+  // elbow ring, and the joint's rotation centre IS that ring, so the knuckle stays closed
+  // no matter what I4 later does with the joint.
   {
-    const tOf = (s) => 0.090 + s * 0.410;   // arc-fraction → §3 span fraction over the arm
-    const st = boned([S, E, K], (s) => r0 * sparF(tOf(Math.max(0, Math.min(1, s)))), 1.42);
-    tube(arm, st, 5, null, 0.4);
+    const rAt = (t) => r0 * sparF(t);
+    const rElbow = rAt(0.280) * 1.42;   // the knuckle thickening — a real bump in the outline
+    tube(arm, [{ p: S, r: rAt(0.090) }, { p: lerp3(S, E, 0.55), r: rAt(0.195) },
+               { p: lerp3(S, E, 0.88), r: rAt(0.258) }, { p: E, r: rElbow }], 5, null, 0.4);
+    tube(fore, [{ p: E, r: rElbow }, { p: lerp3(E, K, 0.14), r: rAt(0.310) },
+                { p: lerp3(E, K, 0.62), r: rAt(0.416) }, { p: K, r: rAt(0.500) * 1.30 }], 5, null, 1.1);
     // §4: short raised RIDGES at the high-moment stations (shoulder / elbow / wrist) — the
     // visible answer to thin-wall bracing, and three more bumps on the edge-on polyline.
-    for (const [node, s, w] of [[S, 0.02, 1.0], [E, 0.46, 0.86], [K, 0.98, 0.62]]) {
-      const r = r0 * sparF(tOf(s)) * w;
+    const ridge = (g, node, r) => {
       const dir = norm3(sub3(K, S));
       const side = norm3(cross3(dir, [0, 1, 0]));
       const a = add3(node, mul3(dir, -r * 1.5)), b = add3(node, mul3(dir, r * 1.5));
       const top = add3(node, [0, r * 1.75, 0]);
-      push(arm, M.ash, [a, add3(node, mul3(side, r * 0.9)), top], [add3(node, mul3(side, r * 0.9)), b, top]);
-      push(arm, M.bone, [a, top, add3(node, mul3(side, -r * 0.9))], [add3(node, mul3(side, -r * 0.9)), top, b]);
-    }
+      push(g, M.ash, [a, add3(node, mul3(side, r * 0.9)), top], [add3(node, mul3(side, r * 0.9)), b, top]);
+      push(g, M.bone, [a, top, add3(node, mul3(side, -r * 0.9))], [add3(node, mul3(side, -r * 0.9)), top, b]);
+    };
+    ridge(arm, S, rAt(0.090));
+    ridge(arm, E, rAt(0.280) * 0.86);
+    ridge(fore, K, rAt(0.500) * 0.62);
   }
 
   // ── THE DIGITS ───────────────────────────────────────────────────────────────
@@ -364,19 +382,27 @@ function buildOneForgewing(M, d) {
   const hemArm = [], hemBays = [];
 
   // -- the ARMWING / plagiopatagium -------------------------------------------
-  // The largest single surface (§5.1). Bounded by the arm's leading edge, the carpal block,
-  // the concave trailing arc, and the raised flank line at the root.
-  // §9 / the anti-shard law: the membrane's inboard edge lives on the WING group with a
-  // SHORT lever to the pivot — a vertex that must stay put on the body cannot live in a
-  // group that rotates with the limb. The "raised flank line running to the hip" is
-  // delivered by the STATIC flank ridge below, which the membrane laps over; the membrane
-  // itself stops at mid-flank. That split is what lets the anchor read as a hip line
-  // without peeling into a floating shard mid-flight.
-  const B_ANCHOR = d.flankAt(d.anchorZ);
+  // THE ROOT, REBUILT (I1.1). The first pass anchored the inboard-aft corner far down the
+  // flank, inside the rotating wing group, with a near-straight free edge running to it.
+  // That ONE mistake produced three separate symptoms: a square black slab in the pure-black
+  // tile, a flat card catching the rim light at apex, and 0.77 u of measured root travel over
+  // the beat. It is the shipped Revenant trap: a vertex that must read as attached to the
+  // BODY cannot live in a group that ROTATES with the limb.
+  //
+  // The fix splits the job between the two frames that actually own it:
+  //   • the WING sheet's inboard corner sits exactly ON the pivot — the one point a rotation
+  //     about the pivot cannot move — so root drift is identically zero, and the root reads
+  //     as a CUSP, not a corner: there is no inboard edge to be square;
+  //   • flank coverage back to the hip becomes a BODY-FRAME SKIRT (below, in `frame`), which
+  //     never rotates, and the wing sheet laps over its forward end.
+  // The trailing edge is a quadratic bezier that bows AFT out of that cusp before curving
+  // forward into the carpal block, so no run of it is straight and it meets nothing at 90°.
+  const RT = [0, 0, 0];                       // inboard-aft cusp — ON the pivot. Drift ≡ 0.
   const armLead = (u) => add3(pathSample(armPath, u), [0, -r0 * sparF(0.09 + u * 0.41) * 0.55, 0]);
-  // the trailing arc B → W6, pulled forward toward the wrist so the inboard TE scallops and
-  // the whole trailing line — wingtip to body — is ONE continuous cupped curve
-  const armTrail = (u) => lerp3(lerp3(B_ANCHOR, W6, u), K, 0.13 * Math.sin(Math.PI * u));
+  const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0],
+    m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+  const TE_CTRL = [0.160 * hs, -0.028 * hs, 0.440 * hs];   // aft-and-down: the sheet's belly
+  const armTrail = (u) => bez(RT, TE_CTRL, W6, u);
   {
     const NU = 8;
     const grid = [], chords = [];
@@ -398,16 +424,13 @@ function buildOneForgewing(M, d) {
     for (let k = 0; k < NU; k++) for (let j = 0; j < NC; j++) {
       const c = (j + 0.5) / NC;
       const billow = (chords[k] + chords[k + 1]) * 0.5 * 0.080 * sagShape(c);
-      // §9: the scale→membrane transition is a GRADED VERMILION BAND (~0.06·hs), never a
-      // hard straight line where scales stop and membrane starts (§12 kill #31). It costs
-      // zero extra triangles — the root strip is simply its own material.
       const tier = tierOf(billow, maxB, 613 + k * 13 + j);
       if (k === 0) {
-        // GRADED, not a painted line: the body-side triangle of the root strip takes the
-        // warm vermilion blush and the outboard triangle already takes its membrane tier, so
-        // the band ramps across ~0.06·hs instead of ending on a hard edge (§12 kill #31).
-        // Authored DARK — measured at shop distance a saturated band reads as a red stripe
-        // painted on the root, which is the same crime one value up.
+        // §9: the scale→membrane transition is a GRADED VERMILION BAND, never a hard straight
+        // line where scales stop and membrane starts (§12 kill #31). The body-side triangle of
+        // the root strip takes the warm blush, the outboard triangle its membrane tier, so the
+        // band ramps instead of ending on an edge. Zero extra triangles. Authored DARK —
+        // measured at shop distance, a saturated band is a red stripe painted on the root.
         push(arm, M.band, [grid[k][j], grid[k][j + 1], grid[k + 1][j + 1]]);
         push(arm, tier, [grid[k][j], grid[k + 1][j + 1], grid[k + 1][j]]);
       } else quad(arm, tier, grid[k][j], grid[k][j + 1], grid[k + 1][j + 1], grid[k + 1][j]);
@@ -517,21 +540,28 @@ function buildOneForgewing(M, d) {
   }
 
   // ── THE COVERT ROW (§9) ──────────────────────────────────────────────────────
-  // ONE organized rank of 8–10 flakes with decaying sizes along the dorsal arm, TERMINATING
-  // at the wrist cluster. A rank with a terminus — never the even scatter of white flecks
-  // that reads as confetti (§12 kill #30, the Tempest's measured defect).
+  // ONE organized rank of 8–10 flakes with decaying sizes along the DORSAL arm, terminating
+  // at the wrist cluster. I1 shipped them too small and too spread, so only the outermost
+  // one cleared the propatagium and read as a single pale chip on the wrist — which is
+  // §12 kill #30 (confetti) in miniature. One flake is worse than none. Rebuilt as a real
+  // SHINGLED rank: each flake laps ~45% over the next, they sit ON the tube's dorsal face
+  // (so they break the bone's outline rather than floating beside it), the sizes decay
+  // monotonically outboard, and the rank stops dead at the carpal cluster — a rank has a
+  // terminus. Charcoal bodies, ash only on the lapped edge, so the rank reads as relief.
   for (let i = 0; i < d.coverts; i++) {
-    const u = 0.10 + 0.86 * (i / Math.max(1, d.coverts - 1));
+    const f = i / Math.max(1, d.coverts - 1);
+    const u = 0.14 + 0.80 * f;
     const p = pathSample(armPath, u);
-    const sz = 0.052 * hs * (1 - 0.55 * u);
+    const rHere = r0 * sparF(0.09 + u * 0.41);
+    const sz = 0.075 * hs * (1 - 0.46 * f);                    // decaying, and big enough to read
     const dir = norm3(sub3(K, S)), side = norm3(cross3(dir, [0, 1, 0]));
-    const a = add3(add3(p, mul3(dir, -sz * 0.7)), [0, r0 * 0.7, 0]);
-    const b = add3(add3(p, mul3(dir, sz * 0.9)), [0, r0 * 0.5, 0]);
-    const c = add3(add3(p, mul3(side, sz * 1.25)), [0, -r0 * 0.1, 0]);
-    // Value order matters: the flake body is CHARCOAL and only its lapped edge catches ash.
-    // A rank of bright flakes on a dark wing is the Tempest's measured confetti defect.
-    push(arm, M.bone, [a, b, c]);
-    push(arm, M.ash, [lerp3(a, c, 0.72), lerp3(b, c, 0.72), c]);
+    const base = add3(p, [0, rHere * 0.82, 0]);                // ON the dorsal face of the pipe
+    const a = add3(base, mul3(dir, -sz * 0.30));               // the lapped (upstream) edge
+    const b = add3(add3(base, mul3(dir, sz * 0.62)), [0, -rHere * 0.10, 0]);   // the free tip, aft
+    const c = add3(add3(base, mul3(side, sz * 0.86)), [0, -rHere * 0.55, 0]);  // outboard skirt
+    const cIn = add3(add3(base, mul3(side, -sz * 0.34)), [0, -rHere * 0.45, 0]);
+    push(arm, M.bone, [a, b, c], [a, cIn, b]);
+    push(arm, M.ash, [a, lerp3(a, b, 0.34), lerp3(a, c, 0.34)]);   // one lit lapped edge only
   }
 
   // ── THE ROOT (§9): OVERLAP, NEVER WELD ───────────────────────────────────────
@@ -545,6 +575,7 @@ function buildOneForgewing(M, d) {
   // EVERYTHING HERE IS SIZED IN BODY UNITS off the published attach contract — never in hs.
   // These three parts belong to the TORSO's frame, so growing the wing must not grow them
   // (an hs-scaled cowl walks straight off the flank the moment the span dial moves).
+  let skirtOuter = null;
   {
     const bw = d.flankHalfWidth;        // torso half-width at the wing root
     const flankAt = d.flankAt;          // wing-local flank point at a wing-local z
@@ -572,31 +603,57 @@ function buildOneForgewing(M, d) {
       push(frame, M.ash, [p0, p1, apex], [p1, p2, apex]);
       push(frame, M.flank, [p2, p3, apex], [p3, p0, apex]);
     }
-    // the RAISED FLANK LINE — a low tapered ridge that follows the torso's OWN half-width
-    // curve aft from the root to the hip/upper thigh (the praised Night-Fury trait). NOT the
-    // ankle (rideable legs stay free) and NOT the spine (the rider sits there). The
-    // membrane's inboard edge laps over its forward half, so the anchor READS as a hip line
-    // while every membrane vertex keeps a short lever to the pivot (the anti-shard law).
-    const RID = [0.30, 0.85, 1.45, 2.00, 2.45].map(flankAt);
-    for (let i = 0; i < RID.length - 1; i++) {
-      const w0 = bw * 0.30 * (1 - 0.18 * i), w1 = bw * 0.30 * (1 - 0.18 * (i + 1));
-      const a = RID[i], b = RID[i + 1];
-      quad(frame, M.ash, add3(a, [0, w0, 0]), add3(b, [0, w1, 0]), add3(b, [w1 * 1.4, -w1, 0]), add3(a, [w0 * 1.4, -w0, 0]));
-      quad(frame, M.flank, add3(a, [0, w0, 0]), add3(a, [-w0 * 1.4, -w0, 0]), add3(b, [-w1 * 1.4, -w1, 0]), add3(b, [0, w1, 0]));
+    // ── THE BODY-FRAME FLANK SKIRT (I1.1) ───────────────────────────────────
+    // The wing sheet now stops at a cusp ON the pivot, so flank coverage back to the
+    // hip/upper thigh — the Night-Fury trait §9 asks for — is delivered HERE, in the body
+    // frame, where it belongs: it never rotates, so it can never peel.
+    //
+    // The shape is the whole point. A skirt drawn as its own lobe CROSSES the wing's
+    // trailing edge in planform, and the union of the two outlines grows sharp notches —
+    // measured at 86° / 97° / 100° by `wingquadprobe` on the first attempt. So the skirt is
+    // built as a CONTINUATION of the wing's own trailing line instead: its outer edge runs
+    // out to the wing TE's aft-most point (where the two curves meet), and only aft of that
+    // does it become the silhouette, carrying one unbroken curve down to the hip. Forward of
+    // that meeting point it lies UNDER the wing sheet — which is the required overlap.
+    const teAft = (() => { let best = armTrail(0); for (let i = 1; i <= 60; i++) { const p = armTrail(i / 60); if (p[2] > best[2]) best = p; } return best; })();
+    const A0 = flankAt(0.22), A2 = flankAt(2.45);
+    const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0],
+      m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+    // C1 is pulled well OUTBOARD so the skirt's forward half sits deep under the wing sheet:
+    // the seam between a rotating frame and a static one is only safe if it is genuinely
+    // lapped, and the dump asserts ≥0.15 chord of overlap.
+    const C1 = [teAft[0] * 0.90, A0[1] - bw * 1.5, A0[2] + (teAft[2] - A0[2]) * 0.62];
+    const C2 = [teAft[0] * 0.52, teAft[1] - bw * 1.6, teAft[2] + (A2[2] - teAft[2]) * 0.34];
+    const skOuterAt = (v) => (v <= 0.5 ? bz(A0, C1, teAft, v * 2) : bz(teAft, C2, A2, (v - 0.5) * 2));
+    const NSK = 10, skInner = [], skMid = [], skOuter = [];
+    for (let i = 0; i <= NSK; i++) {
+      const v = i / NSK;
+      const o = skOuterAt(v);
+      const inn = flankAt(0.22 + v * 2.23);
+      skInner.push(inn); skOuter.push(o); skMid.push(add3(lerp3(inn, o, 0.52), [0, -bw * 0.55, 0]));
     }
+    for (let i = 0; i < NSK; i++) {
+      const rw0 = bw * 0.26, rw1 = bw * 0.26;
+      // the raised flank LINE along the skirt's top edge (the anchor line the eye reads)
+      quad(frame, M.ash, add3(skInner[i], [0, rw0, 0]), add3(skInner[i + 1], [0, rw1, 0]), skInner[i + 1], skInner[i]);
+      // the skirt sheet itself, value-banded so it is not one flat card
+      quad(frame, M.memTiers[1], skInner[i], skInner[i + 1], skMid[i + 1], skMid[i]);
+      quad(frame, M.memTiers[2], skMid[i], skMid[i + 1], skOuter[i + 1], skOuter[i]);
+    }
+    skirtOuter = skOuter;
   }
 
-  flush(arm); flush(hand); flush(root); flush(frame);
+  flush(arm); flush(fore); flush(hand); flush(root); flush(frame);
 
   // pure-math landmark table — geometry numbers beat rendered pixels (§11 verify chain)
   const dump = {
     hs, rootX: X0,
-    landmarks: { shoulder: S, elbow: E, wrist: K, mcp3: MCP3, pip3: PIP3, tip3: TIP3, hook3: HOOK3, carpalVI: W6, bodyAnchor: B_ANCHOR },
-    digits, tips, armPath, r0, sparF, propatagium: dumpPro,
+    landmarks: { shoulder: S, elbow: E, wrist: K, mcp3: MCP3, pip3: PIP3, tip3: TIP3, hook3: HOOK3, carpalVI: W6, bodyAnchor: RT },
+    digits, tips, armPath, r0, sparF, propatagium: dumpPro, skirtOuter,
     fan: { len: FAN_LEN, az: FAN_AZ, droop: FAN_DROOP, runIII, phiIII, mcLen },
     armLead, armTrail,
   };
-  return { arm, hand, root, frame, K, tip: TIP3, dump };
+  return { arm, fore, hand, root, frame, K, E, tip: TIP3, dump };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -610,11 +667,12 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
   // struts fan OUTBOARD of its halfSpan 4.1 and its tip actually lands at 5.33 from the
   // midline (R1 T4 vs T7). Our tip is PINNED at t = 1.0 · hs, so hs is the real semi-span.
   // §12 kill #63 (and the 56%-size lesson it comes from) is an automatic loss, so the LAW
-  // wins over the number. hs = 5.5 is the MEASURED landing spot (wingdump.mjs): span/body
-  // 1.02 at glide, §5.1 area shares 6 / 49 / 45 and AR 9.0 — all four of §5.1's numbers on
-  // spec at once, which 4.2 does not reach. Every §3 landmark is a FRACTION of hs, so the
-  // whole landmark table survives the change untouched (the dump still reads Δ0.0000).
-  const halfSpan = (model.spanScale ?? 1) * (model.wingHalfSpan ?? 5.5);
+  // wins over the number. §3 was amended after I1 to state the MEASURED outcome instead of a
+  // dial: glide span/body must land in 1.10–1.20, hs free. hs = 6.2 is the measured landing
+  // spot (`wingdump.mjs`): span/body 1.17 against the bar's 1.18, with §5.1's area shares
+  // 7 / 49 / 44 and AR 8.8 at the same time. Every §3 landmark is a FRACTION of hs, so the
+  // whole landmark table survives any rescale untouched (the dump still reads Δ0.0000).
+  const halfSpan = (model.spanScale ?? 1) * (model.wingHalfSpan ?? 6.2);
   const rootC = attach.wingRoot(1);
   // BODY-FRAME geometry (root fairing, scapular cowl, the raised flank line, and the
   // membrane's inboard anchor) is derived from the torso's PUBLISHED attach contract, never
@@ -652,15 +710,21 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     const pivot = new THREE.Group(); pivot.position.set(rootC.x, rootC.y, rootC.z); pivot.userData.wingRole = 'pivot';
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
-    pivot.add(mid); mid.add(tip);
     const built = buildOneForgewing(M, dials);
     dump = built.dump;
-    const { arm, hand, root, frame, K, tip: F0 } = built;
-    mid.add(arm);
+    const { arm, fore, hand, root, frame, K, E, tip: F0 } = built;
+    // TWO −anchors, one per joint. `mid` sits ON the elbow landmark (t=0.28) and `tip` ON the
+    // wrist landmark (t=0.50); each child group carries the matching negative offset, so the
+    // assembled rest pose is byte-identical to a rig with both joints collapsed onto the
+    // shoulder — you can add a joint to a shipped-looking wing with zero visual regression.
+    // That is also the trap: a mis-parented part is INVISIBLE in every still and only rips
+    // in motion, so parenting is checked in the cycle strip, never in a pose sheet.
+    pivot.add(mid); mid.position.set(E[0], E[1], E[2]);
+    mid.add(fore); fore.position.set(-E[0], -E[1], -E[2]);
+    fore.add(tip); tip.position.set(K[0], K[1], K[2]);
+    tip.add(hand); hand.position.set(-K[0], -K[1], -K[2]);
+    pivot.add(arm);                           // humerus + both membranes ride the SHOULDER
     pivot.add(root);                          // the muscular fairing rides the SHOULDER
-    tip.position.set(K[0], K[1], K[2]);       // wrist fold axis = the carpal apex K …
-    hand.position.set(-K[0], -K[1], -K[2]);   // … −anchor ⇒ the assembled REST pose is byte-identical
-    tip.add(hand);
     // The scapular cowl + the raised flank line ride the BODY frame (static through the
     // flap, §9) — so they are siblings of the pivot, INSIDE the mirror wrapper, never
     // children of it. Build BOTH wings canonical (+X) and mirror the LEFT with an OUTER

@@ -97,11 +97,13 @@ Run everything from `/home/user/dragon-drift/reforged`:
 
 | File | What it is | Regenerate | Evidence OF |
 |---|---|---|---|
-| `wing-forgewing-apex-planform.png` | 5 tiles: PLANFORM (top) · HEAD-ON (dihedral/camber) · EDGE-ON (thickness) · **SILHOUETTE planform** · **SILHOUETTE wing**, the last two rendered in PURE BLACK | `node wing-lab/tools/wingshot.mjs forgewing` | **The I1 SILHOUETTE gate.** The "‹" leading edge, the 4-digit fan opening at the knuckles, the scalloped trailing edge, the swept-pointed tip — with nothing but shape to argue about |
+| `wing-forgewing-apex-planform.png` | 5 tiles: PLANFORM (top) · HEAD-ON (dihedral/camber) · EDGE-ON (thickness) · **SILHOUETTE planform (whole)** · **SILHOUETTE wing ONLY**, the last two in PURE BLACK | `node wing-lab/tools/wingshot.mjs forgewing` | **The I1 SILHOUETTE gate.** The "‹" leading edge, the 4-digit fan opening at the knuckles, the scalloped trailing edge, the swept-pointed tip — with nothing but shape to argue about. The two black tiles are deliberately different: one shows the wing ON the dragon, one shows only the geometry this builder owns |
 | `wing-forgewing-apex-poses.png` | 3 tiles: SPREAD (glide) · MID-FLAP (downstroke) · FOLDED (fold), one wing broadside, one shared camera | same | **The I1 STRUCTURE gate.** Arm vs hand articulation; that no membrane tears at the wrist or the root across the stroke |
 | `wing-forgewing-apex-cycle.png` | 5-tile strip glide → recovery → apex → downstroke → settle from the rear-chase cam, ONE frozen camera | same | The money angle. Also where the measured 0.77-unit ROOT PEEL of the inboard-aft membrane corner would show if it read as a detaching shard |
 | `wing-forgewing-apex-detail.png` | 3×2: wing 2.2× pale · 4× pale · 2.2× dark · chase read on sky · **BACKLIT (sun behind)** · **BACKLIT planform** | same | Surface craft at shop distance; the two backlit tiles are the §11-mandated harness addition — I2's membrane gate cannot be judged without the sun behind the wing |
 | `wing-COMPARE-forgewing-tempest.png` | 2×3 sheet: forgewing vs the premium bar at PLANFORM / REAR CHASE / WING crop, identical camera logic | `node wing-lab/tools/wingshot.mjs --compare forgewing tempest` | **The blind A/B the I1 gate is scored on.** Same body, same stage, same angles — the only variable is the wing |
+
+| `quadprobe-forgewing-*.png` (5) | The traced pure-black silhouette at each probe angle, with every detected right-angle corner ringed in red | `node wing-lab/tools/wingquadprobe.mjs forgewing --debug` | **The "zero quadrilaterals" assertion, made visible.** When the probe fails, these say WHICH piece of geometry is the rectangle |
 
 The **pure-math** companion to these pixels (run it FIRST; geometry numbers beat critic
 pixels):
@@ -113,7 +115,17 @@ node wing-lab/tools/wingdump.mjs forgewing     # §3 landmark table, elbow angle
 node tools/wingsymprobe.mjs forgewing          # mirror gate — must be Δ0.000
 node tools/tricount.mjs --ci                   # budget gate
 node tools/tiershots.mjs forgewing             # the 4-rung ladder → /tmp/tier-forgewing.png
+node wing-lab/tools/wingquadprobe.mjs forgewing   # silhouette gate: 0 right-angle corners
 ```
+
+### I1.1 — what the director's second round changed
+
+| Ask | What landed | Measured |
+|---|---|---|
+| Kill the rectangle / blue card / root peel (ONE bug, three symptoms) | The wing sheet's inboard-aft corner moved ONTO the pivot — the single point a rotation about the pivot cannot move — and its trailing edge became a bezier that bows aft out of that cusp. Flank coverage back to the hip became a **body-frame skirt** built as a *continuation* of the wing's own trailing line, so the two outlines merge instead of crossing | root drift **0.000 u** (≤0.05 required) · skirt overlap **0.193 chord** (≥0.15 required) · **0 right-angle corners** across 5 angles |
+| Land span/body in 1.10–1.20 | uniform rescale, `hs = spanScale · 6.2` | **1.172** at glide (bar 1.18) |
+| Move `mid` to t = 0.28 | a second −anchor: `mid.position = +E`, `fore.position = −E`, driven at `midAmp: 0` | landmark table still Δ0.0000 |
+| The orphan covert chip | rebuilt as a real shingled rank of 9, charcoal bodies with one lit lapped edge, terminating at the carpal cluster | — |
 
 ### Two harness changes landed with I1
 
@@ -124,6 +136,14 @@ node tools/tiershots.mjs forgewing             # the 4-rung ladder → /tmp/tier
 - **Pure-black SILHOUETTE mode** (`wlRender({ silhouette: true })`) — a `MeshBasicMaterial`
   scene override, so the shape cannot be flattered or rescued by the stage. I1 is gated on
   silhouette in pure black.
+- **`wingOnly` mode** (I1.1) — hides everything not under a wing root BEFORE the camera fit,
+  so a silhouette probe measures the wing and frames it consistently.
+- **`wing-lab/tools/wingquadprobe.mjs`** (I1.1) — the "no quadrilaterals" assertion as a
+  measurement: it traces the black silhouette, simplifies it at 1 px, and flags any vertex
+  where two runs that are straight over ≥30 px meet at 75–105°. Scallop cusps at the
+  fingertips also close at ~88°, so straightness — not the angle — is the discriminator.
+  Control-checked: it clears `forgewing`, `tempest`, `revenant` and `vesper`, and still
+  fires on `aurumToro`'s faceted blade wing.
 
 Both default OFF, so every pre-existing tile renders exactly as before. The shipped-wing
 sheets in §B were **not** re-run and still show the older 3-tile / 4-tile layouts.

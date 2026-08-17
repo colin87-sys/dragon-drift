@@ -94,8 +94,8 @@ for (const key of KEYS) {
     { r: { ...base, pose: 'glide', angle: 'wingtop', fill: 0.80 }, label: 'PLANFORM (top)' },
     { r: { ...base, pose: 'glide', angle: 'wingfront' }, label: 'HEAD-ON (dihedral/camber)' },
     { r: { ...base, pose: 'glide', angle: 'wingside'  }, label: 'EDGE-ON (thickness)' },
-    { r: { ...base, pose: 'glide', angle: 'wingtop', fill: 0.80, silhouette: true }, label: 'SILHOUETTE planform' },
-    { r: { ...base, pose: 'glide', angle: 'wing', fill: 0.50, silhouette: true }, label: 'SILHOUETTE wing' },
+    { r: { ...base, pose: 'glide', angle: 'wingtop', fill: 0.80, silhouette: true }, label: 'SILHOUETTE planform (whole)' },
+    { r: { ...base, pose: 'glide', angle: 'wing', fill: 0.80, silhouette: true, wingOnly: true }, label: 'SILHOUETTE wing ONLY' },
   ], `${OUT}wing-${key}-${tag}-planform.png`);
 
   await sheet(5, 1, [

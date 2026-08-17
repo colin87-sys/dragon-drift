@@ -120,13 +120,22 @@ const armA = shoe(armOutline);
 const handOutline = [L.wrist, ...tips, L.carpalVI];
 const handA = shoe(handOutline);
 const proA = (2 / 3) * (propatagium ? propatagium.depth : 0) * len(sub(L.wrist, L.shoulder));
-const one = armA + handA + proA;
-console.log(`\n§5.1 AREA (XZ planform, one wing)   propatagium ${(100 * proA / one).toFixed(1)}% · armwing ${(100 * armA / one).toFixed(1)}% · handwing ${(100 * handA / one).toFixed(1)}%`);
-console.log(`                                   (spec  ~7% · ~50% · ~43%)`);
+// The BODY-FRAME SKIRT is not on the wing group, but it is part of the wing's planform READ
+// (§9's flank line to the hip) — the wing sheet laps over it — so it counts toward the
+// armwing share the way §5.1 means it. Reported separately so the split stays honest.
+let skirtA = 0;
+if (dump.skirtOuter && dump.skirtOuter.length > 1) {
+  const inner = dump.skirtOuter.map((p) => [p[0] * 0.15, p[1], p[2]]);   // ≈ the flank line
+  skirtA = shoe(dump.skirtOuter.concat(inner.slice().reverse()));
+}
+const one = armA + handA + proA + skirtA;
+console.log(`\n§5.1 AREA (XZ planform, one wing)   propatagium ${(100 * proA / one).toFixed(1)}% · armwing ${(100 * (armA + skirtA) / one).toFixed(1)}% · handwing ${(100 * handA / one).toFixed(1)}%`);
+console.log(`                                   (spec  ~7% · ~50% · ~43%)   armwing = wing sheet ${(100 * armA / one).toFixed(1)}% + body-frame skirt ${(100 * skirtA / one).toFixed(1)}%`);
 const AR = (2 * hs) ** 2 / (2 * one);
 console.log(`     aspect ratio (span² / pair area) = ${AR.toFixed(2)}   (spec ≈8 — higher = narrower/tauter)`);
-const rootChord = len(sub(dump.armTrail(0), dump.armLead(0)));
-console.log(`     root chord ${rootChord.toFixed(3)} = ${(rootChord / hs).toFixed(3)}·hs · mean chord ${(one / hs).toFixed(3)} · taper ${(one / hs / rootChord).toFixed(2)}`);
+let maxChord = 0, maxAt = 0;
+for (let i = 0; i <= 40; i++) { const u = i / 40, c = len(sub(dump.armTrail(u), dump.armLead(u))); if (c > maxChord) { maxChord = c; maxAt = u; } }
+console.log(`     max chord ${maxChord.toFixed(3)} = ${(maxChord / hs).toFixed(3)}·hs at arm-u ${maxAt.toFixed(2)} (widest INBOARD) · mean chord ${(one / hs).toFixed(3)}`);
 
 // ── bay widths: the inboard must be ≈2× any finger bay (§12 kill #13) ─────────
 const bayW = [];
@@ -135,6 +144,25 @@ const inboardW = len(sub(L.bodyAnchor, L.carpalVI));
 console.log(`\n§5.1 BAY WIDTHS   inboard ${inboardW.toFixed(3)} · finger bays ${bayW.map((w) => w.toFixed(3)).join(' / ')}`);
 console.log(`     inboard ÷ widest finger bay = ${(inboardW / Math.max(...bayW)).toFixed(2)}×   ${inboardW / Math.max(...bayW) >= 1.8 ? '✓ ≈2× (§12 kill #13 clear)' : '✗ equal-width bays'}`);
 console.log(`     finger length fractions ${fan.len.join(' / ')} · fan azimuths ${fan.az.join('° / ')}° · droop ${fan.droop.join(' / ')} rad`);
+
+// ── the wing must OVERLAP the body-frame skirt by ≥0.15 chord (I1.1) ─────────
+// Flank coverage moved to a static skirt, so the seam between the two frames is only safe
+// if the wing sheet genuinely laps over it. Measured as the deepest point of the skirt's
+// outer edge that lies INSIDE the wing's planform footprint, in chords.
+if (dump.skirtOuter && dump.skirtOuter.length > 2) {
+  const poly = armOutline.map((p) => [p[0], p[2]]);
+  const inside = (x, z) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    if (((poly[i][1] > z) !== (poly[j][1] > z)) && (x < (poly[j][0] - poly[i][0]) * (z - poly[i][1]) / (poly[j][1] - poly[i][1] || 1e-9) + poly[i][0])) c = !c; } return c; };
+  const dEdge = (x, z) => { let m = Infinity; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const ax = poly[j][0], az = poly[j][1], bx = poly[i][0], bz = poly[i][1];
+    const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1e-9;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+    m = Math.min(m, Math.hypot(x - (ax + t * dx), z - (az + t * dz))); } return m; };
+  let deepest = 0;
+  for (const p of dump.skirtOuter) if (inside(p[0], p[2])) deepest = Math.max(deepest, dEdge(p[0], p[2]));
+  const ov = deepest / maxChord;
+  console.log(`\nSKIRT OVERLAP  wing sheet laps the body-frame skirt by ${deepest.toFixed(3)} = ${ov.toFixed(3)} chord   ${ov >= 0.15 ? '✓ ≥ 0.15 chord' : '✗ < 0.15 chord — the seam can open'}`);
+}
 
 // ── §5.2 the propatagium is a sail, not piping ────────────────────────────────
 if (propatagium) console.log(`\n§5.2 PROPATAGIUM  depth ${propatagium.depth.toFixed(3)} = ${(propatagium.depth / propatagium.chordAtElbow).toFixed(3)} × chord@elbow (${propatagium.chordAtElbow.toFixed(3)})   (spec 0.20c; §12 kill #15 = 2-px piping)`);
@@ -152,7 +180,10 @@ for (const pose of ['glide', 'apex', 'downstroke', 'fold']) {
 }
 for (const r of rows) console.log(`  ${r.pose.padEnd(11)} spanX ${r.spanX.toFixed(2)}  riseY ${r.riseY.toFixed(2)}  chordZ ${r.chordZ.toFixed(2)}  bodyZ ${r.bodyZ.toFixed(2)}  span/body ${(r.spanX / r.bodyZ).toFixed(2)}`);
 console.log(`  fold ÷ glide span = ${(rows[3].spanX / rows[0].spanX).toFixed(3)}   (§8.3 target ≤0.55 — I4 owns the furl; I1 inherits the shipped rollFold)`);
-console.log(`  span/body at glide ${(rows[0].spanX / rows[0].bodyZ).toFixed(2)}   ${rows[0].spanX / rows[0].bodyZ >= 1.0 ? '✓ at/over the shipped premium bar (§12 kill #63 clear)' : '✗ under the premium bar'}`);
+// §3 (amended I1.1): the spec now states the MEASURED outcome, not a dial — glide span/body
+// must land in 1.10–1.20, with hs free. The bar (tempest) measures 1.18.
+const sb = rows[0].spanX / rows[0].bodyZ;
+console.log(`  span/body at glide ${sb.toFixed(3)}   ${sb >= 1.10 && sb <= 1.20 ? '✓ INSIDE the §3 band 1.10–1.20 (bar 1.18)' : sb < 1.10 ? '✗ BELOW the §3 band 1.10–1.20' : '✗ ABOVE the §3 band 1.10–1.20'}`);
 
 // ── ROOT PEEL ────────────────────────────────────────────────────────────────
 // How far the membrane's INBOARD-AFT corner travels over the beat. A vertex that must read
@@ -171,7 +202,8 @@ if (dump && dump.landmarks.bodyAnchor) {
   let travel = 0;
   for (let i = 0; i < seen.length; i++) for (let j = i + 1; j < seen.length; j++) travel = Math.max(travel, seen[i].distanceTo(seen[j]));
   const bodyLen = rows[0].bodyZ;
-  console.log(`\nROOT PEEL   inboard-aft membrane corner travels ${travel.toFixed(2)} over the cycle = ${(100 * travel / bodyLen).toFixed(1)}% of body length`);
-  console.log(`            anchor at wing-local z ${a[2].toFixed(2)} (lever ${len(a).toFixed(2)} from the pivot)`);
+  console.log(`\nROOT DRIFT  inboard-aft membrane corner travels ${travel.toFixed(3)} u over the cycle (${(100 * travel / bodyLen).toFixed(1)}% of body length)`);
+  console.log(`            anchor at wing-local (${a.map((v) => v.toFixed(2)).join(', ')}), lever ${len(a).toFixed(3)} from the pivot`);
+  console.log(`            ${travel <= 0.05 ? '✓ ≤ 0.05 u — the corner is ON the rotation centre; it cannot peel' : '✗ > 0.05 u — the Revenant shard trap is still live'}`);
 }
 console.log('');
