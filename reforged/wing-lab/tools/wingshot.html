@@ -303,11 +303,21 @@
         const n = b.parts[k]; if (!n || !n.isObject3D) continue;
         n.traverse((o2) => { if (o2.isMesh && o2.geometry) { const g = o2.geometry; wingTris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
       }
+      // …and the EXACT span beside the box one. `expandByObject` bounds each mesh by its own
+      // AABB and transforms that box's corners, which over-reports a part rotated ~100° — a
+      // folded wing — by up to sqrt(3). It agreed with the truth for every pose this harness
+      // captured before a real fold existed; from I4 the two must both be on the record.
+      let exLo = Infinity, exHi = -Infinity; const _ev = new THREE.Vector3();
+      for (const k of WING_ROOTS) { const n = b.parts[k]; if (!n || !n.isObject3D) continue;
+        n.traverse((o2) => { if (!o2.isMesh || !o2.geometry || (o2.userData && o2.userData.wlFX)) return;
+          const pa = o2.geometry.attributes.position;
+          for (let i = 0; i < pa.count; i++) { _ev.fromBufferAttribute(pa, i).applyMatrix4(o2.matrixWorld);
+            if (_ev.x < exLo) exLo = _ev.x; if (_ev.x > exHi) exHi = _ev.x; } }); }
       const sz = new THREE.Vector3(); wb.getSize(sz);
       const msz = new THREE.Vector3(); mb.getSize(msz);
       const tm = b.parts.tipMarkerR, tp = new THREE.Vector3();
       if (tm) tm.getWorldPosition(tp);
-      return { pose: o.pose || 'glide', wingSpanX: +sz.x.toFixed(3), wingRiseY: +sz.y.toFixed(3), wingChordZ: +sz.z.toFixed(3),
+      return { pose: o.pose || 'glide', wingSpanX: +sz.x.toFixed(3), exactSpanX: +(exHi - exLo).toFixed(3), wingRiseY: +sz.y.toFixed(3), wingChordZ: +sz.z.toFixed(3),
         bodyLenZ: +msz.z.toFixed(3), modelSpanX: +msz.x.toFixed(3), tris: Math.round(tris), wingTris: Math.round(wingTris),
         tipR: tm ? [+tp.x.toFixed(3), +tp.y.toFixed(3), +tp.z.toFixed(3)] : null };
     };

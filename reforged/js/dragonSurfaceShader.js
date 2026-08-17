@@ -140,6 +140,22 @@ export function membraneTransmissionPatch(opts = {}) {
       uMemWrinkleAmp: opts.wrinkleAmp ?? 0.30,
       uMemWrinkleFreq: opts.wrinkleFreq ?? 20.0,
       uMemSlack: opts.slack ?? 0.55,
+      // §8.2 THE RIPPLE — the same slack scalar read a second way. Amplitude is
+      // `4·slack·(1−slack)`: zero at BOTH stroke extremes (drum-taut at the bottom, and at
+      // the slack top the surface billows rather than ripples) and peaking at MID-stroke,
+      // where §8.2 puts the long marginal ripples. A ripple that is constant through the
+      // beat is kill #56; so is one that runs continuously across the whole span, which is
+      // why the arch is anchored per BAY at its own two spars and weighted to the trailing
+      // margin. The travelling phase is driven from the flap clock on the CPU (≈7 Hz, inside
+      // §8.2's 4–16 Hz band) — one uniform instead of a second time term in the shader, and
+      // it makes every freeze capture bit-reproducible.
+      uMemRipple: opts.ripple ?? 0.0,
+      uMemRipplePh: 0.0,
+      uMemRippleK: opts.rippleK ?? 26.0,
+      // …and the SPECULAR tightens with tension: taut reads as one tight sebum highlight,
+      // slack fragments it. Deliberately shallow (0.94–1.06× of the authored 0.38) — the
+      // MEMBRANE gate was won on this roughness and its blue-sheen fix was F0/F90, not gloss.
+      uMemSlackRough: opts.slackRough ?? 0.12,
       // the fine cord field: 1/75 of local chord (§13's directed 20 mm-equivalent).
       uMemCord: opts.cord ?? 0.34,
       uMemCordFreq: opts.cordFreq ?? 147.0,
@@ -159,6 +175,7 @@ export function membraneTransmissionPatch(opts = {}) {
       uniform float uMemScale; uniform float uMemPower; uniform float uMemDistort; uniform float uMemAmbient;
       uniform sampler2D uMemField; uniform float uMemFieldAmt;
       uniform float uMemWrinkleAmp; uniform float uMemWrinkleFreq; uniform float uMemSlack;
+      uniform float uMemRipple; uniform float uMemRipplePh; uniform float uMemRippleK; uniform float uMemSlackRough;
       uniform float uMemCord; uniform float uMemCordFreq;
       uniform float uMemFringe; uniform vec3 uMemFringeColor;
       uniform vec3 uMemSpec; uniform float uMemSpecMul; uniform float uMemSpecF90;
@@ -175,19 +192,36 @@ export function membraneTransmissionPatch(opts = {}) {
       // shimmers at the chase read (A2's Murray cut-off law, in one smoothstep).
       float _mCp = vMem.y * uMemCordFreq * 6.2831853;
       float _mCd = clamp((vMem.x - 0.30) / 0.35, 0.0, 1.0);          // zero inboard, full outboard
+      float _mCs = max(sin(_mCp), 0.0); _mCs *= _mCs;                 // x², then x⁶ = (x²)³ —
       _mF *= 1.0 + uMemCord * _mCd * (1.0 - smoothstep(0.8, 2.4, fwidth(_mCp)))
-                 * pow(max(sin(_mCp), 0.0), 6.0);
+                 * _mCs * _mCs * _mCs;                                 // three MULs, no pow
       // §6.4 wrinkles — spanwise striations across the chord, fwidth-faded so a period
       // narrower than a pixel becomes TINT, never shader shimmer.
       float _mP = vMem.y * uMemWrinkleFreq * 6.2831853;
       float _mW = 1.0 + uMemWrinkleAmp * uMemSlack * sin(_mP)
                 * (1.0 - smoothstep(1.1, 3.0, fwidth(_mP)));
+      // §8.2 the ripple: one arch per BAY (the sheet band decodes straight back to the
+      // per-surface chord fraction, so the term is zero on both spars by construction and
+      // clamps OFF entirely on the propatagium and the body-frame skirt, which are taut and
+      // static), weighted to the trailing margin, travelling spanwise at λ ≈ 1 chord.
+      float _mc = clamp((vMem.y - 0.020) * 1.9608, 0.0, 1.0);
+      _mW += uMemRipple * 4.0 * _mc * _mc * (1.0 - _mc) * sin(vMem.x * uMemRippleK + uMemRipplePh);
       float _md = clamp(vMem.z * _mF * _mW, 0.30, 3.60);
       float _mNV = max(abs(dot(_mN, _mV)), 0.08);
       vec3 _mT = exp(-uMemSigma * (uMemSigma0 * _md / _mNV));
       #if NUM_DIR_LIGHTS > 0
         vec3 _mL = directionalLights[0].direction;                 // fragment -> light, view space
         vec3 _mLt = normalize(-(_mL + _mN * uMemDistort));         // Frostbite "through" vector
+        // R3 ALU cut order, item 1 — the spherical-Gaussian exp2 swap — was BUILT, MEASURED
+        // and REVERTED here, and the reason is worth more than the instruction. exp(n·ln d)
+        // vs exp(−n(1−d)): since ln d ≤ −(1−d) on (0,1), the Gaussian is not "tighter in the
+        // tail", it is uniformly BRIGHTER — 8× at d = 0.2 for n = 3. On this article the tail
+        // is not a nicety: front-lit, dot(V,Lt) is small over the whole sheet, so the swap
+        // put a transmission floor under every membrane pixel and lifted the DARK tiers most.
+        // Measured: authored tier spread 3.68× → 2.3×, front-lit membrane 0.053 → 0.064 —
+        // the §5.5 ≥3× criterion, which is what the MEMBRANE gate was won on, broken by an
+        // optimisation. The x⁵ / x⁶ multiply chains below stay (they are exact, not fits) and
+        // carry most of the saving; the ALU cut order's item 1 is spent and unavailable.
         float _mBack = pow(clamp(dot(_mV, _mLt), 0.0, 1.0), uMemPower);
         float _mWrap = clamp(dot(_mN, _mL) * 0.5 + 0.5, 0.0, 1.0);
         totalEmissiveRadiance += directionalLights[0].color * uMemTint * _mT
@@ -196,8 +230,9 @@ export function membraneTransmissionPatch(opts = {}) {
       // §6.3: the Fresnel, demoted to hair-sparkle on the free hem. Broken by a
       // deterministic span hash at 55% duty so it can never close into a rim.
       float _mH = fract(sin(floor(vMem.x * 190.0) * 78.233 + 2.7) * 43758.5453);
+      float _mE = 1.0 - _mNV; float _mE2 = _mE * _mE;                  // x⁵ = (x²)²·x, no pow
       totalEmissiveRadiance += uMemFringeColor
-        * (vMem.w * step(0.45, _mH) * pow(1.0 - _mNV, 5.0) * uMemFringe);
+        * (vMem.w * step(0.45, _mH) * _mE2 * _mE2 * _mE * uMemFringe);
     }`,
     // THE MEASURED FIX FOR THE BLUE SHEEN. Round 1 logged a broad blue rim-light sheen
     // across the ventral hand; a roughness sweep on the masked pixels proved it is
@@ -217,7 +252,8 @@ export function membraneTransmissionPatch(opts = {}) {
     //   • a warm tint on what remains, so the surviving gloss is the wing's own hue.
     bodyFragMaterial: `
       material.specularColor *= uMemSpec * uMemSpecMul;
-      material.specularF90 = uMemSpecF90;`,
+      material.specularF90 = uMemSpecF90;
+      material.roughness = clamp(material.roughness * (1.0 - uMemSlackRough * (0.5 - uMemSlack)), 0.05, 1.0);`,
   };
 }
 

@@ -1360,10 +1360,26 @@ DRAGONS.forgewing = {
   title: 'The wing lab',
   lanceTint: 0xc4531a,   // Eternal wisp: forge-orange — distinct from every shipped tint
   parts: { ...DRAGONS.tempest.parts, wings: 'basaltForgeWings' },
-  // The elbow joint now sits at the §3 landmark (t=0.28) instead of doubling the shoulder,
-  // so `mid` is held at AMPLITUDE ZERO until I4 owns driving it — a rig that is structurally
-  // right and motionally inert. Everything else is the Tempest's flap set, untouched.
-  model: { ...DRAGONS.tempest.model, midAmp: 0, apexMid: 0, wingDigits: 4, wingCoverts: 9, wingClusterStubs: 2 },
+  // I4 — §8.1's OWN dial set, distinct from all three heroes (photocopied motion is a
+  // defect). The elbow is now a driven joint: `midAmp 0.30` is only safe because the seam
+  // rig moves the distal flap onto each joint's weld axis, so the sheet cannot open at the
+  // elbow at any amplitude (the I1 debt "the elbow is a drawn kink, not a driven joint",
+  // paid). `tipLag 1.90` is deep enough that the hand's sign FLIPS against the forearm
+  // between top and bottom (asserted in the wingdump MOTION block, not eyeballed);
+  // `tipApexSweep 0.28` is FLAP-DESIGN LAW 3's in-plane dogleg — the recovery fold has to
+  // live in the silhouette the chase camera sees, not in depth; `apexPitch 0.06` is the
+  // dial no other dragon uses (a nose-down hand at the apex — the supination hint).
+  model: { ...DRAGONS.tempest.model,
+    rootAmp: 0.78, apexRoot: 0.26, midAmp: 0.30, tipAmp: 0.72,
+    midLag: 0.90, tipLag: 1.90, glidePow: 1.25, restLift: 0.04,
+    apexMid: 0.08, apexTip: 0.14, tipApexSweep: 0.28, apexPitch: 0.06,
+    // …and §3's contract is the MEASURED outcome, not a dial: the §8.1 glide pose sits
+    // flatter than the Tempest set it replaced, which pushed span/body to 1.226 — ABOVE
+    // the 1.10–1.20 band. `hs` is the sanctioned lever (uniform, span and chord together,
+    // so every landmark fraction and the aspect ratio survive untouched), so it takes the
+    // correction: 6.20 → 5.95 lands 1.18, level with the bar.
+    wingHalfSpan: 5.95,
+    wingDigits: 4, wingCoverts: 9, wingClusterStubs: 2 },
   // The wing hardware ladders with the form: digits III→VI arrive one at a time, the covert
   // rank grows to its 9-flake terminus, and the carpal cluster gains its two stubs.
   forms: DRAGONS.tempest.forms.map((f, i) => ({
