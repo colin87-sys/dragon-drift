@@ -284,9 +284,16 @@ scallop depth 0.22–0.30 of bay width.
 ### 5.5 Value tiers (front-lit)
 
 Per bay, **4 tiers banded by billow depth** (taut-near-spar lightest → deep cup darkest) with
-index-hash jitter; palette aimed so the tiers span ≥ 3× luminance under the GAME light (target
-0.05 → 0.15 luma, verified on the sky backdrop — the Revenant 52%-pale lesson applies: author
-albedo, roughness ≈ 0.38, envMapIntensity ≤ 0.06 **together**, then measure at the money cam).
+index-hash jitter; palette aimed so the tiers span ≥ 3× luminance under the GAME light
+(verified on the sky backdrop — the Revenant 52%-pale lesson applies: author albedo,
+roughness ≈ 0.38, envMapIntensity ≤ 0.06 **together**, then measure at the money cam).
+*(Amended Round 3: the original absolute window "0.05 → 0.15 luma" is withdrawn — it was the
+Vesper `MEMBLUE` calibration carried into a warmer, darker wing as if it were a law, and it
+conflicts with the darkest-element criterion on this article. Binding criteria: tier spread
+≥ 3× lightest→darkest at the money cam on sky; the lightest tier below the lit bone-top mean;
+≥ 3 bands countable at 2.2×, all four at 4× (a spar-hugging taut seam counts as a tier if it
+reads as a BAND at 4×); membrane:bone < 1 front-lit. Measured R3: 3.65× authored / 4.73×
+quartile, 0.435 front-lit — passes. Builder-caught, Director-owned.)*
 Front-lit the membrane is **the darkest element on the dragon** (albedo 3–7%: warm near-black
 `#241a16`-class); the bones + ash read lighter. The bone↔membrane boundary carries the wing's
 whole contrast budget, in both light regimes; the membrane is never tinted up toward bone value.
@@ -522,7 +529,7 @@ contact through the carpal cluster (the membrane never touches the ground).
 | Allocation guide | bays + ventral window overlay 1,100 · spars/knuckles/claws 800 · propatagium 180 · hem+fringe 250 · cowl/fairing 300 · coverts+transition 250 · slack 120 |
 | Draw calls | ≤ 8 materials/wing via per-material accumulators into `flatTriMesh` (the Tempest batching pattern) |
 | Spend triangles on | EDGES, articulation, the ventral overlay, NSEG ≥ 10 arcs — **never on a finer smooth grid** (tris buy smoothness; facets, tiers and light buy richness) |
-| Shader | the §6 patches ≈ 20 ALU, 1 R8 DataTexture (64 KB), no new passes, no `MeshPhysicalMaterial.transmission`, no grab-pass, no screen-space anything |
+| Shader | the §6 patches — ≈ 20 ALU estimated for the transmission term; **≈ 45 ALU as delivered** *(Amended R3: accepted provisionally — the third compose seam's specular remap killed a gate-blocking defect; the binding number is the measured frame on the mobile profile at the I4 COST gate, cut order in the R3 log: exp2 spherical-Gaussian swap → wrinkle-into-DataTexture → vein-order LOD)* — 1 R8 DataTexture (64 KB), no new passes, no `MeshPhysicalMaterial.transmission`, no grab-pass, no screen-space anything |
 | Textures | procedural DataTexture only; a CanvasTexture in the build path breaks node tests |
 
 **Build order and gates** (each gate is a blind A/B vs the bar at matched wingshot angles;
