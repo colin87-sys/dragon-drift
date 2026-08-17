@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { registerWings } from './dragonRecipe.js';
 import { flatTriMesh } from './mechaKit.js';
+import { composeSurface, membraneTransmissionPatch } from './dragonSurfaceShader.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BASALT FORGEWING — the WING-LAB test article (wing-lab/90-SYNTHESIS.md, increment I1).
@@ -61,6 +62,152 @@ function pathSample(nodes, s) {
   return nodes[nodes.length - 1].slice();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// I2 — THE MEMBRANE SURFACE (§6). Everything below this banner is the shading layer:
+// the per-vertex optical-thickness payload, the UV atlas the field is drawn in, and
+// the ONE generated DataTexture that carries the cord field and the vein doublets.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── §6.4 THE UV ATLAS ────────────────────────────────────────────────────────
+// `aMem.x` is the TRUE span fraction t (worldX + rootX)/hs — so a rule written in span
+// fractions ("no cords inboard of t 0.30") is expressible directly, and it survives any
+// rescale. `aMem.y` is a chord coordinate packed into per-surface BANDS, because the
+// four membrane surfaces share one field texture and must not read each other's veins.
+// Gutters between bands stop bilinear filtering bleeding one band into the next.
+const ATLAS = {
+  sheet: [0.020, 0.530],    // plagiopatagium + the finger bays (chord/across-bay, LE→TE)
+  prop:  [0.580, 0.780],    // the propatagium sail (LE → taut forward edge)
+  skirt: [0.800, 0.990],    // the body-frame flank skirt
+};
+const atlasV = (band, c) => band[0] + (band[1] - band[0]) * Math.max(0, Math.min(1, c));
+
+// ── §6.4 THE FIELD — ONE generated 256×256 R8 DataTexture (65,536 B = the 64 KB cap) ──
+// Never a CanvasTexture: builders run headless in node and a 2D context is a stub there,
+// so a canvas-rasterised field silently ships as garbage (§11).
+//
+// It carries TWO things, both as a multiplier on the optical path `d`:
+//   • the VEIN DOUBLETS — a Murray tree, taper 0.794 (asymmetric 0.90/0.65 daughters),
+//     forks 24°/52°, 4 orders, drawn as artery+vein PAIRS with the vein 1.5× wider and
+//     thicker. They are thickness, never light: backlit they subtract from the glow.
+//   • the LOW-frequency comb of the cord field — the broken directional grain that
+//     survives to chase distance. The fine 1/75-chord cords cannot live in a 256-texel
+//     band (1.7 texels per cord); they are the analytic, fwidth-faded term in the shader
+//     instead, so they resolve as lines at the 4× crop and fall to tint at distance
+//     exactly as A2's Murray cut-off law requires. One texture, one fetch, unchanged budget.
+//
+// Encoding: byte 0..255 → multiplier 0.55 + b/255 · 2.20 (nominal 1.0 at byte 52).
+const FIELD_N = 256;
+const F_ENC = (m) => Math.max(0, Math.min(255, Math.round(((m - 0.55) / 2.20) * 255)));
+let _memFieldTex = null;
+
+// exact box-filter coverage of a stripe of duty `duty` (fraction of pitch) by a texel
+// whose footprint is `fp` pitches — analytic prefiltering, so the comb NEVER aliases and
+// its amplitude decays honestly as the texel outruns the line.
+function stripeCov(phase, duty, fp) {
+  const ph = phase - Math.floor(phase);
+  const h = duty * 0.5;
+  const lo = Math.max(0.5 - h, ph - fp * 0.5), hi = Math.min(0.5 + h, ph + fp * 0.5);
+  return Math.max(0, hi - lo) / Math.max(fp, 1e-6);
+}
+
+function membraneField() {
+  if (_memFieldTex) return _memFieldTex;
+  const N = FIELD_N, data = new Uint8Array(N * N);
+  const mult = new Float32Array(N * N).fill(1);
+
+  // -- the COMB (low-frequency cord grain) ------------------------------------
+  // Territory (§2.2, sourced as the fossil law): NO cords inboard — which is exactly
+  // where the forge window lives, so the window stays a clean pane — density ramping to
+  // full outboard. Direction rotates perpendicular-to-arm → parallel-to-finger, so the
+  // DOMINANT direction through the handwing is SPANWISE (§12 kill #24) and the chordwise
+  // regime only ever exists in the sparse ramp-in band.
+  const COMB_C = 26;     // combs across the chord at full density (the fine 75/chord field is analytic)
+  const COMB_U = 34;     // …and across the span in the proximal perpendicular regime
+  for (let j = 0; j < N; j++) {
+    const v = (j + 0.5) / N;
+    let band = null, c = 0, amp = 0;
+    if (v >= ATLAS.sheet[0] && v <= ATLAS.sheet[1]) { band = ATLAS.sheet; amp = 1.0; }
+    else if (v >= ATLAS.prop[0] && v <= ATLAS.prop[1]) { band = ATLAS.prop; amp = 0.35; }
+    else if (v >= ATLAS.skirt[0] && v <= ATLAS.skirt[1]) { band = ATLAS.skirt; amp = 0.30; }
+    if (!band) continue;
+    c = (v - band[0]) / (band[1] - band[0]);
+    const fpV = (COMB_C / (band[1] - band[0])) / N;     // texel footprint, in pitches
+    const fpU = COMB_U / N;
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N;
+      const dens = Math.max(0, Math.min(1, (u - 0.30) / 0.35));    // 0 inboard of 0.30, full by 0.65
+      if (dens <= 0.001) continue;
+      const rot = dens;                                            // perpendicular-to-arm → parallel-to-finger
+      const cv = stripeCov(c * COMB_C, 0.30, fpV);
+      const cu = stripeCov(u * COMB_U, 0.30, fpU);
+      const cov = cv * rot + cu * (1 - rot);
+      mult[j * N + i] *= 1 + 0.30 * amp * dens * cov;
+    }
+  }
+
+  // -- the VEIN DOUBLETS (§6.4) ----------------------------------------------
+  // Stamped, not tested per-texel: each segment writes only its own footprint.
+  const stamp = (band, u0, c0, u1, c1, wArt) => {
+    const v0 = atlasV(band, c0), v1 = atlasV(band, c1);
+    const dx = u1 - u0, dy = v1 - v0, L2 = dx * dx + dy * dy || 1e-9;
+    const nx = -dy / Math.sqrt(L2), ny = dx / Math.sqrt(L2);
+    const bh = (band[1] - band[0]) / (ATLAS.sheet[1] - ATLAS.sheet[0]);
+    const wA = wArt * bh, wV = wA * 1.5;             // §2.4: vein 1.45–1.5× the artery
+    const off = wA * 1.30;                            // offset ≈ one vessel width
+    const pad = wV * 2.2 + off;
+    const i0 = Math.max(0, Math.floor((Math.min(u0, u1) - pad) * N)), i1 = Math.min(N - 1, Math.ceil((Math.max(u0, u1) + pad) * N));
+    const j0 = Math.max(0, Math.floor((Math.min(v0, v1) - pad) * N)), j1 = Math.min(N - 1, Math.ceil((Math.max(v0, v1) + pad) * N));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const u = (i + 0.5) / N, v = (j + 0.5) / N;
+      if (v < band[0] || v > band[1]) continue;
+      const t = Math.max(0, Math.min(1, ((u - u0) * dx + (v - v0) * dy) / L2));
+      const px = u0 + t * dx, py = v0 + t * dy;
+      const s = (u - px) * nx + (v - py) * ny;         // signed distance across the pair
+      const n = Math.hypot(u - px, v - py);
+      if (n > pad) continue;
+      // the ARTERY: thinner, the warmer member (non-emissive until I3 — it is a dark
+      // hairline here, and I3 sockets the heat onto this same centreline).
+      const a = Math.max(0, 1 - Math.abs(s + off) / wA);
+      // the VEIN: wider AND darker — deoxygenated blood absorbs ~10× more red (§2.2), and
+      // the venous bed is 80% of the vascular volume. It is the member the eye reads.
+      const b = Math.max(0, 1 - Math.abs(s - off) / wV);
+      const add = 0.62 * a * a + 1.15 * b * b;
+      if (add > 0) mult[j * N + i] *= 1 + add;
+    }
+  };
+  // Murray tree. Taper 0.794 is the symmetric law; the buildable asymmetric pair that
+  // satisfies it is main 0.90 at 24° / branch 0.65 at 52° (§2.4, total 75.6° — inside the
+  // sourced 75–100° near-minimum band). Symmetric Y-forks are §12 kill #35.
+  const grow = (band, u, c, ang, w, order, seed) => {
+    if (order > 4 || w < 0.004 || u > 0.60) return;   // §7.1: every artery terminates before t=0.60
+    const len = 0.115 * Math.pow(0.80, order);
+    const u1 = u + Math.cos(ang) * len, c1 = c + Math.sin(ang) * len * 2.4;
+    stamp(band, u, c, u1, c1, w);
+    if (order === 4) return;
+    const side = wjit(seed, 1) > 0 ? 1 : -1;
+    grow(band, u1, c1, ang + side * 24 * D2R, w * 0.90, order + 1, seed * 3 + 1);
+    grow(band, u1, c1, ang - side * 52 * D2R, w * 0.65, order + 1, seed * 3 + 2);
+  };
+  // Zone A's window sits in the proximal ventral plagiopatagium triangle; the doublets
+  // RADIATE from it (§7.1 zone B) — three trunks, never a loop, never a rim.
+  grow(ATLAS.sheet, 0.115, 0.30, 18 * D2R, 0.017, 1, 5);
+  grow(ATLAS.sheet, 0.125, 0.56, -6 * D2R, 0.014, 1, 11);
+  grow(ATLAS.sheet, 0.150, 0.78, -26 * D2R, 0.011, 1, 17);
+  // §5.2: the CEPHALIC doublet runs INSIDE the propatagium along (not on) the leading
+  // edge, terminating at the carpal cluster.
+  grow(ATLAS.prop, 0.130, 0.42, 4 * D2R, 0.013, 1, 23);
+
+  for (let k = 0; k < N * N; k++) data[k] = F_ENC(mult[k]);
+  const tex = new THREE.DataTexture(data, N, N, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  _memFieldTex = tex;
+  return tex;
+}
+
 // ── THE MATERIALS ──────────────────────────────────────────────────────────────
 // §5.5 / §12 kill #21: the membrane is THE DARKEST ELEMENT on the dragon (albedo 3–7%,
 // warm near-black `#241a16`-class); the bones + ash read LIGHTER. The bone↔membrane
@@ -70,29 +217,65 @@ function pathSample(nodes, s) {
 // §7.3: char runs linear 0.0035–0.041, ash 0.049–0.354 — the bone's value structure is a
 // 10–100× char→ash ramp with ZERO emissive pixels. That ash is what keeps the wing
 // readable in flat daylight and is the direct answer to flat-black poverty.
+// I2 — THE BLUE SHEEN, killed as ONE decision. Round 1 logged a broad blue rim-light
+// sheen across the ventral hand at apex ("one wing black, the other a blue LED panel").
+// It is not an albedo bug: on a dielectric the specular lobe is the LIGHT's colour, not
+// the surface's, so a dark warm sheet under a cool rim/fill still returns a wide cyan
+// highlight. Albedo, roughness, envMapIntensity and the transmission term are therefore
+// authored TOGETHER (the Revenant 52%-pale lesson) and MEASURED (`wingtiers.mjs`):
+//   • albedo `#241a16`-class near-black-warm — §5.5's 3–7% reflectance class,
+//   • roughness 0.50 — the Director's granted yield off 0.38, spent because 0.38 left a
+//     measurable blue lobe on the ventral bays; it spreads the specular instead of
+//     concentrating it, at the cost of a little sebum gloss,
+//   • envMapIntensity 0.05 — the reflected sky is the other half of the cool cast,
+//   • the transmission term supplies the WARM light the sheet is allowed to show.
+const MEM_ALBEDO = 0x4b3418;
+const MEM_ROUGH = 0.38;
+const MEM_ENV = 0.05;
+// §5.5: 4 value tiers banded by BILLOW DEPTH (taut-near-spar lightest → deep cup darkest),
+// carried as vertex-colour MULTIPLIERS on the one membrane material so the tiers are
+// continuous across every lobe seam and cost zero extra draws. The ladder spans 3.2×.
+const MEM_TIERS = [1.95, 1.20, 0.66, 0.36];
+const MEM_HEM_TIER = 0.30;    // §6.5 the trailing hem is a dark cord, below the darkest field tier
 function forgeMats(def) {
-  const mem = (hex) => {
-    const m = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.38, metalness: 0.0, flatShading: true, side: THREE.DoubleSide });
-    m.envMapIntensity = 0.06;   // measured together with albedo — never tuned apart
-    return m;
-  };
   const solid = (hex, rough, env) => {
     const m = new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.0, flatShading: true, side: THREE.DoubleSide });
     m.envMapIntensity = env;
     return m;
   };
-  return {
-    // 4 value tiers banded by BILLOW DEPTH (§5.5): taut-near-spar lightest → deep cup
-    // darkest, spanning ~3.4× sRGB luminance so the band survives the game light.
-    // I2: these become one `aMemThick`-driven surface; the tiers are the placeholder read.
-    memTiers: [mem(0x3c2b1f), mem(0x2b1f15), mem(0x1c140d), mem(0x0f0a06)],
-    hem: solid(0x110c08, 0.52, 0.03),      // §6.5: the trailing hem is a DARK cord — the darkest line on the wing
+  // ONE membrane material for the whole sheet — plagiopatagium, finger bays, hem,
+  // propatagium and the body-frame skirt. Four tier materials became one because §5.4
+  // mitigation (2) requires the value ladder to run CONTINUOUSLY across the lobe seams:
+  // a per-tier material can only step. Vertex colours carry the tier, `aMem` carries the
+  // optical thickness, and the §6.2 patch turns both into light.
+  const mem = new THREE.MeshStandardMaterial({
+    color: MEM_ALBEDO, roughness: MEM_ROUGH, metalness: 0.0,
+    flatShading: true, side: THREE.DoubleSide, vertexColors: true,
+  });
+  mem.envMapIntensity = MEM_ENV;
+  mem.name = 'forge:mem';
+  composeSurface(mem, [membraneTransmissionPatch({
+    field: membraneField(), ambient: 0.10,
+    spec: 0.35, specF90: 0.06, specTint: 0xffc088,
+  })]);
+  // The GLOBAL fresnel rim (dragon.js `applyRim`) overwrites onBeforeCompile outright, so
+  // it would silently delete the transmission patch the moment this wing is equipped in
+  // the game — and it would paint the continuous bright outline §12 kill #33 forbids.
+  // Claiming the rim slot here makes applyRim a no-op on the membrane, by design.
+  mem.userData.__rim = { skipped: 'membrane owns its own §6.3 fringe' };
+  const out = {
+    mem,
     bone: solid(0x413b34, 0.72, 0.22),     // charcoal-basalt pipe (top of the char band)
     ash: solid(0x7c766c, 0.86, 0.16),      // §7.3 ash dusting — up-facing faces + windward sides ONLY, never a wash
     claw: solid(0x231f1c, 0.34, 0.30),     // near-black horn: thumb claw + the ONE digit-III tip hook
+    covert: solid(0x5a5249, 0.80, 0.14),   // the covert rank's lit lap edge — the MID step of bone→covert→ash
     band: solid(0x3a1c12, 0.90, 0.04),     // §9 graded vermilion scale→membrane transition (hairless, sheenless)
     flank: solid(def.body ?? 0x2e2a26, 0.80, 0.18),   // cowl + root fairing + flank ridge = BODY frame, not wing
   };
+  out.bone.name = 'forge:bone'; out.ash.name = 'forge:ash'; out.claw.name = 'forge:claw';
+  out.covert.name = 'forge:covert';
+  out.band.name = 'forge:band'; out.flank.name = 'forge:flank';
+  return out;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -129,6 +312,57 @@ function buildOneForgewing(M, d) {
   };
   const flush = (g) => { const m = accs.get(g); if (!m) return; for (const [mat, tris] of m) if (tris.length) g.add(flatTriMesh(tris, mat)); };
   const quad = (g, mat, a, b, c, e) => push(g, mat, [a, b, c], [a, c, e]);
+
+  // ── I2: THE MEMBRANE VERTEX (§6.1) ──────────────────────────────────────────
+  // A membrane vertex is position + the vec4 `aMem` payload + a tier multiplier:
+  //   MV(p, band, chord, d, edge, tier)
+  //     p     the position; its span fraction from the BODY MIDLINE becomes aMem.x — the
+  //           field UV and every territory rule ("no cords inboard of 0.30", "arteries
+  //           die before 0.60") is written against it, so a rescale changes nothing
+  //     band  which ATLAS band this surface lives in, chord 0..1 inside it (aMem.y)
+  //     d     optical thickness, §6.1's [0.30, 3.60] with nominal 0.90 (aMem.z)
+  //     edge  1 on a FREE hem edge — the only place §6.3's Fresnel fringe survives (aMem.w)
+  //     tier  index into MEM_TIERS, the front-lit value band (vertex colour)
+  const tSpan = (p) => (p[0] + X0) / hs;
+  // §9's graded VERMILION BAND, carried in vertex colour instead of one triangle of a
+  // separate material: a warm blush over the inboard 0.10–0.42 of the span, where blood
+  // first shows through and the scale field dies out. It is also the measured fix for the
+  // last surviving cool patch — the root gusset is the ONE place d reaches 3.6, so no
+  // transmitted warmth can reach it and its diffuse was left to the stage's blue rim.
+  // The GREEN channel is deliberately untouched by the blush, so the harness can read the
+  // §5.5 tier straight out of it (a blush on all three would make the tier unmeasurable).
+  const BLUSH = [1.46, 1.00, 0.26];
+  const MVc = (p, band, chord, d, edge, mul) => {
+    const t = Math.max(0, Math.min(1, tSpan(p)));
+    const b = 1 - Math.max(0, Math.min(1, (t - 0.10) / 0.32));
+    return [p[0], p[1], p[2], t, atlasV(band, chord), Math.max(0.30, Math.min(3.60, d)), edge,
+      mul * (1 + (BLUSH[0] - 1) * b), mul, mul * (1 + (BLUSH[2] - 1) * b)];
+  };
+  const MV = (p, band, chord, d, edge, tier) =>
+    MVc(p, band, chord, d, edge, MEM_TIERS[Math.max(0, Math.min(MEM_TIERS.length - 1, tier))]);
+  const MVh = MVc;
+  const memAcc = new Map();
+  const memTri = (g, a, b, c) => { let a2 = memAcc.get(g); if (!a2) memAcc.set(g, a2 = []); a2.push(a, b, c); };
+  const memQuad = (g, a, b, c, e) => { memTri(g, a, b, c); memTri(g, a, c, e); };
+  const flushMem = (g, tag) => {
+    const vs = memAcc.get(g); if (!vs || !vs.length) return;
+    const n = vs.length;
+    const pos = new Float32Array(n * 3), am = new Float32Array(n * 4), col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const v = vs[i];
+      pos[i * 3] = v[0]; pos[i * 3 + 1] = v[1]; pos[i * 3 + 2] = v[2];
+      am[i * 4] = v[3]; am[i * 4 + 1] = v[4]; am[i * 4 + 2] = v[5]; am[i * 4 + 3] = v[6];
+      col[i * 3] = v[7]; col[i * 3 + 1] = v[8]; col[i * 3 + 2] = v[9];
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aMem', new THREE.BufferAttribute(am, 4));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, M.mem);
+    mesh.userData.wlSurface = tag || 'membrane';   // harness tag: the tier/polarity probe masks on it
+    g.add(mesh);
+  };
 
   // ── §3 LANDMARKS ─────────────────────────────────────────────────────────────
   // `t` is the fraction of the semi-span measured from the BODY MIDLINE, so a landmark's
@@ -360,7 +594,8 @@ function buildOneForgewing(M, d) {
   // Camber (§5.3): ventral cup-down, sag NADIR AT 40% CHORD (never mid-chord, never the TE),
   // inboard SOFT (0.08c) and outboard TIGHT (0.045c) — the drum-tight-inner/floppy-outer
   // wing is exactly inverted (§12 kill #27). Every trailing arc is sampled at 8 segments.
-  const NC = 8;                       // chordwise columns across a bay (the free trailing arc's segment count)
+  const NC = 8;                       // chordwise columns across the ARMWING (the free trailing arc's segment count)
+  const NCB = 16;                     // …and across a finger BAY: 8 master cords need 16 columns (§6.4)
   const OVER = 0.09;                  // the hidden inter-bay overlap (§5.4: 8–10%)
   let dumpPro = null;                 // measured propatagium numbers, for the verify dump
   // §5.5: 4 tiers banded by BILLOW DEPTH — taut-near-spar lightest, deep cup darkest, with
@@ -370,11 +605,27 @@ function buildOneForgewing(M, d) {
   // sheet catching light beside a bone. The steep ramp keeps the light tier down to the
   // strip immediately against the spar, where the membrane really is taut.
   const tierOf = (billow, maxB, idx) => {
-    const q = Math.pow(Math.max(0, Math.min(1, billow / (maxB || 1))), 0.45) * 3 + wjit(idx, 0.42);
-    return M.memTiers[Math.max(0, Math.min(3, Math.round(q)))];
+    const q = Math.pow(Math.max(0, Math.min(1, billow / (maxB || 1))), 0.80) * 3 + wjit(idx, 0.42);
+    return Math.max(0, Math.min(3, Math.round(q)));
   };
   // sag profile across the chord: peaks at c≈0.4 (w = c^0.72 → 4w(1−w) peaks at c = 0.383)
   const sagShape = (c) => { const w = Math.pow(Math.max(0, Math.min(1, c)), 0.72); return 4 * w * (1 - w); };
+
+  // ── §6.1 THE THICKNESS ATTRIBUTE — the load-bearing float ────────────────────
+  // d_geo ∈ [0.30, 3.60] (nominal 0.90), authored as the MAX of four terms and then
+  // MULTIPLIED (in the shader, §6.4) by the cord/vein field. The terms are the four
+  // places a real membrane's optical path genuinely lengthens:
+  // Each returns ZERO outside its own territory, so `max(base, …)` lets the BASE fall to
+  // §6.2's 0.5×-nominal pale-amber stretch where nothing thickens the sheet. (Giving each
+  // term a 0.90 floor instead would pin the whole wing at nominal and delete the brightest
+  // backlit tier — the taut inter-digital stretch — from the spec.)
+  const D_ROOT = (t) => 3.60 * Math.max(0, Math.min(1, (0.34 - t) / 0.24));  // gusset → 3.60
+  const D_SPAR = (q) => 3.00 * Math.max(0, Math.min(1, 1 - q));   // within one spar radius → 3.00
+  const D_CUP = (f) => 1.80 * Math.max(0, Math.min(1, f));        // the deepest sag is the longest path → 1.80
+  const D_HEM = (t, f) => f * (1.00 + 1.50 * Math.max(0, Math.min(1, t)));   // the hem band, 1.0 → 2.5 tipward
+  // …and the BASE, which is what makes the deepest cup the DARKEST backlit tier while the
+  // taut inter-digital stretch is the brightest: the outboard bays are drum-taut and THIN
+  // (0.5× nominal = §6.2's pale-amber row), the inboard sheet is soft and nominal.
   // The trailing polyline is collected as TWO RUNS, because between them the free edge is
   // the last digit's BONE (the spar itself is the edge out to tipVI) and the hem must not
   // band across it: run A = the armwing arc B→W6, run B = the bay scallops tipVI→…→tipIII.
@@ -405,35 +656,46 @@ function buildOneForgewing(M, d) {
   const armTrail = (u) => bez(RT, TE_CTRL, W6, u);
   {
     const NU = 8;
-    const grid = [], chords = [];
+    const grid = [], chords = [], raw = [];
     for (let k = 0; k <= NU; k++) {
       const u = k / NU;
       const leL = armLead(u), te = armTrail(u);
       const chord = len3(sub3(te, leL)) || 1e-6;
       chords.push(chord);
-      const row = [];
+      const row = [], praw = [];
       for (let j = 0; j <= NC; j++) {
         const c = j / NC;
         const p = lerp3(leL, te, c);
         p[1] -= 0.080 * chord * sagShape(c) * (0.35 + 0.65 * u);   // the SOFT inboard sheet (0.08c)
-        row.push(p);
+        praw.push(p); row.push(p);
       }
-      grid.push(row);
+      grid.push(row); raw.push(praw);
     }
     const maxB = 0.080 * Math.max(...chords);
+    // per-vertex §6.1 payload. The plagiopatagium is the SOFT, nominal-thickness sheet
+    // (§5.3's anisotropy law: inboard soft, outboard tight) — base 1.00 at the root
+    // falling to 0.84 at the wrist, so the value ladder still darkens into the cup.
+    const mvAt = (k, j) => {
+      const p = grid[k][j], u = k / NU, c = j / NC, t = tSpan(p);
+      const base = 1.00 - 0.16 * u;
+      const sagN = sagShape(c) * (0.35 + 0.65 * u);
+      const qSpar = (c * chords[k]) / (r0 * sparF(0.09 + u * 0.41) * 2.2 || 1e-6);
+      const hemF = Math.max(0, (c - 0.86) / 0.14);
+      const d = Math.max(base, D_ROOT(t), D_SPAR(qSpar), D_CUP(sagN), D_HEM(t, hemF));
+      return MV(p, ATLAS.sheet, c, d, 0, tierOf(chords[k] * 0.080 * sagN, maxB, 613 + k * 13 + j));
+    };
+    const mv = [];
+    for (let k = 0; k <= NU; k++) { const r = []; for (let j = 0; j <= NC; j++) r.push(mvAt(k, j)); mv.push(r); }
     for (let k = 0; k < NU; k++) for (let j = 0; j < NC; j++) {
-      const c = (j + 0.5) / NC;
-      const billow = (chords[k] + chords[k + 1]) * 0.5 * 0.080 * sagShape(c);
-      const tier = tierOf(billow, maxB, 613 + k * 13 + j);
       if (k === 0) {
         // §9: the scale→membrane transition is a GRADED VERMILION BAND, never a hard straight
         // line where scales stop and membrane starts (§12 kill #31). The body-side triangle of
         // the root strip takes the warm blush, the outboard triangle its membrane tier, so the
         // band ramps instead of ending on an edge. Zero extra triangles. Authored DARK —
         // measured at shop distance, a saturated band is a red stripe painted on the root.
-        push(arm, M.band, [grid[k][j], grid[k][j + 1], grid[k + 1][j + 1]]);
-        push(arm, tier, [grid[k][j], grid[k + 1][j + 1], grid[k + 1][j]]);
-      } else quad(arm, tier, grid[k][j], grid[k][j + 1], grid[k + 1][j + 1], grid[k + 1][j]);
+        push(arm, M.band, [raw[k][j], raw[k][j + 1], raw[k + 1][j + 1]]);
+        memTri(arm, mv[k][j], mv[k + 1][j + 1], mv[k + 1][j]);
+      } else memQuad(arm, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
     }
     for (let k = 0; k <= NU; k++) hemArm.push({ p: grid[k][NC], ref: grid[k][NC - 1] });
   }
@@ -450,6 +712,14 @@ function buildOneForgewing(M, d) {
     const bayW = len3(sub3(B.samples[NS], A.samples[NS])) || 1e-6;
     const scallop = (0.22 + 0.03 * i) * bayW;
     const grid = [];
+    // §6.4 THE MASTER CORDS. The 8–10 largest cords per outer bay are REAL RELIEF, not
+    // shader: a painted cord cannot catch the grazing sheen and cannot put cord-end teeth
+    // on the free edge. That needs chord columns to resolve them, so the bays run at
+    // NCB = 16 (Nyquist for 8 ridges) against the armwing's 8 — the extra triangles buy
+    // EDGES, which is exactly where §11 says to spend them.
+    const NMC = 8;
+    const cordRelief = (c, s) => 0.0035 * hs * Math.pow(s, 0.7)
+      * Math.sin(Math.PI * Math.min(1, c)) * Math.cos(2 * Math.PI * NMC * c);
     for (let k = 0; k <= NS; k++) {
       const s = k / NS;
       // the sheet welds to the LOWER flank of each pipe so the bones stand proud above it
@@ -457,32 +727,50 @@ function buildOneForgewing(M, d) {
       const b = add3(B.samples[k], [0, -B.rAt(s) * 0.55, 0]);
       const chord = len3(sub3(b, a)) || 1e-6;
       const row = [];
-      // columns 0..NC land exactly on the two spars (c = 0 and c = 1) so every membrane
-      // edge IS a bone node; column NC+1 is the OVERLAP tongue, tapered to zero at the free
+      // columns 0..NCB land exactly on the two spars (c = 0 and c = 1) so every membrane
+      // edge IS a bone node; column NCB+1 is the OVERLAP tongue, tapered to zero at the free
       // edge (so no tongue pokes past the tip) and dropped into the spar's shadow line.
-      for (let j = 0; j <= NC + 1; j++) {
+      for (let j = 0; j <= NCB + 1; j++) {
         const over = OVER * (1 - Math.pow(s, 1.5));
-        const c = j <= NC ? j / NC : 1 + over;
+        const c = j <= NCB ? j / NCB : 1 + over;
         const p = lerp3(a, b, c);
         p[1] -= sagFrac * chord * sagShape(c) * Math.pow(s, 0.6);   // ventral cup, nadir at 40% chord
-        if (j > NC) p[1] -= 0.006 * hs;                             // tuck under the neighbouring lobe
+        p[1] -= cordRelief(c, s);                                   // the master-cord ridges
+        if (j > NCB) p[1] -= 0.006 * hs;                            // tuck under the neighbouring lobe
         // the free TE scallop cuts INWARD toward the knuckle (a cupped concave arc, never a
-        // convex bump on a plane), deepest mid-bay, fading to zero at both spars and inboard
-        const sc = scallop * Math.sin(Math.PI * Math.min(1, c)) * Math.pow(s, 2.6);
+        // convex bump on a plane), deepest mid-bay, fading to zero at both spars and inboard.
+        // The cords END on that edge, so it carries fine cord-end TEETH (a tenth of the
+        // scallop) — the sourced reason a fibre-netted membrane never has a smooth free edge.
+        const teeth = 0.016 * bayW * Math.pow(s, 3.0) * Math.sin(Math.PI * Math.min(1, c))
+          * (0.5 - 0.5 * Math.cos(2 * Math.PI * NMC * c));
+        const sc = scallop * Math.sin(Math.PI * Math.min(1, c)) * Math.pow(s, 2.6) + teeth;
         row.push(add3(p, mul3(norm3(sub3(K, p)), sc)));
       }
       grid.push({ row, chord });
     }
     const maxB = sagFrac * grid[NS].chord;
-    for (let k = 0; k < NS; k++) for (let j = 0; j <= NC; j++) {
-      const c = (j + 0.5) / NC;
-      // value tiers are a function of BILLOW DEPTH, which is continuous across the lobe
-      // seam — so no value step ever marks the overlap (§5.4 mitigation 2)
-      const billow = (grid[k].chord + grid[k + 1].chord) * 0.5 * sagFrac * sagShape(c) * Math.pow((k + 0.5) / NS, 0.6);
-      quad(hand, tierOf(billow, maxB, i * 97 + k * 11 + j), grid[k].row[j], grid[k].row[j + 1], grid[k + 1].row[j + 1], grid[k + 1].row[j]);
-    }
+    // per-vertex §6.1 payload. The finger bays are the DRUM-TAUT, THIN half of §5.3's
+    // anisotropy law: base falls to 0.5× nominal outboard, which is §6.2's pale-amber row —
+    // the brightest backlit tier lives on the taut inter-digital stretch, and the deep cup
+    // (D_CUP → 1.8) is the DARKEST, exactly as the gate requires.
+    const mvAt = (k, j) => {
+      const g = grid[k], s = k / NS, c = j <= NCB ? j / NCB : 1;
+      const p = g.row[j], t = tSpan(p);
+      const base = 0.82 - 0.34 * s;
+      const cupN = sagShape(c) * Math.pow(s, 0.6);
+      const rNear = (c < 0.5 ? A.rAt(s) : B.rAt(s));
+      const qSpar = (Math.min(c, 1 - c) * g.chord) / (rNear * 2.2 || 1e-6);
+      const hemF = Math.pow(s, 6.0);                       // the hem band hugs the free edge
+      const d = Math.max(base, D_ROOT(t), D_SPAR(qSpar), D_CUP(cupN), D_HEM(t, hemF));
+      return MV(p, ATLAS.sheet, c, d, 0,
+        tierOf(g.chord * sagFrac * cupN, maxB, i * 97 + k * 11 + j));
+    };
+    const mv = [];
+    for (let k = 0; k <= NS; k++) { const r = []; for (let j = 0; j <= NCB + 1; j++) r.push(mvAt(k, j)); mv.push(r); }
+    for (let k = 0; k < NS; k++) for (let j = 0; j <= NCB; j++)
+      memQuad(hand, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
     const arc = [];
-    for (let j = 0; j <= NC; j++) arc.push({ p: grid[NS].row[j], ref: grid[NS - 1].row[j] });
+    for (let j = 0; j <= NCB; j++) arc.push({ p: grid[NS].row[j], ref: grid[NS - 1].row[j] });
     bayArcs.push(arc);
   }
   // assemble the free edge outboard-in: tipVI → tipV → tipIV → tipIII (each bay reversed)
@@ -500,16 +788,27 @@ function buildOneForgewing(M, d) {
   // on `hand`. Putting both on `hand` is invisible at rest (the −anchor makes the assembled
   // rest pose byte-identical) and then rips a black streak across the frame the moment the
   // wrist rotates — geometry that spans a joint must keep every vertex on ONE side of it.
+  // I2: the hem joined the ONE membrane material. Its darkness is no longer an authored
+  // hex — it falls out of the same exp(−σd): the hem band's d runs 1.0 → 2.5 tipward, so
+  // backlit its transmitted luminance drops 0.151 → 0.018 and it IS the darkest line on
+  // the wing, automatically, in both light regimes. Its outer vertices carry `edge = 1`,
+  // the only place §6.3's demoted Fresnel is allowed to fire — hashed at 55% duty, so it
+  // is broken hair-sparkle outside a dark hem and can never close into a chrome outline.
   for (const [run, g] of [[hemArm, arm], [hemBays, hand]]) {
-    const et = [];
-    const inner = run.map(({ p, ref }) => {
+    const outer = [], inner = [];
+    for (const { p, ref } of run) {
       const t = (p[0] + X0) / hs;                          // span fraction → the ×2.5 ramp
       const w = (0.012 + 0.018 * Math.max(0, Math.min(1, t))) * hs;
       const dir = norm3(sub3(ref, p));
-      return add3(add3(p, mul3(dir, w)), [0, 0.004 * hs, 0]);
-    });
-    for (let s = 0; s < run.length - 1; s++) et.push([run[s].p, run[s + 1].p, inner[s + 1]], [run[s].p, inner[s + 1], inner[s]]);
-    if (et.length) push(g, M.hem, ...et);
+      const q = add3(add3(p, mul3(dir, w)), [0, 0.004 * hs, 0]);
+      const d = 1.00 + 1.50 * Math.max(0, Math.min(1, t));
+      outer.push(MVh(p, ATLAS.sheet, 1.0, d, 1, MEM_HEM_TIER));
+      inner.push(MVh(q, ATLAS.sheet, 0.90, d * 0.86, 0, MEM_HEM_TIER));
+    }
+    for (let s = 0; s < run.length - 1; s++) {
+      memTri(g, outer[s], outer[s + 1], inner[s + 1]);
+      memTri(g, outer[s], inner[s + 1], inner[s]);
+    }
   }
 
   // ── THE PROPATAGIUM (§5.2) — the sail nobody ships ───────────────────────────
@@ -534,8 +833,23 @@ function buildOneForgewing(M, d) {
       rows[1].push([le[0] + 0.015 * dep, le[1] - 0.24 * dep, le[2] - dep * 0.5]);   // cambered (ventral) mid
       rows[2].push([le[0] + 0.030 * dep, le[1] - 0.20 * dep, le[2] - dep]);         // the taut forward edge
     }
+    // §6.2: the propatagium is the THINNEST membrane on the wing (0.42 ≈ 0.5× nominal) —
+    // a taut, hero-lit, most-lift-efficient sail — so backlit it is the pale-amber
+    // `#D19554` row, the BRIGHTEST tier, against the softer plagiopatagium behind it.
+    // Its own band in the field atlas carries the cephalic doublet §5.2 asks for.
+    const pmv = [[], [], []];
+    for (let r = 0; r < 3; r++) for (let i = 0; i <= NP; i++) {
+      const p = rows[r][i], t = tSpan(p);
+      const base = 0.42 + 0.10 * (1 - r * 0.5);
+      const d = Math.max(base, D_ROOT(t), r === 0 ? D_SPAR(0.15) : 0);   // it wraps the LE spar at r = 0
+      // edge = 0 on EVERY row: the propatagium's forward edge is a TENSIONED leading edge,
+      // not a free hem, and §6.5 says a leading edge is never emissive-rimmed. The §6.3
+      // fringe belongs to the trailing hem alone — put it here and it draws a continuous
+      // bright line down the front of the wing, which is kill #33 by another name.
+      pmv[r].push(MV(p, ATLAS.prop, r / 2, d, 0, r === 0 ? 1 : 0));
+    }
     for (let r = 0; r < 2; r++) for (let i = 0; i < NP; i++)
-      quad(arm, M.memTiers[r === 0 ? 1 : 0], rows[r][i], rows[r][i + 1], rows[r + 1][i + 1], rows[r + 1][i]);
+      memQuad(arm, pmv[r][i], pmv[r][i + 1], pmv[r + 1][i + 1], pmv[r + 1][i]);
     dumpPro = { depth, chordAtElbow };
   }
 
@@ -561,7 +875,12 @@ function buildOneForgewing(M, d) {
     const c = add3(add3(base, mul3(side, sz * 0.86)), [0, -rHere * 0.55, 0]);  // outboard skirt
     const cIn = add3(add3(base, mul3(side, -sz * 0.34)), [0, -rHere * 0.45, 0]);
     push(arm, M.bone, [a, b, c], [a, cIn, b]);
-    push(arm, M.ash, [a, lerp3(a, b, 0.34), lerp3(a, c, 0.34)]);   // one lit lapped edge only
+    // I2 — THE COVERT LAP, value-softened. At 4× the I1 rank read SERRATED: nine full-ash
+    // wedges against charcoal is a 5.4× value step repeated nine times, which the eye reads
+    // as saw teeth, not as shingles. The lit lap edge is now the MID value (`covert`, one
+    // step of a three-value ramp bone→covert→ash instead of two) and its area DECAYS
+    // outboard with the flake, so the rank reads as a gradient of overlaps with a terminus.
+    push(arm, M.covert, [a, lerp3(a, b, 0.30 - 0.12 * f), lerp3(a, c, 0.30 - 0.12 * f)]);
   }
 
   // ── THE ROOT (§9): OVERLAP, NEVER WELD ───────────────────────────────────────
@@ -632,18 +951,26 @@ function buildOneForgewing(M, d) {
       const inn = flankAt(0.22 + v * 2.23);
       skInner.push(inn); skOuter.push(o); skMid.push(add3(lerp3(inn, o, 0.52), [0, -bw * 0.55, 0]));
     }
+    // The skirt is membrane over the BODY, so its optical path is effectively infinite:
+    // d 2.4 → 2.9 across it means backlit it stays the near-black `#2E0000` row and never
+    // competes with the wing sheet's glow — which is what keeps the root reading as one
+    // dark mass instead of a lit card (the Round-1 blue door panel, in its second life).
+    const sk = (p, c, dd, e) => MVh(p, ATLAS.skirt, c, dd, e, MEM_TIERS[2]);
     for (let i = 0; i < NSK; i++) {
       const rw0 = bw * 0.26, rw1 = bw * 0.26;
       // the raised flank LINE along the skirt's top edge (the anchor line the eye reads)
       quad(frame, M.ash, add3(skInner[i], [0, rw0, 0]), add3(skInner[i + 1], [0, rw1, 0]), skInner[i + 1], skInner[i]);
       // the skirt sheet itself, value-banded so it is not one flat card
-      quad(frame, M.memTiers[1], skInner[i], skInner[i + 1], skMid[i + 1], skMid[i]);
-      quad(frame, M.memTiers[2], skMid[i], skMid[i + 1], skOuter[i + 1], skOuter[i]);
+      memQuad(frame, sk(skInner[i], 0.02, 2.90, 0), sk(skInner[i + 1], 0.02, 2.90, 0),
+        sk(skMid[i + 1], 0.50, 2.60, 0), sk(skMid[i], 0.50, 2.60, 0));
+      memQuad(frame, sk(skMid[i], 0.50, 2.60, 0), sk(skMid[i + 1], 0.50, 2.60, 0),
+        sk(skOuter[i + 1], 0.98, 2.40, 0), sk(skOuter[i], 0.98, 2.40, 0));
     }
     skirtOuter = skOuter;
   }
 
   flush(arm); flush(fore); flush(hand); flush(root); flush(frame);
+  flushMem(arm); flushMem(hand); flushMem(frame, 'skirt');   // the skirt is body-frame: same material, measured apart
 
   // pure-math landmark table — geometry numbers beat rendered pixels (§11 verify chain)
   const dump = {
@@ -697,11 +1024,13 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     glow,
   };
 
-  // The rig's single-material wing contract = the lightest membrane tier. The membrane is
-  // the DARKEST element on the dragon and carries no emissive in I1 (the def pins
-  // wingEmissive / wingMembraneEmissive black). I3 puts the ventral forge window + the
-  // artery doublets in `flareMats` (Surge flare, no warm cruise rim) — not here.
-  M.wingMat = M.memTiers[0];
+  // The rig's single-material wing contract IS the membrane now — one material for the
+  // plagiopatagium, the bays, the hem, the propatagium and the skirt, carrying the §6.2
+  // transmission patch. The membrane is the DARKEST element on the dragon and carries no
+  // emissive in I1/I2 (the def pins wingEmissive / wingMembraneEmissive black). I3 puts
+  // the ventral forge window + the artery doublets in `flareMats` (Surge flare, no warm
+  // cruise rim) — not here; the artery stays NON-emissive until then.
+  M.wingMat = M.mem;
 
   const pivots = {}, wingElements = [];
   let dump = null;

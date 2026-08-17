@@ -85,6 +85,142 @@ export function membraneSSSPatch(opts = {}) {
   };
 }
 
+// ─── MEMBRANE TRANSMISSION (wing-lab 90-SYNTHESIS §6.2) ──────────────────────
+// The physically-shaped replacement for `membraneSSSPatch` above. That one is a
+// view-only Fresnel: it fires identically with the sun in the camera's face and
+// behind the wing, which is the chrome-outline tell (§12 kill #32/#33) and cannot
+// produce a thickness ramp. This one is Barré-Brisebois/Frostbite back-translucency
+// driven by a per-vertex optical thickness, so ONE term produces the whole read:
+//
+//   d_eff = d_geo / max(|N·V|, 0.08)          view-slanted optical path
+//   T_rgb = exp(-sigma_rgb * d_eff)           sigma ratio LOCKED (1.00, 2.68, 5.41)
+//   out  += sunColor * T * (back(V,L) * scale + ambient * wrap)
+//
+// Three properties fall out for free and they are the whole gate:
+//  1. LIGHT-DIRECTION DEPENDENT — `back` is ~0 with the sun in front, ~1 with the sun
+//     behind, so the membrane:bone value polarity FLIPS on every bank.
+//  2. ANTI-CHROME BY CONSTRUCTION — d_eff grows as 1/|N·V|, so transmission goes to
+//     ZERO exactly where a Fresnel rim peaks. The silhouette edge is the darkest
+//     part of the sheet; a continuous bright rim is not reachable from this term.
+//  3. THICKNESS IS THE COLOUR RAMP — sigma's locked RGB ratio is skin's measured
+//     diffuse-mean-free-path ratio (1 : 0.373 : 0.185), so exp() walks
+//     #D19554 -> #AB5415 -> #711600 -> #2E0000 as d goes 0.45 -> 0.9 -> 1.8 -> 3.6.
+//     Hue rotates to red and saturation RISES with thickness; the deepest cup is the
+//     DARKEST backlit tier. Do not add a second tint that fights it — `uMemTint`
+//     stays near white and the exponential does the colouring.
+//
+// The per-vertex payload is ONE vec4 attribute `aMem`:
+//   .x span fraction u (0 at the body midline, 1 at the fingertip)   — the field UV
+//   .y atlas chord v (per-surface band; see the wing builder's atlas)  — the field UV
+//   .z d_geo, the optical thickness in [0.30, 3.60] (nominal 0.90)
+//   .w free-edge mask, 1 on the hem's outer edge — the ONLY place the Fresnel survives
+//
+// `uMemField` is a generated R8 DataTexture (never CanvasTexture — that breaks the
+// node tests) carrying the cord field + the vein doublets as a multiplier on d.
+// Veins modulate THICKNESS, never emissive: backlit they are dark subtractions from
+// the glow (§12 kill #34), front-lit they all but vanish.
+export function membraneTransmissionPatch(opts = {}) {
+  return {
+    key: 'memT',
+    uniforms: {
+      // LOCKED ratio (A2 §2.2, skin1 DMFP 3.67/1.37/0.68 mm -> 1 : 0.373 : 0.185).
+      // sigma0 = 1.0 is the tuned scalar: at nominal d = 0.90 it transmits
+      // (0.407, 0.090, 0.008) linear = luminance 0.151 — the measured bat-wing 0.15.
+      uMemSigma: new THREE.Vector3(1.00, 2.68, 5.41),
+      uMemSigma0: opts.sigma0 ?? 1.0,
+      uMemTint: toColor(opts.tint ?? 0xffffff),
+      uMemScale: opts.scale ?? 1.0,
+      uMemPower: opts.power ?? 3.0,
+      uMemDistort: opts.distort ?? 0.20,
+      uMemAmbient: opts.ambient ?? 0.03,
+      uMemField: opts.field ?? null,
+      uMemFieldAmt: opts.fieldAmt ?? 1.0,
+      // §6.4 wrinkles: spanwise striations, amplitude is a TENSION read-out. I2 authors
+      // the cruise static; I4 binds `uMemSlack` to the flap solver's slack scalar.
+      uMemWrinkleAmp: opts.wrinkleAmp ?? 0.30,
+      uMemWrinkleFreq: opts.wrinkleFreq ?? 20.0,
+      uMemSlack: opts.slack ?? 0.55,
+      // the fine cord field: 1/75 of local chord (§13's directed 20 mm-equivalent).
+      uMemCord: opts.cord ?? 0.34,
+      uMemCordFreq: opts.cordFreq ?? 147.0,
+      // §6.3 the demoted Fresnel — hem band only, broken by a span hash, duty <= 0.60.
+      uMemFringe: opts.fringe ?? 0.30,
+      uMemFringeColor: toColor(opts.fringeColor ?? 0xffcf9a),
+      // THE SPECULAR, authored (see bodyFragMaterial). F0 0.020 is IOR 1.33 — a wet
+      // membrane — where three.js's untouched 0.04 is IOR 1.5, i.e. glass.
+      uMemSpec: toColor(opts.specTint ?? 0xffd9b0),
+      uMemSpecMul: opts.spec ?? 0.50,
+      uMemSpecF90: opts.specF90 ?? 0.30,
+    },
+    parsVert: `attribute vec4 aMem; varying vec4 vMem;`,
+    bodyVert: `vMem = aMem;`,
+    parsFrag: `
+      uniform vec3 uMemSigma; uniform float uMemSigma0; uniform vec3 uMemTint;
+      uniform float uMemScale; uniform float uMemPower; uniform float uMemDistort; uniform float uMemAmbient;
+      uniform sampler2D uMemField; uniform float uMemFieldAmt;
+      uniform float uMemWrinkleAmp; uniform float uMemWrinkleFreq; uniform float uMemSlack;
+      uniform float uMemCord; uniform float uMemCordFreq;
+      uniform float uMemFringe; uniform vec3 uMemFringeColor;
+      uniform vec3 uMemSpec; uniform float uMemSpecMul; uniform float uMemSpecF90;
+      varying vec4 vMem;`,
+    bodyFrag: `{
+      vec3 _mN = normalize(normal);
+      vec3 _mV = normalize(vViewPosition);
+      // §6.4 cords + vein doublets: the generated field multiplies the optical path.
+      // Byte 0..255 decodes to 0.55..2.75 (nominal 1.0 at byte 52).
+      float _mF = mix(1.0, 0.55 + texture2D(uMemField, vMem.xy).r * 2.20, uMemFieldAmt);
+      // …and the FINE cord field (1/75 of local chord) analytically, because 256 texels
+      // cannot carry 75 lines per chord. fwidth() fades it to flat tint the moment a
+      // period drops under a pixel, so it resolves as lines at the 4× crop and never
+      // shimmers at the chase read (A2's Murray cut-off law, in one smoothstep).
+      float _mCp = vMem.y * uMemCordFreq * 6.2831853;
+      float _mCd = clamp((vMem.x - 0.30) / 0.35, 0.0, 1.0);          // zero inboard, full outboard
+      _mF *= 1.0 + uMemCord * _mCd * (1.0 - smoothstep(0.8, 2.4, fwidth(_mCp)))
+                 * pow(max(sin(_mCp), 0.0), 6.0);
+      // §6.4 wrinkles — spanwise striations across the chord, fwidth-faded so a period
+      // narrower than a pixel becomes TINT, never shader shimmer.
+      float _mP = vMem.y * uMemWrinkleFreq * 6.2831853;
+      float _mW = 1.0 + uMemWrinkleAmp * uMemSlack * sin(_mP)
+                * (1.0 - smoothstep(1.1, 3.0, fwidth(_mP)));
+      float _md = clamp(vMem.z * _mF * _mW, 0.30, 3.60);
+      float _mNV = max(abs(dot(_mN, _mV)), 0.08);
+      vec3 _mT = exp(-uMemSigma * (uMemSigma0 * _md / _mNV));
+      #if NUM_DIR_LIGHTS > 0
+        vec3 _mL = directionalLights[0].direction;                 // fragment -> light, view space
+        vec3 _mLt = normalize(-(_mL + _mN * uMemDistort));         // Frostbite "through" vector
+        float _mBack = pow(clamp(dot(_mV, _mLt), 0.0, 1.0), uMemPower);
+        float _mWrap = clamp(dot(_mN, _mL) * 0.5 + 0.5, 0.0, 1.0);
+        totalEmissiveRadiance += directionalLights[0].color * uMemTint * _mT
+                               * (_mBack * uMemScale + uMemAmbient * _mWrap);
+      #endif
+      // §6.3: the Fresnel, demoted to hair-sparkle on the free hem. Broken by a
+      // deterministic span hash at 55% duty so it can never close into a rim.
+      float _mH = fract(sin(floor(vMem.x * 190.0) * 78.233 + 2.7) * 43758.5453);
+      totalEmissiveRadiance += uMemFringeColor
+        * (vMem.w * step(0.45, _mH) * pow(1.0 - _mNV, 5.0) * uMemFringe);
+    }`,
+    // THE MEASURED FIX FOR THE BLUE SHEEN. Round 1 logged a broad blue rim-light sheen
+    // across the ventral hand; a roughness sweep on the masked pixels proved it is
+    // entirely SPECULAR (worst 16px tile B−R: 0.111 at roughness 0.50, 0.016 at 1.00,
+    // and unchanged by albedo, envMapIntensity or the transmission term). A dielectric's
+    // specular carries the LIGHT's colour, so no amount of warm near-black albedo can
+    // remove a cool key's reflection — and roughness 1.0 is the leather-tarp tell (kill
+    // #22). The lever that is left is the specular response itself:
+    //   • F0  → 0.020: three.js hard-codes 0.04 (IOR 1.5, glass/plastic). A wet keratin
+    //     membrane is IOR ≈ 1.33, F0 = ((1.33−1)/(1.33+1))² = 0.0201. This is a
+    //     CORRECTION, not a cheat, and it halves the sheen at every angle.
+    //   • F90 → 0.30: the horizon fade. Single-scatter GGX assumes F90 = 1, which is
+    //     exactly what turns a rough dark dielectric into chrome at grazing — the same
+    //     term §12 kill #33 forbids. Damping it is the standard specular-occlusion
+    //     approximation and it kills the wide-angle lobe without touching the sebum
+    //     highlight the membrane is supposed to keep at roughness 0.38–0.50.
+    //   • a warm tint on what remains, so the surviving gloss is the wing's own hue.
+    bodyFragMaterial: `
+      material.specularColor *= uMemSpec * uMemSpecMul;
+      material.specularF90 = uMemSpecF90;`,
+  };
+}
+
 // Procedural cellular SCALES — a 3D Worley pattern in OBJECT space (stable on the
 // creature as it flies; per-mesh, hidden by the busy pattern) that darkens scale
 // centres, brightens the inter-scale seams (sheen), and roughens the centres so
@@ -230,22 +366,42 @@ export function composeSurface(material, patches) {
   const used = (patches || []).filter(Boolean);
   if (!used.length) return material;
   const cacheKey = 'surf:' + used.map((p) => p.key).join('+');
+  // Hoist the patch uniforms into ONE shared, MUTABLE set parked on the material BEFORE
+  // compile, and hand the same objects to the shader. Values are unchanged, so every
+  // existing user renders byte-identically — but a caller can now drive a patch at
+  // runtime (`mat.userData.surfaceUniforms.uMemSlack.value = …`). Creating them inside
+  // onBeforeCompile made them unreachable: a material that has not yet been rendered has
+  // no uniforms at all, so the rig (and the lab harness) had nothing to hold.
+  if (!material.userData) material.userData = {};   // duck-typed callers (the headless test) have none
+  const uniforms = material.userData.surfaceUniforms || (material.userData.surfaceUniforms = {});
+  for (const p of used) {
+    for (const [name, value] of Object.entries(p.uniforms || {})) {
+      if (!uniforms[name]) uniforms[name] = { value };
+    }
+  }
   material.onBeforeCompile = (shader) => {
-    let parsV = '', bodyV = '', parsF = '', bodyF = '';
+    let parsV = '', bodyV = '', parsF = '', bodyF = '', bodyM = '';
+    for (const [name, u] of Object.entries(uniforms)) shader.uniforms[name] = u;
     for (const p of used) {
-      for (const [name, value] of Object.entries(p.uniforms || {})) {
-        shader.uniforms[name] = { value };
-      }
       if (p.parsVert) parsV += '\n' + p.parsVert;
       if (p.bodyVert) bodyV += '\n' + p.bodyVert;
       if (p.parsFrag) parsF += '\n' + p.parsFrag;
       if (p.bodyFrag) bodyF += '\n' + p.bodyFrag;
+      if (p.bodyFragMaterial) bodyM += '\n' + p.bodyFragMaterial;
     }
     if (parsV) shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>' + parsV);
     if (bodyV) shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>' + bodyV);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>' + parsF)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>' + bodyF);
+    // OPTIONAL THIRD SEAM, after <lights_physical_fragment>: the one place the struct
+    // `material` exists (specularColor / specularF90 / roughness) and has not been used
+    // yet. The emissive seam can only add light — it cannot author how a surface REFLECTS,
+    // and on a dielectric the specular lobe carries the LIGHT's colour, so a cool key
+    // paints a cyan sheen on a coal-black sheet no matter what the albedo says. Additive
+    // and nullable: no existing patch declares it, so the shipped roster is byte-identical.
+    if (bodyM) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>' + bodyM);
   };
   material.customProgramCacheKey = () => cacheKey;
   material.needsUpdate = true;
