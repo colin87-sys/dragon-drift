@@ -272,3 +272,145 @@ re-openable — a membrane that muddies the black tiles re-opens SILHOUETTE.
    `wingsymprobe` Δ0.000, and the probe suite including its own negative control per #67.
 
 ---
+## Round 3 — I2 (forgewing) — MEMBRANE; SILHOUETTE + STRUCTURE re-checked
+
+**Compared against:** `wing-tempest-apex-detail.png` tile-for-tile (2.2× pale / 4× pale /
+2.2× dark / chase-sky) against the regenerated forgewing detail sheet **plus its two BACKLIT
+tiles — for which the bar has no entry at all**; the COMPARE sheet; the cycle strip (the R2
+"worst frame" check); the planform black tiles and poses (re-checks). Coordinator-verified
+independently: polarity **0.435 front-lit → 11.48 backlit**, transmission gain **×1.63**
+(0.0528 → 0.0861 — an opaque sheet can only get darker; this cannot be faked); §5.5 tiers as
+authored **0.0876 / 0.0752 / 0.0415 / 0.0240** (3.65×), luminance quartiles 0.021/0.036/0.056/
+0.098 (4.73×); worst 16 px tile **B−R = 0.0000** across all seven wing states and six gate
+tiles (was 0.111); Eternal **4,613** tris, pair **2,292** in **26 draws** (down from 36);
+`wingsymprobe` Δ0.000; landmark dump Δ0.0000; root drift 0.000 u; quad probe 0 corners; **all
+four negative controls fire** per kill #67. Final material values: albedo `#4b3418`, roughness
+0.38 (my directed yield to 0.50 went unspent), envMapIntensity 0.05, σ0 = 1.0, ambient 0.10.
+
+### Round 3 — MEMBRANE — **WIN**
+
+Verdict: ours, at every tile, and the margin embarrasses the bar.
+
+- **2.2× pale:** theirs is navy card-stock shards under white tape; ours is a skinned animal —
+  the inboard bay reads as ONE continuous cupped sheet with a warm rim gradient falling into a
+  dark sag, the outboard bays carry spanwise combed grain. The R2 blue door-panel is dead:
+  the same panel is now the best passage on the wing.
+- **4× pale:** the bar has NO membrane craft at 4× — plate faces and filament channels; ours
+  shows the cord grain, a shingled covert rank with a terminus, the propatagium sail, the
+  carpal cluster. One defect on ours, named below (the saw). Ours regardless.
+- **2.2× dark:** theirs vanishes except the frame; ours keeps its form through the warm
+  hem-and-rim gradients — the membrane survives dark-on-dark as a FORM, not a hole.
+- **chase sky:** ours reads as a dark animal whose membrane is the darkest element on it
+  (0.435 measured); theirs reads as wire plus sparks. Ours.
+- **BACKLIT (both tiles):** no contest possible — the shipped bar cannot produce this frame
+  (kill #32 IS the shipped state). Ours delivers the whole §2.3 inversion: ember-amber field,
+  bones as razor-edged black cut-outs (no halo — the dragon stays huge), cord striations as
+  dark subtractions inside the glow, dark hem, deepest cup darkest, no pink, no chrome rim,
+  fringe broken not continuous. The single best surface frame this lab has produced, and the
+  first time in this repo light has gone THROUGH a wing.
+
+Nobody looking at the two sheets blind picks the Tempest's membrane. **MEMBRANE: WON.**
+Re-openable — a fire pass that lifts the field, adds a rim, or muddies the black tiles
+re-opens it.
+
+### SILHOUETTE — re-check **HELD**. STRUCTURE — re-check **HELD**.
+
+The black tiles are unchanged in kind: knuckled "‹" LE, scalloped TE, claw-cluster bump, tip
+hook, skirt curve flowing into the body, zero rectangles (probe 0 corners, controls firing).
+The +538 tris of relief cords and hem loop added silhouette detail (fine TE teeth) without
+muddying the outline. Landmark dump Δ0.0000 — proportions untouched; the covert rank, sail,
+and two-regime arm all still read at 4×. Cycle strip: both wings read the same warm dark
+material family in every tile — the one-black-one-blue apex frame is gone, B−R 0.0000.
+
+**Biggest remaining gap:** the wing is a superb corpse. Its only light is borrowed — the sun
+doing transmission's work — and the identity ("a bellows, not a lantern") is unprovable until
+the ventral forge window, the artery members, and the state machine exist. Everything else on
+this article is polish; the missing organ is FIRE.
+
+**Ruled-out tells present:** **none exhibited at this gate as scoped.** Held-open debts, so
+they cannot quietly survive: **#52** (fold 0.977 — SPREAD and FOLDED are still the same
+photograph; I4). **#29's binding half** — the wrinkle field is static by construction; statics
+were I2's scope by my own instruction, and the slack-scalar binding is I4's. Teeth added now:
+I4's MOTION gate FAILS unless wrinkle amplitude visibly differs between bottom-of-downstroke
+and top-of-upstroke tiles of the same strip. Watch items: T3 = 0.0240 sits near the
+dark-backdrop mud floor — verify FORM survives in the darkest biome tile at I3; covert lap
+serration (R2 watch) is improved but the new cord teeth inherit the problem, next item.
+
+**The two eyes-on questions, answered:**
+
+**(a) The backlit L/R brightness split (one wing crimson, one bright orange): the physics
+stands, the capture is at fault, and the assertion that separates those two claims is now
+mandatory.** Geometry is Δ0.000 and the formula is view-dependent by design — d_eff grows as
+|N·V| falls, so the two wings diverge whenever the camera leaves the mirror plane; in a bank
+that anti-phase flare is an AUTHORED FEATURE (§2.6.4, F1 B3). But a symmetric article under a
+mirror-plane camera with the sun exactly anti-camera MUST render symmetric — any residual L/R
+difference in that configuration is a real bug, not physics. Harness order: re-shoot the
+BACKLIT planform with the camera exactly on the mirror plane and the sun exactly on the
+camera axis, and assert L/R membrane mean luma within 10%; add the INDEX row documenting the
+view-dependence as designed. If asymmetry survives the mirror-plane shot, MEMBRANE re-opens.
+
+**(b) The cord-end saw at 4×: real, and it is the picket-fence law wearing a new costume.**
+Near-identical triangles at even pitch read as a machine edge on an article whose entire case
+is that it is an animal. Fix folded into I3 delivery (no re-gate): deterministic per-tooth
+pitch and height jitter (±25%-class), amplitude decaying toward the tip, occasional dropped
+tooth — seeded like the hem-fringe hash, asymmetric L/R by seed. The silhouette tiles must
+not lose the fine-scallop read.
+
+**RULING 1 — the tier floor yields; §5.5 amended.** The 0.05→0.15 luma window was the Vesper
+`MEMBLUE` calibration carried into a spec for a warmer, darker wing — an instrument mistaken
+for a law, exactly the R1 span error in value clothing. The laws that bind are: tier spread
+≥ 3× lightest→darkest at the money cam on sky (measured 3.65× authored / 4.73× quartile —
+passes); the membrane darkest element front-lit (0.435 — passes, kill #21); the polarity flip
+(×1.63 gain — passes); ≥ 3 bands countable at 2.2×, all four at 4×. T2/T3 below 0.05 are
+ACCEPTED — that darkness is precisely what buys the 11.48 backlit inversion. Builder-caught,
+Director-owned, spec amended in place.
+
+**RULING 2 — ~45 ALU: accepted provisionally; the budget line was an estimate, and the frame
+is the law.** My ≈20 covered the transmission term alone; the delivered surface carries
+transmission + wrinkle statics + a third compose seam. The binding number was always 60 fps
+on weak mobile — measured at the I4 COST gate (framecap/perfprobe), not estimated. Cut order
+if I4 misses, in this sequence and no other: (1) spherical-Gaussian `exp2` swap for the `pow`
+(A2's documented free downgrade), (2) fold the wrinkle modulation into the cord DataTexture's
+channel (the fetch is already paid), (3) LOD-drop vein orders 3–4 with distance. **And the
+misdiagnosis is mine to own:** instruction #2 named albedo+env+transmission as the sheen's
+cause; the builder's roughness sweep proved it was entirely specular and the F0 0.020 /
+F90 0.06 remap killed it — the third seam is legitimate spend because it removed a
+gate-blocking defect my instruction could not. Pattern now twice established (R1 span, R3
+sheen): when an instruction names a cause and the builder isolates a different one, the
+finding wins and the spec amends. Builder writes the lesson file; the law lives here.
+
+**RULING 3 — a 133 px tier is a tier if it does its job at the distance where its job lives.**
+T0's job is the taut seam against the spar — the attachment highlight that de-planes the bay.
+At 4× it must read as a BAND (it does — a warm strip hugging each spar); at 2.2× it may
+compress to the seam line (it does; the shipped premium precedent is the Vesper, where ~3 of
+4 tiers read at 2.2×). Countability criterion amended into §5.5 per Ruling 1. NOT granted:
+lifting T0's value to widen it — that erodes the darkest-element margin. If the builder wants
+more T0 territory the lever is the billow-depth threshold, and it is optional.
+
+**Decision: PROCEED TO I3 (FIRE). No I2.1.** Nothing gate-blocking remains: the two visual
+flaws are a capture artifact with a falsifiable harness assertion and a 4×-only regularity
+with a seeded fix, both asserted in I3's delivery.
+
+**Sent to builder (I3 — FIRE, §7 scope; gate = blind vs the fire canon and the bar at the
+same six tiles PLUS fire-state tiles):**
+1. Build §7 in full: zone A forge window (proximal VENTRAL pane, border an abrupt skip,
+   never feathered); zone B artery members of the EXISTING dark doublets ignite (the vein
+   member stays dark — one geometry, both channels, per §2.4); zones terminate before t=0.60;
+   the four states (cold ~1% / cruise 3–6% / power ≤12% / ignition ≤15% for ≤0.8 s, clipped
+   white ≤1% always), hard borders in every state, recruitment root-first tip-last.
+2. Wire the state mats to the shipped contract: window + arteries in `flareMats`, bones stay
+   `spineMats`, membrane stays `wingMat`. Emissive hue law §7.1: R ≥ G ≥ B strictly, deep-
+   orange authored core, ACES clips — never author white. The B−R = 0.0000 guard stays as a
+   MEMBRANE-pixels assertion (temper blues live on the skeleton only, low-value, non-emissive).
+3. The three incommensurate rhythms (artery 0.4–0.6 Hz damping-to-steady under load; flap;
+   window flicker 2–3 Hz). Nothing locks to flap time.
+4. Ash + temper per §7.3/§7.4 (up-facing/windward/concave ash; temper rings on bone around
+   hot seams; L≠R by seed). Embers per §7.5 (rods 10–13:1, thin-edge spawn, +25% early flare).
+5. Measure, wingtiers-pattern with negative controls per #67: emissive fraction of one wing's
+   projected area per state (must land in the §7.1 bands), clipped-white fraction ≤1%,
+   B−R on membrane, and the polarity numbers re-run to prove MEMBRANE did not regress.
+6. Deliver: the six detail tiles + fire-state row (cruise / power / ignition at the chase cam
+   + one ventral/bank tile showing the window) + cycle + COMPARE, the harness fixes from (a),
+   the saw fix from (b), and the two lesson files (specular finding; probe law already
+   assigned R2).
+
