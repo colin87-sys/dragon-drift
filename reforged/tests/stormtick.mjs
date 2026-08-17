@@ -56,9 +56,16 @@ for (let tier = 0; tier <= 3; tier++) {
 }
 
 // ── SINGLE-WRITER / ROSTER-SAFE: no other dragon publishes storm-arc mats ──
+// The circuit lives on the Tempest's BODY parts (cumulonimbus torso / stormbrow head / virga
+// tail), so a dragon that deliberately reuses that body inherits it and the guarded tick is
+// SUPPOSED to run for it — `forgewing` (the wing-lab test article) is exactly that: the
+// Tempest's body with one part swapped. The firewall that matters is that no UNRELATED
+// dragon quietly acquires storm mats, so the exemption is keyed on the torso builder, not on
+// a hand-maintained name list.
 let others = 0;
 for (const key of Object.keys(DRAGONS)) {
   if (key === 'tempest') continue;
+  if ((DRAGONS[key].parts || {}).torso === 'cumulonimbusTorso') continue;   // storm-bodied by design
   let sam = null;
   try { sam = buildDragonModel(ascendedDef(DRAGONS[key], 3, 0)).parts.stormArcMats; } catch { /* build variance in headless mock — skip */ continue; }
   if (sam) { failed++; console.error('  ✗', `${key} unexpectedly publishes stormArcMats — the guarded tick would run for it`); }

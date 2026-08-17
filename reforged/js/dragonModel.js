@@ -27,6 +27,7 @@ import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): 
 import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
 import './dragonTempest.js';        // Thunderhead Tempest (billowed charcoal cloud + the STORMFORK bolt-frame wing): cumulonimbusTorso + stormforkWings + stormbrowHead + virgaTail (living-thundercloud storm drake; the near-white STORM CIRCUIT flickers on the pulseTimer clock — I0 stub, TEMPEST-THUNDERHEAD §B/§D)
 import './dragonAzure.js';          // Azure Drake (falcon-fused sky courier, AAA revision): falconKeelTorso + falconCombWings (+ shared draconic head / clean tail); wedge-thick primary comb, 4-tier value-ladder hull, withheld SLIPSTREAM signature — Radiant-capped (never out-blazes Eternal)
+import './dragonForgewing.js';     // WING LAB (wing-lab/90-SYNTHESIS.md I1): 'basaltForgeWings' — the western-fire-dragon wing test article (real arm: elbow t=0.28 + wrist t=0.50 + propatagium + carpal claw cluster). Used by the `forgewing` roster key, which reuses the Tempest's torso/head/tail UNCHANGED so the lab judges a WING, not a dragon.
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
