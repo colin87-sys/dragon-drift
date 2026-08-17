@@ -221,6 +221,114 @@ export function membraneTransmissionPatch(opts = {}) {
   };
 }
 
+// ─── WING FIRE (wing-lab 90-SYNTHESIS §7) ────────────────────────────────────
+// The forge window + the artery members of the vein doublets + the recruited
+// secondary/outer panes, all on ONE material and ONE draw per rig group. Three
+// things have to be true at once and a plain emissive material can do none of them:
+//
+//  1. HARD BORDERS IN EVERY STATE (§7.1, kill #43). Windows APPEAR and DISAPPEAR;
+//     they never fade in. So the state test is a `step()` on a per-VERTEX stage
+//     threshold, and every triangle carries ONE stage on all three of its verts
+//     (the geometry is non-indexed, so a border is a discontinuity, not a ramp).
+//  2. RECRUITMENT, ROOT-FIRST (§7.1 / kill #44). `uFireStage` 0..3 is cold /
+//     cruise / power / ignition; a vertex lights when its own threshold is reached.
+//     Zone A's rim is stage 0, its core stage 1, the proximal arteries stage 1, the
+//     distal arteries + mid-panel windows stage 2, the outer recruit stage 3.
+//  3. THREE INCOMMENSURATE RHYTHMS (§7.2, kill #50). Window flicker 2.35 Hz (+ a
+//     3.71 Hz partial), artery throb 0.43 Hz — neither a rational multiple of the
+//     other or of the ~1.2 Hz flap, so the composite never visibly repeats and
+//     nothing pulses in flap time. The artery throb DAMPS to steady-and-brighter
+//     under load (`uFireLoad`) — the sourced counter-intuitive tell (F1 B5).
+//
+// The temperature ramp is a per-vertex COLOUR multiplier, so one material carries
+// 1200–1300 °C window core, 900–1100 °C proximal artery and 650–800 °C artery tip.
+// The authored emitter is deep ORANGE and the core is made white by ACES, never by
+// authoring white (§7.1 / kill #48): with R ≫ G ≫ B in, the tone-mapper walks the
+// core to (1.00, 0.70, 0.27)-class on its own and R ≥ G ≥ B survives at every value.
+//
+// `aFire` per vertex: .x stage threshold · .y rhythm select (0 window, 1 artery)
+//                     .z phase seed · .w spare (authored value, kept for the dump)
+export function wingFirePatch(opts = {}) {
+  return {
+    key: 'wfire',
+    uniforms: {
+      uFireStage: opts.stage ?? 1,
+      uFireGain: opts.gain ?? 1.0,
+      uFireLoad: opts.load ?? 0.0,
+      uFireTime: opts.time ?? 0,
+    },
+    parsVert: `attribute vec4 aFire; varying vec4 vFire;`,
+    bodyVert: `vFire = aFire;`,
+    parsFrag: `uniform float uFireStage; uniform float uFireGain; uniform float uFireLoad;
+      uniform float uFireTime; varying vec4 vFire;`,
+    bodyFrag: `{
+      float _fOn = step(vFire.x, uFireStage + 0.25);          // hard border — never a fade
+      float _fPh = vFire.z * 6.2831853;
+      float _fFlick = 1.0 + 0.17 * sin(uFireTime * 14.765 + _fPh)
+                          + 0.10 * sin(uFireTime * 23.310 + _fPh * 2.7);   // 2.35 + 3.71 Hz
+      float _fThrob = 1.0 + (1.0 - uFireLoad) * 0.30 * sin(uFireTime * 2.702 + _fPh)
+                          + uFireLoad * 0.22;                              // 0.43 Hz, damps under load
+      totalEmissiveRadiance *= vColor * (_fOn * uFireGain * mix(_fFlick, _fThrob, vFire.y));
+    }`,
+    // A radiator does not REFLECT. three.js gives every dielectric F0 = 0.04, which
+    // paints the cool key light onto a black pane and leaves a grey ghost exactly
+    // where a switched-OFF window is supposed to be invisible — and a ghost makes the
+    // "emissive fraction" probe unmeasurable, because an off pane stops reading zero.
+    bodyFragMaterial: `
+      material.specularColor = vec3(0.0);
+      material.specularF90 = 0.0;`,
+  };
+}
+
+// ─── WING EMBERS (§7.5) ──────────────────────────────────────────────────────
+// A GPU-resident ember shed: the whole pool is one mesh, one draw, and its life
+// cycle is a function of `uEmbTime` — so it is deterministic for capture (pin the
+// clock, get the same frame) and costs zero CPU per frame.
+//
+// Three sourced properties the shipped round-sprite ember does not have:
+//  • RODS at 10–13:1 aligned to the relative wind, not billboarded dots (built as a
+//    thin cross section so the rod reads from above AND from the side),
+//  • TWO-TONE ALONG THE ROD — windward amber, lee deep red (`aEmb.w` is the along-rod
+//    coordinate and the vertex colour carries the two ends),
+//  • a NON-MONOTONIC life ramp: +25% brightness through the first 15% of life as the
+//    slipstream fans the ember, and only then the decay. Every shipped ember system
+//    in this repo fades monotonically from spawn (§12 kill #50).
+//
+// `aEmb`: .x phase seed · .y rate (1/lifetime) · .z travel distance · .w along-rod 0..1
+export function wingEmberPatch(opts = {}) {
+  return {
+    key: 'wemb',
+    uniforms: {
+      uEmbTime: opts.time ?? 0,
+      uEmbGain: opts.gain ?? 1.0,
+      uEmbStage: opts.stage ?? 1,
+      uEmbWind: opts.wind ?? new THREE.Vector3(0.05, 0.44, 1.0),
+    },
+    // `aEmb.x` carries BOTH the recruitment stage (integer part) and the phase seed
+    // (fractional part) — the life cycle only ever reads the fraction, so a staged
+    // ember costs no second attribute. Rods withheld until the power stroke let the
+    // pool sit inside the 24–40 cruise budget and still reach the burst band.
+    parsVert: `attribute vec4 aEmb; varying vec2 vEmb;
+      uniform float uEmbTime; uniform vec3 uEmbWind;`,
+    bodyVert: `
+      float _eL = fract(uEmbTime * aEmb.y + aEmb.x);
+      transformed += uEmbWind * (_eL * aEmb.z);
+      transformed.x += sin(_eL * 8.4 + aEmb.x * 37.7) * aEmb.z * 0.09;   // slipstream wander
+      vEmb = vec2(_eL, floor(aEmb.x));`,
+    parsFrag: `varying vec2 vEmb; uniform float uEmbGain; uniform float uEmbStage;`,
+    bodyFrag: `{
+      float _eL = vEmb.x;
+      float _eB = _eL < 0.15 ? mix(0.40, 1.25, _eL / 0.15)
+                             : 1.25 * pow(max(0.0, 1.0 - (_eL - 0.15) / 0.85), 1.7);
+      _eB *= step(vEmb.y, uEmbStage + 0.25);
+      totalEmissiveRadiance *= vColor * (_eB * uEmbGain);
+    }`,
+    bodyFragMaterial: `
+      material.specularColor = vec3(0.0);
+      material.specularF90 = 0.0;`,
+  };
+}
+
 // Procedural cellular SCALES — a 3D Worley pattern in OBJECT space (stable on the
 // creature as it flies; per-mesh, hidden by the busy pattern) that darkens scale
 // centres, brightens the inter-scale seams (sheen), and roughens the centres so

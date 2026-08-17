@@ -116,7 +116,19 @@ Run everything from `/home/user/dragon-drift/reforged`:
 | `wing-forgewing-apex-planform.png` | 5 tiles: PLANFORM (top) · HEAD-ON (dihedral/camber) · EDGE-ON (thickness) · **SILHOUETTE planform (whole)** · **SILHOUETTE wing ONLY**, the last two in PURE BLACK | `node wing-lab/tools/wingshot.mjs forgewing` | **The I1 SILHOUETTE gate.** The "‹" leading edge, the 4-digit fan opening at the knuckles, the scalloped trailing edge, the swept-pointed tip — with nothing but shape to argue about. The two black tiles are deliberately different: one shows the wing ON the dragon, one shows only the geometry this builder owns |
 | `wing-forgewing-apex-poses.png` | 3 tiles: SPREAD (glide) · MID-FLAP (downstroke) · FOLDED (fold), one wing broadside, one shared camera | same | **The I1 STRUCTURE gate.** Arm vs hand articulation; that no membrane tears at the wrist or the root across the stroke |
 | `wing-forgewing-apex-cycle.png` | 5-tile strip glide → recovery → apex → downstroke → settle from the rear-chase cam, ONE frozen camera | same | The money angle. Also where the measured 0.77-unit ROOT PEEL of the inboard-aft membrane corner would show if it read as a detaching shard |
-| `wing-forgewing-apex-detail.png` | 3×2: wing 2.2× pale · 4× pale · 2.2× dark · chase read on sky · **BACKLIT (sun behind)** · **BACKLIT planform** | same | Surface craft at shop distance; the two backlit tiles are the §11-mandated harness addition — I2's membrane gate cannot be judged without the sun behind the wing |
+| `wing-forgewing-apex-detail.png` | 3×2: wing 2.2× pale · 4× pale · 2.2× dark · chase read on sky · **BACKLIT (sun behind)** · **BACKLIT planform · MIRROR PLANE** | same | Surface craft at shop distance; the two backlit tiles are the §11-mandated harness addition — I2's membrane gate cannot be judged without the sun behind the wing. **I3 re-shot the 6th tile per the R3(a) order:** camera exactly on the sagittal plane (`mirrortop`, framing box forced symmetric about x = 0) and the sun exactly anti-camera (`backmirror`, which also mirrors the stage's rim light onto the plane). |
+| `wing-forgewing-apex-fire.png` | 4×2 — the §7 STATE LADDER. Row 1 is the CHASE read at cruise / power / ignition plus the bank; row 2 is the same ladder from the wing's own ventral normal (cold · cruise · power · ignition). The §7.2 clock is PINNED to a different value per tile | same | **The FIRE gate's centrepiece.** Row 1 is meant to look nearly identical three times — the radiator is ventral, so from behind and above the state ladder is WITHHELD (kill #44); row 2 is where the recruitment is legible, root-first and tip-last, with hard borders in every state |
+
+**On the L/R split in the OLD backlit planform (R3's eyes-on question (a)).** The previous
+capture used `wingtop`, which frames on the RIGHT wing's bounding box and therefore sits half
+a span off the mirror plane. §6.2's transmission term is view-dependent by construction —
+`d_eff = d_geo / max(|N·V|, 0.08)` — so **off the mirror plane the two wings MUST differ**;
+that anti-phase flare is the authored feature §2.6.4 asks for in a bank, not a bug. The
+falsifiable claim is the on-plane one, and it is now asserted: `wingfire.mjs` measures
+membrane mean luma left-half vs right-half on `mirrortop` + `backmirror` and requires ≤10%
+(**measured 0.0%**), with the same shot at `offaxistop` as its negative control (**11.9%**,
+fires). If that assertion ever goes missing or fails, MEMBRANE re-opens.
+
 | `wing-COMPARE-forgewing-tempest.png` | 2×3 sheet: forgewing vs the premium bar at PLANFORM / REAR CHASE / WING crop, identical camera logic | `node wing-lab/tools/wingshot.mjs --compare forgewing tempest` | **The blind A/B the I1 gate is scored on.** Same body, same stage, same angles — the only variable is the wing |
 
 | `quadprobe-forgewing-*.png` (5) | The traced pure-black silhouette at each probe angle, with every detected right-angle corner ringed in red | `node wing-lab/tools/wingquadprobe.mjs forgewing --debug` | **The "zero quadrilaterals" assertion, made visible.** When the probe fails, these say WHICH piece of geometry is the rectangle |

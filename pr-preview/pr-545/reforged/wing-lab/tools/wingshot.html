@@ -54,10 +54,25 @@
     // planform-as-a-shape and of any hole the skin has that front light hides.
     // A DirectionalLight only cares about its DIRECTION (position → its target at the
     // origin), so aiming it at −cameraDir works wherever the subject sits.
+    // 'backmirror' is the R3(a) HARNESS ORDER. The Round-3 backlit planform showed one
+    // wing crimson and one bright orange; the director ruled that physics (d_eff grows as
+    // |N·V| falls, so the two wings diverge the moment the camera leaves the mirror plane
+    // — an authored feature in a bank) PLUS an off-axis capture, and made the falsifiable
+    // separation mandatory: a symmetric article, under a camera EXACTLY on the mirror
+    // plane, with the sun EXACTLY on the camera axis, must render symmetric. Any residual
+    // is then a bug, not physics. Two things in the stage had to move for that claim to be
+    // testable at all: the key's +1.2 y nudge (which tilts the sun off the camera axis) and
+    // the rim light at x = −3 (which is not mirror-symmetric and paints one wing at 0.10).
+    // The rim stays, at the same intensity, moved onto the sagittal plane.
     const LIGHT = {
-      front: () => { hemi.intensity = 1.0; keyL.intensity = 1.7; rimL.intensity = 1.0; fillL.intensity = 0.4; keyL.position.set(2.5, 3, 4); },
+      front: () => { hemi.intensity = 1.0; keyL.intensity = 1.7; rimL.intensity = 1.0; fillL.intensity = 0.4;
+        keyL.position.set(2.5, 3, 4); rimL.position.set(-3, 1.5, -3); },
       back: (d) => { hemi.intensity = 0.14; keyL.intensity = 3.4; rimL.intensity = 0.10; fillL.intensity = 0.05;
+        rimL.position.set(-3, 1.5, -3);
         keyL.position.set(-d[0] * 10, -d[1] * 10 + 1.2, -d[2] * 10); },
+      backmirror: (d) => { hemi.intensity = 0.14; keyL.intensity = 3.4; rimL.intensity = 0.10; fillL.intensity = 0.05;
+        rimL.position.set(0, 1.5, -3);
+        keyL.position.set(-d[0] * 10, -d[1] * 10, -d[2] * 10); },
     };
     // Pure-black override — the I1 SILHOUETTE gate is judged in pure black, so the shape is
     // all there is to argue about. MeshBasicMaterial ignores every light, so the read cannot
@@ -77,6 +92,25 @@
       wingfront:{ dir: [0.0, 0.10, -1], up: [0,1,0], t: 'model', fill: 0.90 },     // head-on — dihedral + camber (whole span)
       wingside: { dir: [1.0, 0.10, 0.02], up: [0,1,0], t: 'model', fill: 0.90 },   // edge-on — thickness/plank test
       wingrear: { dir: [0.06, 0.18, 0.98], up: [0,1,0], t: 'wingR', fill: 0.94 },  // the chase-cam read of ONE wing
+      // I3 additions.
+      // `wingunder` is the FIRE money crop, and its direction is MEASURED, not guessed:
+      // it is the right wing's own ventral normal at glide, (0.795, −0.601, 0.085) — the
+      // roll angle at which the furnace is fully presented. The radiator is ventral (F1
+      // B2), so the emissive budget must be read where it can actually be seen; from the
+      // chase camera it reports ~0% and passes §7.1 for the wrong reason, and from a
+      // guessed "below and behind" it reports 7 pixels because the glide dihedral leaves
+      // the ventral face 84° off that axis — the wing is edge-on to it.
+      wingunder:{ dir: [0.795, -0.601, 0.085], up: [0,1,0], t: 'wingR', fill: 0.88 },
+      // …and the same read as a BEAUTY tile at the bank pose, where the ventral normal
+      // measures (0.380, −0.925, −0.023): the furnace rolling into view under the arm.
+      wingbank: { dir: [0.38, -0.90, 0.20], up: [0,1,0], t: 'wingR', fill: 0.86 },
+      // `mirrortop` is the R3(a) capture: dead overhead, framed on a box forced symmetric
+      // about x = 0 (`mirror`), so the camera sits exactly on the sagittal plane. With
+      // LIGHT.backmirror the sun is exactly anti-camera and L/R must match.
+      mirrortop: { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'model', fill: 0.84, mirror: true },
+      // …and the same view WITHOUT the mirror-plane constraint: the negative control for
+      // that assertion (kill #67). It must FIRE where the honest shot clears.
+      offaxistop:{ dir: [0.55, 1, 0.16], up: [0,0,-1], t: 'model', fill: 0.84 },
     };
 
     const WING_ROOTS = ['wingYokeL','wingYokeR','wingRigL','wingRigR','wingPivotL','wingPivotR','wingPivot2L','wingPivot2R'];
@@ -164,6 +198,16 @@
     // Any of the SEVEN wingDebug states is a legal pose here (the shipped studio only
     // maps glide/fold/bank and silently falls back to glide for the cycle states).
     window.wlStates = () => WING_DEBUG_STATES.slice();
+    function forgeFireOf(b) { let f = null;
+      b.group.traverse((x) => { if (!f && x.userData && x.userData.forgeFire) f = x.userData.forgeFire; });
+      return f; }
+    function applyFire(b, state, time) {
+      globalThis.__wlFireTime = (time != null) ? time : 0;
+      const f = forgeFireOf(b);
+      if (f) f.setState(state || 'cruise');
+      return f;
+    }
+    window.wlFireStates = (key, tier) => { const f = forgeFireOf(load(key, tier)); return f ? f.states.slice() : []; };
     window.wlMaxTier = (key) => maxTierFor(key);
     window.wlKeys = () => Object.keys(DRAGONS);
     // `framePose` freezes the camera on ANOTHER pose's bounding box — so a 5-frame cycle
@@ -171,6 +215,14 @@
     // rescales every tile and hides the very amplitude the strip exists to show).
     window.wlRender = (o) => {
       const b = load(o.key, o.tier);
+      // §7 THE FIRE STATE + A PINNED CLOCK. The three rhythms are functions of time, so a
+      // capture is only reproducible if the clock is frozen — same contract the surge
+      // montage uses. Default 0 so an un-annotated tile is still deterministic.
+      // `keepFire` exists because a MULTI-PASS caller (wlSurfaceScan) sets the state ONCE
+      // and then mutates on top of it; letting every pass re-run setState would repair the
+      // very known-bad a fire control exists to prove the probe can see.
+      globalThis.__wlFireTime = (o.fireTime != null) ? o.fireTime : 0;
+      if (!o.keepFire) applyFire(b, o.fire, o.fireTime);
       // a KNOWN-BAD mutation may be applied to any render (kill #67): the same code path
       // that produces the shipped frame must be able to produce the defective one.
       const _mu = (o.mutate && window.wlMutate) ? window.wlMutate(b, o.mutate) : null;
@@ -190,6 +242,23 @@
       // whole dragon, the wing shrinks to a third of the tile, and any pixel threshold
       // measured on it silently means something different from angle to angle.
       const hidden = [];
+      // FX are not SURFACE. Sprites and Points are already excluded from the framing box
+      // for exactly this reason; the §7.5 ember shed is a Mesh only because a rod needs an
+      // orientation, so it carries `wlFX` and obeys the same rule. It is hidden in the
+      // pure-black tiles (an additive spark is not silhouette — left in, 40 rods would put
+      // detached black rectangles outside the outline and the quad probe would be measuring
+      // FX) and in every masked SCAN (an ember drifts aft in the vertex shader, so a mask
+      // pass without that displacement would label the wrong pixels — a probe firing for
+      // the wrong reason is worse than no probe).
+      if (o.silhouette || o.hideFX) {
+        b.group.traverse((x) => { if (x.isMesh && x.visible && x.userData && x.userData.wlFX) { x.visible = false; hidden.push(x); } });
+      }
+      // ONE wing, for a measurement whose denominator is "one wing's projected area".
+      if (o.oneWing) {
+        const pl = (b.parts || {}).wingPivotL;
+        const rootL = pl && pl.isObject3D ? (pl.parent && pl.parent !== b.group ? pl.parent : pl) : null;
+        if (rootL) rootL.traverse((x) => { if ((x.isMesh || x.isSprite || x.isPoints) && x.visible) { x.visible = false; hidden.push(x); } });
+      }
       if (o.wingOnly) {
         const keep = new Set();
         // ONE level up from each wing root — that is the wings builder's own group (or a
@@ -204,7 +273,13 @@
         }
         b.group.traverse((x) => { if ((x.isMesh || x.isSprite || x.isPoints) && x.visible && !keep.has(x)) { x.visible = false; hidden.push(x); } });
       }
-      fit(a.dir, a.up, fb || targetBox(o.wingOnly ? 'wingR' : a.t), o.fill ?? a.fill, o.zoom || 1);
+      const fbox = fb || targetBox(o.wingOnly ? 'wingR' : a.t);
+      // `mirror`: force the framing box symmetric about x = 0 so the camera lands EXACTLY
+      // on the sagittal plane. Framing on the mesh box instead puts it wherever the head,
+      // tail and rider socket happen to average out — which is a few hundredths of a unit
+      // off-axis, and a few hundredths is all the |N·V| term needs to split L from R.
+      if (a.mirror) { const m = Math.max(Math.abs(fbox.min.x), Math.abs(fbox.max.x)); fbox.min.x = -m; fbox.max.x = m; }
+      fit(a.dir, a.up, fbox, o.fill ?? a.fill, o.zoom || 1);
       (LIGHT[o.light] || LIGHT.front)(a.dir);
       scene.overrideMaterial = o.silhouette ? BLACK : null;
       renderer.render(scene, camera);
@@ -288,7 +363,19 @@
     MASK_TIER.color.setScalar(0.5);
     const MASK_BONE = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
     const MASK_SKIRT = new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide });
+    // I3: the §7 fire panes get their own role. Without this they classify as wing
+    // STRUCTURE and silently inflate the bone mean the I2 polarity ratio divides by —
+    // which would make MEMBRANE look like it regressed (or, worse, like it improved).
+    // Magenta and cyan: no backdrop can be mistaken for either (sky is 143,184,221 —
+    // its red fails >200; pale is 207,214,228 — its green fails <40).
+    const MASK_FIRE = new THREE.MeshBasicMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
     const MASK_OFF = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+    // A mask material is HARNESS state, not article state. Tagging them means `wlMutate`
+    // can never write to one: while a mask pass is up, every mesh is wearing a mask, and a
+    // collector that finds materials by mesh role finds masks. A known-bad that recolours
+    // MASK_MEM silently deletes the membrane from the role map and the probe then reports
+    // n = 0 membrane pixels and "fires" for a reason that has nothing to do with the wing.
+    for (const m of [MASK_MEM, MASK_TIER, MASK_BONE, MASK_SKIRT, MASK_FIRE, MASK_OFF]) m.userData.wlMask = true;
     const _scanCv = document.createElement('canvas');
     // Every mesh that lives under a wing root — computed from the PARTS contract, not from
     // a userData tag, so the same probe classifies a shipped hero (tempest) and the lab
@@ -303,6 +390,7 @@
       const u = mesh.userData || {};
       if (u.wlSurface === 'membrane') return 'mem';
       if (u.wlSurface === 'skirt') return 'skirt';
+      if (u.wlSurface === 'fire') return 'fire';
       const m = mesh.material;
       if (!m) return null;
       const wm = (b.materials || {}).wingMat;
@@ -312,12 +400,29 @@
     function memMats(b) {
       const out = new Set(), ws = wingMeshSet(b);
       b.group.traverse((o) => { if (o.isMesh && roleOf(o, b, ws) === 'mem' && o.material) out.add(o.material); });
-      return [...out];
+      return [...out].filter((m) => !(m.userData && m.userData.wlMask));
+    }
+    // every material the §7 fire system owns (window + arteries + the ember shed), found
+    // through the shipped `flareMats` contract, so the probe cannot drift from the wiring.
+    function fireMats(b) {
+      const out = new Set();
+      for (const m of ((b.materials || {}).flareMats || [])) out.add(m);
+      b.group.traverse((o) => { if (o.isMesh && o.userData && (o.userData.wlSurface === 'fire' || o.userData.wlSurface === 'ember') && o.material) out.add(o.material); });
+      return [...out].filter((m) => !(m.userData && m.userData.wlMask));
     }
     // knobs a mutation may move — kept HERE, in the harness, never in the shipped module
     window.wlMutate = (b, mut) => {
       const undo = [];
       if (!mut) return undo;
+      for (const m of fireMats(b)) {
+        const su = (m.userData && m.userData.surfaceUniforms) || {};
+        for (const k of ['uFireGain', 'uFireStage', 'uFireLoad', 'uEmbGain', 'uEmbStage']) {
+          if (mut[k] != null && su[k]) { undo.push([su[k], 'value', su[k].value]); su[k].value = mut[k]; }
+        }
+        // …guarded: during a masked pass these meshes are wearing a MeshBasicMaterial
+        // role mask, which has no `emissive` at all.
+        if (mut.fireEmissive != null && m.emissive) { undo.push([m, 'emissive', m.emissive.clone()]); m.emissive.setHex(mut.fireEmissive); }
+      }
       for (const m of memMats(b)) {
         const su = (m.userData && m.userData.surfaceUniforms) || {};
         if (mut.color != null) { undo.push([m, 'color', m.color.clone()]); m.color.setHex(mut.color); }
@@ -337,8 +442,14 @@
       gl.width = S; gl.height = S; renderer.setSize(S, S, false);
       camera.aspect = 1; camera.updateProjectionMatrix();
       const b = load(o.key, o.tier);
+      // ORDER IS LOAD-BEARING: state first, mutation second, and neither is re-applied by
+      // the three passes below. Letting wlRender re-run either one is how a mask pass ends
+      // up rendering with a mutated MASK material — which is exactly the failure the whole
+      // negative-control apparatus exists to catch, in the apparatus itself.
+      applyFire(b, o.fire, o.fireTime);
       const undo = window.wlMutate(b, o.mutate);
-      window.wlRender({ ...o, mutate: null });
+      o = { hideFX: true, ...o, mutate: null, keepFire: true };   // a masked scan never measures FX
+      window.wlRender(o);
       _scanCv.width = S; _scanCv.height = S;
       const ctx = _scanCv.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(gl, 0, 0);
@@ -349,7 +460,8 @@
         if (!m.isMesh || !m.visible) return;
         const r = roleOf(m, b, ws);
         swapped.push([m, m.material]);
-        m.material = r === 'mem' ? MASK_MEM : r === 'bone' ? MASK_BONE : r === 'skirt' ? MASK_SKIRT : MASK_OFF;
+        m.material = r === 'mem' ? MASK_MEM : r === 'bone' ? MASK_BONE : r === 'skirt' ? MASK_SKIRT
+          : r === 'fire' ? MASK_FIRE : MASK_OFF;
       });
       // ACES must come OFF for the mask pass. Its input matrix mixes the channels
       // (pure green enters the RRT as 0.355, 0.908, 0.016), so a tone-mapped 0x00ff00
@@ -363,21 +475,21 @@
       // the mask colours can be confused with a backdrop: sky is 143,184,221, which fails
       // every "one channel over 200, the others under 40" test.)
       const tm = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
-      window.wlRender({ ...o, mutate: null });
+      window.wlRender(o);
       renderer.toneMapping = tm;
       ctx.drawImage(gl, 0, 0);
       const msk = ctx.getImageData(0, 0, S, S).data;
       // third pass: the authored tier, unlit, un-tone-mapped
-      for (const [m, mat] of swapped) if (m.material === MASK_MEM) m.material = MASK_TIER;
+      for (const [m, mat] of swapped) if (m.material === MASK_MEM) m.material = MASK_TIER;   // eslint-disable-line no-unused-vars
       renderer.toneMapping = THREE.NoToneMapping;
-      window.wlRender({ ...o, mutate: null });
+      window.wlRender(o);
       renderer.toneMapping = tm;
       ctx.drawImage(gl, 0, 0);
       const tiermap = ctx.getImageData(0, 0, S, S).data;
       for (const [m, mat] of swapped) m.material = mat;
       _unmutate(undo);
 
-      const acc = { mem: [], bone: [], skirt: [] };
+      const acc = { mem: [], bone: [], skirt: [], fire: [] };
       const byTier = [[], [], [], []];
       const blue = { n: 0, bgt: 0, sum: 0, max: 0 };
       const tile = new Map();
@@ -389,12 +501,13 @@
       // at downstroke that was, in fact, the sky. A probe that fires for the wrong reason
       // is worse than no probe (kill #67) — and it is the metric's own edge case that
       // proves it, not the article's.
-      const roles = new Uint8Array(S * S);      // 0 none · 1 mem · 2 bone · 3 skirt
+      const roles = new Uint8Array(S * S);      // 0 none · 1 mem · 2 bone · 3 skirt · 4 fire
       for (let i = 0, p = 0; i < S * S; i++, p += 4) {
         const R = msk[p], G = msk[p + 1], B = msk[p + 2];
         roles[i] = (R > 200 && G < 40 && B < 40) ? 1
           : (G > 200 && R < 40 && B < 40) ? 2
-          : (B > 200 && R < 40 && G < 40) ? 3 : 0;
+          : (B > 200 && R < 40 && G < 40) ? 3
+          : (R > 200 && B > 200 && G < 40) ? 4 : 0;
       }
       const eroded = new Uint8Array(S * S);
       for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) {
@@ -406,8 +519,46 @@
         if (ok) eroded[i] = r;
       }
       window.__lastRoles = eroded;      // debug hook for the role-overlay image
+      // ── §7.1 THE EMISSIVE BUDGET, measured ─────────────────────────────────
+      // Deliberately read off the UN-eroded map. Erosion exists to stop the membrane set
+      // importing sky through a one-pixel MSAA seam; applied to the fire set it would
+      // DELETE the artery lines outright (they are 1–3 px wide at the money crop) and the
+      // probe would report a budget of "almost nothing" and pass. The un-eroded set
+      // over-counts a fire pixel's border by one pixel instead — into the membrane, never
+      // into the sky — which biases every band test the HARD way. A budget probe that errs
+      // must err toward failing.
+      //
+      // A gated-off pane renders exactly (0,0,0): the fire material has a black albedo and
+      // its specular is zeroed in the patch, so "lit" is a real test and not a threshold
+      // hunt. FIRE_ON sits an order of magnitude above the char field's brightest pixel.
+      const FIRE_ON = 0.10;
+      let wingPx = 0, firePx = 0, fireOnPx = 0, clipPx = 0, wingSkirtPx = 0;
+      // §7.1's hue law measured where §12 kill #48 actually points — at the THERMAL RAMP.
+      // Every lit emissive pixel must satisfy R >= G >= B strictly; a single pixel with
+      // B > G (or a hue rotating toward green) is an automatic loss at this gate.
+      let fireBG = 0, fireGR = 0;
       for (let i = 0, p = 0; i < S * S; i++, p += 4) {
-        const role = eroded[i] === 1 ? 'mem' : eroded[i] === 2 ? 'bone' : eroded[i] === 3 ? 'skirt' : null;
+        const rr = roles[i];
+        if (!rr) continue;
+        if (rr === 1 || rr === 2 || rr === 4) wingPx++;
+        wingSkirtPx++;
+        const r = lit[p], g = lit[p + 1], bl = lit[p + 2];
+        // CLIPPED WHITE = a pixel that READS white: every channel at the ceiling. Counting
+        // "any channel saturated" instead would score a saturated deep orange as white and
+        // report ~30% on a wing whose core is correctly amber.
+        if (r >= 245 && g >= 245 && bl >= 245) clipPx++;
+        if (rr === 4) {
+          firePx++;
+          if ((0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255 > FIRE_ON) {
+            fireOnPx++;
+            if (bl > g) fireBG++;
+            if (g > r) fireGR++;
+          }
+        }
+      }
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const role = eroded[i] === 1 ? 'mem' : eroded[i] === 2 ? 'bone' : eroded[i] === 3 ? 'skirt'
+          : eroded[i] === 4 ? 'fire' : null;
         if (!role) continue;
         const r = lit[p], g = lit[p + 1], bl = lit[p + 2];
         const lum = (0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255;
@@ -453,8 +604,30 @@
         ? { n: a.length, mean: +(a.reduce((s, v) => s + v, 0) / a.length).toFixed(4),
             p50: +a.slice().sort((x, y) => x - y)[a.length >> 1].toFixed(4) }
         : null));
+      // ── R3(a) THE L/R ASSERTION ────────────────────────────────────────────
+      // Membrane mean luma left half vs right half of the frame. Only meaningful on the
+      // `mirrortop` capture (camera on the sagittal plane, sun anti-camera) — on any other
+      // angle a difference is the |N·V| term doing its job, which is the whole point of
+      // having a control that fires.
+      const half = { l: 0, ln: 0, r: 0, rn: 0 };
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const i = y * S + x;
+        if (eroded[i] !== 1) continue;
+        const p = i * 4;
+        const lum = (0.2126 * lit[p] + 0.7152 * lit[p + 1] + 0.0722 * lit[p + 2]) / 255;
+        if (x < S / 2) { half.l += lum; half.ln++; } else { half.r += lum; half.rn++; }
+      }
+      const memL = half.ln ? half.l / half.ln : 0, memR = half.rn ? half.r / half.rn : 0;
       return {
-        size: S, mem: stat(acc.mem), bone: stat(acc.bone), skirt: stat(acc.skirt),
+        size: S, mem: stat(acc.mem), bone: stat(acc.bone), skirt: stat(acc.skirt), fire: stat(acc.fire),
+        memL: +memL.toFixed(4), memR: +memR.toFixed(4), memLn: half.ln, memRn: half.rn,
+        lrDelta: +(Math.abs(memL - memR) / Math.max(1e-6, 0.5 * (memL + memR))).toFixed(4),
+        wingPx, wingSkirtPx, firePx, fireOnPx, clipPx,
+        fireBGFrac: fireOnPx ? +(fireBG / fireOnPx).toFixed(5) : 0,
+        fireGRFrac: fireOnPx ? +(fireGR / fireOnPx).toFixed(5) : 0,
+        emissiveFrac: wingPx ? +(fireOnPx / wingPx).toFixed(5) : null,
+        emissiveFracSkirt: wingSkirtPx ? +(fireOnPx / wingSkirtPx).toFixed(5) : null,
+        clippedFrac: wingPx ? +(clipPx / wingPx).toFixed(5) : null,
         tiers, tierSpread: tiers[0] > 0 ? +(tiers[3] / tiers[0]).toFixed(2) : null,
         authored,
         authoredSpread: (authored[3] && authored[0] && authored[3].mean > 0)
@@ -599,6 +772,10 @@
       }
       return r;
     };
+    // Ad-hoc probing hooks: the scene and the built model, so a one-off diagnostic can
+    // hide everything but one system and render it alone (which is how the I3 fire panes
+    // were proved to be rendering-and-bright while the camera was 84° off their normal).
+    window.__wlScene = scene; window.__wlBuilt = () => built;
     window.__ready = true;
   </script>
 </body>
