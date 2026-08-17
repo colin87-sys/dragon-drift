@@ -1,0 +1,177 @@
+// WING LAB geometry dump — PURE MATH, no WebGL, ~4 s.
+//
+//   cd reforged && node wing-lab/tools/wingdump.mjs <key> [tier]
+//
+// Builds the dragon through the same buildDragonModel the game uses and prints the numbers
+// the wing spec is written in (wing-lab/90-SYNTHESIS.md): the §3 landmark table in span
+// fractions measured from the BODY MIDLINE, the elbow's included angle, the §4 spar taper
+// against its two-regime table, the §5.1 area shares + aspect ratio, the finger rhythm, the
+// triangle/draw budget split, and the span/body ratio.
+//
+// WHY it exists: "geometry numbers beat critic pixels" (§11). A render can be argued with;
+// t = worldX / hs cannot. Run this BEFORE wingshot, and when a critic's pixels disagree
+// with it, re-shoot on a clean stage rather than tuning to the pixels.
+import { register } from 'node:module';
+register('../../tools/three-resolver.mjs', import.meta.url);
+
+const ctx2d = { createRadialGradient: () => ({ addColorStop() {} }), createLinearGradient: () => ({ addColorStop() {} }),
+  fillRect() {}, clearRect() {}, strokeRect() {}, beginPath() {}, arc() {}, moveTo() {}, lineTo() {}, closePath() {},
+  fill() {}, stroke() {}, set fillStyle(v) {}, set strokeStyle(v) {}, set shadowColor(v) {}, set shadowBlur(v) {},
+  set lineWidth(v) {}, set globalAlpha(v) {}, set lineCap(v) {} };
+globalThis.window = globalThis;
+if (!globalThis.addEventListener) globalThis.addEventListener = () => {};
+globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {}, createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }) };
+if (!globalThis.localStorage) { const s = new Map(); globalThis.localStorage = { getItem: (k) => s.get(k) ?? null, setItem: (k, v) => s.set(k, String(v)), removeItem: (k) => s.delete(k), clear: () => s.clear() }; }
+if (!globalThis.location) globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
+if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
+
+const THREE = await import('three');
+const { DRAGONS } = await import('../../js/dragons.js');
+const { ascendedDef, maxTierFor } = await import('../../js/ascension.js');
+const { buildDragonModel } = await import('../../js/dragonModel.js');
+const { setFlapDebugPose } = await import('../../js/wingDebugPose.js');
+
+const KEY = process.argv[2] || 'forgewing';
+const TIER = process.argv[3] != null ? Number(process.argv[3]) : maxTierFor(KEY);
+const def = ascendedDef(DRAGONS[KEY], TIER, 0);
+const model = buildDragonModel(def);
+const P = model.parts || {};
+model.group.updateWorldMatrix(true, true);
+
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const len = (a) => Math.hypot(a[0], a[1], a[2]);
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b) / (len(a) * len(b))))) * 180 / Math.PI;
+const f3 = (v) => (v >= 0 ? ' ' : '') + v.toFixed(3);
+
+const dump = model.group.userData.forgewingDump || (() => {
+  // walk for a builder that published one (the wing group carries it)
+  let found = null;
+  model.group.traverse((o) => { if (!found && o.userData && o.userData.forgewingDump) found = o.userData.forgewingDump; });
+  return found;
+})();
+
+console.log(`\n═══ ${KEY} f${TIER} — WING GEOMETRY DUMP (pure math) ═══`);
+
+// ── triangles + draws ─────────────────────────────────────────────────────────
+const WING_ROOTS = ['wingPivotL', 'wingPivotR', 'wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR', 'wingPivot2L', 'wingPivot2R'];
+const countTris = (root) => { let t = 0, d = 0; root.traverse((o) => { if (o.isMesh && o.geometry) { const g = o.geometry; t += (g.index ? g.index.count : g.attributes.position.count) / 3; d++; } }); return [t, d]; };
+let wingTris = 0, wingDraws = 0;
+for (const k of WING_ROOTS) { const n = P[k]; if (n && n.isObject3D) { const [t, d] = countTris(n); wingTris += t; wingDraws += d; } }
+let allTris = 0, allDraws = 0; { const [t, d] = countTris(model.group); allTris = t; allDraws = d; }
+// anything the wings builder parked OUTSIDE the pivots (a body-frame cowl is static through
+// the flap by law, so it is not under wingPivot* — count it, or the budget lies)
+const pivotSet = new Set(WING_ROOTS.map((k) => P[k]).filter(Boolean));
+console.log(`\nTRIANGLES  wing pair (under wingPivot*) ${Math.round(wingTris)} in ${wingDraws} draws`);
+console.log(`           whole form ${Math.round(allTris)} in ${allDraws} draws   (budget: pair ≤3000 target / 4000 ceiling · form ≤6000)`);
+
+if (!dump) { console.log('\n(no forgewingDump on this model — the §3 landmark section is forgewing-only)\n'); process.exit(0); }
+
+const { hs, rootX, landmarks: L, digits, tips, fan, propatagium } = dump;
+const tOf = (p) => (p[0] + rootX) / hs;   // wing-local x → span fraction from the BODY MIDLINE
+
+// ── §3 landmark table ─────────────────────────────────────────────────────────
+console.log(`\n§3 LANDMARKS   (hs = ${hs.toFixed(3)} = spanScale · wingHalfSpan; t = worldX / hs from the body midline)`);
+console.log('  landmark          t        spec     Δ       y/hs      z/hs');
+const SPEC = [['shoulder', 0.090], ['elbow', 0.280], ['wrist', 0.500], ['mcp3', 0.680], ['pip3', 0.830], ['tip3', 1.000]];
+let worstT = 0;
+for (const [name, want] of SPEC) {
+  const p = L[name], t = tOf(p), d = t - want;
+  worstT = Math.max(worstT, Math.abs(d));
+  console.log(`  ${name.padEnd(10)} ${t.toFixed(4)}   ${want.toFixed(3)}   ${f3(d)}   ${f3(p[1] / hs)}   ${f3(p[2] / hs)}`);
+}
+console.log(`  worst landmark error: ${worstT.toFixed(4)} span fractions  ${worstT < 0.002 ? '✓ MATCHES §3' : '✗ OFF §3'}`);
+
+const gaps = [];
+let prev = 0;
+for (const [, want] of SPEC) { gaps.push(want - prev); prev = want; }
+gaps.push(1.000 - 0.830);
+const realGaps = [tOf(L.shoulder), tOf(L.elbow) - tOf(L.shoulder), tOf(L.wrist) - tOf(L.elbow),
+  tOf(L.mcp3) - tOf(L.wrist), tOf(L.pip3) - tOf(L.mcp3), tOf(L.tip3) - tOf(L.pip3)];
+console.log(`  gap rhythm root→tip: ${realGaps.map((g) => g.toFixed(3)).join(' · ')}   (§3: 0.090 · 0.190 · 0.220 · 0.180 · 0.150 · 0.170)`);
+console.log(`  ph1 ${realGaps[4].toFixed(3)} vs ph2 ${realGaps[5].toFixed(3)}  →  ${realGaps[5] > realGaps[4] ? '✓ ph2 OUT-RUNS ph1 (§12 kill #3 clear)' : '✗ monotonic taper inside the finger'}`);
+
+// ── §3/§12 the elbow must never read straight ─────────────────────────────────
+const inc = ang(sub(L.shoulder, L.elbow), sub(L.wrist, L.elbow));
+console.log(`\n§3 ELBOW   included angle S–E–K = ${inc.toFixed(1)}°   (spec ≈150° at full spread)  ${inc < 170 ? '✓ never straight (§12 kill #10 clear)' : '✗ reads straight'}`);
+
+// ── the "‹" flare ─────────────────────────────────────────────────────────────
+const zs = [['shoulder', L.shoulder], ['elbow', L.elbow], ['wrist', L.wrist], ['mcp3', L.mcp3], ['pip3', L.pip3], ['tip3', L.tip3]];
+const fwd = Math.min(...zs.map(([, p]) => p[2])) / hs, aft = Math.max(...zs.map(([, p]) => p[2])) / hs;
+const fwdAt = zs.find(([, p]) => Math.abs(p[2] / hs - fwd) < 1e-9)[0];
+console.log(`§2.6 LEADING EDGE  forward-most ${fwd.toFixed(3)}·hs at ${fwdAt} · aft-most ${aft.toFixed(3)}·hs at the tip`);
+console.log(`           ${fwdAt === 'wrist' && aft > 0 ? '✓ "‹" flare-forward-then-hook (§12 kill #12 clear)' : '✗ monotone aft-swept LE'}`);
+
+// ── §4 spar taper ─────────────────────────────────────────────────────────────
+console.log(`\n§4 SPAR    root diameter ${(2 * dump.r0).toFixed(3)} = ${(2 * dump.r0 / hs).toFixed(4)}·hs`);
+const humL = len(sub(L.elbow, L.shoulder));
+console.log(`           humerus length ${humL.toFixed(3)} → slenderness ${(humL / (2 * dump.r0)).toFixed(2)} : 1   (spec ≈4.25; §12 kill #5 fails past 6:1)`);
+console.log('           t      0.09   0.28   0.50   0.77   0.92     (spec 1.00 / 0.86 / 0.62 / 0.33 / 0.15)');
+console.log(`           d/d0   ${[0.09, 0.28, 0.50, 0.77, 0.92].map((t) => dump.sparF(t).toFixed(2)).join('   ')}`);
+
+// ── §5 planform: area shares + aspect ratio ───────────────────────────────────
+// Shoelace on the XZ projection of each surface's outline (the planform the top view shows).
+const shoe = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[2] - q[0] * p[2]; } return Math.abs(a) / 2; };
+const N = 24;
+const armOutline = [];
+for (let i = 0; i <= N; i++) armOutline.push(dump.armLead(i / N));
+for (let i = N; i >= 0; i--) armOutline.push(dump.armTrail(i / N));
+const armA = shoe(armOutline);
+const handOutline = [L.wrist, ...tips, L.carpalVI];
+const handA = shoe(handOutline);
+const proA = (2 / 3) * (propatagium ? propatagium.depth : 0) * len(sub(L.wrist, L.shoulder));
+const one = armA + handA + proA;
+console.log(`\n§5.1 AREA (XZ planform, one wing)   propatagium ${(100 * proA / one).toFixed(1)}% · armwing ${(100 * armA / one).toFixed(1)}% · handwing ${(100 * handA / one).toFixed(1)}%`);
+console.log(`                                   (spec  ~7% · ~50% · ~43%)`);
+const AR = (2 * hs) ** 2 / (2 * one);
+console.log(`     aspect ratio (span² / pair area) = ${AR.toFixed(2)}   (spec ≈8 — higher = narrower/tauter)`);
+const rootChord = len(sub(dump.armTrail(0), dump.armLead(0)));
+console.log(`     root chord ${rootChord.toFixed(3)} = ${(rootChord / hs).toFixed(3)}·hs · mean chord ${(one / hs).toFixed(3)} · taper ${(one / hs / rootChord).toFixed(2)}`);
+
+// ── bay widths: the inboard must be ≈2× any finger bay (§12 kill #13) ─────────
+const bayW = [];
+for (let i = 0; i < tips.length - 1; i++) bayW.push(len(sub(tips[i + 1], tips[i])));
+const inboardW = len(sub(L.bodyAnchor, L.carpalVI));
+console.log(`\n§5.1 BAY WIDTHS   inboard ${inboardW.toFixed(3)} · finger bays ${bayW.map((w) => w.toFixed(3)).join(' / ')}`);
+console.log(`     inboard ÷ widest finger bay = ${(inboardW / Math.max(...bayW)).toFixed(2)}×   ${inboardW / Math.max(...bayW) >= 1.8 ? '✓ ≈2× (§12 kill #13 clear)' : '✗ equal-width bays'}`);
+console.log(`     finger length fractions ${fan.len.join(' / ')} · fan azimuths ${fan.az.join('° / ')}° · droop ${fan.droop.join(' / ')} rad`);
+
+// ── §5.2 the propatagium is a sail, not piping ────────────────────────────────
+if (propatagium) console.log(`\n§5.2 PROPATAGIUM  depth ${propatagium.depth.toFixed(3)} = ${(propatagium.depth / propatagium.chordAtElbow).toFixed(3)} × chord@elbow (${propatagium.chordAtElbow.toFixed(3)})   (spec 0.20c; §12 kill #15 = 2-px piping)`);
+
+// ── posed extents: span/body + the fold ratio ─────────────────────────────────
+console.log('\nPOSED EXTENTS  (world space, through the shipped poser)');
+const wbox = () => { const b = new THREE.Box3(); b.makeEmpty(); for (const k of WING_ROOTS) if (P[k] && P[k].isObject3D) b.expandByObject(P[k]); return b; };
+const rows = [];
+for (const pose of ['glide', 'apex', 'downstroke', 'fold']) {
+  setFlapDebugPose(P, def.model, pose);
+  model.group.updateWorldMatrix(true, true);
+  const b = wbox(), s = new THREE.Vector3(); b.getSize(s);
+  const mb = new THREE.Box3().setFromObject(model.group), ms = new THREE.Vector3(); mb.getSize(ms);
+  rows.push({ pose, spanX: s.x, riseY: s.y, chordZ: s.z, bodyZ: ms.z });
+}
+for (const r of rows) console.log(`  ${r.pose.padEnd(11)} spanX ${r.spanX.toFixed(2)}  riseY ${r.riseY.toFixed(2)}  chordZ ${r.chordZ.toFixed(2)}  bodyZ ${r.bodyZ.toFixed(2)}  span/body ${(r.spanX / r.bodyZ).toFixed(2)}`);
+console.log(`  fold ÷ glide span = ${(rows[3].spanX / rows[0].spanX).toFixed(3)}   (§8.3 target ≤0.55 — I4 owns the furl; I1 inherits the shipped rollFold)`);
+console.log(`  span/body at glide ${(rows[0].spanX / rows[0].bodyZ).toFixed(2)}   ${rows[0].spanX / rows[0].bodyZ >= 1.0 ? '✓ at/over the shipped premium bar (§12 kill #63 clear)' : '✗ under the premium bar'}`);
+
+// ── ROOT PEEL ────────────────────────────────────────────────────────────────
+// How far the membrane's INBOARD-AFT corner travels over the beat. A vertex that must read
+// as attached to the body cannot live in a group that rotates with the limb (the Revenant
+// shard lesson), so a plagiopatagium anchored far down the flank buys planform area with
+// root travel. This number prices that trade so I4 can argue with it instead of guessing.
+if (dump && dump.landmarks.bodyAnchor) {
+  const a = dump.landmarks.bodyAnchor;
+  const local = new THREE.Vector3(a[0], a[1], a[2]);
+  const seen = [];
+  for (const pose of ['glide', 'recovery', 'apex', 'downstroke', 'settle']) {
+    setFlapDebugPose(P, def.model, pose);
+    model.group.updateWorldMatrix(true, true);
+    seen.push(local.clone().applyMatrix4(P.wingPivotR.matrixWorld));
+  }
+  let travel = 0;
+  for (let i = 0; i < seen.length; i++) for (let j = i + 1; j < seen.length; j++) travel = Math.max(travel, seen[i].distanceTo(seen[j]));
+  const bodyLen = rows[0].bodyZ;
+  console.log(`\nROOT PEEL   inboard-aft membrane corner travels ${travel.toFixed(2)} over the cycle = ${(100 * travel / bodyLen).toFixed(1)}% of body length`);
+  console.log(`            anchor at wing-local z ${a[2].toFixed(2)} (lever ${len(a).toFixed(2)} from the pivot)`);
+}
+console.log('');

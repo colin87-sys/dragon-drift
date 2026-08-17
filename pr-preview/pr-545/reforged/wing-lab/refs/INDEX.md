@@ -80,6 +80,54 @@ Dial sets shown are the apex `model` blocks in `js/dragons.js`
 | `wing-tempest-apex-cycle.png` | as above | tempest f3 flap set (`rootAmp .80, apexRoot .30, midAmp .32, tipAmp .80, midLag 1.05, tipLag 2.1, glidePow 1.1, tipApexSweep .26`) | same | same — **and the only wing on the roster with `tipApexSweep`** |
 | `wing-tempest-apex-detail.png` | as above | tempest f3 | same | same |
 
+---
+
+## B2. IN-ENGINE renders of the WING-LAB test article (increment I1)
+
+**These are the I1 deliverable, not the bar.** `forgewing` ("Basalt Forgewing") is the
+`90-SYNTHESIS.md` wing built on the **Thunderhead Tempest's shipped torso/head/tail recipe,
+unchanged** — every body, palette and motion dial is the Tempest's, and the ONLY difference
+is `parts.wings: 'basaltForgeWings'`. So anything that differs from a `wing-tempest-*` sheet
+at a matched angle IS the wing. Builder: `reforged/js/dragonForgewing.js`.
+
+I1 scope is geometry only — skeleton, landmarks, planform, flat-tiered bays, hem, claw
+cluster, propatagium, cowl. **No membrane shading, no fire, no new flap dials** (I2/I3/I4).
+
+Run everything from `/home/user/dragon-drift/reforged`:
+
+| File | What it is | Regenerate | Evidence OF |
+|---|---|---|---|
+| `wing-forgewing-apex-planform.png` | 5 tiles: PLANFORM (top) · HEAD-ON (dihedral/camber) · EDGE-ON (thickness) · **SILHOUETTE planform** · **SILHOUETTE wing**, the last two rendered in PURE BLACK | `node wing-lab/tools/wingshot.mjs forgewing` | **The I1 SILHOUETTE gate.** The "‹" leading edge, the 4-digit fan opening at the knuckles, the scalloped trailing edge, the swept-pointed tip — with nothing but shape to argue about |
+| `wing-forgewing-apex-poses.png` | 3 tiles: SPREAD (glide) · MID-FLAP (downstroke) · FOLDED (fold), one wing broadside, one shared camera | same | **The I1 STRUCTURE gate.** Arm vs hand articulation; that no membrane tears at the wrist or the root across the stroke |
+| `wing-forgewing-apex-cycle.png` | 5-tile strip glide → recovery → apex → downstroke → settle from the rear-chase cam, ONE frozen camera | same | The money angle. Also where the measured 0.77-unit ROOT PEEL of the inboard-aft membrane corner would show if it read as a detaching shard |
+| `wing-forgewing-apex-detail.png` | 3×2: wing 2.2× pale · 4× pale · 2.2× dark · chase read on sky · **BACKLIT (sun behind)** · **BACKLIT planform** | same | Surface craft at shop distance; the two backlit tiles are the §11-mandated harness addition — I2's membrane gate cannot be judged without the sun behind the wing |
+| `wing-COMPARE-forgewing-tempest.png` | 2×3 sheet: forgewing vs the premium bar at PLANFORM / REAR CHASE / WING crop, identical camera logic | `node wing-lab/tools/wingshot.mjs --compare forgewing tempest` | **The blind A/B the I1 gate is scored on.** Same body, same stage, same angles — the only variable is the wing |
+
+The **pure-math** companion to these pixels (run it FIRST; geometry numbers beat critic
+pixels):
+
+```
+node wing-lab/tools/wingdump.mjs forgewing     # §3 landmark table, elbow angle, §4 taper,
+                                               # §5.1 area shares + AR, bay widths, tri/draw
+                                               # split, span/body, root peel   (~4 s, no WebGL)
+node tools/wingsymprobe.mjs forgewing          # mirror gate — must be Δ0.000
+node tools/tricount.mjs --ci                   # budget gate
+node tools/tiershots.mjs forgewing             # the 4-rung ladder → /tmp/tier-forgewing.png
+```
+
+### Two harness changes landed with I1
+
+- **BACKLIT light mode** (`wlRender({ light: 'back' })`) — the sun is placed on the far side
+  of the subject from the camera and ambient is pulled to 0.14. Required by §11; without it
+  the I2 membrane gate has nothing to judge, because transmission only fires with the sun
+  behind and the backlit↔front-lit polarity flip is itself a pass criterion.
+- **Pure-black SILHOUETTE mode** (`wlRender({ silhouette: true })`) — a `MeshBasicMaterial`
+  scene override, so the shape cannot be flattered or rescued by the stage. I1 is gated on
+  silhouette in pure black.
+
+Both default OFF, so every pre-existing tile renders exactly as before. The shipped-wing
+sheets in §B were **not** re-run and still show the older 3-tile / 4-tile layouts.
+
 ### Reading the sheets — the driver's own conventions
 
 - **Angles** (`wing-lab/tools/wingshot.html:48-60`): `wingtop` = planform · `wingfront` =

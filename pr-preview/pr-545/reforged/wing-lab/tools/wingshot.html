@@ -37,12 +37,32 @@
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 400);
-    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const hemi = new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0); scene.add(hemi);
     const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
     const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
     const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
 
     const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a, sky: 0x8fb8dd };
+
+    // ── LIGHT MODES ───────────────────────────────────────────────────────────
+    // 'front' (default) is the shipped neutral stage, byte-identical to before.
+    // 'back' is THE BACKLIT TILE the spec requires (90-SYNTHESIS §11): the sun placed on the
+    // FAR side of the subject from the camera, ambient pulled almost to nothing. A membrane
+    // gate cannot be judged without it — transmission fires ONLY with the sun behind, and
+    // the backlit↔front-lit polarity flip (membrane:bone ≈0.35 → ≈3.3) is itself a pass
+    // criterion. Even at I1, before any shading exists, it is the cleanest read of the
+    // planform-as-a-shape and of any hole the skin has that front light hides.
+    // A DirectionalLight only cares about its DIRECTION (position → its target at the
+    // origin), so aiming it at −cameraDir works wherever the subject sits.
+    const LIGHT = {
+      front: () => { hemi.intensity = 1.0; keyL.intensity = 1.7; rimL.intensity = 1.0; fillL.intensity = 0.4; keyL.position.set(2.5, 3, 4); },
+      back: (d) => { hemi.intensity = 0.14; keyL.intensity = 3.4; rimL.intensity = 0.10; fillL.intensity = 0.05;
+        keyL.position.set(-d[0] * 10, -d[1] * 10 + 1.2, -d[2] * 10); },
+    };
+    // Pure-black override — the I1 SILHOUETTE gate is judged in pure black, so the shape is
+    // all there is to argue about. MeshBasicMaterial ignores every light, so the read cannot
+    // be rescued (or flattered) by the stage.
+    const BLACK = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
     // Angles. `t` = which bounding box to frame ('model' | 'wingR').
     const ANGLES = {
@@ -163,7 +183,11 @@
       b.group.updateMatrixWorld(true);
       scene.background = new THREE.Color(BG[o.bg] ?? BG.pale);
       fit(a.dir, a.up, fb || targetBox(a.t), o.fill ?? a.fill, o.zoom || 1);
+      (LIGHT[o.light] || LIGHT.front)(a.dir);
+      scene.overrideMaterial = o.silhouette ? BLACK : null;
       renderer.render(scene, camera);
+      scene.overrideMaterial = null;
+      LIGHT.front();
       return true;
     };
     // Report the posed wing's world-space extents — geometry ground truth beside the pixels.

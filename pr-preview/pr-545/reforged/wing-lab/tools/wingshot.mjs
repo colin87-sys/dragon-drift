@@ -88,10 +88,14 @@ for (const key of KEYS) {
     { r: { ...base, pose: 'fold',       angle: 'wing', framePose: 'glide', fill: 0.55 }, label: 'FOLDED (fold)' },
   ], `${OUT}wing-${key}-${tag}-poses.png`);
 
-  await sheet(3, 1, [
-    { r: { ...base, pose: 'glide', angle: 'wingtop'   }, label: 'PLANFORM (top)' },
+  // + the two PURE-BLACK tiles: increment I1 is gated on SILHOUETTE in pure black, so the
+  // sheet has to be able to show the shape with nothing else on it.
+  await sheet(5, 1, [
+    { r: { ...base, pose: 'glide', angle: 'wingtop', fill: 0.80 }, label: 'PLANFORM (top)' },
     { r: { ...base, pose: 'glide', angle: 'wingfront' }, label: 'HEAD-ON (dihedral/camber)' },
     { r: { ...base, pose: 'glide', angle: 'wingside'  }, label: 'EDGE-ON (thickness)' },
+    { r: { ...base, pose: 'glide', angle: 'wingtop', fill: 0.80, silhouette: true }, label: 'SILHOUETTE planform' },
+    { r: { ...base, pose: 'glide', angle: 'wing', fill: 0.50, silhouette: true }, label: 'SILHOUETTE wing' },
   ], `${OUT}wing-${key}-${tag}-planform.png`);
 
   await sheet(5, 1, [
@@ -102,11 +106,16 @@ for (const key of KEYS) {
     { r: { ...base, pose: 'settle',     angle: 'rear', framePose: 'settle', fill: 0.78 }, label: '5 settle' },
   ], `${OUT}wing-${key}-${tag}-cycle.png`);
 
-  await sheet(4, 1, [
+  // 3×2 — the last two tiles are THE BACKLIT PAIR the spec makes mandatory (§11): the sun
+  // behind the wing. I2's membrane gate is un-judgeable without it, and even at I1 it is the
+  // cleanest read of the planform's true outline and of any hole in the skin.
+  await sheet(3, 2, [
     { r: { ...base, pose: 'glide', angle: 'wing', fill: 0.55, zoom: 2.2 }, label: 'wing 2.2× pale' },
     { r: { ...base, pose: 'glide', angle: 'wing', fill: 0.55, zoom: 4.0 }, label: 'wing 4× pale' },
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wing', fill: 0.55, zoom: 2.2 }, label: 'wing 2.2× dark' },
     { r: { key, tier, bg: 'sky',  pose: 'glide', angle: 'wingrear' },         label: 'chase read, sky' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wing', fill: 0.50, light: 'back' }, label: 'BACKLIT (sun behind)' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingtop', fill: 0.80, light: 'back' }, label: 'BACKLIT planform' },
   ], `${OUT}wing-${key}-${tag}-detail.png`);
 
   const rows = [];
