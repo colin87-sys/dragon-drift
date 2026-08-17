@@ -414,3 +414,125 @@ same six tiles PLUS fire-state tiles):**
    the saw fix from (b), and the two lesson files (specular finding; probe law already
    assigned R2).
 
+---
+## Round 4 — I3 (forgewing) — FIRE; SILHOUETTE + STRUCTURE + MEMBRANE re-checked
+
+**Compared against:** the fire canon (§7 T8 laws: the wing is the dark mass; ornament dark,
+warmth on the plating; glow internal, intermittent, a build-up; the silhouette's job is
+eclipse) and the bar's fire answer (the Tempest's always-on bolt frame) — at the six detail
+tiles, the 4×2 fire sheet (`wing-forgewing-apex-fire.png`), the cycle strip, the planform
+sheet, and the COMPARE. **Verified with my own runs, not the builder's report:** `tricount
+--ci` exit 0, Eternal **5,477**; `wingdump` pair **3,156 in 32 draws**, landmark Δ0.0000,
+root drift 0.000 u, span/body 1.172, fold 0.977, authored emissive per state 0.95 / 3.59 /
+7.71 / 10.92% with every zone terminating at **t = 0.498**, zone A 2.93%, zone B 1.42%,
+recruitment monotone root-first. Coordinator's pixel numbers (1.02 / 3.29 / 6.47 / 9.20%,
+clipped ≤0.20%, B−R = 0, mirror-plane L/R Δ 0.0% with the off-axis control firing at 11.9%)
+are consistent with everything I can reproduce and with the INDEX rows.
+
+### Round 4 — FIRE — **LOSS**
+
+Verdict: at every judged tile but one, ours — and it is not close. The chase row is three
+near-identical black wings, which is exactly the design: the state ladder is WITHHELD from
+the player's own camera (kill #44 honoured literally), and the bank tile pays it off — one
+hard-bordered pane rolling into view on a black animal is worth more than everything the
+Tempest's permanently-lit frame has ever done. The ventral ladder is the best fire read in
+this repo: recruitment root-first with the tip dark in every state, borders that are abrupt
+skips, arteries that are the lit members of the existing dark doublets dying before 60%
+span, a trailing edge that never glows, embers that are rods off the thin structures. The
+edge-on planform tile catching the window in grazing flare confirms the ε(θ) law is live in
+pixels. Judged against the canon, ours is the only wing in this engine Balerion's law would
+recognise: the wing is the dark mass, and the fire is an event.
+
+**And the gate is lost anyway, on the cold tile.** The cold state ships a **closed bright
+amber ring** — a drawn "O" with a dark interior, the single lit element in the tile. That is
+an outline made of light: kill #33's chrome tell in fire clothing, #46's closed loop at
+window scale, now codified as **kill #68**. The builder saw it, named it, and shipped it
+because F1 B6 says "dim rim only, core dark" — the defect traces to my own adoption of that
+clause into §7.1, so the spec is amended (R4) and the clause overruled: **cold = OFF or a
+single core-coal ≤0.3% at the pane's thickest point — the last coal in a banked furnace,
+never a ring.** The precedent is Round 1: a wing that beats the bar at four tiles and ships
+one kill-item does not win a blind; a judge with labels stripped asks "why is there a neon
+ring under its arm?" and picks the wing without one. One state, one authoring change, and
+the gate stays shut until the re-render shows it.
+
+### SILHOUETTE — re-check **HELD**. STRUCTURE — re-check **HELD**. MEMBRANE — re-check **HELD**.
+
+Black tiles unchanged in kind (knuckled "‹", scallops, claw-cluster bump, tip hook, zero
+rectangles); the fire overlays added no silhouette noise. Landmark dump Δ0.0000; taper,
+elbow 151°, fan and claw cluster all intact at 4×. MEMBRANE did not regress and its one open
+question closed properly: polarity 0.428 → 11.480, gain ×1.63, tiers 3.68×, membrane B−R
+0.0000 — and the R3(a) order was executed exactly (mirror-plane re-shoot, L/R Δ 0.0%, ≤10%
+assertion live, off-axis negative control firing at 11.9% per kill #67). The old L/R split
+is what I judged it to be: a capture artifact, now fenced by an assertion that can fail.
+R3's watch item on T3's dark floor is closed — the 2.2× dark tile keeps the wing's FORM
+through the warm hem gradients; dark-on-dark survives.
+
+**Biggest remaining gap:** the fold. 0.977 — SPREAD and FOLDED are still the same
+photograph, on an article whose §1 identity promises the first working premium fold in the
+roster. Once the cold ring dies, every remaining defect on this wing is motion: the furl,
+the slack-scalar binding (#29's other half), the acting poses. The article is a finished
+photograph; I4 must make it an animal.
+
+**Ruled-out tells present:** **#68** (the cold ring — added this round per the live-list
+rule, exhibited in the ventral cold tile). Held-open debts, unchanged: #52 (fold 0.977 —
+I4), #29's binding half (wrinkle statics frozen through the beat — I4, gate-fails I4 if
+amplitude does not visibly differ between downstroke-bottom and upstroke-top). Watch items,
+not kills: the secondary slots repeat as similar parallel lozenges at 3× (the picket-fence
+law in fire clothing — variety fix ordered below); embers wash toward white over the bright
+sky (real blending limitation, requirement set below); both invisible at the chase tiles.
+
+**RULING 1 — the cold rim: OVERRULED, kill #68 codified, §7.1 + §8.3 amended.** F1 B6's
+"dim rim only" was a design sketch, not physics — a radiator that banks its fire dims to a
+shrinking core (the toucan law's OFF-below-threshold), not to a luminous border around
+nothing. The builder's instinct was right and its concession is accepted: this is #33 in
+miniature, and miniature does not exempt an outline. Cold-state pixel budget under the
+amendment: ≤0.5% (measured cold was 1.02% — the ring pixels ARE the overage).
+
+**RULING 2 — the ash omission: RATIFIED, §7.3 amended.** Keeping ash off the inter-finger
+membrane pockets was the correct unilateral call and is now law: ash territory is the
+skeleton and body-frame pieces only (bone up-faces, windward spar sides, knuckle-root
+pockets between finger ORIGINS, wrist gusset, skirt hem) — never the membrane bays. Where
+F1's generic-wing ash spec collides with the §5.5 darkest-element law, the value hierarchy
+wins: the membrane's dark is the legibility spine that buys both the front-lit read and the
+11.5× backlit inversion. Third instance of the pattern (R1 span, R3 sheen, R4 ash): the
+builder isolates a real conflict inside my spec, the finding wins, the spec amends, I own it.
+
+**RULING 3 — triangles and draws: the I4 FREEZE, §11 amended, ruled now as asked.** The
+trajectory is real: 4,613 → 5,477 form (91% of ceiling), pair 3,156 past my own 3,000
+target, draws 26 → 32 — the wrong direction twice. I4's remaining scope is rig, pose, and
+shader work; it has no legitimate triangle appetite. Therefore: **I4 adds net-zero
+triangles and consolidation is an ENTRY condition, not an exit hope** — the fire overlays
+collapse to ≤2 emissive buckets per wing plus one ember system, states switched by
+uniforms/masks, never per-state meshes. Hard lines at the I4 COST gate: form ≤5,600 ·
+pair ≤3,200 · draws ≤20/pair. Cut orders (tris R4, ALU R3) are in §11; nothing else may be
+cut without a ruling. I4 designs into a freeze, not into a wall — and the freeze is the wall,
+moved to where I can see it.
+
+**Decision: I3.1, scoped and small — then I4.** A lost gate must be re-won on a delivery
+(R1 precedent), and I4's own fold choreography ends in the cold state (§8.3 step 5), so the
+fix must land before any fold capture exists. Sequencing: I3.1 commits first; the FIRE
+re-judge (Round 5) happens on its re-rendered fire sheet; the builder may begin I4's build
+immediately after the I3.1 commit without waiting for my verdict — the scopes do not touch —
+but I4's MOTION/COST gate does not open unless FIRE stands re-won by then.
+
+**Sent to builder (I3.1 — FIRE re-gate only; touch nothing else):**
+1. **The cold state, per §7.1 R4:** window OFF or one core-coal ≤0.3% of wing area at the
+   pane's thickest point, hard-bordered, centroid-biased, asymmetric by seed; ≤2 faint
+   artery stubs ≤0.1% adjacent; **no pixel of the cold state may trace the window border.**
+   Cold-state emissive total ≤0.5% measured; the wingfire assertion updates to fail on any
+   closed emissive contour (fire it on the current build as its own negative control per
+   kill #67 — the ring is a known-bad we now own).
+2. **Secondary-slot variety:** deterministic per-slot scale/aspect/rotation jitter
+   (±25%-class), sizes decaying outboard (dominant-and-decay), one dropped slot per side,
+   L≠R by seed — the saw-fix recipe applied to panes. Judged at 3× on the power/ignition
+   ventral tiles.
+3. **Embers over the sky tile: warm or absent — white is the only forbidden outcome.**
+   Additive-only cannot hold amber over a 0.65-linear sky; the fix is blending (an opaque
+   warm core under the additive halo is the obvious candidate), not tuning. One draw for the
+   whole ember system stays the law. Deliver an ember-pixel hue measurement on the sky tile.
+4. **Draw consolidation (the R3 entry condition, started here):** fire overlays into ≤2
+   emissive buckets per wing; report the pair draw count — it must move DOWN this round.
+5. Deliver: re-rendered fire sheet + the affected detail/cycle tiles, the updated
+   measurement block (cold ≤0.5%, all states re-run, clipped ≤1%, B−R, polarity — MEMBRANE
+   must not regress), `tricount --ci`, `wingsymprobe`, and the closed-contour probe with its
+   negative control.
