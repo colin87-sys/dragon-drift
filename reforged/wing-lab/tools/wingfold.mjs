@@ -424,10 +424,17 @@ async function controls(main) {
   }
   // (c) the sign-flip probe with the lag removed. tipLag 0 = three segments arriving at the
   //     reversal together = FLAP-DESIGN's rigid blade. The probe must stop passing.
-  console.log('\n  (c) SIGN-FLIP probe with tipLag/midLag zeroed (the plank):');
+  // The known-bad has to be a RIGID outer wing, not merely an unlagged one: with zero lag
+  // but different amplitudes the hand and forearm still move by different amounts, so their
+  // difference still changes sign and the test passes on a plank. The wing that genuinely
+  // cannot curl is the one whose hand carries the forearm's own angle — equal amplitude,
+  // equal lag — and there the difference is identically zero. (First version of this control
+  // used lag = 0 alone and did NOT fire; the metric, not the wing, was flipping.)
+  console.log('\n  (c) SIGN-FLIP probe with the hand welded to the forearm (equal amp, equal lag — the plank):');
   {
     const B = build(main);
-    const m = { ...B.def.model, tipLag: 0, midLag: 0 };
+    const m = { ...B.def.model, tipLag: B.def.model.midLag, midLag: B.def.model.midLag,
+      tipAmp: B.def.model.midAmp, apexTip: B.def.model.apexMid };
     const glidePow = m.glidePow ?? 1;
     const shape = (ph) => { const s = Math.sin(ph); return Math.sign(s) * Math.pow(Math.abs(s), glidePow); };
     const apexUp = (ph) => Math.pow(Math.max(0, -Math.sin(ph)), 0.7);
