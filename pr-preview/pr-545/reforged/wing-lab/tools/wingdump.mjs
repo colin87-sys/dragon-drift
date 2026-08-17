@@ -207,17 +207,34 @@ if (dump.fire) {
 
 // ── posed extents: span/body + the fold ratio ─────────────────────────────────
 console.log('\nPOSED EXTENTS  (world space, through the shipped poser)');
+// TWO instruments, printed side by side, because at I4 they disagree and the difference is
+// the whole reason kill #67 exists. `expandByObject` with its default `precise = false`
+// bounds each MESH by its own axis-aligned box and then transforms that box's eight corners
+// — for a part rotated ~100° (which is what a real fold is) it over-reports by up to √3.
+// It was harmless through I1–I3, when nothing rotated far. The EXACT column walks every
+// vertex through its own world matrix and is the number the fold is judged on; the AABB
+// column stays so rounds 1–4 remain comparable.
 const wbox = () => { const b = new THREE.Box3(); b.makeEmpty(); for (const k of WING_ROOTS) if (P[k] && P[k].isObject3D) b.expandByObject(P[k]); return b; };
+const wexact = () => {
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], v = new THREE.Vector3();
+  for (const k of WING_ROOTS) { const n = P[k]; if (!n || !n.isObject3D) continue;
+    n.traverse((o) => { if (!o.isMesh || !o.geometry || (o.userData && o.userData.wlFX)) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        for (let a = 0; a < 3; a++) { const c = v.getComponent(a); if (c < lo[a]) lo[a] = c; if (c > hi[a]) hi[a] = c; } } }); }
+  return { x: hi[0] - lo[0], y: hi[1] - lo[1], z: hi[2] - lo[2] };
+};
 const rows = [];
 for (const pose of ['glide', 'apex', 'downstroke', 'fold']) {
   setFlapDebugPose(P, def.model, pose);
   model.group.updateWorldMatrix(true, true);
   const b = wbox(), s = new THREE.Vector3(); b.getSize(s);
+  const e = wexact();
   const mb = new THREE.Box3().setFromObject(model.group), ms = new THREE.Vector3(); mb.getSize(ms);
-  rows.push({ pose, spanX: s.x, riseY: s.y, chordZ: s.z, bodyZ: ms.z });
+  rows.push({ pose, spanX: s.x, riseY: s.y, chordZ: s.z, bodyZ: ms.z, exactX: e.x });
 }
-for (const r of rows) console.log(`  ${r.pose.padEnd(11)} spanX ${r.spanX.toFixed(2)}  riseY ${r.riseY.toFixed(2)}  chordZ ${r.chordZ.toFixed(2)}  bodyZ ${r.bodyZ.toFixed(2)}  span/body ${(r.spanX / r.bodyZ).toFixed(2)}`);
-console.log(`  fold ÷ glide span = ${(rows[3].spanX / rows[0].spanX).toFixed(3)}   (§8.3 target ≤0.55 — I4 owns the furl; I1 inherits the shipped rollFold)`);
+for (const r of rows) console.log(`  ${r.pose.padEnd(11)} spanX ${r.spanX.toFixed(2)} (exact ${r.exactX.toFixed(2)})  riseY ${r.riseY.toFixed(2)}  chordZ ${r.chordZ.toFixed(2)}  bodyZ ${r.bodyZ.toFixed(2)}  span/body ${(r.spanX / r.bodyZ).toFixed(2)}`);
+console.log(`  fold ÷ glide span = ${(rows[3].exactX / rows[0].exactX).toFixed(3)} EXACT · ${(rows[3].spanX / rows[0].spanX).toFixed(3)} by AABB   (§8.3 target ≤0.55; full arc + weld openings in wing-lab/tools/wingfold.mjs)`);
 // §3 (amended I1.1): the spec now states the MEASURED outcome, not a dial — glide span/body
 // must land in 1.10–1.20, with hs free. The bar (tempest) measures 1.18.
 const sb = rows[0].spanX / rows[0].bodyZ;

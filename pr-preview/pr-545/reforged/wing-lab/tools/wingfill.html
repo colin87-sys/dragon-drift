@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Wing Lab Fill-Rate Probe</title>
+  <style>html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden}#gl{position:fixed;left:0;top:0}</style>
+  <script type="importmap">{ "imports": { "three": "../../lib/three.module.js" } }</script>
+  <script>
+    window.__wlerr = (m) => { window.__wlErrText = m; };
+    window.addEventListener('error', (ev) => window.__wlerr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__wlerr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="900" height="900"></canvas>
+  <script type="module">
+    // I4 COST — the SHADER's marginal fill cost, isolated.
+    //
+    // The whole-game frame probe (`wingperf.mjs`) is VOID in this container: its own control
+    // ranks a 993-triangle wing SLOWER than a 3,156-triangle one, i.e. the 8 s window is
+    // dominated by CPU and by a software rasteriser's noise, not by the wing. So measure the
+    // one thing the R3 ruling actually deferred to I4 — whether the ≈45-ALU membrane term is
+    // affordable — the way a fragment cost can be measured: fill a fixed, large number of
+    // MEMBRANE pixels and time many frames, with the SAME geometry rendered through the
+    // patched material and through a plain MeshStandardMaterial of the same albedo,
+    // roughness and env intensity. The delta is the §6 shader chain's marginal cost per
+    // membrane pixel; the plain pass is the built-in negative control (if the two are equal
+    // the probe is not measuring the shader and its number is void).
+    import * as THREE from 'three';
+    import { DRAGONS } from '../../js/dragons.js';
+    import { ascendedDef, maxTierFor } from '../../js/ascension.js';
+    import { buildDragonModel } from '../../js/dragonModel.js';
+    import { setFlapDebugPose } from '../../js/wingDebugPose.js';
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const key = new THREE.DirectionalLight(0xfff0dd, 2.2); key.position.set(-3, 4, 6); scene.add(key);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 400);
+
+    const KEY = new URLSearchParams(location.search).get('key') || 'forgewing';
+    const def = ascendedDef(DRAGONS[KEY], maxTierFor(KEY), 0);
+    const model = buildDragonModel(def);
+    setFlapDebugPose(model.parts, def.model, 'glide');
+    scene.add(model.group);
+
+    // Collect the membrane meshes and a plain stand-in material with matched authored values.
+    const mem = [];
+    model.group.traverse((o) => { if (o.isMesh && o.userData && o.userData.wlSurface === 'membrane') mem.push(o); });
+    const patched = mem.length ? mem[0].material : null;
+    const plain = patched ? new THREE.MeshStandardMaterial({
+      color: patched.color.clone(), roughness: patched.roughness, metalness: patched.metalness,
+      flatShading: true, side: patched.side, vertexColors: true,
+    }) : null;
+    if (plain) plain.envMapIntensity = patched.envMapIntensity;
+
+    // …and a THIRD arm: the same §6 chain with the R3 cut order UNDONE — the three `pow`
+    // calls put back where I4 replaced them (spherical-Gaussian exp2 for the back lobe, and
+    // multiply chains for x⁵ / x⁶). That makes "the cut order was spent and it paid" a
+    // measurement instead of a claim. Built by string-reversing the compiled shader, so it
+    // is the identical program apart from those three sites.
+    const uncut = patched ? patched.clone() : null;
+    if (uncut) {
+      uncut.userData = { ...patched.userData };
+      const prev = patched.onBeforeCompile;
+      uncut.onBeforeCompile = function (sh, r) {
+        if (prev) prev.call(this, sh, r);
+        sh.fragmentShader = sh.fragmentShader
+          .replace('float _mCs = max(sin(_mCp), 0.0); _mCs *= _mCs;', 'float _mCs = max(sin(_mCp), 0.0);')
+          .replace('* _mCs * _mCs * _mCs;', '* pow(_mCs, 6.0);')
+          .replace('float _mBack = exp2(-1.4427 * uMemPower * (1.0 - clamp(dot(_mV, _mLt), 0.0, 1.0)));',
+            'float _mBack = pow(clamp(dot(_mV, _mLt), 0.0, 1.0), uMemPower);')
+          .replace('float _mE = 1.0 - _mNV; float _mE2 = _mE * _mE;', 'float _mE = 1.0 - _mNV;')
+          .replace('* _mE2 * _mE2 * _mE * uMemFringe);', '* pow(_mE, 5.0) * uMemFringe);');
+      };
+      uncut.needsUpdate = true;
+    }
+
+    // Frame ONE wing's membrane BROADSIDE and fill the viewport with it — a fill probe that
+    // puts the sheet on 2% of the pixels measures the rest of the dragon, not the shader. The
+    // rest of the model is hidden for the whole run: the A/B is then purely the membrane's
+    // own fragment cost, with nothing else drawing between the two arms.
+    const memR = [];
+    if (model.parts.wingPivotR) model.parts.wingPivotR.traverse((o) => { if (mem.includes(o)) memR.push(o); });
+    const shown = memR.length ? memR : mem;
+    model.group.traverse((o) => { if (o.isMesh && !shown.includes(o)) o.visible = false; });
+    const box = new THREE.Box3();
+    for (const o of shown) box.expandByObject(o);
+    const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+    const dim = Math.max(s.x, s.z);
+    camera.position.set(c.x, c.y + dim * 1.02, c.z + 0.001);   // straight down: the planform, broadside
+    camera.up.set(0, 0, -1);
+    camera.lookAt(c);
+    camera.updateProjectionMatrix();
+    renderer.setSize(900, 900, false);
+
+    // the membrane's share of the frame, so the ms/frame delta can be quoted per MEMBRANE
+    // MEGAPIXEL — the only form that transfers to a device with a different resolution
+    function membraneCoverage() {
+      renderer.setClearColor(0x000000, 1); renderer.render(scene, camera);
+      const px = new Uint8Array(900 * 900 * 4);
+      const ctx = renderer.getContext();
+      ctx.readPixels(0, 0, 900, 900, ctx.RGBA, ctx.UNSIGNED_BYTE, px);
+      let n = 0; for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 6) n++;
+      return n;
+    }
+
+    // `gl.finish()` is a LIE in a browser: the command buffer is asynchronous and finish()
+    // returns after submission, so timing around it measures JavaScript, not the GPU. The
+    // only portable barrier in WebGL is a readPixels — it forces a flush AND a readback, so
+    // the driver cannot return until the frames in front of it have actually executed. (The
+    // first version of this probe reported 0.06 ms for 412k pixels of a 45-ALU shader, which
+    // is the tell: if a fill probe says the fill is free, the probe is not measuring fill.)
+    const sync = () => { const g = renderer.getContext(); const px = new Uint8Array(4);
+      g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); return px[0]; };
+    let _sink = 0;
+    function timeFrames(n) {
+      renderer.render(scene, camera);            // warm the pipeline / compile
+      _sink += sync();
+      const t0 = performance.now();
+      for (let i = 0; i < n; i++) { model.group.rotation.y = 0.0004 * i; renderer.render(scene, camera); }
+      _sink += sync();
+      return (performance.now() - t0) / n;
+    }
+
+    window.__wlfill = (frames) => {
+      const cov = membraneCoverage();
+      const useMat = (m) => { for (const o of mem) o.material = m; };
+      const A = [], B = [], C = [];
+      for (let r = 0; r < 3; r++) {
+        useMat(patched); A.push(timeFrames(frames));
+        useMat(plain); B.push(timeFrames(frames));
+        if (uncut) { useMat(uncut); C.push(timeFrames(frames)); }
+      }
+      useMat(patched);
+      const a = Math.min(...A), b = Math.min(...B), cUn = C.length ? Math.min(...C) : null;
+      const a1 = A[0], a2 = A[A.length - 1], b1 = B[0], b2 = B[B.length - 1];
+      return { key: KEY, frames, membranePx: cov, viewportPx: 900 * 900,
+        patchedMs: +a.toFixed(3), plainMs: +b.toFixed(3), deltaMs: +(a - b).toFixed(3),
+        perMemMPx: +((a - b) / (cov / 1e6)).toFixed(3),
+        uncutMs: cUn == null ? null : +cUn.toFixed(3), cutSavedMs: cUn == null ? null : +(cUn - a).toFixed(3),
+        runs: { a1: +a1.toFixed(3), a2: +a2.toFixed(3), b1: +b1.toFixed(3), b2: +b2.toFixed(3) } };
+    };
+    window.__ready = true;
+  </script>
+</body>
+</html>

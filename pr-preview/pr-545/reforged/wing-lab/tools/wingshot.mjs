@@ -153,12 +153,12 @@ for (const key of KEYS) {
     rows.push(await page.evaluate((o) => window.wlMeasure(o), { key, tier, pose }));
   }
   console.log(`\n=== ${key} f${tier} — world-space wing measurements ===`);
-  console.log('pose        spanX   riseY  chordZ | bodyZ  wingTris/tris | tipR(x,y,z)');
+  console.log('pose        spanX  (exact)  riseY  chordZ | bodyZ  wingTris/tris | tipR(x,y,z)');
   for (const r of rows) {
-    console.log(`${r.pose.padEnd(11)} ${String(r.wingSpanX).padStart(6)} ${String(r.wingRiseY).padStart(6)} ${String(r.wingChordZ).padStart(6)} | ${String(r.bodyLenZ).padStart(5)}  ${String(r.wingTris).padStart(4)}/${String(r.tris).padStart(4)}     | ${r.tipR ? r.tipR.join(', ') : '—'}`);
+    console.log(`${r.pose.padEnd(11)} ${String(r.wingSpanX).padStart(6)} ${String(r.exactSpanX).padStart(7)} ${String(r.wingRiseY).padStart(6)} ${String(r.wingChordZ).padStart(6)} | ${String(r.bodyLenZ).padStart(5)}  ${String(r.wingTris).padStart(4)}/${String(r.tris).padStart(4)}     | ${r.tipR ? r.tipR.join(', ') : '—'}`);
   }
   const g = rows[0], f = rows[5];
-  console.log(`fold ratio (fold.spanX / glide.spanX) = ${(f.wingSpanX / g.wingSpanX).toFixed(3)}\n`);
+  console.log(`fold ratio (fold ÷ glide) = ${(f.exactSpanX / g.exactSpanX).toFixed(3)} EXACT · ${(f.wingSpanX / g.wingSpanX).toFixed(3)} by AABB   (§8.3 target <= 0.55)\n`);
 }
 await browser.close(); srv.close?.();
 console.log(`${written.length} sheets → ${OUT}`);

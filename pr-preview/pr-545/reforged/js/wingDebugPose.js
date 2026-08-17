@@ -16,8 +16,111 @@
 //   4. basic DIRECT     (parts.wingPivotL + wingTipL — azure/ember/jade ship on this)
 // Purely additive: reads rig parts + model knobs, sets rotations. No geometry touched.
 
+import * as THREE from 'three';
 import { solveWing, phaseCenter } from './wingFlapSolver.js';
 import { flapWing, formStrength } from './dragonWingFlap.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE SEAM RIG (wing-lab 90-SYNTHESIS §8.3) — a fold that is an EVENT, not a shrug.
+//
+// No shipped hero folds: measured span contraction is Vesper 0.838, Revenant 0.932,
+// Tempest 0.986 — "SPREAD and FOLDED are the same photograph". The reason is not
+// timidity, it is topology: a welded membrane cannot pleat and cannot stretch, so any
+// joint driven hard enough to matter rips its own skin, and every hero quietly stops
+// at the angle where the tear would show.
+//
+// THE LAW THAT DISSOLVES IT: **a joint may rotate about the line its weld lies on, and
+// about no other.** Put the hinge axis INSIDE the seam and the shared edge is on the
+// rotation axis, so it is a fixed set — the sheet cannot open at ANY angle. The wing
+// publishes one fitted axis per seam (`parts.wingSeamAxes`, least-squares through the
+// weld's own vertices, residual measured), and this poser is only allowed to rotate a
+// joint about the axis it was given:
+//
+//   elbow  ← the sheet's elbow row + the sail's elbow column   (armwing sheet is cut here)
+//   wrist  ← the carpal line K→W6                              (sheet ↔ handwing weld)
+//   furl   ← digit III's own spar                              (bay 0's weld; the fan closes on it)
+//
+// The same axis carries the FLIGHT flap and the FOLD posture — one rotation, one axis,
+// so a wing that cannot tear in the fold cannot tear in the beat either. Wings without
+// `wingSeamAxes` never enter this path; the roster is byte-identical.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const _q = new THREE.Quaternion(), _v = new THREE.Vector3();
+const axisQ = (ax, angle) => _q.setFromAxisAngle(_v.set(ax.dir[0], ax.dir[1], ax.dir[2]).normalize(), angle);
+// smooth 0→1 ramp over [a,b] — the choreography's only sequencing primitive (§8.3's
+// "in sequence, trailing-first, digit III folding over the stack last" is four of these).
+const ramp = (x, a, b) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a || 1e-6))); return t * t * (3 - 2 * t); };
+
+// §8.3 the fold, as five staged angles on four joints. Signs and magnitudes are the
+// measured landing spot (`wing-lab/tools/wingfold.mjs` sweeps them); the choreography is
+// the spec's, in the spec's order:
+//   1 elbow flexes → the wrist pulls INBOARD (span SHORTENS before it thins)
+//   2 wrist folds the hand back under the forearm
+//   3 the trailing fan furls onto digit III, bays sliding into overlap — FIRST in time,
+//     so digit III (which is the wrist frame itself) folds over the stack LAST
+//   4 the shoulder sweeps the packet aft along the flank and rolls it DOWN, so the tip
+//     lands at/behind the hip near the knee line and the membrane drapes over the skirt
+export const FOLD = {
+  fanAngle: -1.90, fanWin: [0.10, 0.50],
+  elbowAngle: 1.00, elbowWin: [0.30, 0.75],
+  wristAngle: -1.95, wristWin: [0.00, 0.52],
+  sweepY: -0.05, rollZ: -0.20, pitchX: 0.16, sweepWin: [0.10, 1.00],
+};
+// ORDER, and the one place it departs from §8.3's prose. The spec sequences elbow → wrist →
+// fingers; MEASURED on this article the elbow must come THIRD, because the fold pose starts
+// from a raised wing (the shipped `rollFold` tuck) and the elbow's fold direction flattens
+// the arm before it folds it — leading with the elbow re-EXTENDS the projected span by 8%
+// at f≈0.3 before it contracts, which is the "thins before it shortens" read §8.3 step 1
+// exists to forbid, arriving through the door the spec left open. Sequenced as it stands
+// the span falls 1.00 → 0.89 → 0.61 → 0.47 monotonically (rebound 0.009). What the spec
+// actually asks for — trailing fingers first, digit III over the stack last, span short
+// before the planform thins — all hold; only the elbow's slot in the queue moved.
+
+// Apply the seam rig to one wing. `zMid`/`zTip` are the flap angles the shared poser
+// already computed (they arrive on rotation.z and are MOVED onto the seam axis — a ≤27°
+// change of axis, invisible in the beat, and the difference between a joint that can fold
+// and one that can only tilt). `fold` is the posture scalar, 0 in flight.
+function seamPose(parts, ax, side, fold) {
+  const S = side === 1 ? 'R' : 'L';
+  const pv = parts['wingPivot' + S], md = parts['wingMid' + S];
+  const tp = parts['wingTip' + S], fu = parts['wingFurl' + S];
+  const f = Math.max(0, Math.min(1, fold));
+  const wFan = ramp(f, FOLD.fanWin[0], FOLD.fanWin[1]);
+  const wElb = ramp(f, FOLD.elbowWin[0], FOLD.elbowWin[1]);
+  const wWri = ramp(f, FOLD.wristWin[0], FOLD.wristWin[1]);
+  const wSwp = ramp(f, FOLD.sweepWin[0], FOLD.sweepWin[1]);
+  if (md) {
+    const z = md.rotation.z; md.rotation.z = 0;                    // the flap leaves the z axis…
+    md.quaternion.multiply(axisQ(ax.elbow, z + FOLD.elbowAngle * wElb));   // …and lands on the seam
+  }
+  if (tp) {
+    const z = tp.rotation.z; tp.rotation.z = 0;
+    tp.quaternion.multiply(axisQ(ax.wrist, z + FOLD.wristAngle * wWri));
+  }
+  if (fu) fu.quaternion.copy(axisQ(ax.fan, FOLD.fanAngle * wFan));
+  if (pv && f > 0) {
+    // The shoulder has no seam to honour — the sheet's inboard cusp sits ON the pivot, so
+    // every shoulder DOF is free (that is what I1.1's root fix bought). It is the joint
+    // that puts the packet on the flank.
+    pv.rotation.x += FOLD.pitchX * wSwp;
+    pv.rotation.y += FOLD.sweepY * wSwp;
+    pv.rotation.z += FOLD.rollZ * wSwp;
+  }
+}
+
+// THE ONE ENTRY POINT — called from `wingDebugPose` (studio/freeze) and from `dragon.js`
+// (live flight) with the same arguments, in lockstep. Returns false for every wing that
+// does not publish seam axes, which is every wing but this one.
+export function poseWingSeams(parts, model, fold, phase) {
+  const ax = parts && parts.wingSeamAxes;
+  if (!ax) return false;
+  seamPose(parts, ax, 1, fold);
+  seamPose(parts, ax, -1, fold);
+  // §8.2 — the surface's own state, driven from the SAME phase the rig is driven from,
+  // so the membrane can never drift out of step with the beat that tensions it.
+  if (parts.wingSurface) parts.wingSurface(phase, fold);
+  return true;
+}
 
 // The named freeze states. Five are wing-cycle points (up-low · dome · apex-V · mid-press ·
 // deep-bottom, via phaseCenter); two are POSTURE pins layered on the glide phase:
@@ -50,9 +153,18 @@ export function resolveWingDebug(state, flapCfg) {
 // (wingRigL/R, wingYokeL/R, wingPivotL/R, wingMidL/R, wingTipL/R); `model` is the
 // resolved def model. dragon.js passes its live rig; the studio passes model.parts —
 // same contract, one poser. Returns the resolved inputs (for logging). Idempotent.
-export function setFlapDebugPose(parts, model, state) {
+// `foldAmt` (optional) overrides the fold posture scalar for the SEAM RIG only, so the
+// probes can walk the whole fold ARC instead of only its two endpoints — §8.3's "no bald
+// flank at ANY point of the fold arc" is not checkable from two stills. Omitted, the named
+// state decides (fold → 1, everything else → 0) and the call is byte-identical.
+export function setFlapDebugPose(parts, model, state, foldAmt) {
   const r = resolveWingDebug(state, model.flap);
-  const { phase, turnBias, rollFold, climbBias, bank, dive } = r;
+  const { phase, turnBias, climbBias, bank } = r;
+  const dive = foldAmt == null ? r.dive : Math.max(0, Math.min(1, foldAmt));
+  // …and the shipped barrel-roll tuck rides the SAME scalar, so an arc sample is a real
+  // intermediate pose rather than the endpoint pose with one term already saturated (that
+  // discontinuity is what made the first arc read "span rebounds mid-fold").
+  const rollFold = foldAmt == null ? r.rollFold : 0.55 * dive;
   const feather = Math.sin(phase + Math.PI * 0.55);
   // Large dt → the frame-rate-independent damp() in flapWing / the shipped drive lands
   // ON the target in one call, so there is no settle transient to wait out.
@@ -131,6 +243,10 @@ export function setFlapDebugPose(parts, model, state) {
     };
     poseWing(parts.wingPivotR, parts.wingMidR, parts.wingTipR, bank);
     poseWing(parts.wingPivotL, parts.wingMidL, parts.wingTipL, -bank);
+    // …then the SEAM RIG re-aims the distal flap onto each joint's own weld axis and lays
+    // the fold posture on top (no-op for every wing without `wingSeamAxes`). Must run AFTER
+    // poseWing, which is what writes the flap angles it consumes.
+    poseWingSeams(parts, model, dive, phase);
     // FOLD (debug/studio): a wingParts blade-comb (azure) folds at the SHOULDER — swing the whole
     // comb hard back along the flank + roll it DOWN so the span contracts past 0.7× (§7 fold assert)
     // and the folded silhouette sits low (not a raised V). The per-blade lag groups cancel their rest

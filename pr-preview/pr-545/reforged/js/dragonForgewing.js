@@ -258,6 +258,12 @@ const MEM_ENV = 0.05;
 // §5.5: 4 value tiers banded by BILLOW DEPTH (taut-near-spar lightest → deep cup darkest),
 // carried as vertex-colour MULTIPLIERS on the one membrane material so the tiers are
 // continuous across every lobe seam and cost zero extra draws. The ladder spans 3.2×.
+// §5.5 the four authored value tiers. DO NOT retune these without also retuning
+// `wlSurfaceScan` in wing-lab/tools/wingshot.html: the tier probe classifies pixels by
+// hardcoded byte thresholds derived from THIS array (252/204/156/118, cut at 228/180/137).
+// Deepening T2/T3 here to widen the measured spread moved 180 pixels between buckets and
+// changed the number by 0.08× — i.e. the instrument tracked the edit, not the wing. That is
+// kill #67 from the other side: a probe wired to a constant silently measures the constant.
 const MEM_TIERS = [1.95, 1.20, 0.66, 0.36];
 const MEM_HEM_TIER = 0.30;    // §6.5 the trailing hem is a dark cord, below the darkest field tier
 
@@ -488,7 +494,20 @@ function buildOneForgewing(M, d) {
   const seedSide = d.seed ?? 0;
   let propSurface = null;         // the propatagium sail as f(u, r) — filled in §5.2 below
 
-  const arm = new THREE.Group(), fore = new THREE.Group(), hand = new THREE.Group(), root = new THREE.Group(), frame = new THREE.Group();
+  // ── I4 — THE FIVE RIGID FRAMES, AND THE SEAM LAW THAT PICKS THEM ────────────
+  // A welded membrane cannot pleat and cannot stretch, so a joint may only rotate about
+  // a line that lies INSIDE its own weld seam — then the shared edge is ON the axis and
+  // the sheet cannot open, at ANY angle (this is why the ≤0.55× fold is reachable on a
+  // welded skin at all; FLAP-DESIGN §2's "do not add per-strut pivots to a welded
+  // membrane" is the same law stated as a prohibition). One frame per seam:
+  //   arm   (pivot/SHOULDER) humerus · fairing · inboard sheet + sail · the whole radiator
+  //   fore  (mid/ELBOW)      forearm · outboard sheet + sail        — seam: the elbow chord line
+  //   hand  (tip/WRIST)      digit III · hook · carpal cluster      — seam: the carpal line K→W6
+  //   fan   (FURL)           digits IV–VI + all three bays          — seam: digit III's own spar
+  //   frame (BODY)           cowl · flank line · skirt              — never rotates
+  // `root` is gone: the muscular fairing rides `arm` (identical transform, one draw fewer),
+  // which is what pays for `fan` inside the I4 draw freeze.
+  const arm = new THREE.Group(), fore = new THREE.Group(), hand = new THREE.Group(), fan = new THREE.Group(), frame = new THREE.Group();
 
   // per-(group) per-material accumulators → a handful of draws (the Tempest batching discipline)
   const accs = new Map();
@@ -893,7 +912,10 @@ function buildOneForgewing(M, d) {
     const wScale = i === 0 ? 1 : Math.pow(FAN_LEN[i], 0.5);
     const tOf = (s) => 0.500 + Math.max(0, Math.min(1, s)) * 0.500 * FAN_LEN[i];
     const st = boned(chain, (s) => r0 * sparF(tOf(s)) * wScale, 1.34);
-    tube(hand, st, i === 0 ? 5 : 4, M.bone, i * 1.7);
+    // §5.4 + I4: digit III is the FURL AXIS itself, so it stays on the wrist frame; every
+    // trailing digit rides `fan` with the bay it carries. A bay welded to a bone in a
+    // DIFFERENT frame than its own is the tear this whole structure exists to prevent.
+    tube(i === 0 ? hand : fan, st, i === 0 ? 5 : 4, M.bone, i * 1.7);
     const samples = [];
     for (let k = 0; k <= NS; k++) samples.push(pathSample(chain, k / NS));
     sparSamples.push({ samples, chain, rAt: (s) => r0 * sparF(tOf(s)) * wScale });
@@ -975,7 +997,20 @@ function buildOneForgewing(M, d) {
   // the last digit's BONE (the spar itself is the edge out to tipVI) and the hem must not
   // band across it: run A = the armwing arc B→W6, run B = the bay scallops tipVI→…→tipIII.
   // Each entry carries an inward reference point so the hem can be a constant-width cord.
-  const hemArm = [], hemBays = [];
+  // …and run A is itself cut at the elbow, because the hem strip is membrane and membrane
+  // may not span a joint (the I2 lesson, restated: geometry that crosses a hinge rips).
+  const hemArmIn = [], hemArmOut = [], hemBays = [];
+
+  // ── I4 THE ELBOW SEAM ────────────────────────────────────────────────────────
+  // `uE` is the elbow's arc-length parameter along the arm path — the ONE station where
+  // the sheet may be cut, because it is the only one the bone bends at. The row grid is
+  // re-mapped so a row lands EXACTLY there (same 8 rows, same triangle count, same
+  // surface — only the sample spacing moves), and every vertex of that row is collected
+  // into `seamPts`, which the hinge-axis fit below is built from.
+  const uE = len3(sub3(E, S)) / (len3(sub3(E, S)) + len3(sub3(K, E)));
+  const KE = 4;                                   // the row index that lands on the elbow
+  const uRow = (k) => (k <= KE ? uE * (k / KE) : uE + (1 - uE) * ((k - KE) / (8 - KE)));
+  const seamPts = [], wristSeamPts = [];
 
   // -- the ARMWING / plagiopatagium -------------------------------------------
   // THE ROOT, REBUILT (I1.1). The first pass anchored the inboard-aft corner far down the
@@ -1015,7 +1050,7 @@ function buildOneForgewing(M, d) {
     const NU = 8;
     const grid = [], chords = [], raw = [];
     for (let k = 0; k <= NU; k++) {
-      const u = k / NU;
+      const u = uRow(k);
       chords.push(armChord(u));
       const row = [], praw = [];
       for (let j = 0; j <= NC; j++) {
@@ -1029,7 +1064,7 @@ function buildOneForgewing(M, d) {
     // (§5.3's anisotropy law: inboard soft, outboard tight) — base 1.00 at the root
     // falling to 0.84 at the wrist, so the value ladder still darkens into the cup.
     const mvAt = (k, j) => {
-      const p = grid[k][j], u = k / NU, c = j / NC, t = tSpan(p);
+      const p = grid[k][j], u = uRow(k), c = j / NC, t = tSpan(p);
       const base = 1.00 - 0.16 * u;
       const sagN = sagShape(c) * (0.35 + 0.65 * u);
       const qSpar = (c * chords[k]) / (r0 * sparF(0.09 + u * 0.41) * 2.2 || 1e-6);
@@ -1039,18 +1074,28 @@ function buildOneForgewing(M, d) {
     };
     const mv = [];
     for (let k = 0; k <= NU; k++) { const r = []; for (let j = 0; j <= NC; j++) r.push(mvAt(k, j)); mv.push(r); }
+    // …and the sheet is cut ONCE, along the elbow row (k = KE, u = uE exactly), into the
+    // two frames the arm actually has. Nothing moves: the row is shared, both meshes are
+    // non-indexed (so `computeVertexNormals` already gives FLAT face normals and a split
+    // cannot introduce a shading crease), and the elbow rotates about the fitted line
+    // through this very row — so the seam is ON the hinge axis and cannot open.
     for (let k = 0; k < NU; k++) for (let j = 0; j < NC; j++) {
+      const g = k < KE ? arm : fore;
       if (k === 0) {
         // §9: the scale→membrane transition is a GRADED VERMILION BAND, never a hard straight
         // line where scales stop and membrane starts (§12 kill #31). The body-side triangle of
         // the root strip takes the warm blush, the outboard triangle its membrane tier, so the
         // band ramps instead of ending on an edge. Zero extra triangles. Authored DARK —
         // measured at shop distance, a saturated band is a red stripe painted on the root.
-        push(arm, M.band, [raw[k][j], raw[k][j + 1], raw[k + 1][j + 1]]);
-        memTri(arm, mv[k][j], mv[k + 1][j + 1], mv[k + 1][j]);
-      } else memQuad(arm, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
+        push(g, M.band, [raw[k][j], raw[k][j + 1], raw[k + 1][j + 1]]);
+        memTri(g, mv[k][j], mv[k + 1][j + 1], mv[k + 1][j]);
+      } else memQuad(g, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
     }
-    for (let k = 0; k <= NU; k++) hemArm.push({ p: grid[k][NC], ref: grid[k][NC - 1] });
+    // the hem row AT the seam belongs to BOTH runs (the strip must not lose a rung there)
+    for (let k = 0; k <= NU; k++) { const e = { p: grid[k][NC], ref: grid[k][NC - 1] };
+      if (k <= KE) hemArmIn.push(e); if (k >= KE) hemArmOut.push(e); }
+    for (let j = 0; j <= NC; j++) seamPts.push(grid[KE][j]);        // the elbow hinge's weld row
+    for (let j = 0; j <= NC; j++) wristSeamPts.push(grid[NU][j]);   // …and the carpal weld row
   }
 
   // -- the HANDWING bays -------------------------------------------------------
@@ -1151,7 +1196,7 @@ function buildOneForgewing(M, d) {
     const mv = [];
     for (let k = 0; k <= NS; k++) { const r = []; for (let j = 0; j <= NCB + 1; j++) r.push(mvAt(k, j)); mv.push(r); }
     for (let k = 0; k < NS; k++) for (let j = 0; j <= NCB; j++)
-      memQuad(hand, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
+      memQuad(fan, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
     const arc = [];
     for (let j = 0; j <= NCB; j++) arc.push({ p: grid[NS].row[j], ref: grid[NS - 1].row[j] });
     bayArcs.push(arc);
@@ -1177,7 +1222,7 @@ function buildOneForgewing(M, d) {
   // the wing, automatically, in both light regimes. Its outer vertices carry `edge = 1`,
   // the only place §6.3's demoted Fresnel is allowed to fire — hashed at 55% duty, so it
   // is broken hair-sparkle outside a dark hem and can never close into a chrome outline.
-  for (const [run, g] of [[hemArm, arm], [hemBays, hand]]) {
+  for (const [run, g] of [[hemArmIn, arm], [hemArmOut, fore], [hemBays, fan]]) {
     const outer = [], inner = [];
     for (const { p, ref } of run) {
       const t = (p[0] + X0) / hs;                          // span fraction → the ×2.5 ramp
@@ -1203,13 +1248,15 @@ function buildOneForgewing(M, d) {
   // outboard. Terminates at the carpal cluster.
   {
     const NP = 6;
-    // u of the elbow along the arm path, by arc length
-    const uE = len3(sub3(E, S)) / (len3(sub3(E, S)) + len3(sub3(K, E)));
+    const IE = 3;                                  // the sail column that lands on the elbow
+    // …re-mapped exactly like the sheet's rows, so the sail is cut on the SAME station the
+    // sheet is. Two surfaces hinged on one line is the only arrangement that stays welded.
+    const uCol = (i) => (i <= IE ? uE * (i / IE) : uE + (1 - uE) * ((i - IE) / (NP - IE)));
     const chordAtElbow = len3(sub3(armTrail(uE), armLead(uE)));
     const depth = 0.20 * chordAtElbow;
     const rows = [[], [], []];
     for (let i = 0; i <= NP; i++) {
-      const u = i / NP;
+      const u = uCol(i);
       const le = pathSample(armPath, u);
       const dep = depth * Math.pow(Math.sin(Math.PI * Math.pow(u, 0.90)), 0.85);
       rows[0].push(le);
@@ -1243,7 +1290,8 @@ function buildOneForgewing(M, d) {
       pmv[r].push(MV(p, ATLAS.prop, r / 2, d, 0, r === 0 ? 1 : 0));
     }
     for (let r = 0; r < 2; r++) for (let i = 0; i < NP; i++)
-      memQuad(arm, pmv[r][i], pmv[r][i + 1], pmv[r + 1][i + 1], pmv[r + 1][i]);
+      memQuad(i < IE ? arm : fore, pmv[r][i], pmv[r][i + 1], pmv[r + 1][i + 1], pmv[r + 1][i]);
+    for (let r = 0; r < 3; r++) seamPts.push(rows[r][IE]);   // the sail's share of the elbow weld
     dumpPro = { depth, chordAtElbow };
   }
 
@@ -1641,13 +1689,16 @@ function buildOneForgewing(M, d) {
     const b = add3(add3(base, mul3(dir, sz * 0.62)), [0, -rHere * 0.10, 0]);   // the free tip, aft
     const c = add3(add3(base, mul3(side, sz * 0.86)), [0, -rHere * 0.55, 0]);  // outboard skirt
     const cIn = add3(add3(base, mul3(side, -sz * 0.34)), [0, -rHere * 0.45, 0]);
-    push(arm, M.bone, [a, b, c], [a, cIn, b]);
+    // …and a covert rides the bone it sits ON: inboard of the elbow that is the humerus
+    // (`arm`), outboard it is the forearm (`fore`). A rank that spans a joint peels.
+    const cg = u < uE ? arm : fore;
+    push(cg, M.bone, [a, b, c], [a, cIn, b]);
     // I2 — THE COVERT LAP, value-softened. At 4× the I1 rank read SERRATED: nine full-ash
     // wedges against charcoal is a 5.4× value step repeated nine times, which the eye reads
     // as saw teeth, not as shingles. The lit lap edge is now the MID value (`covert`, one
     // step of a three-value ramp bone→covert→ash instead of two) and its area DECAYS
     // outboard with the flake, so the rank reads as a gradient of overlaps with a terminus.
-    push(arm, M.covert, [a, lerp3(a, b, 0.30 - 0.12 * f), lerp3(a, c, 0.30 - 0.12 * f)]);
+    push(cg, M.covert, [a, lerp3(a, b, 0.30 - 0.12 * f), lerp3(a, c, 0.30 - 0.12 * f)]);
   }
 
   // ── THE ROOT (§9): OVERLAP, NEVER WELD ───────────────────────────────────────
@@ -1676,7 +1727,7 @@ function buildOneForgewing(M, d) {
     const R2 = ringAt(c1, bw * 0.24, bw * 0.40, bw * 0.52);
     for (const [A, Bq] of [[R0, R1], [R1, R2]]) for (let k = 0; k < 6; k++) {
       const k2 = (k + 1) % 6;
-      quad(root, k === 0 || k === 1 || k === 5 ? M.ash : M.flank, A[k], A[k2], Bq[k2], Bq[k]);
+      quad(arm, k === 0 || k === 1 || k === 5 ? M.ash : M.flank, A[k], A[k2], Bq[k2], Bq[k]);
     }
     // scapular cowl — overlapping knapped flake plates, STATIC in the body frame, lapping
     // OVER the humeral head so the join is an overlap, not a seam that can fail.
@@ -1736,12 +1787,61 @@ function buildOneForgewing(M, d) {
     skirtOuter = skOuter;
   }
 
-  flush(arm); flush(fore); flush(hand); flush(root); flush(frame);
+  // ── I4 — THE THREE HINGE AXES, FITTED TO THEIR OWN WELD SEAMS ───────────────
+  // A rigid frame can rotate by any angle without opening its weld IF AND ONLY IF the
+  // weld lies on the rotation axis. None of these three seams is exactly straight (the
+  // sheet sags across the elbow row, the digit-III spar carries the ogee), so each axis
+  // is the least-squares LINE through its own seam vertices, and the residual — the
+  // largest distance from a weld vertex to the axis — is the exact half-width of the
+  // widest slit the fold can ever open. It is measured, published, and asserted; it is
+  // not an art note. (PCA: centroid + the dominant eigenvector of the scatter, by power
+  // iteration — 12 points, no matrix library, deterministic.)
+  const fitAxis = (pts) => {
+    const n = pts.length;
+    const c = [0, 0, 0];
+    for (const p of pts) { c[0] += p[0] / n; c[1] += p[1] / n; c[2] += p[2] / n; }
+    const S3 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (const p of pts) { const q = sub3(p, c);
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) S3[a][b] += q[a] * q[b]; }
+    let v = norm3(sub3(pts[pts.length - 1], pts[0]));
+    for (let it = 0; it < 24; it++) {
+      const w = [S3[0][0] * v[0] + S3[0][1] * v[1] + S3[0][2] * v[2],
+        S3[1][0] * v[0] + S3[1][1] * v[1] + S3[1][2] * v[2],
+        S3[2][0] * v[0] + S3[2][1] * v[1] + S3[2][2] * v[2]];
+      if (len3(w) < 1e-12) break;
+      v = norm3(w);
+    }
+    let res = 0;
+    for (const p of pts) { const q = sub3(p, c); const t = q[0] * v[0] + q[1] * v[1] + q[2] * v[2];
+      res = Math.max(res, len3(sub3(q, mul3(v, t)))); }
+    return { p: c, dir: v, residual: res, n };
+  };
+  // ELBOW — the sheet's elbow row + the sail's elbow column. Anchored AT the elbow
+  // landmark (the joint the bone actually bends at), with the fitted seam direction.
+  const elbowFit = fitAxis(seamPts);
+  // WRIST — the carpal block: the armwing's outboard row on `fore` against the fan's
+  // inboard row (the carpal line K→W6) on `hand`. Fitted to BOTH sides of the weld.
+  const wristFit = fitAxis(wristSeamPts.concat(sparSamples.map((sp) => sp.samples[0])));
+  // FURL — digit III's own spar (the leading edge outboard of the wrist). Bay 0 welds
+  // to it, so it is the only line the trailing fan may close about.
+  const fanSeam = sparSamples[0].samples.map((p, i) => add3(p, [0, -sparSamples[0].rAt(i / NS) * 0.55, 0]));
+  const fanFit = fitAxis(fanSeam);
+  const wristSeamAll = wristSeamPts.concat(sparSamples.map((sp) => sp.samples[0]));
+  const seam = {
+    elbow: { p: elbowFit.p.slice(), dir: elbowFit.dir.slice(), residual: elbowFit.residual, n: elbowFit.n,
+      pts: seamPts.map((q) => q.slice()), frames: ['arm', 'fore'] },
+    wrist: { p: wristFit.p.slice(), dir: wristFit.dir.slice(), residual: wristFit.residual, n: wristFit.n,
+      pts: wristSeamAll.map((q) => q.slice()), frames: ['fore', 'hand'] },
+    fan: { p: fanFit.p.slice(), dir: fanFit.dir.slice(), residual: fanFit.residual, n: fanFit.n,
+      pts: fanSeam.map((q) => q.slice()), frames: ['hand', 'fan'] },
+  };
+
+  flush(arm); flush(fore); flush(hand); flush(fan); flush(frame);
   // …then ONE crust mesh per group (char + ash + claw + covert + band + fairing + §7.4
   // temper, vertex-coloured, per-vertex roughness). Must run AFTER `flush`, which is what
   // fills the bucket, and after pushTemper.
-  flushCrust(arm); flushCrust(fore); flushCrust(hand); flushCrust(root); flushCrust(frame);
-  flushMem(arm); flushMem(hand); flushMem(frame, 'skirt');   // the skirt is body-frame: same material, measured apart
+  flushCrust(arm); flushCrust(fore); flushCrust(hand); flushCrust(fan); flushCrust(frame);
+  flushMem(arm); flushMem(fore); flushMem(fan); flushMem(frame, 'skirt');   // the skirt is body-frame: same material, measured apart
   flushFire(arm); flushEmbers(hand);                         // §7 — the whole radiator in 2 draws
 
   // pure-math landmark table — geometry numbers beat rendered pixels (§11 verify chain)
@@ -1754,9 +1854,13 @@ function buildOneForgewing(M, d) {
     fire: { area: fireArea.slice(), maxT: fireMaxT.slice(), zone: { ...fireZoneArea },
       vessels: vesselSegments().length, capillaries: capStubs, artEnd: ART_END, vent: VENT },
     fan: { len: FAN_LEN, az: FAN_AZ, droop: FAN_DROOP, runIII, phiIII, mcLen },
+    // §8.3 — the three hinge axes and, for each, the widest slit its own weld can open
+    // (residual · 2 · sin(θ/2) at fold angle θ). The fold's honesty lives in these three
+    // numbers: a fold ratio bought by tearing the skin is not a fold.
+    seam, uE, armSurface, propSurface,
     armLead, armTrail,
   };
-  return { arm, fore, hand, root, frame, K, E, tip: TIP3, dump };
+  return { arm, fore, hand, fan, frame, K, E, tip: TIP3, seam, dump };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1819,6 +1923,7 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
   // the wing sits in.
   const fireU = M.fire.userData.surfaceUniforms || {};
   const embU = M.ember.userData.surfaceUniforms || {};
+  let fireNow = 'cruise';
   const setFireState = (name) => {
     const i = Math.max(0, FIRE_STATES.indexOf(name));
     if (fireU.uFireStage) fireU.uFireStage.value = i;
@@ -1826,12 +1931,54 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     if (fireU.uFireLoad) fireU.uFireLoad.value = FIRE_LOAD[i];
     if (embU.uEmbGain) embU.uEmbGain.value = EMBER_GAIN[i];
     if (embU.uEmbStage) embU.uEmbStage.value = i;
-    return FIRE_STATES[i];
+    fireNow = FIRE_STATES[i];
+    return fireNow;
   };
   setFireState('cruise');
 
+  // ── §8.2 THE SURFACE THROUGH THE BEAT — ONE SCALAR DRIVES EVERYTHING ────────
+  // `slack(phase) = 0.5 − 0.5·sin(phase − 1.6)` is the MEMBRANE's own state, lagging the
+  // rig by ≈90°: 0 at the loaded bottom of the downstroke (drum-taut — wrinkles pulled
+  // flat, ripple suppressed, specular tight) and 1 at the slack top of the upstroke
+  // (wrinkle field blooms, billow washes aft, highlight fragments). It is ONE uniform
+  // reaching the whole membrane, which is why it costs nothing per surface and why the
+  // I2 wrinkle field stops being a printed decal (kill #29's binding half).
+  //
+  // The RIPPLE is a separate read of the same scalar — `4·slack·(1−slack)`, peaking at
+  // MID-stroke where §8.2 puts the long marginal ripples and vanishing at both extremes,
+  // so it can never be beat-constant (kill #56). Both are shader-domain, anchored per bay
+  // at the spars; nothing here is a vertex-rig wave.
+  const memU = M.mem.userData.surfaceUniforms || {};
+  const surfaceDrive = (phase, fold = 0) => {
+    const slack = 0.5 - 0.5 * Math.sin(phase - 1.6);
+    // …and the FOLD is the slackest state there is: a furled wing carries no load at all,
+    // so the fold scalar drives slack to 1 on top of the beat (§8.3 step 5, the sail
+    // slackens and its wrinkle field blooms).
+    const sl = Math.max(0, Math.min(1, slack + (1 - slack) * fold));
+    if (memU.uMemSlack) memU.uMemSlack.value = sl;
+    // …and the ripple is the SAME scalar read as tension-CHANGE rather than tension: it
+    // peaks where slack is 0.5 (mid-stroke) and dies at both extremes, so the surface can
+    // never be caught with the same detail at the top and the bottom (kill #29/#56).
+    if (memU.uMemRipple) memU.uMemRipple.value = 0.26 * 4 * sl * (1 - sl) * (1 - fold);
+    // ~7 Hz against a ~1.2 Hz beat — inside §8.2's 4–16 Hz band and not a rational
+    // multiple of it, so the ripple never locks to flap time (§7.2's anti-metronome law
+    // applied to the surface instead of to the fire).
+    if (memU.uMemRipplePh) memU.uMemRipplePh.value = phase * 5.83;
+    // §8.3 step 5 — a FURLED wing banks its furnace. The fold drives the fire to its cold
+    // state (one core-coal at the pane's thickest point, never a ring — §7.1 R4) and
+    // restores whatever the Surge loop had when it opens again. It is also the engineering
+    // guard on the one thing the elbow split cannot carry: the radiator overlay rides `arm`
+    // with the INBOARD sheet, so a lit artery outboard of the elbow would be left behind by
+    // a fold — at cold, every lit pixel is inboard of t 0.17 and there is nothing to leave.
+    if (fold > 0.6) { if (!foldCold) { foldCold = true; preFold = fireNow; setFireState('cold'); } }
+    else if (foldCold) { foldCold = false; setFireState(preFold); }
+    return sl;
+  };
+  let foldCold = false, preFold = 'cruise';
+  surfaceDrive(0, 0);
+
   const pivots = {}, wingElements = [];
-  let dump = null;
+  let dump = null, seamAxes = null;
   for (const side of [1, -1]) {
     const rt = attach.wingRoot(side);
     const pivot = new THREE.Group(); pivot.position.set(rootC.x, rootC.y, rootC.z); pivot.userData.wingRole = 'pivot';
@@ -1842,19 +1989,35 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     // the rig stays Δ0.000 because the seed never touches a joint (§2.6).
     const built = buildOneForgewing(M, { ...dials, seed: side === 1 ? 0 : 1 });
     dump = built.dump;
-    const { arm, fore, hand, root, frame, K, E, tip: F0 } = built;
+    const { arm, fore, hand, fan, frame, K, E, tip: F0, seam } = built;
+    seamAxes = seam;
+    // …tag the four rigid frames so the seam-opening probe can find them and measure the
+    // weld through the REAL scene graph (a residual computed from the fit alone would be
+    // a claim about the maths; this is a claim about the shipped matrices — kill #67).
+    arm.userData.wingRole = 'armFrame'; fore.userData.wingRole = 'foreFrame';
+    hand.userData.wingRole = 'handFrame'; fan.userData.wingRole = 'fanFrame';
     // TWO −anchors, one per joint. `mid` sits ON the elbow landmark (t=0.28) and `tip` ON the
     // wrist landmark (t=0.50); each child group carries the matching negative offset, so the
     // assembled rest pose is byte-identical to a rig with both joints collapsed onto the
     // shoulder — you can add a joint to a shipped-looking wing with zero visual regression.
     // That is also the trap: a mis-parented part is INVISIBLE in every still and only rips
     // in motion, so parenting is checked in the cycle strip, never in a pose sheet.
-    pivot.add(mid); mid.position.set(E[0], E[1], E[2]);
-    mid.add(fore); fore.position.set(-E[0], -E[1], -E[2]);
-    fore.add(tip); tip.position.set(K[0], K[1], K[2]);
-    tip.add(hand); hand.position.set(-K[0], -K[1], -K[2]);
-    pivot.add(arm);                           // humerus + both membranes ride the SHOULDER
-    pivot.add(root);                          // the muscular fairing rides the SHOULDER
+    // …and each −anchor now sits on its own SEAM axis rather than on the landmark: the
+    // joint's visible pivot point is irrelevant (a rotation is about a LINE, not a point),
+    // but the line must be the weld's own, so the anchor is the seam fit's centroid.
+    const AE = seam.elbow.p, AK = seam.wrist.p, AF = seam.fan.p;
+    pivot.add(mid); mid.position.set(AE[0], AE[1], AE[2]);
+    mid.add(fore); fore.position.set(-AE[0], -AE[1], -AE[2]);
+    fore.add(tip); tip.position.set(AK[0], AK[1], AK[2]);
+    tip.add(hand); hand.position.set(-AK[0], -AK[1], -AK[2]);
+    // THE FURL joint (§8.3 step 3), third −anchor: the trailing fan + all three bays hinge
+    // on digit III's own spar, so bay 0's weld to that spar is ON the axis and the closing
+    // fan cannot tear. `furl` is a child of `hand` — the fan closes INSIDE the wrist fold,
+    // which is what lets the two stages be sequenced (trailing-first, digit III last).
+    const furl = new THREE.Group(); furl.userData.wingRole = 'furl';
+    hand.add(furl); furl.position.set(AF[0], AF[1], AF[2]);
+    furl.add(fan); fan.position.set(-AF[0], -AF[1], -AF[2]);
+    pivot.add(arm);                           // humerus + fairing + the radiator ride the SHOULDER
     // The scapular cowl + the raised flank line ride the BODY frame (static through the
     // flap, §9) — so they are siblings of the pivot, INSIDE the mirror wrapper, never
     // children of it. Build BOTH wings canonical (+X) and mirror the LEFT with an OUTER
@@ -1866,6 +2029,7 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     const s = side === 1 ? 'R' : 'L';
     const marker = new THREE.Object3D(); marker.position.set(F0[0], F0[1], F0[2]); hand.add(marker);   // FX emit point rides the FOLDING hand
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip; pivots['tipMarker' + s] = marker;
+    pivots['wingFurl' + s] = furl;
     wingElements.push({ root: [rt.x, rt.y, rt.z], tip: [rt.x + side * F0[0], rt.y + F0[1], rt.z + F0[2]], length: halfSpan, tipObj: marker });
   }
   group.userData.forgewingDump = dump;   // pure-math landmark table for the verify harness
@@ -1874,6 +2038,11 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
   // `flareMats` — Surge-flared, NEVER rim-lit — and the bones stay out of both (the
   // warm cruise rim on a radiator is the always-on jewellery the bar already loses on).
   // `spineMats` stays empty by design: nothing on this wing takes the cruise rim.
-  return { group, spineMats: [], flareMats: [M.fire, M.ember], wingMat: M.wingMat, parts: { ...pivots, wingElements } };
+  // The seam axes ARE the rig contract for this wing: the poser may only rotate a joint
+  // about the axis published here (§8.3). Both wings are built canonical (+X) and the LEFT
+  // is mirrored by the outer scale.x = −1 wrapper, so ONE axis set serves both — a per-side
+  // axis would double-flip exactly like a per-side sign does (§8.1) and desync the probe.
+  return { group, spineMats: [], flareMats: [M.fire, M.ember], wingMat: M.wingMat,
+    parts: { ...pivots, wingElements, wingSeamAxes: seamAxes, wingSurface: surfaceDrive } };
 }
 registerWings('basaltForgeWings', buildBasaltForgeWings);
