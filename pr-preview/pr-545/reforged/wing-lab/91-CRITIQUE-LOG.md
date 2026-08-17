@@ -175,3 +175,100 @@ breaks it):**
 5. Touch no other material or dial. Re-render the five sheets + COMPARE.
 
 ---
+## Round 2 — I1.1 (forgewing) — SILHOUETTE re-judge; STRUCTURE re-checked after the rescale
+
+**Compared against:** `wing-COMPARE-forgewing-tempest.png` (matched PLANFORM / REAR CHASE /
+WING crop — same body, same stage, the only variable is the wing), the regenerated forgewing
+planform (two pure-black tiles) / poses / cycle / detail sheets, and the five
+`quadprobe-forgewing-*.png` overlays. Coordinator-verified independently of the builder:
+span/body **1.172** at glide (bar 1.18; amended §3 band 1.10–1.20), root-corner drift
+**0.000 u** — the inboard-aft corner sits ON the pivot, the one point a rotation about the
+pivot cannot move — skirt overlap **0.193 c** (≥ 0.15 required), **0 right-angle corners**
+across all five probe angles, landmark table Δ0.0000 after the uniform rescale (elbow 151.0°,
+propatagium 0.200 c, humerus 4.26:1), `mid` published at t = 0.28 at amplitude 0.
+
+### Round 2 — SILHOUETTE — **WIN**
+
+Verdict: ours, at every tile of the blind. Planform: the forgewing is an animal — knuckled "‹"
+leading edge with shrinking outboard gaps, a dominant finger, concave scallops, the tip hook, a
+real forward sail, membrane running down the flank into one coherent root mass — where the
+Tempest is a jewelled kite frame on a stub arm. Rear chase: at glide ours presents actual wing
+between arm and flank where the bar presents two wired blades. Wing crop: the carpal
+claw-cluster reads as a HAND at chase distance; nothing on the roster has it. The rectangle is
+dead: the pure-black tiles show a designed trailing curve flowing into the skirt with no square
+corner anywhere, and the probe — now control-checked — agrees at all five angles. The span
+deficit is closed: 1.172 against 1.18 reads as a peer in width, and the broader chord makes the
+planform read larger than the bar's. For the record so no future judge trips on it: the two
+detached black triangles in the SILHOUETTE-wing-ONLY tile are the body-frame skirt and the far
+wing, visually orphaned because `wingOnly` hides the body that connects them — a probe-view
+artifact, not floating geometry; the whole-dragon black tile shows everything attached.
+
+### Round 2 — STRUCTURE — **WIN (held under re-check)**
+
+The rescale was uniform and the landmark dump is Δ0.0000 against §3; the pixels agree —
+two-regime arm, fan opening at the knuckles, propatagium bulge at 0.200 c, elbow at 151°, the
+covert rank now a real shingled rank of 9 terminating at the carpal cluster. The `mid` −anchor
+lands the elbow joint I demanded with a byte-identical rest pose — I4's fold has its first
+joint without a rebuild. Round 1 constraint (3) stands open: 36 draws/pair against the
+≤ ~10-per-wing discipline, due at the I4 cost gate.
+
+**Biggest remaining gap:** the surface. The membrane answers neither the sun's direction (both
+BACKLIT tiles are dead black — correct for I1, and exactly the flank I2 attacks; nobody on this
+roster has ever rendered light THROUGH a wing) nor its own value spec at distance (~2 tiers
+legible at 2.2× against §5.5's four; the inboard panel's blue env-sheen is the single worst
+value on the article — it reads LED panel, not skin). Everything now hangs on I2.
+
+**Ruled-out tells present:** none at either gate judged. Logged, not failed here: #52 (fold
+0.977 — I4's debt, held open so it cannot quietly survive); the blue sheen (kills #21/#33
+family — I2's gate fails on it if it survives the albedo+env+transmission fix); covert lap
+reads slightly serrated at 4× (watch item — it is a rank with a terminus, not confetti; value
+fix inside I2).
+
+**RULING — the armwing/skirt area split: ACCEPTED; §5.1 amended.** 38.5% wing-side armwing +
+13.9% body-frame skirt + 43%-class handwing preserves §5.1's VISUAL shares (52.4% total armwing
+read against the spec's ~50). What changed is ownership — and that ownership is what kill #65
+demands; the alternative is the Revenant peel this lab already reproduced at 0.77 u. The
+builder's objection ("I4's fold will uncover flank rather than folding it") is dissolved, not
+deferred: the skirt IS the flank's permanent cover, and §8.3 step 4 already lands the folded
+wing OVER the flank as a cloak. I4's obligations are now explicit in §5.1: folded wing drapes
+over the skirt, overlap ≥ 0.15 c held in the folded pose, zero interpenetration, no bald flank
+at any point of the fold arc. Consequence in our favour: the moving wing is now majority
+handwing (~53% of wing-side area), which is what makes ≤ 0.55× reachable via elbow + wrist +
+furl exactly as choreographed.
+
+**RULING — the probe: the negative control becomes law.** The quad probe's first run passed
+everything for four wrong reasons; a probe that passes for the wrong reason is worse than no
+probe — it launders a defect into a green number. Added as §11 probe law and kill **#67**: no
+probe verdict counts until the probe has fired on a known-bad and cleared a known-good (the
+aurumToro-fires / tempest-revenant-vesper-clears pair is the pattern). The builder's
+straightness-not-angle finding (scallop cusps close at ~88° too) is part of the record. The
+builder should write the leapfrog lesson file; the law lives here.
+
+**Decision: proceed to I2 (MEMBRANE). No I1.2.** Both I1 gates now stand WON; they remain
+re-openable — a membrane that muddies the black tiles re-opens SILHOUETTE.
+
+**Sent to builder (I2 — MEMBRANE, §11 scope; gate = blind vs the Tempest detail sheets at
+2.2× pale / 2.2× dark / chase-sky PLUS the two backlit tiles, which are the centrepiece):**
+1. Build §6 in full: `aMemThick` authored per §6.1; the §6.2 transmission patch on `wingMat`
+   (σ ratio locked (1.00, 2.68, 5.41)·σ0, σ0 tuned so nominal thickness transmits ≈ 0.15
+   luminance); the Fresnel demoted to the hashed hem fringe only (§6.3, duty ≤ 0.60); cord
+   field + vein doublets on the §6.4 carriers with their territories — zero inboard, ramping
+   outboard, orientation rotating perpendicular-to-arm → parallel-to-finger; doublets
+   asymmetric-forked (24°/52°, taper 0.794), vein wider and darker, artery NON-emissive until I3.
+2. Kill the blue sheen: albedo `#241a16`-class + roughness 0.38 + envMapIntensity ≤ 0.06 +
+   transmission authored TOGETHER, then MEASURE the §5.5 tiers at 0.05 → 0.15 luma under the
+   game light on the sky backdrop at the money cam — numbers in the delivery, not eyeballs.
+   If the sheen survives that combination, roughness may rise to 0.50 (directed yield, granted
+   R1). The blue door-panel read must be gone from every cycle tile.
+3. Wrinkle statics at the cruise state (8–14 spanwise striations per bay, `fwidth()`-faded);
+   the slack-scalar binding stays I4.
+4. Blind pass criteria: the backlit↔front-lit polarity flip visible on the COMPARE (backlit the
+   membrane out-glows the bone; front-lit it is the darkest element on the dragon); deepest cup
+   = darkest backlit tier; over-bone sheet a razor-edged black silhouette; no continuous bright
+   rim anywhere; no glowing veins — dark doublets subtracted from the glow.
+5. The covert lap: value-soften the lit edge so the rank reads shingled, not serrated, at 4×.
+   No geometry rebuild, no flap-dial changes.
+6. Deliver: five sheets + COMPARE regenerated, tier-luma measurements, `tricount --ci`,
+   `wingsymprobe` Δ0.000, and the probe suite including its own negative control per #67.
+
+---

@@ -241,6 +241,14 @@ racing rideable, not a brawler; keep it consistent everywhere.)
 - Widest chord **inboard**; the plagiopatagium is the largest single surface.
 - Area shares (one wing): **propatagium ~7% · armwing ~50% · handwing ~43%.** The inboard bay is
   ≈ 2× the width of any finger bay. Equal bays = plane wing = automatic loss.
+  *(Amended Round 2: the shares are **VISUAL** shares of the presented wing. Ownership splits the
+  armwing into **wing-side ≥ ~38%** plus a **body-frame flank skirt ≤ ~14%** — the kill-#65
+  anchoring — overlapped by ≥ 0.15 c with no shared silhouette edge. The skirt is silhouette,
+  never flap. I4's fold obligations, explicit: the folded wing drapes OVER the skirt, the
+  ≥ 0.15 c overlap holds in the folded pose, zero interpenetration, and no bald flank at any
+  point of the fold arc — the skirt is the flank's permanent cover, the folded wing is the cloak
+  on top of it. Consequence: the moving wing is majority handwing (~53% of wing-side area),
+  which is what makes the ≤ 0.55× fold reachable through elbow + wrist + furl.)*
 - Tip: **swept and pointed** (the fast read — this is a racing dragon). Committed; no blunt
   lozenge averaging.
 
@@ -534,6 +542,11 @@ crashes). **Required harness addition:** a BACKLIT tile (sun behind the wing) in
 sheet — the membrane gate cannot be judged without it, and the polarity flip is a pass
 criterion. Geometry numbers beat critic pixels; when they disagree, re-shoot on a clean stage.
 
+**Probe law (added R2):** no probe verdict counts until the probe has demonstrably **FIRED on a
+known-bad** article and **CLEARED a known-good** (the quad probe's aurumToro-fires /
+tempest-revenant-vesper-clears control pair is the pattern). A probe that passes for the wrong
+reason is worse than no probe — it launders a defect into a green number.
+
 ---
 
 ## §12 THE KILL-LIST
@@ -658,6 +671,11 @@ everything else.** Phrased so a critic can point at pixels.
     silhouette edge.
 66. *(R1)* Any free membrane edge that is machine-straight with square corners — **a rectangle
     in a silhouette**. Every free hem is a designed curve and carries the hem cord.
+67. *(R2)* **A probe verdict with no negative control.** The quad probe's first run "passed"
+    everything for four separate wrong reasons (Douglas–Peucker collapsing closed contours,
+    antialiasing-speck seeding, angles measured against the frame, a node-walk one level too
+    far blaming a tail fin). Until a checker has fired on a known-bad and cleared a known-good,
+    its pass proves nothing — and the defect it launders becomes invisible to every later round.
 
 ---
 
