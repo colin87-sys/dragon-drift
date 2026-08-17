@@ -179,7 +179,9 @@ if (dump.fire) {
   // because the visual read of the wing does include the skirt lapping under it.
   const wingOnly = armA + handA + proA;
   const STATE = ['cold', 'cruise', 'power', 'ignition'];
-  const BAND = [[0.004, 0.020], [0.030, 0.060], [0.060, 0.120], [0.090, 0.150]];
+  // cold: amended R4 — the core-coal is ≤0.3% of wing area (the old 0.4–2.0% band was
+  // the closed-rim budget, i.e. the defect's own allowance).
+  const BAND = [[0.0004, 0.0030], [0.030, 0.060], [0.060, 0.120], [0.090, 0.150]];
   console.log('\n§7.1 FIRE — authored emissive area per state (surface area, one wing)');
   console.log(`     one wing = ${wingOnly.toFixed(3)} (wing) / ${one.toFixed(3)} (with the body-frame skirt)`);
   console.log('     state       area    % wing   % +skirt   band        maxT   verdict');
@@ -191,7 +193,8 @@ if (dump.fire) {
     const mx = Math.max(...F.maxT.slice(0, i + 1));
     if (mx < prevMax - 1e-6) order = false;
     prevMax = mx;
-    console.log(`     ${STATE[i].padEnd(10)} ${cum.toFixed(3).padStart(6)}  ${(100 * fr).toFixed(2).padStart(6)}%  ${(100 * fr2).toFixed(2).padStart(7)}%   ${(100 * lo).toFixed(0)}–${(100 * hi).toFixed(0)}%${' '.repeat(6 - String(Math.round(100 * hi)).length)}${mx.toFixed(3)}  ${fr >= lo && fr <= hi ? '✓' : '✗ OUT OF BAND'}`);
+    const bd = hi < 0.02 ? `${(100 * lo).toFixed(2)}–${(100 * hi).toFixed(2)}%` : `${(100 * lo).toFixed(0)}–${(100 * hi).toFixed(0)}%`;
+    console.log(`     ${STATE[i].padEnd(10)} ${cum.toFixed(3).padStart(6)}  ${(100 * fr).toFixed(2).padStart(6)}%  ${(100 * fr2).toFixed(2).padStart(7)}%   ${bd.padEnd(12)}${mx.toFixed(3)}  ${fr >= lo && fr <= hi ? '✓' : '✗ OUT OF BAND'}`);
   }
   console.log(`     recruitment root-first / tip-last: ${order ? '✓ each state reaches no further inboard than the last' : '✗ a later state lights INBOARD of an earlier one'}`);
   const beyond = F.maxT.filter((t) => t > 0).some((t) => t >= 0.60);

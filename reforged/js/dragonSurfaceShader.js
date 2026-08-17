@@ -294,7 +294,32 @@ export function wingFirePatch(opts = {}) {
 //    slipstream fans the ember, and only then the decay. Every shipped ember system
 //    in this repo fades monotonically from spawn (§12 kill #50).
 //
-// `aEmb`: .x phase seed · .y rate (1/lifetime) · .z travel distance · .w along-rod 0..1
+// I3.1 — WHY THIS IS NOT ADDITIVE ANY MORE. Round 4 found the ember shed washing toward
+// WHITE over the bright sky tile, and the diagnosis is arithmetic, not taste: blending
+// happens AFTER the tone-map, so an additive ember over a sky at byte (143, 184, 221)
+// saturates the BLUE channel first — the one channel the fire canon says must stay
+// lowest. Any amber bright enough to be seen there is white by construction, and no
+// emitter value, gain or hue changes which channel hits 255 first.
+//
+// The ember therefore carries its own ALPHA and the material composites `a·src +
+// (1 − a)·dst`. That makes white IMPOSSIBLE BY CONSTRUCTION rather than merely unlikely:
+// every ember pixel is a convex combination of the rod's colour and the backdrop, so it
+// can only be white if one of those two is, and neither is. A firebrand is an
+// incandescent SOLID — it occludes what is behind it; the glow skirt is the same solid
+// seen through less of its own area. The measured cost is the additive bloom over DARK
+// backdrops, and it is the right thing to spend: the director's criterion is "warm or
+// absent — white is the only forbidden outcome", and an additive term over a 0.72-luma
+// sky writes white every time. (`uEmbFlat` = 1 restores R4's flat-alpha shed, which the
+// probe's negative control pairs with AdditiveBlending to reproduce the defect exactly.)
+//
+// `aEmb`:  .x phase seed · .y rate (1/lifetime) · .z travel distance · .w along-rod 0..1
+// `aEmb2`: the ACROSS-rod coordinate, −1 at one edge → +1 at the other. It exists so the
+// rod's OPTICAL width can be narrower than its GEOMETRIC width: the quad is built wide
+// enough that its spine pixels are FULLY covered, and the shader then paints an opaque
+// core down the middle with the glow falling off to the edges. That distinction is the
+// whole fix — an antialiaser resolves a half-pixel quad as mostly backdrop, so a rod
+// thinner than a pixel arrives at the framebuffer pre-diluted and no blend mode, colour
+// or gain can put the hue back. Zero triangles: the quad had these four corners already.
 export function wingEmberPatch(opts = {}) {
   return {
     key: 'wemb',
@@ -302,26 +327,40 @@ export function wingEmberPatch(opts = {}) {
       uEmbTime: opts.time ?? 0,
       uEmbGain: opts.gain ?? 1.0,
       uEmbStage: opts.stage ?? 1,
+      uEmbFlat: opts.flat ?? 0.0,
       uEmbWind: opts.wind ?? new THREE.Vector3(0.05, 0.44, 1.0),
     },
     // `aEmb.x` carries BOTH the recruitment stage (integer part) and the phase seed
     // (fractional part) — the life cycle only ever reads the fraction, so a staged
     // ember costs no second attribute. Rods withheld until the power stroke let the
     // pool sit inside the 24–40 cruise budget and still reach the burst band.
-    parsVert: `attribute vec4 aEmb; varying vec2 vEmb;
+    parsVert: `attribute vec4 aEmb; attribute float aEmb2; varying vec4 vEmb;
       uniform float uEmbTime; uniform vec3 uEmbWind;`,
     bodyVert: `
       float _eL = fract(uEmbTime * aEmb.y + aEmb.x);
       transformed += uEmbWind * (_eL * aEmb.z);
       transformed.x += sin(_eL * 8.4 + aEmb.x * 37.7) * aEmb.z * 0.09;   // slipstream wander
-      vEmb = vec2(_eL, floor(aEmb.x));`,
-    parsFrag: `varying vec2 vEmb; uniform float uEmbGain; uniform float uEmbStage;`,
+      vEmb = vec4(_eL, floor(aEmb.x), aEmb.w, aEmb2);`,
+    parsFrag: `varying vec4 vEmb; uniform float uEmbGain; uniform float uEmbStage;
+      uniform float uEmbFlat;`,
     bodyFrag: `{
       float _eL = vEmb.x;
       float _eB = _eL < 0.15 ? mix(0.40, 1.25, _eL / 0.15)
                              : 1.25 * pow(max(0.0, 1.0 - (_eL - 0.15) / 0.85), 1.7);
       _eB *= step(vEmb.y, uEmbStage + 0.25);
+      // the optical rod inside the geometric one: solid down the spine, glow at the edges
+      float _eCore = 1.0 - smoothstep(0.42, 1.0, abs(vEmb.w));
       totalEmissiveRadiance *= vColor * (_eB * uEmbGain);
+      // OPACITY, not brightness — and opacity that follows the ember's own RADIANCE, which
+      // is what makes this physical instead of a fudge: a firebrand hot enough to out-shine
+      // the sky is a glowing SOLID and occludes it, while a cooling one is closer to a
+      // smear of lit air and adds to it. So alpha tracks the emissive magnitude, and the
+      // rod's lee end (vEmb.z → 0, the deep-red tail) keeps a floor of additive halo under
+      // the opaque windward head. uEmbSolid is the harness's kill-#67 handle: 0 restores
+      // the R4 additive-only shed exactly.
+      float _eMax = max(totalEmissiveRadiance.r, max(totalEmissiveRadiance.g, totalEmissiveRadiance.b));
+      diffuseColor.a = max(uEmbFlat, clamp(_eMax * 1.35, 0.0, 1.0)
+                     * mix(0.55, 1.0, smoothstep(0.05, 0.70, vEmb.z)) * _eCore);
     }`,
     bodyFragMaterial: `
       material.specularColor = vec3(0.0);

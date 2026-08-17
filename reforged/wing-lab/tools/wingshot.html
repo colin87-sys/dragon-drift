@@ -414,10 +414,37 @@
     window.wlMutate = (b, mut) => {
       const undo = [];
       if (!mut) return undo;
+      // I3.1 / kill #67 — THE RING, PUT BACK. The R4 cold rim is parked on the fire
+      // geometry as `wlKnownBadStage` (see `flushFire`), so the exact defect that lost
+      // Round 4 can be swapped in as a stage-tag array and swapped out again. A probe
+      // that claims to detect a closed emissive contour has to be shown detecting THIS
+      // one; anything else is a probe certifying its own opinion. Restoring the saved
+      // array and then touching `needsUpdate` is the undo — the version counter is what
+      // three watches, so assigning `true` after the array is what re-uploads it.
+      if (mut.coldRing) {
+        b.group.traverse((o) => {
+          if (!o.isMesh || !o.geometry || !o.geometry.userData) return;
+          const kb = o.geometry.userData.wlKnownBadStage;
+          const af = o.geometry.getAttribute('aFire');
+          if (!kb || !af) return;
+          const orig = af.array.slice();
+          const arr = af.array.slice();
+          for (let i = 0; i < kb.length; i++) arr[i * 4] = kb[i];
+          af.array = arr; af.needsUpdate = true;
+          undo.push([af, 'array', orig], [af, 'needsUpdate', true]);
+        });
+      }
       for (const m of fireMats(b)) {
         const su = (m.userData && m.userData.surfaceUniforms) || {};
-        for (const k of ['uFireGain', 'uFireStage', 'uFireLoad', 'uEmbGain', 'uEmbStage']) {
+        for (const k of ['uFireGain', 'uFireStage', 'uFireLoad', 'uEmbGain', 'uEmbStage', 'uEmbFlat']) {
           if (mut[k] != null && su[k]) { undo.push([su[k], 'value', su[k].value]); su[k].value = mut[k]; }
+        }
+        // I3.1 / kill #67 — THE ADDITIVE SHED, PUT BACK. Paired with `uEmbFlat: 1` this
+        // reproduces R4's ember exactly (flat alpha, AdditiveBlending), which is the only
+        // configuration in which the hue test's verdict means anything.
+        if (mut.emberAdditive && m.name === 'forge:ember') {
+          undo.push([m, 'blending', m.blending], [m, 'needsUpdate', true]);
+          m.blending = THREE.AdditiveBlending; m.needsUpdate = true;
         }
         // …guarded: during a masked pass these meshes are wearing a MeshBasicMaterial
         // role mask, which has no `emissive` at all.
@@ -636,6 +663,245 @@
         blueMean: blue.n ? +(blue.sum / blue.n).toFixed(4) : null,
         blueMax: +blue.max.toFixed(4), blueWorstTile: +worstTile.toFixed(4), blueWorstAt: worstAt,
       };
+    };
+
+    // ── I3.1 · THE CLOSED-CONTOUR PROBE (kill #68) ────────────────────────────
+    // "No state's light may trace a pane's border" made into a measurement that a
+    // builder cannot argue with. The defect is not "a ring" as a shape — it is a LIT
+    // REGION WITH A DARK INTERIOR, at any scale, in any state. So the test is topological
+    // rather than geometric: take the lit fire pixels, and ask whether the UNLIT pixels
+    // they surround can reach the edge of the frame. Anything that cannot is enclosed —
+    // and light that encloses darkness is an outline (#33 in fire clothing, #46 at
+    // window scale).
+    //
+    // Two details are load-bearing:
+    //  · The lit set is CLOSED by one dilate/erode pass first. MSAA punches single-pixel
+    //    gaps in a 2-px-wide ring, and an un-closed test would report the R4 defect as
+    //    "open" and pass it — the probe would then certify the exact frame that lost the
+    //    gate. (This is why the control matters: the ring must still fire after closing.)
+    //  · Holes are counted with an AREA FLOOR. A 1–3 px hole is antialiasing between two
+    //    artery ribbons crossing; a ring's interior is hundreds of pixels. The floor
+    //    biases the probe toward FAILING an ambiguous case, never toward passing one.
+    const _ctrCv = document.createElement('canvas');
+    window.wlContourScan = (o) => {
+      const S = o.size || 600;
+      const MIN_HOLE = o.minHole || 12;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      const b = load(o.key, o.tier);
+      applyFire(b, o.fire, o.fireTime);
+      const undo = window.wlMutate(b, o.mutate);
+      const oo = { hideFX: true, ...o, mutate: null, keepFire: true };
+      window.wlRender(oo);
+      _ctrCv.width = S; _ctrCv.height = S;
+      const ctx = _ctrCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const lit = ctx.getImageData(0, 0, S, S).data;
+      // the fire ROLE mask, exactly as wlSurfaceScan builds it — so "emissive" means
+      // "geometry the §7 fire system owns", never "anything bright in the frame".
+      const swapped = [], ws = wingMeshSet(b);
+      b.group.traverse((m) => {
+        if (!m.isMesh || !m.visible) return;
+        const r = roleOf(m, b, ws);
+        swapped.push([m, m.material]);
+        m.material = r === 'fire' ? MASK_FIRE : MASK_OFF;
+      });
+      const tm = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
+      window.wlRender(oo);
+      renderer.toneMapping = tm;
+      ctx.drawImage(gl, 0, 0);
+      const msk = ctx.getImageData(0, 0, S, S).data;
+      for (const [m, mat] of swapped) m.material = mat;
+      _unmutate(undo);
+
+      const FIRE_ON = 0.10;
+      const on = new Uint8Array(S * S);
+      let onPx = 0;
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        if (!(msk[p] > 200 && msk[p + 2] > 200 && msk[p + 1] < 40)) continue;
+        const l = (0.2126 * lit[p] + 0.7152 * lit[p + 1] + 0.0722 * lit[p + 2]) / 255;
+        if (l > FIRE_ON) { on[i] = 1; onPx++; }
+      }
+      // morphological CLOSE (dilate → erode) at radius R. R = 2 is not a free parameter:
+      // the R4 ring converges to the pane's TIP CUSP, where the two lit strips pinch
+      // together across a 2–3 px gap that the eye reads as closed and a strict
+      // 4-connectivity flood-fill walks straight through. At R = 1 this probe reported
+      // "no closed contour" on the exact frame that lost Round 4 — it certified the
+      // defect. R = 2 seals a cusp and still leaves the artery doublets (which run 6+ px
+      // apart at this crop) separate, which is what the control pair is there to prove.
+      const R = o.closeR == null ? 2 : o.closeR;
+      const dil = new Uint8Array(S * S), cls = new Uint8Array(S * S);
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const i = y * S + x; if (!on[i]) continue;
+        for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+          const yy = y + dy, xx = x + dx;
+          if (yy >= 0 && yy < S && xx >= 0 && xx < S) dil[yy * S + xx] = 1;
+        }
+      }
+      for (let y = R; y < S - R; y++) for (let x = R; x < S - R; x++) {
+        const i = y * S + x; if (!dil[i]) continue;
+        let ok = 1;
+        for (let dy = -R; dy <= R && ok; dy++) for (let dx = -R; dx <= R; dx++)
+          if (!dil[i + dy * S + dx]) { ok = 0; break; }
+        cls[i] = ok;
+      }
+      // flood the NOT-lit set from the frame border; whatever it cannot reach is enclosed.
+      const seen = new Uint8Array(S * S);
+      const stack = [];
+      const seed = (i) => { if (!cls[i] && !seen[i]) { seen[i] = 1; stack.push(i); } };
+      for (let x = 0; x < S; x++) { seed(x); seed((S - 1) * S + x); }
+      for (let y = 0; y < S; y++) { seed(y * S); seed(y * S + S - 1); }
+      while (stack.length) {
+        const i = stack.pop(), x = i % S, y = (i / S) | 0;
+        if (x > 0) seed(i - 1);
+        if (x < S - 1) seed(i + 1);
+        if (y > 0) seed(i - S);
+        if (y < S - 1) seed(i + S);
+      }
+      // group the unreached pixels into holes and measure each
+      const holes = [];
+      const lab = new Uint8Array(S * S);
+      for (let i0 = 0; i0 < S * S; i0++) {
+        if (cls[i0] || seen[i0] || lab[i0]) continue;
+        const q = [i0]; lab[i0] = 1;
+        let n = 0, minx = S, maxx = 0, miny = S, maxy = 0;
+        while (q.length) {
+          const i = q.pop(), x = i % S, y = (i / S) | 0;
+          n++;
+          if (x < minx) minx = x; if (x > maxx) maxx = x;
+          if (y < miny) miny = y; if (y > maxy) maxy = y;
+          const nb = [x > 0 ? i - 1 : -1, x < S - 1 ? i + 1 : -1, y > 0 ? i - S : -1, y < S - 1 ? i + S : -1];
+          for (const j of nb) if (j >= 0 && !cls[j] && !seen[j] && !lab[j]) { lab[j] = 1; q.push(j); }
+        }
+        if (n >= MIN_HOLE) holes.push({ px: n, box: [minx, miny, maxx - minx + 1, maxy - miny + 1] });
+      }
+      holes.sort((a, c) => c.px - a.px);
+      let png = null;
+      if (o.debug) {
+        // lit = white · enclosed dark = red · reachable dark = black. The one image that
+        // says WHY a verdict landed, so a disagreement is settled by looking rather than
+        // by arguing about a number.
+        const dc = document.createElement('canvas'); dc.width = S; dc.height = S;
+        const dx = dc.getContext('2d'); const im = dx.createImageData(S, S);
+        for (let i = 0; i < S * S; i++) {
+          const p = i * 4;
+          if (cls[i]) { im.data[p] = im.data[p + 1] = im.data[p + 2] = 255; }
+          else if (!seen[i]) { im.data[p] = 255; im.data[p + 1] = 40; im.data[p + 2] = 40; }
+          im.data[p + 3] = 255;
+        }
+        dx.putImageData(im, 0, 0); png = dc.toDataURL('image/png');
+      }
+      return { size: S, litPx: onPx, minHole: MIN_HOLE, holes: holes.slice(0, 6), holeCount: holes.length,
+        holePx: holes.reduce((t, h) => t + h.px, 0), png };
+    };
+
+    // ── I3.1 · THE EMBER HUE PROBE (§7.5 over the sky tile) ───────────────────
+    // The ember shed is FX: it is hidden from every masked scan by design (a rod is flown
+    // by the vertex shader, so a mask pass would label the wrong pixels). That makes the
+    // ember set un-maskable — so it is isolated by DIFFERENCE instead: render the tile
+    // twice, once with the shed and once without, and every pixel that moved is an ember
+    // pixel by construction. Nothing else in the frame changes between the two passes.
+    //
+    // What is reported is HUE, because the R4 finding was about hue and not about
+    // brightness: an ember that washes to white has lost the one property §7.1 makes
+    // non-negotiable (R ≥ G ≥ B strictly). `warm` = R > G > B with real saturation;
+    // `white` = a pixel whose channels have collapsed together. The verdict the director
+    // set is "warm or absent — white is the only forbidden outcome".
+    window.wlEmberScan = (o) => {
+      const S = o.size || 600;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      const b = load(o.key, o.tier);
+      applyFire(b, o.fire, o.fireTime);
+      const undo = window.wlMutate(b, o.mutate);
+      const oo = { ...o, mutate: null, keepFire: true };
+      window.wlRender(oo);
+      _ctrCv.width = S; _ctrCv.height = S;
+      const ctx = _ctrCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const withE = ctx.getImageData(0, 0, S, S).data;
+      const hid = [];
+      b.group.traverse((m) => { if (m.isMesh && m.visible && m.userData && m.userData.wlSurface === 'ember') { m.visible = false; hid.push(m); } });
+      window.wlRender(oo);
+      ctx.drawImage(gl, 0, 0);
+      const noE = ctx.getImageData(0, 0, S, S).data;
+      for (const m of hid) m.visible = true;
+      _unmutate(undo);
+
+      // Three strata by how much of the pixel the ember actually OWNS. A wing-lab rod is
+      // a few pixels of a 600 px frame, so most "changed" pixels are antialiasing fringe
+      // — 90% backdrop by area, and reporting their colour as "the ember's colour" would
+      // be reporting the SKY. The verdict rides the CORE stratum (the pixels a viewer
+      // would point at and call an ember); the fringe is printed beside it so nothing is
+      // hidden, and the FULL set is printed too.
+      const CORE_D = o.coreDelta || 45;
+      // …and the OVER-SKY filter. The director's requirement is about embers on the SKY
+      // tile, and on this camera most of the shed is in front of the DARK dragon, where
+      // an additive spark has never had a problem. Pixels whose ember-free value is the
+      // backdrop are the ones the verdict is about; keeping the rest in would average the
+      // defect away with the frames that were never at risk.
+      const skyB = o.skyRGB || [143, 184, 221];
+      let n = 0, warm = 0, white = 0, clip = 0, sr = 0, sg = 0, sb = 0, ssat = 0, cool = 0;
+      const core = { n: 0, r: 0, g: 0, b: 0, sat: 0, warm: 0, white: 0, clip: 0, cool: 0 };
+      const sats = [];
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const d = Math.max(Math.abs(withE[p] - noE[p]), Math.abs(withE[p + 1] - noE[p + 1]), Math.abs(withE[p + 2] - noE[p + 2]));
+        if (d < 5) continue;
+        if (o.overSky !== false) {
+          const bd = Math.max(Math.abs(noE[p] - skyB[0]), Math.abs(noE[p + 1] - skyB[1]), Math.abs(noE[p + 2] - skyB[2]));
+          if (bd > 10) continue;              // this ember is over the dragon, not over sky
+        }
+        const r = withE[p], g = withE[p + 1], bl = withE[p + 2];
+        const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl);
+        const sat = mx ? (mx - mn) / mx : 0;
+        const isWarm = r > g && g >= bl && sat >= 0.25;
+        // WHITE means the ember MADE a pixel bright and colourless. A fringe pixel the
+        // shed barely touched is desaturated because it is still the backdrop, and
+        // scoring the backdrop as a defect would let a probe fail a wing for the colour
+        // of its sky. The additive control is what proves this still catches the real
+        // thing: an added spark can only ever brighten, so every washed pixel it makes
+        // is counted.
+        const lumW = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+        const lumN = 0.2126 * noE[p] + 0.7152 * noE[p + 1] + 0.0722 * noE[p + 2];
+        const isWhite = sat < 0.15 && lumW > lumN + 5;
+        const isClip = r >= 245 && g >= 245 && bl >= 245;
+        n++; sr += r; sg += g; sb += bl; ssat += sat; sats.push(sat);
+        if (isClip) clip++;
+        if (isWarm) warm++; else if (isWhite) white++;
+        if (bl > r) cool++;
+        if (d >= CORE_D) {
+          core.n++; core.r += r; core.g += g; core.b += bl; core.sat += sat;
+          if (isClip) core.clip++;
+          if (isWarm) core.warm++; else if (isWhite) core.white++;
+          if (bl > r) core.cool++;
+        }
+      }
+      sats.sort((a, c) => a - c);
+      const mean = (v) => (n ? v / n : 0);
+      const R = mean(sr), G = mean(sg), B = mean(sb);
+      // HSV hue of the mean ember pixel, in degrees. Amber sits at ~20–45°.
+      const mx = Math.max(R, G, B), mn = Math.min(R, G, B), c = mx - mn;
+      let hue = 0;
+      if (c > 0) hue = (mx === R ? ((G - B) / c + 6) % 6 : mx === G ? (B - R) / c + 2 : (R - G) / c + 4) * 60;
+      const cm = (v) => (core.n ? v / core.n : 0);
+      const cR = cm(core.r), cG = cm(core.g), cB = cm(core.b);
+      const cmx = Math.max(cR, cG, cB), cmn = Math.min(cR, cG, cB), cc = cmx - cmn;
+      let cHue = 0;
+      if (cc > 0) cHue = (cmx === cR ? ((cG - cB) / cc + 6) % 6 : cmx === cG ? (cB - cR) / cc + 2 : (cR - cG) / cc + 4) * 60;
+      return { size: S, emberPx: n, coreDelta: CORE_D,
+        meanR: +R.toFixed(1), meanG: +G.toFixed(1), meanB: +B.toFixed(1),
+        hueDeg: +hue.toFixed(1), satMean: +mean(ssat).toFixed(3),
+        satP50: +(sats.length ? sats[sats.length >> 1] : 0).toFixed(3),
+        warmFrac: n ? +(warm / n).toFixed(4) : null,
+        whiteFrac: n ? +(white / n).toFixed(4) : null,
+        clipFrac: n ? +(clip / n).toFixed(4) : null,
+        coolFrac: n ? +(cool / n).toFixed(4) : null,
+        corePx: core.n, coreR: +cR.toFixed(1), coreG: +cG.toFixed(1), coreB: +cB.toFixed(1),
+        coreHue: +cHue.toFixed(1), coreSat: +cm(core.sat).toFixed(3),
+        coreWarmFrac: core.n ? +(core.warm / core.n).toFixed(4) : null,
+        coreWhiteFrac: core.n ? +(core.white / core.n).toFixed(4) : null,
+        coreClipFrac: core.n ? +(core.clip / core.n).toFixed(4) : null,
+        coreCoolFrac: core.n ? +(core.cool / core.n).toFixed(4) : null };
     };
 
     // ── SILHOUETTE QUAD PROBE ─────────────────────────────────────────────────

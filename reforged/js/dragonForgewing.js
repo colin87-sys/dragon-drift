@@ -276,7 +276,15 @@ const FIRE_EMISSIVE = 0xff5410;     // linear (1.000, 0.0889, 0.0052) — R ≫ 
 // deliberately a small ladder, because the state read is meant to come from AREA
 // (which zones are lit), not from a brightness knob.
 const FIRE_STATES = ['cold', 'cruise', 'power', 'ignition'];
-const FIRE_GAIN = [0.62, 1.00, 1.10, 1.34];
+// The cruise→ignition rungs stay a small ladder on purpose: those three states are read
+// from AREA (which zones are lit), never from a brightness knob. COLD is not on that
+// ladder at all — it is the furnace BANKED, and the only lit geometry in it is one
+// interior pane cell whose authored temperature belongs to the cruise core (T ≈ 66 at
+// its hottest vertex). 0.039 is what turns that cell from a white-hot door into the last
+// coal in the ash: effective T ≈ 2.6, i.e. luma ≈ 0.73 deep orange at the coal's hot
+// corner falling to ≈ 0.25 at its cold one, nothing clipped, hard border to black.
+// Because cold lights NOTHING else, this gain is a property of the coal alone.
+const FIRE_GAIN = [0.039, 1.00, 1.10, 1.34];
 // §7.2: the artery throb DAMPS to steady-and-brighter under load — flow suppresses
 // vasomotion, the sourced counter-intuitive tell. Load is a property of the STATE.
 const FIRE_LOAD = [0.0, 0.25, 0.85, 1.0];
@@ -322,9 +330,28 @@ function fireClock() {
 }
 
 function forgeMats(def) {
-  const solid = (hex, rough, env) => {
+  // ── I3.1: THE CRUST BUCKET (the R4 draw-consolidation order) ────────────────
+  // Seven opaque solids (char pipe, ash dust, horn claw, covert lap, vermilion band,
+  // body fairing, temper oxide) were seven MATERIALS and therefore seven draws per rig
+  // group — 16 draws/wing, 32 for the pair, against §11's ≤20 freeze. They differ in
+  // exactly two properties: COLOUR and ROUGHNESS. Colour is free per-vertex; roughness
+  // becomes free the moment one varying carries it (the `crust` patch below is two
+  // instructions). envMapIntensity differed too and is a NO-OP on this project — no
+  // `scene.environment`, no `envMap` on any material, so three.js never reads it.
+  //
+  // So the seven stay as SEMANTIC handles (the authoring code still says `M.ash`, and
+  // §7.3's ash territory is still a decision about triangles) and collapse into ONE
+  // bucket at flush time. Zero triangles added, zero pixels changed, −8 draws per wing.
+  // This is the §7.3 value structure — char → ash → temper — admitting it was always
+  // one material with three values.
+  const crustOf = new Map();
+  const solid = (hex, rough, env, crust = true) => {
     const m = new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.0, flatShading: true, side: THREE.DoubleSide });
     m.envMapIntensity = env;
+    // the LINEAR working-space triple — `new THREE.Color(hex)` sRGB-decodes exactly as the
+    // material constructor does, and vertex-colour attributes are used raw (never decoded),
+    // so this is the one conversion that makes the merged mesh byte-identical to the seven.
+    if (crust) { const c = new THREE.Color(hex); crustOf.set(m, { col: [c.r, c.g, c.b], rough }); }
     return m;
   };
   // ONE membrane material for the whole sheet — plagiopatagium, finger bays, hem,
@@ -360,18 +387,29 @@ function forgeMats(def) {
   out.covert.name = 'forge:covert';
   out.band.name = 'forge:band'; out.flank.name = 'forge:flank';
 
-  // §7.4 TEMPER — one vertex-coloured material carries the whole oxide series, so
-  // six tints cost ONE draw and ZERO extra triangles (the ringed faces are faces the
-  // humerus tube already had; they move out of the bone/ash buckets, they are not
-  // added). Roughness sits between char and ash: an oxide film is a thin smooth
-  // scale, not soot. Non-emissive by construction — kill #48 only ever fires on the
-  // thermal ramp, and this is the COMPLEMENT to it, not part of it.
-  out.temper = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.52, metalness: 0.0,
+  // §7.4 TEMPER — the oxide series is already per-FACE colour on faces the humerus tube
+  // had anyway, so it never was a material in the first place: it is a colour and a
+  // roughness, and I3.1 hands both to the crust bucket. Non-emissive by construction —
+  // kill #48 only ever fires on the thermal ramp, and this is the COMPLEMENT to it.
+  const TEMPER_ROUGH = 0.52;   // an oxide film is a thin smooth scale, not soot
+
+  // THE ONE OPAQUE SOLID. `color` is white so the vertex colour IS the albedo, and
+  // `roughnessFactor` is overwritten per-vertex by the `crust` patch — two shader
+  // instructions in exchange for eight draws a wing. Everything else (metalness 0,
+  // flatShading, DoubleSide, no emissive, no envMap) was already common to all seven.
+  const crust = new THREE.MeshStandardMaterial({
+    color: 0xffffff, roughness: 1.0, metalness: 0.0,
     flatShading: true, side: THREE.DoubleSide, vertexColors: true,
   });
-  out.temper.envMapIntensity = 0.14;
-  out.temper.name = 'forge:temper';
+  crust.name = 'forge:crust';
+  composeSurface(crust, [{
+    key: 'crust',
+    parsVert: 'attribute float aCrust; varying float vCrust;',
+    bodyVert: 'vCrust = aCrust;',
+    parsFrag: 'varying float vCrust;',
+    bodyFrag: 'roughnessFactor = vCrust;',
+  }]);
+  out.crust = crust; out.crustOf = crustOf; out.temperRough = TEMPER_ROUGH;
 
   // ── §7 THE FIRE MATERIAL ────────────────────────────────────────────────────
   // ONE material for zone A, zone B, the secondaries and the outer recruit. Black
@@ -393,14 +431,24 @@ function forgeMats(def) {
   composeSurface(fire, [wingFirePatch({ stage: 1, gain: FIRE_GAIN[1], load: FIRE_LOAD[1] })]);
 
   // ── §7.5 THE EMBERS ─────────────────────────────────────────────────────────
-  // Additive, depth-read but not depth-WRITE (an ember is light in the air, not a
-  // surface), and its whole life cycle lives in the vertex shader — so 40 rods for
-  // the pair cost one draw, no CPU, and are deterministic under a pinned clock.
+  // Depth-read but not depth-WRITE (an ember is light in the air, not a surface), and
+  // its whole life cycle lives in the vertex shader — so 48 rods for the pair cost one
+  // draw, no CPU, and are deterministic under a pinned clock.
+  //
+  // I3.1 — THE BLEND. `a·src + (1 − a)·dst`, with the alpha authored per fragment by the
+  // §7.5 patch. R4's defect was that ADDITIVE cannot hold amber over a 0.65-linear sky:
+  // the sum is taken after the tone-map, the sky's blue is its highest channel, and the
+  // first thing an added amber does is drive blue to 255. Compositing instead of adding
+  // makes every ember pixel a convex mix of the rod's colour and the backdrop, so white
+  // is not merely avoided, it is unreachable. The cost — no additive bloom on dark
+  // backdrops — is paid knowingly: the rod's authored colour is already near-maximum red,
+  // and the shipped frame runs bloom over the top of it.
   const ember = new THREE.MeshStandardMaterial({
     color: 0x000000, emissive: 0xffffff, emissiveIntensity: 1.0,
     roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide, vertexColors: true,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false, blending: THREE.NormalBlending,
   });
+  ember.premultipliedAlpha = false;
   ember.envMapIntensity = 0.0;
   ember.name = 'forge:ember';
   ember.userData.baseEmissive = 0xffffff;
@@ -449,7 +497,38 @@ function buildOneForgewing(M, d) {
     let a = m.get(mat); if (!a) m.set(mat, a = []);
     for (const t of tris) a.push(t);
   };
-  const flush = (g) => { const m = accs.get(g); if (!m) return; for (const [mat, tris] of m) if (tris.length) g.add(flatTriMesh(tris, mat)); };
+  // I3.1 — every semantic solid that registered a crust entry flushes into ONE
+  // vertex-coloured mesh per group instead of one mesh per material. `flatTriMesh` is
+  // still the path for anything that opts out (nothing does today), so the batching
+  // idiom survives intact.
+  const crustAcc = new Map();
+  const pushCrust = (g, p, col, rough) => { let a = crustAcc.get(g); if (!a) crustAcc.set(g, a = []); a.push({ p, col, rough }); };
+  const flush = (g) => {
+    const m = accs.get(g); if (!m) return;
+    for (const [mat, tris] of m) {
+      if (!tris.length) continue;
+      const cr = M.crustOf && M.crustOf.get(mat);
+      if (cr) { for (const t of tris) for (const p of t) pushCrust(g, p, cr.col, cr.rough); }
+      else g.add(flatTriMesh(tris, mat));
+    }
+  };
+  const flushCrust = (g) => {
+    const vs = crustAcc.get(g); if (!vs || !vs.length) return;
+    const n = vs.length;
+    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), ac = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const v = vs[i];
+      pos[i * 3] = v.p[0]; pos[i * 3 + 1] = v.p[1]; pos[i * 3 + 2] = v.p[2];
+      col[i * 3] = v.col[0]; col[i * 3 + 1] = v.col[1]; col[i * 3 + 2] = v.col[2];
+      ac[i] = v.rough;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('aCrust', new THREE.BufferAttribute(ac, 1));
+    geo.computeVertexNormals();
+    g.add(new THREE.Mesh(geo, M.crust));
+  };
   const quad = (g, mat, a, b, c, e) => push(g, mat, [a, b, c], [a, c, e]);
 
   // ── I2: THE MEMBRANE VERTEX (§6.1) ──────────────────────────────────────────
@@ -513,7 +592,7 @@ function buildOneForgewing(M, d) {
   // non-indexed, so a state border is a DISCONTINUITY, which is the whole of §7.1's
   // "an abrupt skip, never feathered" (kill #43) done in geometry rather than
   // begged from a smoothstep.
-  const fireAcc = new Map(), embAcc = new Map(), tmpAcc = new Map();
+  const fireAcc = new Map(), embAcc = new Map();
   const fireArea = [0, 0, 0, 0];       // authored surface area per stage → the dump
   const fireMaxT = [0, 0, 0, 0];       // …and how far outboard each stage reaches
   // …and by ZONE, because §7.1's budget table is written per zone (A 2–4%, B 1–3%,
@@ -522,7 +601,11 @@ function buildOneForgewing(M, d) {
   const fireZoneArea = { A: 0, B: 0, sec: 0, outer: 0, cap: 0 };
   let fireZone = 'A';
   const triArea = (a, b, c) => 0.5 * len3(cross3(sub3(b, a), sub3(c, a)));
-  const FV = (p, temp, stage, rhythm, phase) => ({ p, temp, stage, rhythm, phase });
+  // `ring` is the R4 KNOWN-BAD stage tag (the closed cold rim), carried alongside the
+  // real one so the contour probe has something to fire on (kill #67). It defaults to
+  // the live stage everywhere except zone A, where the two disagree — which is exactly
+  // where the defect lived.
+  const FV = (p, temp, stage, rhythm, phase, ring) => ({ p, temp, stage, rhythm, phase, ring: ring == null ? stage : ring });
   const fireTri = (g, A, B, C) => {
     let arr = fireAcc.get(g); if (!arr) fireAcc.set(g, arr = []);
     // the panes are VENTRAL: wind every triangle so its face normal points DOWN, and
@@ -540,16 +623,23 @@ function buildOneForgewing(M, d) {
     const vs = fireAcc.get(g); if (!vs || !vs.length) return;
     const n = vs.length;
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), af = new Float32Array(n * 4);
+    const kb = new Uint8Array(n);          // the R4 cold ring, kept as a firing pin for the probe
     for (let i = 0; i < n; i++) {
       const v = vs[i];
       pos[i * 3] = v.p[0]; pos[i * 3 + 1] = v.p[1]; pos[i * 3 + 2] = v.p[2];
       col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = v.temp;
       af[i * 4] = v.stage; af[i * 4 + 1] = v.rhythm; af[i * 4 + 2] = v.phase; af[i * 4 + 3] = v.temp;
+      kb[i] = v.ring;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.setAttribute('aFire', new THREE.BufferAttribute(af, 4));
+    // ~1 KB per wing of pure liability: the exact defect that lost Round 4, addressable
+    // by the harness so "the closed-contour probe can see a closed contour" is a claim
+    // this repo can re-run instead of remember (kill #67, §11 probe law).
+    geo.userData.wlKnownBadStage = kb;
+    geo.userData.wlKnownBadName = 'R4 cold rim (kill #68)';
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, M.fire);
     mesh.userData.wlSurface = 'fire';      // the fire probe masks on this
@@ -560,16 +650,19 @@ function buildOneForgewing(M, d) {
     const vs = embAcc.get(g); if (!vs || !vs.length) return;
     const n = vs.length;
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), ae = new Float32Array(n * 4);
+    const a2 = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const v = vs[i];
       pos[i * 3] = v.p[0]; pos[i * 3 + 1] = v.p[1]; pos[i * 3 + 2] = v.p[2];
       col[i * 3] = v.c[0]; col[i * 3 + 1] = v.c[1]; col[i * 3 + 2] = v.c[2];
       ae[i * 4] = v.seed; ae[i * 4 + 1] = v.rate; ae[i * 4 + 2] = v.travel; ae[i * 4 + 3] = v.rod;
+      a2[i] = v.acr;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.setAttribute('aEmb', new THREE.BufferAttribute(ae, 4));
+    geo.setAttribute('aEmb2', new THREE.BufferAttribute(a2, 1));
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, M.ember);
     mesh.frustumCulled = false;            // the pool's verts sit at spawn; the shader flies them
@@ -580,24 +673,10 @@ function buildOneForgewing(M, d) {
     g.add(mesh);
   };
   // §7.4 temper: per-FACE colour on faces the tube already had, so the oxide series
-  // costs one draw and zero triangles.
+  // costs zero triangles — and since I3.1 it costs zero DRAWS too: it goes straight
+  // into the crust bucket at the oxide film's own roughness.
   const pushTemper = (g, a, b, c, e, col) => {
-    let arr = tmpAcc.get(g); if (!arr) tmpAcc.set(g, arr = []);
-    for (const p of [a, b, c, a, c, e]) arr.push({ p, col });
-  };
-  const flushTemper = (g) => {
-    const vs = tmpAcc.get(g); if (!vs || !vs.length) return;
-    const n = vs.length;
-    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      pos[i * 3] = vs[i].p[0]; pos[i * 3 + 1] = vs[i].p[1]; pos[i * 3 + 2] = vs[i].p[2];
-      col[i * 3] = vs[i].col[0]; col[i * 3 + 1] = vs[i].col[1]; col[i * 3 + 2] = vs[i].col[2];
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    geo.computeVertexNormals();
-    g.add(new THREE.Mesh(geo, M.temper));
+    for (const p of [a, b, c, a, c, e]) pushCrust(g, p, col, M.temperRough);
   };
 
   // ── §3 LANDMARKS ─────────────────────────────────────────────────────────────
@@ -1201,13 +1280,26 @@ function buildOneForgewing(M, d) {
   // machine, and this article's whole case is that it is an animal (kill #66's
   // logic, applied to light instead of to a hem).
   //
-  // The pane carries the state ladder inside itself. Its OUTER RING is stage 0 —
-  // at cold the core is dark and only the door's seam glows, ~1% of the wing, which
-  // is F1's "dim rim only". Everything inboard of that ring is stage 1: at cruise
-  // the whole window opens AT ONCE, with a hard border, because that is what a
-  // window does. The value inside runs core → bloom → dark (T_CORE → T_RIM) and the
-  // rim's value is continuous across the stage seam, so the recruitment step is a
-  // change of AREA and never a visible ring inside the pane.
+  // The pane carries the state ladder inside itself. ONE interior cell — the one that
+  // owns the pane's thermal core, which is also its thickest point — is stage 0: at
+  // cold that single coal is the only lit thing on the animal, and everything else in
+  // the pane is stage 1, so at cruise the whole window opens AT ONCE with a hard
+  // border, because that is what a window does. The value inside runs core → bloom →
+  // dark (T_CORE → T_RIM) and the coal's value is continuous across the stage seam, so
+  // the recruitment step is a change of AREA and never a visible ring inside the pane.
+  //
+  // I3.1 / KILL #68. I3 shipped the pane's OUTER RING as stage 0 — F1 B6's "dim rim
+  // only, core dark" — and it rendered exactly what that sentence describes: a closed
+  // bright amber "O" with a dark interior, the single lit element in the cold tile.
+  // That is an outline made of light (#33's chrome tell at window scale) and it lost
+  // the FIRE gate on its own. The Director overruled the clause it came from: a
+  // radiator that banks its fire dims to a SHRINKING CORE, not to a luminous border
+  // around nothing — a border is the edge between a lit field and a dark one, and when
+  // the interior goes dark the border stops existing. Cold is OFF or a core-coal.
+  // The old ring tagging survives here as a KNOWN-BAD the probe can be fired at
+  // (kill #67): `ring` rides every zone-A vertex and `flushFire` parks it on the
+  // geometry so the harness can swap the defect back in and prove the contour probe
+  // can see it.
   const WV0 = [0.161, 0.179], WV1 = [0.185, 0.597], WV2 = [0.448, 0.368];
   const winUC = (a, b) => {
     const e0 = bez2(WV0, [0.278, 0.194], WV2, a);        // forward edge, bowed toward the LE
@@ -1227,17 +1319,26 @@ function buildOneForgewing(M, d) {
     return T_RIM + (T_CORE - T_RIM) * Math.pow(1 - r, 5.5);
   };
   {
-    // Non-uniform cell edges: the rim ring has to be THIN (F1 puts zone A at 2–4% of
-    // the wing and the cold state at ~1%, so the ring is about a quarter of the pane),
-    // and a uniform 6×6 grid would make it half.
+    // The cell edges are UNCHANGED from I3 — the pane's tessellation, its temperature
+    // field and therefore every pixel of the cruise / power / ignition tiles are
+    // byte-identical to the build that won four of five judged tiles. The only thing
+    // I3.1 changes in zone A is WHICH CELL carries stage 0.
     const WA = [0, 0.105, 0.30, 0.52, 0.72, 0.90, 1.0];
     const WB = [0, 0.115, 0.32, 0.53, 0.74, 0.885, 1.0];
+    // THE COAL. One interior cell, never a border cell: `ia` is 1 or 2 and `ib` is 2,
+    // so the coal cannot touch a = 0 (the root edge), a = 1 (the tip cusp), b = 0 (the
+    // forward edge) or b = 1 (the aft edge) — no pixel of the cold state can trace the
+    // window border, which is the amended §7.1 clause stated as an index range rather
+    // than hoped for in pixels. Which of the two it is comes off the seed, so L and R
+    // bank differently; both straddle the pane's centroid and the thermal core at
+    // (0.27, 0.44), so the coal sits at the pane's thickest point either way.
+    const COAL = [1 + (fPhase(seedSide * 733 + 17) < 0.5 ? 0 : 1), 2];
     fireZone = 'A';
     for (let ia = 0; ia < WA.length - 1; ia++) for (let ib = 0; ib < WB.length - 1; ib++) {
-      const rim = (ia === 0 || ib === 0 || ib === WB.length - 2);
-      const st = rim ? 0 : 1;
+      const st = (ia === COAL[0] && ib === COAL[1]) ? 0 : 1;
+      const ring = (ia === 0 || ib === 0 || ib === WB.length - 2) ? 0 : 1;   // the R4 known-bad
       const ph = fPhase(ia * 37 + ib * 11 + 3 + seedSide * 601);   // the plume puffs unevenly
-      const V = (a, b) => { const uc = winUC(a, b); return FV(ventral(armSurface(uc[0], uc[1])), winTemp(a, b), st, 0, ph); };
+      const V = (a, b) => { const uc = winUC(a, b); return FV(ventral(armSurface(uc[0], uc[1])), winTemp(a, b), st, 0, ph, ring); };
       fireQuad(arm, V(WA[ia], WB[ib]), V(WA[ia], WB[ib + 1]), V(WA[ia + 1], WB[ib + 1]), V(WA[ia + 1], WB[ib]));
     }
   }
@@ -1381,11 +1482,17 @@ function buildOneForgewing(M, d) {
   // then recruits the OUTER membrane for ≤0.8 s. Both are lenses: pointed at both
   // ends, no straight run, no corner — and both still die well inboard of t = 0.60,
   // so the distal third and the trailing edge stay the coldest tissue on the animal.
-  const lensPane = (u0, c0, rad, aspect, temp, stage, seed) => {
+  const lensPane = (u0, c0, rad, aspect, rot, temp, stage, seed) => {
     const LA = [0, 0.26, 0.62, 1.0], LB = [0, 0.34, 0.68, 1.0];
+    // `rot` skews the lens's long axis out of the u-axis. Three slots whose major axes
+    // are all EXACTLY parallel is the picket fence again — the same tell the cord-end
+    // teeth were cured of in R3(b), wearing a pane instead of a tooth. It stays a SKEW
+    // and not a free rotation because kill #24 is not negotiable: everything on this
+    // wing runs spanwise, and a slot rolled past ~12° starts reading chordwise.
     const surf = (a, b) => {
       const w = Math.pow(Math.sin(Math.PI * Math.pow(a, 0.86)), 0.62);
-      return ventral(armSurface(u0 + rad * (a - 0.5), c0 + rad * aspect * w * (b - 0.5)));
+      const du = rad * (a - 0.5), dc = rad * aspect * w * (b - 0.5);
+      return ventral(armSurface(u0 + du - dc * rot * 0.5, c0 + dc + du * rot));
     };
     // the value falls from the pane's own core to 55% at its border and then STOPS —
     // the border is the skip; the interior is the value structure.
@@ -1399,16 +1506,48 @@ function buildOneForgewing(M, d) {
   };
   // Elongated along the SPAN, never across the chord: every fibre, cord, wrinkle and
   // vessel on this wing runs spanwise (kill #24), and a row of chordwise ovals reads as
-  // spots on a leaf rather than as windows in a furnace wall. Sizes and aspects all
-  // differ — three identical slots is a vent grille.
-  fireZone = 'sec';
-  lensPane(0.600, 0.300, 0.265, 0.58, T_SEC, 2, 71 + seedSide * 17);
-  lensPane(0.520, 0.645, 0.215, 0.68, T_SEC * 0.86, 2, 131 + seedSide * 17);
-  lensPane(0.755, 0.470, 0.200, 0.60, T_SEC * 0.72, 2, 197 + seedSide * 17);
-  fireZone = 'outer';
-  lensPane(0.845, 0.300, 0.235, 0.56, T_OUT, 3, 251 + seedSide * 17);
-  lensPane(0.880, 0.590, 0.190, 0.66, T_OUT * 0.82, 3, 311 + seedSide * 17);
-  lensPane(0.730, 0.765, 0.205, 0.60, T_OUT * 0.70, 3, 379 + seedSide * 17);
+  // spots on a leaf rather than as windows in a furnace wall.
+  //
+  // I3.1 — SLOT VARIETY (R4 watch item). I3 authored three slots per row whose sizes,
+  // aspects and axes were close enough that at 3× they read as parallel lozenges at
+  // even pitch: the picket-fence law in fire clothing, on an article whose entire case
+  // is that it is an animal. The fix is the recipe that cured the cord saw, applied to
+  // panes, and every part of it is load-bearing:
+  //   • DOMINANT-AND-DECAY — four authored slots per row, radii falling monotonically
+  //     outboard, so the row has a hero and a diminuendo instead of a rhythm section.
+  //     (It is also thermally right: the mid-panel is the last warm tissue, and heat
+  //     runs out toward the tip.)
+  //   • ±25%-CLASS JITTER on scale and aspect, seeded per slot AND per side.
+  //   • A SKEWED AXIS per slot, so no two majors are parallel.
+  //   • ONE DROPPED SLOT PER ROW PER SIDE, and never the same index left and right —
+  //     a gap in a row is what proves the row was not stamped. The drop is why there
+  //     are four authored and three drawn: the triangle count is unchanged.
+  const SEC = [[0.505, 0.618, 0.256, 0.70], [0.600, 0.300, 0.238, 0.57],
+    [0.712, 0.512, 0.206, 0.65], [0.792, 0.338, 0.170, 0.58]];
+  const OUTR = [[0.706, 0.762, 0.238, 0.61], [0.800, 0.318, 0.216, 0.55],
+    [0.866, 0.578, 0.184, 0.66], [0.918, 0.404, 0.152, 0.58]];
+  // …and the dropped index. `sd` is a seeded base; the +1..n-1 offset on the mirrored
+  // side GUARANTEES L ≠ R instead of hoping the hash separates them.
+  const dropOf = (salt, n) => {
+    const base = Math.floor(fPhase(salt) * n) % n;
+    const step = 1 + Math.floor(fPhase(salt + 91) * (n - 1));
+    return seedSide ? (base + step) % n : base;
+  };
+  const lensRow = (rows, t0, stage, zone, salt) => {
+    fireZone = zone;
+    const skip = dropOf(salt, rows.length);
+    for (let i = 0; i < rows.length; i++) {
+      if (i === skip) continue;
+      const [u0, c0, rad, asp] = rows[i];
+      const sj = 1 + wjit(salt + i * 29 + 3 + seedSide * 811, 0.25);       // ±25% scale
+      const aj = 1 + wjit(salt + i * 37 + 11 + seedSide * 823, 0.25);      // ±25% aspect
+      const rot = wjit(salt + i * 43 + 19 + seedSide * 827, 0.22);         // the skew
+      // the temperature ladder rides the same decay: the dominant slot is the hottest.
+      lensPane(u0, c0, rad * sj, asp * aj, rot, t0 * (1 - 0.20 * i), stage, salt + i * 17 + seedSide * 17);
+    }
+  };
+  lensRow(SEC, T_SEC, 2, 'sec', 71);
+  lensRow(OUTR, T_OUT, 3, 'outer', 251);
 
   // ── §7.5 THE EMBERS — the trailing edge glows NOTHING and sheds EVERYTHING ──
   // Small-diameter material produces embers ~5× faster than large, so firebrands
@@ -1434,9 +1573,22 @@ function buildOneForgewing(M, d) {
     // rain. At the chase read the dragon fills ~600 px over ~8 units, so 4 px ≈ 0.05 u —
     // 0.013·hs. Small, warm and many reads as a shed; long, bright and parallel reads as a
     // scratched lens.
-    const EL = 0.013 * hs, EW = EL / 11.5;               // 11.5 : 1, inside F1's 10–13 : 1
+    // I3.1 raises it to 0.017·hs at the 10 : 1 end of F1's 10–13 : 1 band, for a reason
+    // that is measured and not aesthetic: a rod thinner than about a pixel cannot hold a
+    // HUE over a bright sky no matter how it blends, because the antialiaser resolves it
+    // as mostly backdrop and the ember's colour arrives pre-diluted. 0.013·hs at 11.5 : 1
+    // landed near half a pixel of width at the chase read; this is the smallest rod whose
+    // spine pixels are majority ember, which is what the R4 hue requirement actually needs.
+    const EL = 0.017 * hs, EW = EL / 10.0;               // 10 : 1, the wide end of F1's band
     const WIND = norm3([0.05, 0.44, 1.0]);               // the relative wind, aft and up
-    const HOT = [1.00, 0.46, 0.12], LEE = [0.52, 0.060, 0.010];
+    // §7.5's two-tone: windward amber ≈1200 °C → lee deep red ≈700 °C. I3.1 DEEPENS both.
+    // R4's (1.00, 0.46, 0.12) was authored to be ADDED to a frame, and ACES desaturates
+    // hard on the way up — measured, its ignition peak tone-mapped to byte (234, 200, 132),
+    // a pale straw whose green sits 16 bytes off the sky's own. Painted rather than added,
+    // that is a grey speck. (1.25, 0.14, 0.005) lands at (255, 140, 45) — sat 0.82 instead
+    // of 0.44 — which is both what 1200 °C looks like and what survives being averaged
+    // with a backdrop. The lee end lands at (220, 59, 11).
+    const HOT = [1.25, 0.140, 0.005], LEE = [0.58, 0.044, 0.000];
     for (let i2 = 0; i2 < NEM; i2++) {
       // 3 in 4 off the scalloped free edge, 1 in 4 off a fingertip — both thin, both cold
       const p = (i2 % 4 === 3 && tips.length)
@@ -1453,11 +1605,17 @@ function buildOneForgewing(M, d) {
       const e1 = norm3(cross3(WD, [0, 1, 0])), e2 = norm3(cross3(WD, e1));
       const a = add3(p, mul3(WD, -EL * 0.5)), b = add3(p, mul3(WD, EL * 0.5));
       let arr = embAcc.get(hand); if (!arr) embAcc.set(hand, arr = []);
-      const EV = (q, off2, c, rod) => arr.push({ p: add3(q, off2), c, seed, rate, travel, rod });
+      const EV = (q, off2, c, rod, acr) => arr.push({ p: add3(q, off2), c, seed, rate, travel, rod, acr });
+      // The quad is built at EWG = 2.4 × the rod's OPTICAL width and the shader paints the
+      // rod inside it (`aEmb2`, the across coordinate). Same two triangles, same corners —
+      // they simply sit far enough apart that the spine of the rod fully covers its pixels
+      // instead of being resolved as 40% ember and 60% sky. Optical width is unchanged at
+      // 10 : 1; what changed is that the antialiaser no longer eats it.
+      const EWG = EW * 2.4;
       for (const e of [e1, e2]) {
-        const o = mul3(e, EW * 0.5);
-        EV(a, o, HOT, 1); EV(a, mul3(o, -1), HOT, 1); EV(b, mul3(o, -1), LEE, 0);
-        EV(a, o, HOT, 1); EV(b, mul3(o, -1), LEE, 0); EV(b, o, LEE, 0);
+        const o = mul3(e, EWG * 0.5);
+        EV(a, o, HOT, 1, 1); EV(a, mul3(o, -1), HOT, 1, -1); EV(b, mul3(o, -1), LEE, 0, -1);
+        EV(a, o, HOT, 1, 1); EV(b, mul3(o, -1), LEE, 0, -1); EV(b, o, LEE, 0, 1);
       }
     }
   }
@@ -1579,8 +1737,11 @@ function buildOneForgewing(M, d) {
   }
 
   flush(arm); flush(fore); flush(hand); flush(root); flush(frame);
+  // …then ONE crust mesh per group (char + ash + claw + covert + band + fairing + §7.4
+  // temper, vertex-coloured, per-vertex roughness). Must run AFTER `flush`, which is what
+  // fills the bucket, and after pushTemper.
+  flushCrust(arm); flushCrust(fore); flushCrust(hand); flushCrust(root); flushCrust(frame);
   flushMem(arm); flushMem(hand); flushMem(frame, 'skirt');   // the skirt is body-frame: same material, measured apart
-  flushTemper(arm);                                          // §7.4 — the oxide series on the hot root
   flushFire(arm); flushEmbers(hand);                         // §7 — the whole radiator in 2 draws
 
   // pure-math landmark table — geometry numbers beat rendered pixels (§11 verify chain)

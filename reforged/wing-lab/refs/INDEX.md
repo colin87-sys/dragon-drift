@@ -117,7 +117,7 @@ Run everything from `/home/user/dragon-drift/reforged`:
 | `wing-forgewing-apex-poses.png` | 3 tiles: SPREAD (glide) · MID-FLAP (downstroke) · FOLDED (fold), one wing broadside, one shared camera | same | **The I1 STRUCTURE gate.** Arm vs hand articulation; that no membrane tears at the wrist or the root across the stroke |
 | `wing-forgewing-apex-cycle.png` | 5-tile strip glide → recovery → apex → downstroke → settle from the rear-chase cam, ONE frozen camera | same | The money angle. Also where the measured 0.77-unit ROOT PEEL of the inboard-aft membrane corner would show if it read as a detaching shard |
 | `wing-forgewing-apex-detail.png` | 3×2: wing 2.2× pale · 4× pale · 2.2× dark · chase read on sky · **BACKLIT (sun behind)** · **BACKLIT planform · MIRROR PLANE** | same | Surface craft at shop distance; the two backlit tiles are the §11-mandated harness addition — I2's membrane gate cannot be judged without the sun behind the wing. **I3 re-shot the 6th tile per the R3(a) order:** camera exactly on the sagittal plane (`mirrortop`, framing box forced symmetric about x = 0) and the sun exactly anti-camera (`backmirror`, which also mirrors the stage's rim light onto the plane). |
-| `wing-forgewing-apex-fire.png` | 4×2 — the §7 STATE LADDER. Row 1 is the CHASE read at cruise / power / ignition plus the bank; row 2 is the same ladder from the wing's own ventral normal (cold · cruise · power · ignition). The §7.2 clock is PINNED to a different value per tile | same | **The FIRE gate's centrepiece.** Row 1 is meant to look nearly identical three times — the radiator is ventral, so from behind and above the state ladder is WITHHELD (kill #44); row 2 is where the recruitment is legible, root-first and tip-last, with hard borders in every state |
+| `wing-forgewing-apex-fire.png` | 4×2 — the §7 STATE LADDER. Row 1 is the CHASE read at cruise / power / ignition plus the bank; row 2 is the same ladder from the wing's own ventral normal (cold · cruise · power · ignition). The §7.2 clock is PINNED to a different value per tile | same | **The FIRE gate's centrepiece.** Row 1 is meant to look nearly identical three times — the radiator is ventral, so from behind and above the state ladder is WITHHELD (kill #44); row 2 is where the recruitment is legible, root-first and tip-last, with hard borders in every state. **I3.1 re-shot row 2's first tile:** cold is now ONE core-coal in a dark pane, not the closed rim that lost Round 4 (kill #68) |
 
 **On the L/R split in the OLD backlit planform (R3's eyes-on question (a)).** The previous
 capture used `wingtop`, which frames on the RIGHT wing's bounding box and therefore sits half
@@ -140,7 +140,10 @@ pixels):
 node wing-lab/tools/wingdump.mjs forgewing     # §3 landmark table, elbow angle, §4 taper,
                                                # §5.1 area shares + AR, bay widths, tri/draw
                                                # split, span/body, root peel   (~4 s, no WebGL)
-node tools/wingsymprobe.mjs forgewing          # mirror gate — must be Δ0.000
+node tools/wingsymprobe.mjs forgewing          # mirror gate — RIG must be Δ0.000; the vertex-
+                                               # cloud line also carries seeded L/R weathering
+node wing-lab/tools/wingfire.mjs forgewing     # §7 bands · clipped white · hue law · L/R ·
+                                               # kill #68 contours · §7.5 ember hue (+ controls)
 node tools/tricount.mjs --ci                   # budget gate
 node tools/tiershots.mjs forgewing             # the 4-rung ladder → /tmp/tier-forgewing.png
 node wing-lab/tools/wingquadprobe.mjs forgewing   # silhouette gate: 0 right-angle corners
@@ -154,6 +157,38 @@ node wing-lab/tools/wingquadprobe.mjs forgewing   # silhouette gate: 0 right-ang
 | Land span/body in 1.10–1.20 | uniform rescale, `hs = spanScale · 6.2` | **1.172** at glide (bar 1.18) |
 | Move `mid` to t = 0.28 | a second −anchor: `mid.position = +E`, `fore.position = −E`, driven at `midAmp: 0` | landmark table still Δ0.0000 |
 | The orphan covert chip | rebuilt as a real shingled rank of 9, charcoal bodies with one lit lapped edge, terminating at the carpal cluster | — |
+
+### I3.1 — the FIRE re-gate (Round 4 lost on ONE tile)
+
+| Ask | What landed | Measured |
+|---|---|---|
+| **Kill the cold ring (kill #68).** Cold = OFF, or ONE core-coal ≤0.3% of wing area at the pane's thickest point, hard-bordered, centroid-biased, asymmetric by seed; no pixel may trace the window border | The pane's tessellation, temperatures and cruise/power/ignition pixels are UNCHANGED. The only edit in zone A is which cell carries stage 0: the outer ring became one INTERIOR cell (`ia` ∈ {1,2}, `ib` = 2 by seed — indices that cannot touch a pane border), and `FIRE_GAIN[0]` fell 0.62 → 0.039 so the coal reads as the last coal in a banked furnace instead of a white-hot door | authored **0.14%** of wing area (≤0.30) · measured **0.22%** (≤0.50) · **0 closed emissive contours** in all four states · clipped white 0.00% |
+| **Secondary-slot variety** — per-slot scale/aspect/rotation jitter, sizes decaying outboard, one dropped slot per side, L ≠ R by seed | FOUR authored slots per row with monotonically decaying radii, ±25% seeded scale/aspect jitter, a seeded axis skew per slot, and one slot dropped per row per side at an index that is *guaranteed* to differ L vs R. Four authored − one dropped = three drawn: net zero triangles | power 7.41% · ignition 10.72% authored (bands 6–12 / 9–15) · furthest emissive vertex t = 0.510 (< 0.60) |
+| **Embers: warm or absent; white forbidden** | The shed composites (`a·src + (1−a)·dst`) instead of adding, with the alpha authored per fragment from the ember's own radiance, and a new across-rod coordinate (`aEmb2`) that lets the QUAD be wider than the optical rod so the spine pixels are not resolved as mostly sky. Emitter deepened to linear (1.25, 0.140, 0.005) — byte (255, 140, 45) instead of R4's pale (234, 200, 132) | over sky: core hue **9.6°**, sat **0.404**, washed-white **0.0%**, clipped **0.0%** — against the R4 additive control at hue 314°, sat 0.114, **74.9%** washed white |
+| **Draw consolidation** (the I4 entry condition) | Seven opaque solids (char · ash · claw · covert · band · fairing · §7.4 temper) became ONE vertex-coloured `forge:crust` bucket carrying per-vertex roughness in a two-instruction patch. They only ever differed in colour and roughness; `envMapIntensity` differs too and is a no-op on this project (no `scene.environment`, no `envMap` anywhere) | pair **32 → 16 draws** (freeze ≤20) · whole form 101 → 83 · triangles **unchanged** at 3,156 / 5,477 · pixel effect: 1-px antialias seams only, measured by rendering the same sheet with and without the merge |
+
+### Three harness additions landed with I3.1
+
+- **`wlContourScan`** — kill #68 as a topological measurement: take the LIT fire pixels,
+  morphologically CLOSE them at radius 2, and flood-fill the unlit set from the frame border.
+  Anything unreachable is enclosed, and light that encloses darkness is an outline. The
+  radius is not a free parameter: the R4 ring converges to the pane's tip cusp across a
+  2–3 px pinch that the eye reads as closed and a strict flood-fill walks through, so at
+  radius 1 the probe cleared the very frame that lost the gate.
+- **`wlEmberScan`** — the ember shed is FX and is hidden from every masked pass by design, so
+  it is isolated by DIFFERENCE (render the tile with and without the shed; every pixel that
+  moved is an ember pixel). Reports hue/saturation over the full set and over the CORE
+  stratum, restricted to embers standing against the SKY.
+- **The R4 defect, kept as a firing pin.** `flushFire` parks the old ring's stage tags on the
+  fire geometry as `wlKnownBadStage`, and `wlMutate({ coldRing: true })` swaps them back in.
+  Kill #67 asks that a probe be shown firing on a known-bad; for this gate the known-bad is
+  our own last delivery, so the lab now owns it instead of remembering it.
+- **`wingsymprobe` now reports the RIG separately** from the vertex cloud. The cloud test
+  cannot tell an off-beat poser from a seeded mesh, and §7.4 makes seeded L/R weathering
+  mandatory — so the named joint nodes (which carry no decoration) are compared as well.
+  Rig **0.000**; cloud **0.010** (threshold 0.03), the first geometric L/R difference this
+  article has ever carried, and it is there because the director ordered one dropped slot
+  per side.
 
 ### Two harness changes landed with I1
 
