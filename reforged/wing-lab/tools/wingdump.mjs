@@ -167,6 +167,41 @@ if (dump.skirtOuter && dump.skirtOuter.length > 2) {
 // ── §5.2 the propatagium is a sail, not piping ────────────────────────────────
 if (propatagium) console.log(`\n§5.2 PROPATAGIUM  depth ${propatagium.depth.toFixed(3)} = ${(propatagium.depth / propatagium.chordAtElbow).toFixed(3)} × chord@elbow (${propatagium.chordAtElbow.toFixed(3)})   (spec 0.20c; §12 kill #15 = 2-px piping)`);
 
+// ── §7 THE FIRE: authored area per recruitment state ─────────────────────────
+// Geometry ground truth for the budget the FIRE gate is argued on. The pixel probe
+// (`wingfire.mjs`) is the binding measurement — this is the number that says whether
+// the pixels can possibly be right before a browser is booted, and it is the only
+// place root-first/tip-last recruitment is checkable exactly rather than by eye.
+if (dump.fire) {
+  const F = dump.fire;
+  // §7.1's denominator is ONE WING's projected area. The body-frame skirt is not
+  // wing, so the strict (smaller, harsher) denominator excludes it; both are printed
+  // because the visual read of the wing does include the skirt lapping under it.
+  const wingOnly = armA + handA + proA;
+  const STATE = ['cold', 'cruise', 'power', 'ignition'];
+  const BAND = [[0.004, 0.020], [0.030, 0.060], [0.060, 0.120], [0.090, 0.150]];
+  console.log('\n§7.1 FIRE — authored emissive area per state (surface area, one wing)');
+  console.log(`     one wing = ${wingOnly.toFixed(3)} (wing) / ${one.toFixed(3)} (with the body-frame skirt)`);
+  console.log('     state       area    % wing   % +skirt   band        maxT   verdict');
+  let cum = 0, prevMax = 0, order = true;
+  for (let i = 0; i < 4; i++) {
+    cum += F.area[i];
+    const fr = cum / wingOnly, fr2 = cum / one;
+    const [lo, hi] = BAND[i];
+    const mx = Math.max(...F.maxT.slice(0, i + 1));
+    if (mx < prevMax - 1e-6) order = false;
+    prevMax = mx;
+    console.log(`     ${STATE[i].padEnd(10)} ${cum.toFixed(3).padStart(6)}  ${(100 * fr).toFixed(2).padStart(6)}%  ${(100 * fr2).toFixed(2).padStart(7)}%   ${(100 * lo).toFixed(0)}–${(100 * hi).toFixed(0)}%${' '.repeat(6 - String(Math.round(100 * hi)).length)}${mx.toFixed(3)}  ${fr >= lo && fr <= hi ? '✓' : '✗ OUT OF BAND'}`);
+  }
+  console.log(`     recruitment root-first / tip-last: ${order ? '✓ each state reaches no further inboard than the last' : '✗ a later state lights INBOARD of an earlier one'}`);
+  const beyond = F.maxT.filter((t) => t > 0).some((t) => t >= 0.60);
+  console.log(`     furthest emissive vertex t = ${Math.max(...F.maxT).toFixed(3)}   ${beyond ? '✗ a zone reaches t ≥ 0.60' : '✓ every zone terminates before t = 0.60'}`);
+  const Z = F.zone || {};
+  const pc = (v) => `${(100 * v / wingOnly).toFixed(2)}%`;
+  console.log(`     by ZONE: A window ${pc(Z.A)} (spec 2–4%) · B arteries ${pc(Z.B)} (spec 1–3%) · secondaries ${pc(Z.sec)} · outer recruit ${pc(Z.outer)} · capillaries ${pc(Z.cap)}`);
+  console.log(`     vessel tree ${F.vessels} segments (orders 1–4, dark) · ${F.capillaries} ignition capillary stubs · ventral offset ${F.vent.toFixed(3)} u`);
+}
+
 // ── posed extents: span/body + the fold ratio ─────────────────────────────────
 console.log('\nPOSED EXTENTS  (world space, through the shipped poser)');
 const wbox = () => { const b = new THREE.Box3(); b.makeEmpty(); for (const k of WING_ROOTS) if (P[k] && P[k].isObject3D) b.expandByObject(P[k]); return b; };

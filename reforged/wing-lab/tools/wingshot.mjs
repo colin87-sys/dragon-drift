@@ -115,8 +115,36 @@ for (const key of KEYS) {
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wing', fill: 0.55, zoom: 2.2 }, label: 'wing 2.2× dark' },
     { r: { key, tier, bg: 'sky',  pose: 'glide', angle: 'wingrear' },         label: 'chase read, sky' },
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wing', fill: 0.50, light: 'back' }, label: 'BACKLIT (sun behind)' },
-    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingtop', fill: 0.80, light: 'back' }, label: 'BACKLIT planform' },
+    // R3(a): the backlit planform is re-shot ON THE MIRROR PLANE (camera exactly on the
+    // sagittal plane, sun exactly anti-camera). Round 3 read one wing crimson and one
+    // bright orange on the old `wingtop` capture, which frames on the RIGHT wing's box and
+    // is therefore off-axis by half a span; the transmission term is view-dependent by
+    // construction, so off the mirror plane the two wings MUST differ — that is the
+    // authored anti-phase flare of a bank, not a bug. On the mirror plane they must match,
+    // and `wingfire.mjs` asserts it at ≤10% with the off-axis shot as its own control.
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'mirrortop', fill: 0.84, light: 'backmirror' }, label: 'BACKLIT planform · mirror plane (L/R Δ asserted ≤10%)' },
   ], `${OUT}wing-${key}-${tag}-detail.png`);
+
+  // ── §7 THE FIRE STATE LADDER ────────────────────────────────────────────────
+  // Row 1 is the CHASE read — the camera the player actually has — at cruise, power and
+  // ignition. It is meant to look almost identical three times: the radiator is ventral,
+  // so from behind and above the wing stays black and the state ladder is WITHHELD. The
+  // fourth tile is the bank, where it stops being withheld.
+  // Row 2 is the same ladder from the wing's own ventral normal, where the recruitment is
+  // legible: cold shows the door seam only, cruise opens the window and the proximal
+  // arteries, power adds the outboard vessels and the mid-panel windows, ignition adds the
+  // outer recruit and the capillary flash. The clock is pinned to a different value in
+  // every tile so the three rhythms are not all sampled at the same phase.
+  await sheet(4, 2, [
+    { r: { key, tier, bg: 'sky', pose: 'glide', angle: 'wingrear', fire: 'cruise', fireTime: 1.13 }, label: 'CHASE · cruise' },
+    { r: { key, tier, bg: 'sky', pose: 'downstroke', angle: 'wingrear', fire: 'power', fireTime: 2.71 }, label: 'CHASE · power stroke' },
+    { r: { key, tier, bg: 'sky', pose: 'apex', angle: 'wingrear', fire: 'ignition', fireTime: 4.29 }, label: 'CHASE · ignition' },
+    { r: { key, tier, bg: 'dark', pose: 'bank', angle: 'wingbank', fill: 0.80, fire: 'cruise', fireTime: 3.41 }, label: 'BANK · the window rolls into view' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'cold', fireTime: 0.37 }, label: 'VENTRAL · cold (rim only, ~1%)' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'cruise', fireTime: 1.13 }, label: 'VENTRAL · cruise (3–6%)' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'power', fireTime: 2.71 }, label: 'VENTRAL · power (≤12%)' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'ignition', fireTime: 4.29 }, label: 'VENTRAL · ignition (≤15%, ≤0.8 s)' },
+  ], `${OUT}wing-${key}-${tag}-fire.png`);
 
   const rows = [];
   for (const pose of ['glide', 'recovery', 'apex', 'downstroke', 'settle', 'fold']) {
