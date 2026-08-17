@@ -131,16 +131,18 @@ for (const key of KEYS) {
   // so from behind and above the wing stays black and the state ladder is WITHHELD. The
   // fourth tile is the bank, where it stops being withheld.
   // Row 2 is the same ladder from the wing's own ventral normal, where the recruitment is
-  // legible: cold shows the door seam only, cruise opens the window and the proximal
-  // arteries, power adds the outboard vessels and the mid-panel windows, ignition adds the
-  // outer recruit and the capillary flash. The clock is pinned to a different value in
-  // every tile so the three rhythms are not all sampled at the same phase.
+  // legible: cold is the furnace BANKED — one hard-bordered core-coal in the middle of a
+  // dark pane and nothing else (I3.1; the R4 rim was kill #68) — cruise opens the whole
+  // window and the proximal arteries at once, power adds the outboard vessels and the
+  // mid-panel slots, ignition adds the outer recruit and the capillary flash. The clock is
+  // pinned to a different value in every tile so the three rhythms are not all sampled at
+  // the same phase.
   await sheet(4, 2, [
     { r: { key, tier, bg: 'sky', pose: 'glide', angle: 'wingrear', fire: 'cruise', fireTime: 1.13 }, label: 'CHASE · cruise' },
     { r: { key, tier, bg: 'sky', pose: 'downstroke', angle: 'wingrear', fire: 'power', fireTime: 2.71 }, label: 'CHASE · power stroke' },
     { r: { key, tier, bg: 'sky', pose: 'apex', angle: 'wingrear', fire: 'ignition', fireTime: 4.29 }, label: 'CHASE · ignition' },
     { r: { key, tier, bg: 'dark', pose: 'bank', angle: 'wingbank', fill: 0.80, fire: 'cruise', fireTime: 3.41 }, label: 'BANK · the window rolls into view' },
-    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'cold', fireTime: 0.37 }, label: 'VENTRAL · cold (rim only, ~1%)' },
+    { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'cold', fireTime: 0.37 }, label: 'VENTRAL · cold (ONE core-coal, ≤0.3%)' },
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'cruise', fireTime: 1.13 }, label: 'VENTRAL · cruise (3–6%)' },
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'power', fireTime: 2.71 }, label: 'VENTRAL · power (≤12%)' },
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'ignition', fireTime: 4.29 }, label: 'VENTRAL · ignition (≤15%, ≤0.8 s)' },
