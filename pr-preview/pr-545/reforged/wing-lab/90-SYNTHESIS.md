@@ -386,9 +386,17 @@ Membrane shows **zero slab thickness** at the edge — all thickness lives in th
 | **B — arteries** | doublets radiating from A: cephalic line inside the propatagium; spar-adjacent lines (beside, never ON, the bones); all **terminating before t = 0.60** | branching lines that terminate; never loops; never a rim | 900–1100 °C → 650–800 °C at tips | 1–3% |
 | **C — everything else** | whole dorsal face at cruise · entire distal third · trailing edge | no emission ever | — | **93–97%** |
 
-States (borders stay hard in all of them): **cold/glide ~1% · cruise 3–6% · power ≤12%
+States (borders stay hard in all of them): **cold/glide ≤0.5% · cruise 3–6% · power ≤12%
 (2–4 secondary mid-panel windows open) · ignition ≤15% for ≤0.8 s (outer membrane briefly
-recruits).** Recruitment order root-first, tip-last; the tip goes dark first. Clipped white
+recruits).** Recruitment order root-first, tip-last; the tip goes dark first.
+*(Amended R4 — the cold state: the window is **OFF, or a single residual core-coal** — one
+hard-bordered patch ≤0.3% of wing area at the pane's thickest point, centroid-biased,
+asymmetric by seed, reading as the last coal in a banked furnace; at most 1–2 faint artery
+stubs ≤0.1% directly adjacent. **Never a rim, never a ring, never a line tracing the window
+border** — a border is an edge between two lit-and-dark fields; with the interior dark there
+is no border to draw, and drawing one is an outline (kill #68). F1 B6's "dim rim only, core
+dark" is overruled by this clause; the toucan law's OFF-below-threshold backs it. Builder
+flagged, Director ruled.)* Clipped white
 ≤1% of wing area at all times. Map states onto the shipped contract: window + artery mats go in
 **`flareMats`** (Surge flare, no warm cruise rim); bones in `spineMats`; `wingMat` is the
 membrane. Emissive hues obey §7-canon: **R ≥ G ≥ B strictly, hue monotonic outward, saturation
@@ -410,7 +418,15 @@ Never lock any of them to another. A glow pulsing in flap time is ruled out.
 Char runs linear **0.0035–0.041**, ash **0.049–0.354** — a 10–100× value structure with zero
 emissive pixels. Ash goes where ash settles: **up-facing dorsal faces, windward spar sides,
 concave pockets between fingers, the wrist gusset**. This is what keeps the wing readable in
-flat daylight and is the direct answer to flat-black poverty. Never a uniform grey wash. The
+flat daylight and is the direct answer to flat-black poverty. Never a uniform grey wash.
+*(Amended R4 — ash TERRITORY: the **skeleton and body-frame pieces only** — bone/keratin
+up-faces, windward spar sides, the knuckle-root pockets between finger ORIGINS, the wrist
+gusset, the skirt's upper hem. **Never on the membrane bays.** F1's "concave pockets between
+fingers", written for a generic wing, collides on this article with the §5.5 darkest-element
+law — and the value hierarchy wins, because the membrane's dark IS the wing's legibility
+spine (the bone↔membrane boundary carries the whole contrast budget, and the dark tiers buy
+the 11.5× backlit inversion). Ash is a means; the value structure is the end. Builder-caught,
+Director-ratified.)* The
 cool chromatic complement (Turner's leaden blues) lives in the ash + blued temper steel on the
 SKELETON; the membrane's dark stays warm — the complement pair exists between systems.
 
@@ -482,7 +498,8 @@ Target: **folded span ≤ 0.55× glide span**, probe-asserted. Choreography over
    pleating).
 4. Tip lands at/behind the hip, low near the knee line; the membrane drapes down around the
    flank like a cloak. The tidy over-the-back bird fold is ruled out.
-5. The propatagium slackens; its wrinkle field blooms; the window dims to its cold rim state.
+5. The propatagium slackens; its wrinkle field blooms; the window dims to its cold state
+   (the banked-coal state of §7.1 R4 — never a ring).
 
 Engineering: per-finger furl array published; fold clause added to **both** `wingDebugPose.js`
 and `dragon.js` (the ~20-line azure/jade pattern). Acting silhouettes reachable from the same
@@ -531,6 +548,7 @@ contact through the carpal cluster (the membrane never touches the ground).
 | Spend triangles on | EDGES, articulation, the ventral overlay, NSEG ≥ 10 arcs — **never on a finer smooth grid** (tris buy smoothness; facets, tiers and light buy richness) |
 | Shader | the §6 patches — ≈ 20 ALU estimated for the transmission term; **≈ 45 ALU as delivered** *(Amended R3: accepted provisionally — the third compose seam's specular remap killed a gate-blocking defect; the binding number is the measured frame on the mobile profile at the I4 COST gate, cut order in the R3 log: exp2 spherical-Gaussian swap → wrinkle-into-DataTexture → vein-order LOD)* — 1 R8 DataTexture (64 KB), no new passes, no `MeshPhysicalMaterial.transmission`, no grab-pass, no screen-space anything |
 | Textures | procedural DataTexture only; a CanvasTexture in the build path breaks node tests |
+| *(Amended R4)* The I4 freeze | Measured after I3: form **5,477** (91% of ceiling) · pair **3,156** (past the 3,000 target) · draws **32/pair** (26→32, wrong direction). Ruling: **I4 adds NET-ZERO triangles and consolidates draws before adding anything.** Hard lines at the I4 COST gate: form ≤ **5,600** · pair ≤ **3,200** · draws ≤ **20/pair** (the R1 ≤~10-per-wing discipline). Fire states are **uniform/mask switches on ≤2 emissive buckets per wing + 1 ember system — never per-state meshes.** Tri-cut order if the freeze breaks, in this sequence: (1) ignition capillary stubs → the DataTexture heatMask, (2) secondary-slot consolidation inside the R4 variety fix, (3) temper rings → vertex-colour bands on existing bone geometry. ALU cut order unchanged from R3. |
 
 **Build order and gates** (each gate is a blind A/B vs the bar at matched wingshot angles;
 re-openable):
@@ -683,6 +701,13 @@ everything else.** Phrased so a critic can point at pixels.
     antialiasing-speck seeding, angles measured against the frame, a node-walk one level too
     far blaming a tail fin). Until a checker has fired on a known-bad and cleared a known-good,
     its pass proves nothing — and the defect it launders becomes invisible to every later round.
+
+68. *(R4)* **A closed emissive ring** — any state whose light traces a pane's border as a
+    drawn line: a bright loop with a dark interior, at any scale. Windows are **filled panes
+    or they are dark**; a border is an edge between a lit field and a dark field, and when the
+    interior goes dark the border ceases to exist — drawing it anyway is an outline (the #33
+    chrome tell in fire clothing, and #46's closed loop at window scale). The cold state is
+    OFF or a core-coal, never an "O".
 
 ---
 
