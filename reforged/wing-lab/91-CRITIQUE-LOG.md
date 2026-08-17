@@ -86,3 +86,92 @@ wrist (does t=0.50 read as an ARM with a hand, or as a short wing?), the propata
 whether the leading-edge polyline carries five knuckles at chase distance.
 
 ---
+
+## Round 1 — I1 (forgewing) — SILHOUETTE and STRUCTURE
+
+**Compared against:** `wing-tempest-apex-*` at matched angles (torso/head/tail are the
+Tempest's recipe cloned — every difference IS the wing). Sheets: forgewing planform (now with
+two pure-black tiles), poses, cycle, detail (now with two BACKLIT tiles), and the head-to-head
+COMPARE. Coordinator-verified numbers: 3,987 tris Eternal (wing pair 1,754 / 36 draws; Tempest
+2,921), `wingsymprobe` Δ0.000 all five states, landmark dump Δ0.0000 against §3 (elbow 151.0°,
+propatagium 0.200 c, inboard bay 2.70×, AR 8.82), span/body **1.02** at `hs 5.5`, fold ratio
+**0.976**, root-corner peel **0.77 u** over the cycle.
+
+### Round 1 — SILHOUETTE — **LOSS**
+
+Verdict: the wing's own outline beats the bar — the planform silhouette is an animal where the
+Tempest's is a machine (knuckled LE with shrinking gaps, three concave bays off a dominant
+finger, tip hook, a real forward sheet, the root running down the flank; at glide and settle it
+presents more wing than the Tempest's two blades, and the carpal claw-cluster gives the chase
+view a mid-span punctuation no roster wing has) — **and the tile as delivered cannot win a
+blind.** There is a hard-edged black **rectangle** in the `SILHOUETTE wing` tile: a
+machine-straight quadrilateral with square corners hanging at the root. Cross-referencing the
+lit sheets, it is the same element that reads as a tall glossy **blue door-panel** between root
+and body in poses/detail, and the same corner the builder measured peeling **0.77 u** across
+the cycle — one defect, three symptoms. A judge with the labels stripped asks "what is that
+box?" and picks the Tempest. Kill **#65** and **#66** (added to the list this round) are
+exhibited. Second cause: at matched world scale ours is **1.02 span/body against the bar's
+1.18** — visibly narrower than the wing it must beat. Two causes, both cheap; the gate stays
+shut until both are gone.
+
+### Round 1 — STRUCTURE — **WIN**
+
+Verdict: ours, and it is not close. Blind at planform and the 2.2×/4× crops: a two-regime arm
+(near-parallel inboard, whip outboard) with ash-dusted bone tops, an elbow that exists, a wrist
+that is a **hand** (forward-opposed claw cluster — Drogon's read, nobody else on the roster has
+it), a propatagium sail at 0.200 c where the Tempest has a bare stub, metacarpals opening the
+fan at the knuckles, bays that are ONE continuous skin where the Tempest stacks shard plates,
+and an inboard bay at 2.70× carrying the membrane far down the body. The landmark dump matches
+§3 to Δ0.0000. Held WIN with three logged constraints: (1) the elbow is a drawn kink, not a
+driven joint — `mid` is parked on the pivot, and §8.3's fold stage 1 is elbow flexion, so this
+is a debt I4 cannot pay late; (2) the root skirt that produced the rectangle is a structure
+error in anchoring, fixed under this round's instruction; (3) 36 draws for the pair is over the
+≤~10-per-wing discipline — consolidate accumulators before the I4 cost gate.
+
+**Biggest remaining gap:** the root. The inboard-aft membrane corner — rectangle, blue card,
+and 0.77 u peel are one thing. Nothing else on this article loses a blind; this does, at every
+angle that shows the root.
+
+**Ruled-out tells present:** #65, #66 (the card — added this round, per the live-list rule);
+#52 as literally written (fold 0.976 — SPREAD and FOLDED are the same photograph; owned by I4
+by scope ruling, logged so it cannot quietly survive); #30 in miniature (ONE pale covert chip
+floating near the wrist — an orphan flake is confetti of size one); #63 was exhibited at the
+spec's own `hs 4.2` (0.79) and pre-empted by the builder — see ruling.
+
+**RULING — the span deviation: ACCEPTED, and §3 amended.** The builder is right and my spec
+was wrong: `4.2` was a dial number carried as if it were a measurement, and on this body it
+fails the spec's own kill #63. §3 now specifies the **measured outcome** — glide span/body
+**1.10–1.20**, asserted in the landmark dump, `hs` free (uniform scale; expect ≈ 5.9–6.1) —
+so the spec can no longer contradict itself. But 5.5 → **1.02** is not accepted as done: it
+clears the kill floor and still loses the width read blind against the bar's 1.18. Round 0
+named span ambition as must-not-lose; it stays lost until the wing measures ≥ 1.10.
+
+**Constraints logged for later increments (not failed today):** the broad **blue rim-light
+sheen** across the ventral hand at apex (one wing black, the other a blue LED panel — the
+worst-looking frame in the cycle; I2's gate will fail on it as kills #21/#33-family; the
+`envMapIntensity ≤ 0.06` clamp is granted now as a one-number de-noise, and if the sheen
+survives I2's albedo+env+transmission fix, my roughness 0.38 is the DIRECTED value that yields,
+range to 0.50); value banding reads ~2 tiers at 2.2× against §5.5's four — I2 must *measure*
+0.05 → 0.15 luma under the game light, not eyeball it; the BACKLIT tiles exist now and are
+dead black, which is correct for I1 and is exactly the flank I2's transmission patch attacks.
+
+**Sent back to builder (I1.1 — SILHOUETTE re-judge only; STRUCTURE holds unless the rescale
+breaks it):**
+1. **The root.** Inboard membrane edge terminates near the pivot (the short-lever law). Flank
+   coverage from there to the hip line becomes a **body-frame skirt** (part of the
+   cowl/fairing system, static in the body frame) that the wing membrane overlaps by ≥ 0.15
+   chord — overlap, never weld, never a shared silhouette edge. No free membrane edge anywhere
+   may be straight with square corners: every free hem is a designed curve carrying the hem
+   cord. **Assert:** root-corner drift ≤ 0.05 u across all five states, and zero quadrilateral
+   artifacts in the pure-black tiles.
+2. **The span.** Uniform-rescale to measured glide span/body **1.10–1.20** (expect
+   `hs ≈ 5.9–6.1 · spanScale`). Re-run tricount, the landmark dump (fractions must be
+   untouched), `wingsymprobe`.
+3. **The elbow.** Move `mid` to t = 0.28 NOW via the −anchor pattern (`mid.position = +E`,
+   children −E; rest pose byte-identical) and publish it at amplitude 0 — zero visual change
+   today, and I4's fold gets its first joint without a rebuild.
+4. **The chip.** Delete the orphan covert flake, or build the full §9 rank (8–10, decaying,
+   terminating at the wrist cluster). No flake stands alone.
+5. Touch no other material or dial. Re-render the five sheets + COMPARE.
+
+---
