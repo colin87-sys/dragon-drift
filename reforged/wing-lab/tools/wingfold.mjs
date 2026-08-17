@@ -43,7 +43,7 @@ const THREE = await import('three');
 const { DRAGONS } = await import('../../js/dragons.js');
 const { ascendedDef, maxTierFor } = await import('../../js/ascension.js');
 const { buildDragonModel } = await import('../../js/dragonModel.js');
-const { setFlapDebugPose, resolveWingDebug, poseWingSeams } = await import('../../js/wingDebugPose.js');
+const { setFlapDebugPose, resolveWingDebug, poseWingSeams, FOLD } = await import('../../js/wingDebugPose.js');
 
 const KEYS = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const MAIN = KEYS[0] || 'forgewing';
@@ -209,8 +209,38 @@ function foldReport(key, { def, model, P, frames }) {
         worst = Math.max(worst, Math.abs(a.c[0] + b.c[0]), Math.abs(a.c[1] - b.c[1]), Math.abs(a.c[2] - b.c[2]),
           Math.abs(a.lo[0] + b.hi[0]), Math.abs(a.hi[0] + b.lo[0]), Math.abs(a.lo[1] - b.lo[1]), Math.abs(a.lo[2] - b.lo[2]));
       }
-      console.log(`  ${label.padEnd(52)} ${worst.toFixed(4)} u   ${ok(worst < 0.06)}`);
+      // R6: "no probe may carry a tolerance looser than the spec's own number." §8.1's
+      // fold-pose bound is 0.05; this used to read 0.06.
+      console.log(`  ${label.padEnd(52)} ${worst.toFixed(4)} u   ${ok(worst < 0.05)}`);
       return worst;
+    };
+    // …and the ATTRIBUTION the R6 ruling makes a condition of the bound: which seeded
+    // system each unit of the cloud comes from. Reported per MESH (one per system per
+    // frame), and then proved by rebuilding the same wing with the weathering asymmetry
+    // switched OFF — if the residue is the seed, seed-locking must take it to the rig's
+    // own zero, and if it does not, the number was never weathering.
+    const foldSymTable = () => {
+      const R = meshes('R'), L = meshes('L');
+      const rows = [];
+      for (let m = 0; m < Math.min(R.length, L.length); m++) {
+        const a = stat(R[m]), b = stat(L[m]);
+        const w = Math.max(Math.abs(a.c[0] + b.c[0]), Math.abs(a.c[1] - b.c[1]), Math.abs(a.c[2] - b.c[2]),
+          Math.abs(a.lo[0] + b.hi[0]), Math.abs(a.hi[0] + b.lo[0]), Math.abs(a.lo[1] - b.lo[1]), Math.abs(a.lo[2] - b.lo[2]));
+        let chain = []; let x = R[m];
+        while (x) { if (x.userData && x.userData.wingRole) chain.unshift(x.userData.wingRole); x = x.parent; }
+        rows.push({ sys: `${(R[m].material.name || '?').replace('forge:', '')} on ${chain[chain.length - 1] || 'wing'}`, w,
+          seeded: SEEDED[(R[m].material.name || '')] || '—' });
+      }
+      rows.sort((a, b) => b.w - a.w);
+      console.log('     per-system attribution (§8.1 R6: the bound is only valid with this table)');
+      console.log('       system                          worst L↔R   seeded by');
+      for (const r of rows) console.log(`       ${r.sys.padEnd(30)} ${r.w.toFixed(4)} u   ${r.seeded}`);
+    };
+    const SEEDED = {
+      'forge:crust': '§7.4 temper band edges + ash break-up (seedSide 97 / 0.4·1.1 phases)',
+      'forge:mem': '§6.4 cord-end tooth train — pitch/height/drop (seedSide 211 / 307 / 401)',
+      'forge:fire': '§7.1 secondary-slot variety (seedSide-phased)',
+      'forge:ember': '§7.5 rod seed, rate, travel and axis (seedSide 137 / 211 / 53 / 83 / 179)',
     };
     poseAt(P, def, 1); model.group.updateWorldMatrix(true, true);
     // the RIG number first — joint nodes only, decoration-free, the way `wingsymprobe`
@@ -224,6 +254,7 @@ function foldReport(key, { def, model, P, frames }) {
     }
     console.log(`  FOLD SYMMETRY  rig (joint nodes, decoration-free) ${jw.toFixed(4)} u   ${ok(jw < 0.001)} the posture mirrors exactly`);
     foldSym('   cloud (mirrored centroid + AABB, seeded weathering in)');
+    foldSymTable();
     // …and its negative control: a per-side sign on ONE joint is the classic way a fold
     // desyncs (§8.1: a mirror AND a per-side sign both flip — use exactly one).
     if (P.wingFurlR) {
@@ -259,6 +290,190 @@ function foldReport(key, { def, model, P, frames }) {
     console.log(`  WRIST  pulls from t ${o.tK.toFixed(3)} → ${c.tK.toFixed(3)}   ${ok(c.tK < 0.42)} §8.3 step 1 target t ≈ 0.38`);
   }
   return { ratio, glide: g0 };
+}
+
+// ═══ 1b · THE SCALLOPS, ONE AT A TIME (kill #69) ════════════════════════════
+// §8.3 step 3 and §2.5: the fan was CHOSEN over a single spar because a fan folds
+// legibly — "the outline losing one scallop at a time, trailing-first, digit III over the
+// stack last". Round 6 measured the opposite (one shared hinge, every scallop leaving in
+// the same instant) and codified it as kill #69. This is that read, as a number.
+//
+// MEASURED ON GEOMETRY, not on pixels: each lobe's own vertices are tagged in the buffer
+// (`wlLobe`), so the probe can take each bay's PROJECTED extent in the money camera's
+// plane at every point of the arc and ask when it crosses half of its spread value. One
+// scallop at a time means those crossings are ORDERED and SEPARATED — trailing lobe
+// first. The negative control is the R6 build itself: drive the same three lobes off one
+// shared window (`FOLD.doorWin`) and the crossings collapse onto each other.
+function scallopReport(key, { def, model, P }) {
+  if (!P.wingFurlLobes) return;
+  console.log(`\n═══ ${key} — §8.3 step 3 THE FAN CLOSES AS A FAN (kill #69) ═══`);
+  // Measured in the HAND's own frame, projected onto the spread fan's own plane (local
+  // XZ). That removes the shoulder, elbow and wrist entirely — a fan that closes must
+  // lose area against the plane it opened in, whatever the arm is doing. Measured in a
+  // world camera instead, all three bays GROW 2.2× through the fold, because the arm rolls
+  // the whole wing flat-on to that camera; that is the arm's motion, not the fan's.
+  const handR = (() => { let h = null; P.wingPivotR.traverse((o) => { if (!h && o.userData && o.userData.wingRole === 'handFrame') h = o; }); return h; })();
+  if (!handR) return;
+  const lobeMeshes = [];
+  P.wingPivotR.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.userData.wlLobe) lobeMeshes.push(o); });
+  // The lobe's SILHOUETTE area in the camera plane, rasterised — not its bounding box.
+  // A bounding box GROWS when a flat lobe rotates out of plane (√2 at 45°), so an
+  // AABB-based "scallop" reads a closing fan as an opening one; the first version of this
+  // check reported 1.85× at full fold on a bay that had visibly gone.
+  const GN = 192;
+  let gLo = null, gSc = 1;
+  const _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4();
+  const relOf = (o) => { _inv.copy(handR.matrixWorld).invert(); return _rel.multiplyMatrices(_inv, o.matrixWorld); };
+  const project = (v) => [v.x, v.z];
+  const rasterise = () => {
+    const cov = [new Uint8Array(GN * GN), new Uint8Array(GN * GN), new Uint8Array(GN * GN)];
+    const v = new THREE.Vector3();
+    for (const o of lobeMeshes) {
+      const pa = o.geometry.attributes.position, lb = o.geometry.userData.wlLobe;
+      const rel = relOf(o).clone();
+      for (let t = 0; t + 2 < pa.count; t += 3) {
+        const L = lb[t]; const P2 = [];
+        for (let k = 0; k < 3; k++) { v.fromBufferAttribute(pa, t + k).applyMatrix4(rel);
+          const q = project(v); P2.push([(q[0] - gLo[0]) * gSc, (q[1] - gLo[1]) * gSc]); }
+        const x0 = Math.max(0, Math.floor(Math.min(P2[0][0], P2[1][0], P2[2][0])));
+        const x1 = Math.min(GN - 1, Math.ceil(Math.max(P2[0][0], P2[1][0], P2[2][0])));
+        const y0 = Math.max(0, Math.floor(Math.min(P2[0][1], P2[1][1], P2[2][1])));
+        const y1 = Math.min(GN - 1, Math.ceil(Math.max(P2[0][1], P2[1][1], P2[2][1])));
+        const d = (P2[1][1] - P2[2][1]) * (P2[0][0] - P2[2][0]) + (P2[2][0] - P2[1][0]) * (P2[0][1] - P2[2][1]);
+        if (!isFinite(d) || Math.abs(d) < 1e-9) continue;
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const px = x + 0.5, py = y + 0.5;
+          const l0 = ((P2[1][1] - P2[2][1]) * (px - P2[2][0]) + (P2[2][0] - P2[1][0]) * (py - P2[2][1])) / d;
+          const l1 = ((P2[2][1] - P2[0][1]) * (px - P2[2][0]) + (P2[0][0] - P2[2][0]) * (py - P2[2][1])) / d;
+          if (l0 >= -1e-6 && l1 >= -1e-6 && l0 + l1 <= 1 + 1e-6) cov[L][y * GN + x] = 1;
+        }
+      }
+    }
+    // …and what each bay UNIQUELY owns. A scallop leaves the outline when its bay slides
+    // UNDER its neighbour (§2.5's "overlapping lobes"), not when the bay turns edge-on —
+    // at the end of a per-spar furl each lobe is flat again, stacked on the one inboard of
+    // it, and a plain area measure reads that as "still there". What the outline actually
+    // shows is the area no other lobe covers, so that is what is counted.
+    return [0, 1, 2].map((L) => { let n2 = 0;
+      for (let i = 0; i < cov[L].length; i++) if (cov[L][i] && !cov[(L + 1) % 3][i] && !cov[(L + 2) % 3][i]) n2++;
+      return n2; });
+  };
+  const fitGrid = () => {
+    let lo = [1e9, 1e9], hi = [-1e9, -1e9];
+    const v = new THREE.Vector3();
+    for (const o of lobeMeshes) { const pa = o.geometry.attributes.position; const rel = relOf(o).clone();
+      for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i).applyMatrix4(rel);
+        const q = project(v);
+        if (q[0] < lo[0]) lo[0] = q[0]; if (q[0] > hi[0]) hi[0] = q[0];
+        if (q[1] < lo[1]) lo[1] = q[1]; if (q[1] > hi[1]) hi[1] = q[1]; } }
+    const w = Math.max(hi[0] - lo[0], hi[1] - lo[1]) * 1.35 || 1;
+    gLo = [(lo[0] + hi[0]) / 2 - w / 2, (lo[1] + hi[1]) / 2 - w / 2];
+    gSc = GN / w;
+  };
+  const extent = () => rasterise();
+  const run = (win, label) => {
+    const ARC = [];
+    for (let f = 0; f <= 1.0001; f += 0.05) ARC.push(+f.toFixed(2));
+    const A0 = (() => { setFlapDebugPose(P, def.model, 'glide', 0, win); model.group.updateWorldMatrix(true, true);
+      fitGrid(); return extent(); })();
+    const half = [null, null, null];
+    const rows = [];
+    for (const f of ARC) {
+      setFlapDebugPose(P, def.model, 'fold', f, win);
+      model.group.updateWorldMatrix(true, true);
+      const e = extent();
+      const r = e.map((x, i) => x / (A0[i] || 1));
+      rows.push({ f, r });
+      for (let L = 0; L < 3; L++) if (half[L] == null && r[L] <= 0.5) half[L] = f;
+    }
+    console.log(`  ${label}`);
+    console.log('    f       bay III–IV   bay IV–V   bay V–VI      (outline area the bay alone owns ÷ its spread value)');
+    for (const row of rows) if (Math.round(row.f * 100) % 10 === 0)
+      console.log(`    ${row.f.toFixed(2)}      ${row.r.map((x) => x.toFixed(2).padStart(8)).join('   ')}`);
+    const h = half.map((x) => (x == null ? 'never' : x.toFixed(2)));
+    console.log(`    half-gone at   bay V–VI ${h[2]}  ·  bay IV–V ${h[1]}  ·  bay III–IV ${h[0]}`);
+    const ordered = half[2] != null && half[1] != null && half[0] != null
+      && half[2] < half[1] - 1e-9 && half[1] < half[0] - 1e-9;
+    const sep = ordered ? Math.min(half[1] - half[2], half[0] - half[1]) : 0;
+    console.log(`    ${ok(ordered && sep >= 0.099)} trailing-first, one at a time (they must leave ≥ 0.10 of the arc apart)` +
+      (ordered ? ` — smallest gap ${sep.toFixed(2)}` : ' — the scallops do NOT leave in order'));
+    return { ordered, sep, half };
+  };
+  const live = run(null, 'THE SHIPPED FURL — three lobes, three windows, three axes:');
+  const door = run(FOLD.doorWin, 'CONTROL — the ROUND-6 build: the same three lobes on ONE shared window (kill #69):');
+  console.log(`  ${ok(!(door.ordered && door.sep >= 0.099))} the door-fold control FIRES` +
+    ` (its three scallops leave within ${door.half[0] != null && door.half[2] != null ? (door.half[0] - door.half[2]).toFixed(2) : '—'} of the arc,` +
+    ` against ${live.half[0] != null && live.half[2] != null ? (live.half[0] - live.half[2]).toFixed(2) : '—'} shipped)`);
+  setFlapDebugPose(P, def.model, 'glide');
+}
+
+// ═══ 1c · THE FOUR ACTING SILHOUETTES (§8.3) ════════════════════════════════
+// "Acting silhouettes reachable from the same array with zero new mechanics: tuck,
+// cape-drape, display spread, mantle — plus ground contact through the CARPAL CLUSTER
+// (the membrane never touches the ground)." All four are the fold's own six numbers at a
+// different point of the same space, so the assertion is (a) each is a distinct
+// silhouette, not a relabelled fold, and (b) in any pose that reaches the ground, the
+// lowest point on the wing is BONE on the hand frame, never membrane.
+function actingReport(key, { def, model, P }) {
+  if (!P.wingSeamAxes) return;
+  console.log(`\n═══ ${key} — §8.3 THE FOUR ACTING SILHOUETTES ═══`);
+  const roleOf = (o) => { const c = []; let x = o; while (x) { if (x.userData && x.userData.wingRole) c.unshift(x.userData.wingRole); x = x.parent; } return c.join('/'); };
+  const v = new THREE.Vector3();
+  const stats = () => {
+    model.group.updateWorldMatrix(true, true);
+    let lo = 1e9, hi = -1e9, ylo = 1e9, yhi = -1e9, zlo = 1e9, zhi = -1e9, memLow = 1e9, boneLow = 1e9;
+    for (const k of ['wingPivotL', 'wingPivotR']) { const n = P[k]; if (!n) continue;
+      n.traverse((o) => { if (!o.isMesh || !o.geometry || (o.userData && o.userData.wlFX)) return;
+        const pa = o.geometry.attributes.position;
+        const mem = o.userData.wlSurface === 'membrane', hand = roleOf(o).includes('handFrame');
+        for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i).applyMatrix4(o.matrixWorld);
+          if (v.x < lo) lo = v.x; if (v.x > hi) hi = v.x;
+          if (v.y < ylo) ylo = v.y; if (v.y > yhi) yhi = v.y;
+          if (v.z < zlo) zlo = v.z; if (v.z > zhi) zhi = v.z;
+          if (mem && v.y < memLow) memLow = v.y;
+          if (!mem && hand && v.y < boneLow) boneLow = v.y; } }); }
+    return { span: hi - lo, rise: yhi - ylo, chord: zhi - zlo, memLow, boneLow };
+  };
+  setFlapDebugPose(P, def.model, 'glide'); const g = stats();
+  console.log('  state      span÷glide   rise    chord    lowest MEMBRANE   lowest HAND BONE   ground contact');
+  const seen = [];
+  for (const st of ['fold', 'tuck', 'drape', 'display', 'mantle']) {
+    setFlapDebugPose(P, def.model, st);
+    const s = stats();
+    const carpal = s.boneLow <= s.memLow + 1e-6;
+    const grounded = st === 'mantle' || st === 'drape';
+    console.log(`  ${st.padEnd(10)} ${(s.span / g.span).toFixed(3).padStart(8)} ${s.rise.toFixed(2).padStart(7)} ${s.chord.toFixed(2).padStart(8)}` +
+      `        ${s.memLow.toFixed(2).padStart(7)}            ${s.boneLow.toFixed(2).padStart(7)}      ${grounded ? (carpal ? '✓ carpal cluster' : '✗ MEMBRANE ON THE GROUND') : '—'}`);
+    seen.push({ st, k: `${(s.span / g.span).toFixed(2)}/${s.rise.toFixed(1)}/${s.chord.toFixed(1)}` });
+  }
+  // …and the POSTURE symmetry bound (§8.1 R6: postures get ≤0.05 *with attribution*, which
+  // is why `wingsymprobe` is scoped to straight flight — the acting poses are checked HERE
+  // or nowhere).
+  const ms = (sd) => { const out = []; P['wingPivot' + sd].traverse((o) => { if (o.isMesh && o.geometry) out.push(o); }); return out; };
+  const stt = (o) => { const p = o.geometry.attributes.position, c = new THREE.Vector3(), v2 = new THREE.Vector3();
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (let i = 0; i < p.count; i++) { v2.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); c.add(v2);
+      for (let a = 0; a < 3; a++) { const q = v2.getComponent(a); if (q < lo[a]) lo[a] = q; if (q > hi[a]) hi[a] = q; } }
+    c.divideScalar(p.count); return { c: [c.x, c.y, c.z], lo, hi }; };
+  for (const st of ['tuck', 'drape', 'display', 'mantle']) {
+    setFlapDebugPose(P, def.model, st);
+    model.group.updateWorldMatrix(true, true);
+    let jw2 = 0;
+    for (const k of ['wingPivot', 'wingMid', 'wingTip', 'wingFurl']) {
+      const r = P[k + 'R'], l = P[k + 'L']; if (!r || !l) continue;
+      const a = r.getWorldPosition(new THREE.Vector3()), b = l.getWorldPosition(new THREE.Vector3());
+      jw2 = Math.max(jw2, Math.hypot(a.x + b.x, a.y - b.y, a.z - b.z));
+    }
+    const Rm = ms('R'), Lm = ms('L');
+    let cw = 0;
+    for (let m = 0; m < Math.min(Rm.length, Lm.length); m++) { const a = stt(Rm[m]), b = stt(Lm[m]);
+      cw = Math.max(cw, Math.abs(a.c[0] + b.c[0]), Math.abs(a.c[1] - b.c[1]), Math.abs(a.c[2] - b.c[2]),
+        Math.abs(a.lo[0] + b.hi[0]), Math.abs(a.hi[0] + b.lo[0]), Math.abs(a.lo[1] - b.lo[1]), Math.abs(a.lo[2] - b.lo[2])); }
+    console.log(`  SYMMETRY ${st.padEnd(9)} rig ${jw2.toFixed(4)} u ${ok(jw2 < 0.001)}   ·   cloud ${cw.toFixed(4)} u ${ok(cw < 0.05)}   (posture bound ≤0.05, §8.1 R6)`);
+  }
+  const uniq = new Set(seen.map((x) => x.k));
+  console.log(`  ${ok(uniq.size === seen.length)} all ${seen.length} are DISTINCT silhouettes (span/rise/chord triples, 2 s.f.) — not one fold relabelled`);
+  setFlapDebugPose(P, def.model, 'glide');
 }
 
 // ═══ 2 · THE SKIRT, THROUGH THE ARC ═════════════════════════════════════════
@@ -447,6 +662,33 @@ async function controls(main) {
     const flip = Math.sign(dAt(hiP)) !== Math.sign(dAt(loP));
     console.log(`      hand−forearm: top ${f2(dAt(hiP))} · bottom ${f2(dAt(loP))}   ${ok(!flip)} FIRES (no flip — a blade that tilts)`);
   }
+  // (c2) THE FOLD-POSE CLOUD, ATTRIBUTED. The R6 ruling: the ≤0.05 fold bound is valid
+  //      only with a per-system attribution. The table prints beside the number above;
+  //      this is its proof — rebuild the identical rig with `wingSeedLock` (both wings on
+  //      seed 0, i.e. §7.4's mandatory weathering asymmetry switched off) and the cloud
+  //      must collapse to the rig's own zero. If it does not, the residue was never
+  //      weathering and the bound is covering a real asymmetry.
+  console.log('\n  (c2) FOLD-POSE CLOUD attribution — the same wing rebuilt with the seeded weathering OFF:');
+  {
+    const D2 = ascendedDef(DRAGONS[main], maxTierFor(main), 0);
+    D2.model = { ...D2.model, wingSeedLock: true };
+    const M2 = buildDragonModel(D2);
+    const P2 = M2.parts;
+    setFlapDebugPose(P2, D2.model, 'fold');
+    M2.group.updateWorldMatrix(true, true);
+    const st2 = (o) => { const p = o.geometry.attributes.position, c = new THREE.Vector3(), v2 = new THREE.Vector3();
+      const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+      for (let i = 0; i < p.count; i++) { v2.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); c.add(v2);
+        for (let a = 0; a < 3; a++) { const q = v2.getComponent(a); if (q < lo[a]) lo[a] = q; if (q > hi[a]) hi[a] = q; } }
+      c.divideScalar(p.count); return { c: [c.x, c.y, c.z], lo, hi }; };
+    const ms = (sd) => { const out = []; P2['wingPivot' + sd].traverse((o) => { if (o.isMesh && o.geometry) out.push(o); }); return out; };
+    const Rm = ms('R'), Lm = ms('L');
+    let worst = 0;
+    for (let m = 0; m < Math.min(Rm.length, Lm.length); m++) { const a = st2(Rm[m]), b = st2(Lm[m]);
+      worst = Math.max(worst, Math.abs(a.c[0] + b.c[0]), Math.abs(a.c[1] - b.c[1]), Math.abs(a.c[2] - b.c[2]),
+        Math.abs(a.lo[0] + b.hi[0]), Math.abs(a.hi[0] + b.lo[0]), Math.abs(a.lo[1] - b.lo[1]), Math.abs(a.lo[2] - b.lo[2])); }
+    console.log(`      seed-locked fold cloud ${worst.toFixed(4)} u   ${ok(worst < 0.001)} the whole residue IS the §7.4 weathering (the rig's own number is zero)`);
+  }
   // (d) the slack probe with the binding cut. This is the exact defect R3 held open (#29's
   //     binding half): identical wrinkles at both extremes.
   console.log('\n  (d) SLACK probe with the §8.2 binding cut (uMemSlack pinned, as it shipped at I2/I3):');
@@ -470,6 +712,8 @@ async function controls(main) {
 // ── run ──────────────────────────────────────────────────────────────────────
 const B = build(MAIN);
 foldReport(MAIN, B);
+scallopReport(MAIN, B);
+actingReport(MAIN, B);
 skirtReport(MAIN, B);
 beatReport(MAIN, B);
 surfaceReport(MAIN, B);

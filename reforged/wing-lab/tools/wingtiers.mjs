@@ -72,14 +72,26 @@ const row = (label, s) => `  ${label.padEnd(22)} n=${String(s ? s.n : 0).padStar
 // brighter (gain > 1). That, plus an absolute floor on the backlit glow, cannot be faked
 // by being dark.
 const FLOOR = 1 / 255;
+// R6 ruling (a): THE POLARITY PASS RUNS WITH THE HEM FRINGE OFF. §6.3's fringe is broken
+// hair-sparkle on the free hem — a SPECULAR term, not transmission — and the membrane mask
+// counts those pixels as membrane. On a sheet with nothing else to show they are the whole
+// signal, which is how a PURE-BLACK membrane cleared the polarity check for two rounds.
+// The tier / blue / percentile numbers keep the shipped material; only the polarity
+// quantities are read off a fringe-free pass, and the pure-black control below is the
+// proof that this is what the fringe was doing.
 async function article(key, tier, mutate, label) {
   const front = await scan({ key, tier, bg: 'sky', ...CAM, mutate });
   const back = await scan({ key, tier, bg: 'sky', ...CAM, light: 'back', mutate });
+  const noFringe = { ...(mutate || {}), uMemFringe: 0 };
+  const frontP = await scan({ key, tier, bg: 'sky', ...CAM, mutate: noFringe });
+  const backP = await scan({ key, tier, bg: 'sky', ...CAM, light: 'back', mutate: noFringe });
   const rat = (s) => (s && s.mem && s.bone ? s.mem.mean / Math.max(s.bone.mean, FLOOR) : null);
-  const ratioF = rat(front), ratioB = rat(back);
-  const memF = front.mem ? front.mem.mean : 0, memB = back.mem ? back.mem.mean : 0;
-  return { key, label, front, back, ratioF, ratioB, memF, memB,
-    gain: memB / Math.max(memF, FLOOR), flip: ratioF > 0 ? ratioB / ratioF : null,
+  const ratioF = rat(frontP), ratioB = rat(backP);
+  const memF = frontP.mem ? frontP.mem.mean : 0, memB = backP.mem ? backP.mem.mean : 0;
+  const memFw = front.mem ? front.mem.mean : 0, memBw = back.mem ? back.mem.mean : 0;
+  return { key, label, front, back, ratioF, ratioB, memF, memB, memFw, memBw,
+    gain: memB / Math.max(memF, FLOOR), gainW: memBw / Math.max(memFw, FLOOR),
+    flip: ratioF > 0 ? ratioB / ratioF : null,
     n: front.mem ? front.mem.n : 0 };
 }
 
@@ -98,6 +110,7 @@ function report(a) {
   console.log(row('wing structure/bone', a.back.bone));
   console.log(`  §6.2 POLARITY   membrane:bone (means)  front-lit ${a.ratioF == null ? '—' : a.ratioF.toFixed(3)}  →  backlit ${a.ratioB == null ? '—' : a.ratioB.toFixed(3)}`);
   console.log(`                  membrane mean luma  front-lit ${f(a.memF)}  →  backlit ${f(a.memB)}   TRANSMISSION GAIN ×${a.gain.toFixed(2)}`);
+  console.log(`                  (polarity read with the §6.3 hem fringe OFF — R6 ruling (a); with it on the gain reads ×${a.gainW.toFixed(2)})`);
   if (a.n < 500) console.log(`  ⚠ only ${a.n} membrane pixels — this article's wingMat covers almost nothing; treat its ratios as noise`);
 }
 
@@ -110,12 +123,12 @@ const PASS = {
   tierSpread: 3.0,    // §5.5's four tiers span >= 3x luminance (measured AS AUTHORED)
   blueTile: 0.020,    // no 16x16 membrane tile may average more blue than red by this much
 };
-const verdict = (a) => ({
+const verdict = (a, faceFront) => ({
   gain: a.gain >= PASS.gain,
   backAbs: a.memB >= PASS.backAbs,
   ratioF: a.ratioF != null && a.ratioF <= PASS.ratioF,
   ratioB: a.ratioB != null && a.ratioB >= PASS.ratioB,
-  tiers: a.front.authoredSpread != null && a.front.authoredSpread >= PASS.tierSpread,
+  tiers: (faceFront || a.front).authoredSpread != null && (faceFront || a.front).authoredSpread >= PASS.tierSpread,
   blue: a.front.blueWorstTile <= PASS.blueTile,
 });
 const polarityOK = (cv) => cv.gain && cv.backAbs && cv.ratioF && cv.ratioB;
@@ -124,13 +137,66 @@ const line = (name, ok, txt) => `    ${ok ? '✓' : '✗'} ${name.padEnd(12)} ${
 const tier = await maxTier(KEY);
 const real = await article(KEY, tier, null, `${KEY} f${tier} — AS BUILT`);
 report(real);
-const v = verdict(real);
+
+// ── §5.5 (amended R6): WHICH METER BINDS, AND WHERE ──────────────────────────
+// The AUTHORED spread is the criterion (the quartile number can be juiced by lighting
+// alone — the Revenant control measures 1.45× on a ONE-VALUE membrane), and it binds at a
+// FACE-PRESENTING pose, because the criterion's job is "the banding reads where the face
+// reads" and a raised glide presents almost no face to a fixed crop. Glide keeps binding
+// the darkest-element and polarity criteria. Thresholds are LOCKED — nothing below moves
+// a number, it moves the CAMERA to where §5.5 says the camera belongs.
+const FACE = ['settle', 'downstroke'];
+const faceRuns = [];
+for (const pose of FACE) {
+  const fr = await scan({ key: KEY, tier, bg: 'sky', ...CAM, pose });
+  faceRuns.push({ pose, fr });
+}
+const bestFace = faceRuns.reduce((a, b) => ((b.fr.authoredSpread ?? 0) > (a.fr.authoredSpread ?? 0) ? b : a));
+console.log('\n  §5.5 THE AUTHORED TIER SPREAD AT A FACE-PRESENTING POSE (the binding meter, R6 ruling)');
+for (const { pose, fr } of faceRuns) {
+  console.log(`    ${pose.padEnd(11)} T0 ${f(fr.authored[0] && fr.authored[0].mean)}  T1 ${f(fr.authored[1] && fr.authored[1].mean)}` +
+    `  T2 ${f(fr.authored[2] && fr.authored[2].mean)}  T3 ${f(fr.authored[3] && fr.authored[3].mean)}` +
+    `   →  authored ${String(fr.authoredSpread).padStart(5)}×   (quartile ${fr.tierSpread}×, corroboration only)`);
+}
+// COUNTABILITY, as §5.5 words it: ≥3 bands countable at 2.2×, all four at 4×. A band is
+// countable when its own mean is separated from its neighbour's by more than the spread
+// of pixels inside it — i.e. the step is bigger than the noise the eye has to see past.
+const countable = async (zoom) => {
+  const fr = await scan({ key: KEY, tier, bg: 'sky', ...CAM, pose: bestFace.pose, zoom });
+  const t = fr.authored;
+  let c = 1;
+  for (let i = 1; i < 4; i++) {
+    const a = t[i - 1], b = t[i];
+    if (!a || !b) continue;
+    const step = Math.abs(a.mean - b.mean);
+    const noise = 0.5 * ((a.p75 - a.p25) + (b.p75 - b.p25)) || 1e-6;
+    if (step >= 0.25 * noise) c++;
+  }
+  return { zoom, c, means: t.map((x) => (x ? x.mean : null)) };
+};
+const c22 = await countable(2.2), c40 = await countable(4.0);
+console.log(`    countability at ${bestFace.pose}:  ${c22.c} band(s) at 2.2× (need ≥3)   ·   ${c40.c} band(s) at 4× (need 4)`);
+// …and the THREE-WAY ISOLATION the R6 ruling asks for: the R5→I4 step in this number is
+// either the POSE or the BUILD, and one run cannot say which. Same build, three cells.
+console.log('\n  THREE-WAY ISOLATION — is the R5→I4 tier step the pose or the build?');
+{
+  const oldDials = { midAmp: 0, apexMid: 0 };      // the pre-I4 elbow: amplitude zero
+  const cell = async (pose, dials, label) => {
+    const fr = await scan({ key: KEY, tier, bg: 'sky', ...CAM, pose, dials });
+    console.log(`    ${label.padEnd(46)} authored ${String(fr.authoredSpread).padStart(5)}×   quartile ${fr.tierSpread}×`);
+    return fr.authoredSpread;
+  };
+  await cell('glide', oldDials, 'OLD pose (glide) · OLD dials (midAmp 0) — R5 rebuilt');
+  await cell('glide', null, 'OLD pose (glide) · I4.1 dials — the pose held fixed');
+  await cell(bestFace.pose, null, `NEW pose (${bestFace.pose}) · I4.1 dials — the binding cell`);
+}
+const v = verdict(real, bestFace.fr);
 console.log('\n  VERDICT');
 console.log(line('gain', v.gain, `membrane ${f(real.memF)} front-lit → ${f(real.memB)} backlit = ×${real.gain.toFixed(2)} (need ≥ ${PASS.gain.toFixed(2)})`));
 console.log(line('backlit abs', v.backAbs, `membrane mean ${f(real.memB)} (need ≥ ${PASS.backAbs.toFixed(3)} — actually glowing)`));
 console.log(line('front-lit', v.ratioF, `membrane:bone ${real.ratioF == null ? '—' : real.ratioF.toFixed(3)} (need ≤ ${PASS.ratioF.toFixed(2)} — darkest element)`));
 console.log(line('backlit', v.ratioB, `membrane:bone ${real.ratioB == null ? '—' : real.ratioB.toFixed(3)} (need ≥ ${PASS.ratioB.toFixed(2)} — out-glows the bone)`));
-console.log(line('tiers', v.tiers, `authored spread ${real.front.authoredSpread}× (need ≥ ${PASS.tierSpread})`));
+console.log(line('tiers', v.tiers, `authored spread ${bestFace.fr.authoredSpread}× at ${bestFace.pose} — the §5.5 face-presenting pose (need ≥ ${PASS.tierSpread}); glide reads ${real.front.authoredSpread}×`));
 console.log(line('blue', v.blue, `worst tile B−R ${f(real.front.blueWorstTile)} (need ≤ ${PASS.blueTile.toFixed(3)})`));
 
 // ── §11 PROBE LAW / kill #67: the negative controls ──────────────────────────

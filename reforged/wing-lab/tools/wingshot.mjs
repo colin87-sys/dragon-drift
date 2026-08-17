@@ -148,8 +148,29 @@ for (const key of KEYS) {
     { r: { key, tier, bg: 'dark', pose: 'glide', angle: 'wingunder', fill: 0.80, fire: 'ignition', fireTime: 4.29 }, label: 'VENTRAL · ignition (≤15%, ≤0.8 s)' },
   ], `${OUT}wing-${key}-${tag}-fire.png`);
 
+  // ── I4.1 — THE FOLD ARC + THE FOUR ACTING SILHOUETTES ───────────────────────
+  // Row 1 is the fold ARC from ONE fixed camera, which is the only way to see §8.3 step 3:
+  // the outline must lose ONE scallop at a time, trailing-first, digit III over the stack
+  // last. Round 6 lost MOTION partly because this row did not exist — a fold judged at its
+  // two endpoints cannot show the order it happens in (kill #69's whole substance).
+  // Row 2 is the four acting silhouettes, all four reachable from the same furl array with
+  // no new mechanics (§8.3): the travelling tuck, the cape drape, the threat display and
+  // the raptor's mantle — the last with ground contact through the carpal cluster only.
+  await sheet(5, 2, [
+    { r: { ...base, pose: 'fold', foldAmt: 0.00, angle: 'wingtop', framePose: 'glide', fill: 0.72 }, label: 'FOLD ARC f=0.00 (spread — 3 scallops)' },
+    { r: { ...base, pose: 'fold', foldAmt: 0.25, angle: 'wingtop', framePose: 'glide', fill: 0.72 }, label: 'f=0.25 — bay V–VI goes first' },
+    { r: { ...base, pose: 'fold', foldAmt: 0.45, angle: 'wingtop', framePose: 'glide', fill: 0.72 }, label: 'f=0.45 — bay IV–V follows' },
+    { r: { ...base, pose: 'fold', foldAmt: 0.65, angle: 'wingtop', framePose: 'glide', fill: 0.72 }, label: 'f=0.65 — bay III–IV last' },
+    { r: { ...base, pose: 'fold', foldAmt: 1.00, angle: 'wingtop', framePose: 'glide', fill: 0.72 }, label: 'f=1.00 — the packet' },
+    { r: { ...base, pose: 'tuck', angle: 'wing', framePose: 'glide', fill: 0.55 }, label: 'ACTING · tuck' },
+    { r: { ...base, pose: 'drape', angle: 'wing', framePose: 'glide', fill: 0.55 }, label: 'ACTING · cape-drape' },
+    { r: { ...base, pose: 'display', angle: 'wing', framePose: 'glide', fill: 0.55 }, label: 'ACTING · display spread' },
+    { r: { ...base, pose: 'mantle', angle: 'wing', framePose: 'glide', fill: 0.55 }, label: 'ACTING · mantle (carpal ground contact)' },
+    { r: { key, tier, bg: 'pale', pose: 'mantle', angle: 'wingfront', fill: 0.86 }, label: 'ACTING · mantle, head-on' },
+  ], `${OUT}wing-${key}-${tag}-acting.png`);
+
   const rows = [];
-  for (const pose of ['glide', 'recovery', 'apex', 'downstroke', 'settle', 'fold']) {
+  for (const pose of ['glide', 'recovery', 'apex', 'downstroke', 'settle', 'fold', 'tuck', 'drape', 'display', 'mantle']) {
     rows.push(await page.evaluate((o) => window.wlMeasure(o), { key, tier, pose }));
   }
   console.log(`\n=== ${key} f${tier} — world-space wing measurements ===`);

@@ -509,44 +509,82 @@ function buildOneForgewing(M, d) {
   // which is what pays for `fan` inside the I4 draw freeze.
   const arm = new THREE.Group(), fore = new THREE.Group(), hand = new THREE.Group(), fan = new THREE.Group(), frame = new THREE.Group();
 
+  // ── I4.1 — THE LOBE TAG (kill #69's mechanism) ──────────────────────────────
+  // §8.3 step 3 asks the fan to close as a FAN: trailing-first, one scallop leaving the
+  // outline at a time, digit III over the stack last. That is three INDEPENDENT rotations,
+  // each about the line its own weld lies on (§5.4 + the R6 seam law), i.e. three rigid
+  // lobes:  lobe 0 = digit IV + bay III–IV about digit III's spar · lobe 1 = digit V +
+  // bay IV–V about digit IV's spar · lobe 2 = digit VI + bay V–VI about digit V's spar.
+  // Each lobe's INNER weld is exactly its own rotation axis, and its OUTER weld is its own
+  // digit, in its own frame — so no lobe can tear at either edge, at any angle.
+  //
+  // WHY IT IS A TAG AND NOT THREE SCENE NODES. Three nested groups is the obvious build
+  // and it is the one this file cannot afford: the fan's geometry is a crust mesh + a
+  // membrane mesh, so splitting it three ways costs 4 extra DRAWS per wing — 26/pair
+  // against §11's ≤20 freeze, with COST already won. Instead lobe 0 keeps the real
+  // `wingFurl` joint (the fan's primary hinge, so the rig channel still owns the fold),
+  // and lobes 1–2 are baked into the fan's own vertex buffers by an exact rotation about
+  // their own published axes. It is the SAME rotation the nested rig would apply, written
+  // into the positions instead of into a matrix — so every pure-math probe in this lab
+  // (span, symmetry, weld opening, the skirt drape) reads the real folded article rather
+  // than a rest pose, which a shader-side or skinned fold would have hidden from all of
+  // them. And it is free where it matters: the furl array is identically zero in every
+  // flight pose (§5.4(3), probe-asserted), so the deformer never runs during the beat.
+  let curLobe = 0;
   // per-(group) per-material accumulators → a handful of draws (the Tempest batching discipline)
   const accs = new Map();
   const push = (g, mat, ...tris) => {
     let m = accs.get(g); if (!m) accs.set(g, m = new Map());
     let a = m.get(mat); if (!a) m.set(mat, a = []);
-    for (const t of tris) a.push(t);
+    for (const t of tris) { t.lobe = curLobe; a.push(t); }
   };
   // I3.1 — every semantic solid that registered a crust entry flushes into ONE
   // vertex-coloured mesh per group instead of one mesh per material. `flatTriMesh` is
   // still the path for anything that opts out (nothing does today), so the batching
   // idiom survives intact.
   const crustAcc = new Map();
-  const pushCrust = (g, p, col, rough) => { let a = crustAcc.get(g); if (!a) crustAcc.set(g, a = []); a.push({ p, col, rough }); };
+  const pushCrust = (g, p, col, rough, lobe) => { let a = crustAcc.get(g); if (!a) crustAcc.set(g, a = []); a.push({ p, col, rough, lobe: lobe == null ? curLobe : lobe }); };
   const flush = (g) => {
     const m = accs.get(g); if (!m) return;
     for (const [mat, tris] of m) {
       if (!tris.length) continue;
       const cr = M.crustOf && M.crustOf.get(mat);
-      if (cr) { for (const t of tris) for (const p of t) pushCrust(g, p, cr.col, cr.rough); }
+      if (cr) { for (const t of tris) for (const p of t) pushCrust(g, p, cr.col, cr.rough, t.lobe); }
       else g.add(flatTriMesh(tris, mat));
     }
+  };
+  const lobeMeshes = [];          // I4.1 — the fan's own buffers, deformed by the furl array
+  // A lobed geometry keeps its REST positions and normals. The furl is recomputed from
+  // rest every time, never accumulated onto the live buffer: an incremental delta drifts,
+  // and a fold that does not return EXACTLY to rest would put a permanent kink in the
+  // flight pose and quietly break the §5.4(3) furl-zero assertion.
+  const registerLobes = (mesh, lobe) => {
+    let any = false; for (let i = 0; i < lobe.length; i++) if (lobe[i]) { any = true; break; }
+    if (!any) return;
+    const g2 = mesh.geometry;
+    g2.userData.wlLobe = lobe;
+    g2.userData.wlRest = g2.attributes.position.array.slice();
+    g2.userData.wlRestN = g2.attributes.normal ? g2.attributes.normal.array.slice() : null;
+    lobeMeshes.push(mesh);
   };
   const flushCrust = (g) => {
     const vs = crustAcc.get(g); if (!vs || !vs.length) return;
     const n = vs.length;
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), ac = new Float32Array(n);
+    const lobe = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
       const v = vs[i];
       pos[i * 3] = v.p[0]; pos[i * 3 + 1] = v.p[1]; pos[i * 3 + 2] = v.p[2];
       col[i * 3] = v.col[0]; col[i * 3 + 1] = v.col[1]; col[i * 3 + 2] = v.col[2];
-      ac[i] = v.rough;
+      ac[i] = v.rough; lobe[i] = v.lobe;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.setAttribute('aCrust', new THREE.BufferAttribute(ac, 1));
     geo.computeVertexNormals();
-    g.add(new THREE.Mesh(geo, M.crust));
+    const mesh = new THREE.Mesh(geo, M.crust);
+    g.add(mesh); registerLobes(mesh, lobe);
   };
   const quad = (g, mat, a, b, c, e) => push(g, mat, [a, b, c], [a, c, e]);
 
@@ -579,17 +617,19 @@ function buildOneForgewing(M, d) {
     MVc(p, band, chord, d, edge, MEM_TIERS[Math.max(0, Math.min(MEM_TIERS.length - 1, tier))]);
   const MVh = MVc;
   const memAcc = new Map();
-  const memTri = (g, a, b, c) => { let a2 = memAcc.get(g); if (!a2) memAcc.set(g, a2 = []); a2.push(a, b, c); };
+  const memTri = (g, a, b, c) => { let a2 = memAcc.get(g); if (!a2) memAcc.set(g, a2 = []); a.lobe = b.lobe = c.lobe = curLobe; a2.push(a, b, c); };
   const memQuad = (g, a, b, c, e) => { memTri(g, a, b, c); memTri(g, a, c, e); };
   const flushMem = (g, tag) => {
     const vs = memAcc.get(g); if (!vs || !vs.length) return;
     const n = vs.length;
     const pos = new Float32Array(n * 3), am = new Float32Array(n * 4), col = new Float32Array(n * 3);
+    const lobeArr = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
       const v = vs[i];
       pos[i * 3] = v[0]; pos[i * 3 + 1] = v[1]; pos[i * 3 + 2] = v[2];
       am[i * 4] = v[3]; am[i * 4 + 1] = v[4]; am[i * 4 + 2] = v[5]; am[i * 4 + 3] = v[6];
       col[i * 3] = v[7]; col[i * 3 + 1] = v[8]; col[i * 3 + 2] = v[9];
+      lobeArr[i] = v.lobe || 0;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -598,7 +638,25 @@ function buildOneForgewing(M, d) {
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, M.mem);
     mesh.userData.wlSurface = tag || 'membrane';   // harness tag: the tier/polarity probe masks on it
-    g.add(mesh);
+    // I4.1 / kill #67 — THE ROUND-6 CARPAL SLIT, KEPT AS A FIRING PIN. The pre-lap
+    // positions of the carpal tongue row ship beside the geometry (≈1.5 KB, compacted to
+    // the ~50 vertices that moved), so `wlMutate({carpalOpen:1})` restores the EXACT wing
+    // that lost MOTION and the channel probe can be shown firing on it, in the same run,
+    // at the same thresholds as the pass. Same idiom as the R4 cold ring.
+    const oi = [], op = [];
+    for (let i = 0; i < n; i++) { const v = vs[i]; if (!v.orig) continue;
+      oi.push(i); op.push(v.orig[0], v.orig[1], v.orig[2]); }
+    if (oi.length) { geo.userData.wlCarpalIdx = new Uint16Array(oi); geo.userData.wlCarpalOrig = new Float32Array(op);
+      geo.userData.wlCarpalName = 'R6 carpal slit (the 0.296 u weld gap, un-lapped)'; }
+    // …and the §5.1 SKIRT carries a synthetic-channel band, so the probe's known-good
+    // (a continuous membrane sheet with no channel) can be turned into a known-bad by
+    // separating its two halves — a control that fires and clears on ONE surface.
+    {
+      const band = new Uint8Array(n); let any = 0;
+      for (let i = 0; i < n; i++) { band[i] = vs[i].slitBand ? 1 : 0; any += band[i]; }
+      if (any) geo.userData.wlSlitBand = band;
+    }
+    g.add(mesh); registerLobes(mesh, lobeArr);
   };
 
   // ── I3: THE FIRE / EMBER / TEMPER ACCUMULATORS ──────────────────────────────
@@ -915,7 +973,12 @@ function buildOneForgewing(M, d) {
     // §5.4 + I4: digit III is the FURL AXIS itself, so it stays on the wrist frame; every
     // trailing digit rides `fan` with the bay it carries. A bay welded to a bone in a
     // DIFFERENT frame than its own is the tear this whole structure exists to prevent.
+    // I4.1: and each trailing digit rides the LOBE of the bay whose OUTER spar it is —
+    // digit IV with bay III–IV (lobe 0), digit V with bay IV–V (lobe 1), digit VI with
+    // bay V–VI (lobe 2) — which is what makes every lobe's outer weld rigid.
+    curLobe = Math.max(0, i - 1);
     tube(i === 0 ? hand : fan, st, i === 0 ? 5 : 4, M.bone, i * 1.7);
+    curLobe = 0;
     const samples = [];
     for (let k = 0; k <= NS; k++) samples.push(pathSample(chain, k / NS));
     sparSamples.push({ samples, chain, rAt: (s) => r0 * sparF(tOf(s)) * wScale });
@@ -1074,6 +1137,12 @@ function buildOneForgewing(M, d) {
     };
     const mv = [];
     for (let k = 0; k <= NU; k++) { const r = []; for (let j = 0; j <= NC; j++) r.push(mvAt(k, j)); mv.push(r); }
+    // kill #67 — THE SYNTHETIC CHANNEL. One interior 2×2 block of the plagiopatagium is
+    // tagged so `wlMutate({slitTest})` can collapse it onto its own centroid, punching a
+    // hole through the middle of the largest continuous sheet on the article. That gives
+    // the channel probe a fire-and-clear pair on ONE surface: the same sheet must CLEAR
+    // intact and FIRE holed, so a pass cannot be explained by anything but the defect.
+    for (const [k, j] of [[5, 3], [5, 4], [6, 3], [6, 4]]) mv[k][j].slitBand = 1;
     // …and the sheet is cut ONCE, along the elbow row (k = KE, u = uE exactly), into the
     // two frames the arm actually has. Nothing moves: the row is shared, both meshes are
     // non-indexed (so `computeVertexNormals` already gives FLAT face normals and a split
@@ -1100,7 +1169,22 @@ function buildOneForgewing(M, d) {
 
   // -- the HANDWING bays -------------------------------------------------------
   const bayArcs = [];
+  // ── I4.1 — THE CARPAL LAP (the R6 SILHOUETTE re-open, closed) ───────────────
+  // The wrist's weld is 0.296 u wide in flight — not because the fold opens it (the fold
+  // adds 0.035) but because the BEAT does: the §8.1 hand carries a 0.54 rad in-plane apex
+  // SWEEP about +Y (LAW 3, the depth-projection fix), and a seam whose own line runs aft
+  // cannot absorb a yaw. Moving that rotation onto the carpal axis would delete the sweep;
+  // the weld therefore STAYS the rig's truth and the READ changes instead, by §5.4(1):
+  // the handwing's inboard row is no longer welded ON the carpal line, it is a TONGUE
+  // lapped 0.16 of the arm path (≈0.44 u) inboard, lying on the plagiopatagium's own
+  // surface and tucked under it. The two sheets then SHEAR across each other instead of
+  // parting, and the lap is 1.4× the worst separation the beat can produce, so there is
+  // no angle at which background can appear between them. Costs zero triangles: the row
+  // moved, it was not added.
+  const CARP_LAP = 0.16;               // fraction of the arm path the tongue reaches inboard
+  const CARP_TUCK = 0.009 * hs;        // …and how far UNDER the sheet it rides (the dark side)
   for (let i = 0; i < NDIG - 1; i++) {
+    curLobe = i;                       // bay i furls about spar i's own line (kill #69)
     const A = sparSamples[i], B = sparSamples[i + 1];
     const sagFrac = 0.052 - 0.004 * i;                     // outboard bays are the tightest
     // §5.4: TE scallop depth is 0.22–0.30 OF BAY WIDTH — an absolute distance, not a
@@ -1148,12 +1232,13 @@ function buildOneForgewing(M, d) {
       for (const t2 of TOOTH) v += t2.h * Math.max(0, 1 - Math.abs(c - t2.ctr) * NMC * 2);
       return v;
     };
+    const orig0 = [];                  // the pre-lap row 0 — the R6 build, kept as a firing pin
     for (let k = 0; k <= NS; k++) {
       const s = k / NS;
       // the sheet welds to the LOWER flank of each pipe so the bones stand proud above it
       const a = add3(A.samples[k], [0, -A.rAt(s) * 0.55, 0]);
       const b = add3(B.samples[k], [0, -B.rAt(s) * 0.55, 0]);
-      const chord = len3(sub3(b, a)) || 1e-6;
+      let chord = len3(sub3(b, a)) || 1e-6;
       const row = [];
       // columns 0..NCB land exactly on the two spars (c = 0 and c = 1) so every membrane
       // edge IS a bone node; column NCB+1 is the OVERLAP tongue, tapered to zero at the free
@@ -1162,6 +1247,23 @@ function buildOneForgewing(M, d) {
         const over = OVER * (1 - Math.pow(s, 1.5));
         const c = j <= NCB ? j / NCB : 1 + over;
         const p = lerp3(a, b, c);
+        if (k === 0) {
+          // …the carpal LAP. The tongue's chord fraction on the plagiopatagium is the same
+          // fraction of the carpal line the bay's own inboard corner sits at, so the two
+          // sheets stay in register across the lap and the tongue can never poke out of an
+          // outline it is lying inside (armSurface's own u = 1 row IS the carpal line).
+          orig0.push(p.slice());
+          const fC = Math.max(0, Math.min(1, CARP_F[i] + (CARP_F[i + 1] - CARP_F[i]) * Math.min(1, c)));
+          // …TAPERED along the carpal line. The wrist's off-axis rotation is about the
+          // seam's own CENTROID, so the two ends of the carpal line move in OPPOSITE
+          // directions: the leading end laps further IN (no gap can open there) and the
+          // trailing end swings OUT (all of the gap is there). A constant lap therefore
+          // buys nothing at the leading edge and costs a sliver of skin left behind the
+          // wrist bones — measured as a 28 px hole at the top read. The lap is where the
+          // gap is: 22% of it at the leading edge, all of it at the trailing corner.
+          const q = armSurface(1 - CARP_LAP * (0.22 + 0.78 * fC), fC);
+          p[0] = q[0]; p[1] = q[1] - CARP_TUCK; p[2] = q[2];
+        }
         p[1] -= sagFrac * chord * sagShape(c) * Math.pow(s, 0.6);   // ventral cup, nadir at 40% chord
         p[1] -= cordRelief(c, s);                                   // the master-cord ridges
         if (j > NCB) p[1] -= 0.006 * hs;                            // tuck under the neighbouring lobe
@@ -1174,6 +1276,7 @@ function buildOneForgewing(M, d) {
         const sc = scallop * Math.sin(Math.PI * Math.min(1, c)) * Math.pow(s, 2.6) + teeth;
         row.push(add3(p, mul3(norm3(sub3(K, p)), sc)));
       }
+      if (k === 0) chord = len3(sub3(row[NCB], row[0])) || chord;
       grid.push({ row, chord });
     }
     const maxB = sagFrac * grid[NS].chord;
@@ -1195,17 +1298,21 @@ function buildOneForgewing(M, d) {
     };
     const mv = [];
     for (let k = 0; k <= NS; k++) { const r = []; for (let j = 0; j <= NCB + 1; j++) r.push(mvAt(k, j)); mv.push(r); }
+    for (let j = 0; j <= NCB + 1; j++) mv[0][j].orig = orig0[j];     // the R6 firing pin
     for (let k = 0; k < NS; k++) for (let j = 0; j <= NCB; j++)
       memQuad(fan, mv[k][j], mv[k][j + 1], mv[k + 1][j + 1], mv[k + 1][j]);
     const arc = [];
     for (let j = 0; j <= NCB; j++) arc.push({ p: grid[NS].row[j], ref: grid[NS - 1].row[j] });
     bayArcs.push(arc);
+    curLobe = 0;
   }
-  // assemble the free edge outboard-in: tipVI → tipV → tipIV → tipIII (each bay reversed)
-  for (let i = bayArcs.length - 1; i >= 0; i--) {
-    const rev = bayArcs[i].slice().reverse();
-    for (let j = (i === bayArcs.length - 1 ? 0 : 1); j < rev.length; j++) hemBays.push(rev[j]);
-  }
+  // The free edge outboard-in: tipVI → tipV → tipIV → tipIII, ONE RUN PER BAY. I4.1 cuts
+  // it at the bay boundaries because the bays are now three independently furling lobes —
+  // a hem strip that crossed a boundary would be the one piece of geometry spanning a
+  // joint, and it would rip open exactly where the outline is being watched. Triangle
+  // count is unchanged: three 17-point runs are 48 segments, and so was one 49-point run
+  // (the shared cusps were counted once either way).
+  for (let i = bayArcs.length - 1; i >= 0; i--) hemBays.push({ run: bayArcs[i].slice().reverse(), lobe: i });
 
   // ── THE TRAILING HEM (§6.5) ──────────────────────────────────────────────────
   // ONE edge loop just inboard of the whole scalloped free edge — a DARK cord of constant
@@ -1222,7 +1329,9 @@ function buildOneForgewing(M, d) {
   // the wing, automatically, in both light regimes. Its outer vertices carry `edge = 1`,
   // the only place §6.3's demoted Fresnel is allowed to fire — hashed at 55% duty, so it
   // is broken hair-sparkle outside a dark hem and can never close into a chrome outline.
-  for (const [run, g] of [[hemArmIn, arm], [hemArmOut, fore], [hemBays, fan]]) {
+  for (const [run, g, lobe] of [[hemArmIn, arm, 0], [hemArmOut, fore, 0],
+    ...hemBays.map((h) => [h.run, fan, h.lobe])]) {
+    curLobe = lobe;
     const outer = [], inner = [];
     for (const { p, ref } of run) {
       const t = (p[0] + X0) / hs;                          // span fraction → the ×2.5 ramp
@@ -1237,6 +1346,7 @@ function buildOneForgewing(M, d) {
       memTri(g, outer[s], outer[s + 1], inner[s + 1]);
       memTri(g, outer[s], inner[s + 1], inner[s]);
     }
+    curLobe = 0;
   }
 
   // ── THE PROPATAGIUM (§5.2) — the sail nobody ships ───────────────────────────
@@ -1637,11 +1747,14 @@ function buildOneForgewing(M, d) {
     // of 0.44 — which is both what 1200 °C looks like and what survives being averaged
     // with a backdrop. The lee end lands at (220, 59, 11).
     const HOT = [1.25, 0.140, 0.005], LEE = [0.58, 0.044, 0.000];
+    // …the free edge is three RUNS since I4.1 (one per furling lobe); the shed samples the
+    // whole edge, so it walks the concatenation rather than a single run.
+    const hemFree = hemBays.reduce((acc, h) => acc.concat(h.run), []);
     for (let i2 = 0; i2 < NEM; i2++) {
       // 3 in 4 off the scalloped free edge, 1 in 4 off a fingertip — both thin, both cold
       const p = (i2 % 4 === 3 && tips.length)
         ? tips[(i2 * 3) % tips.length]
-        : hemBays[Math.floor((i2 / NEM) * (hemBays.length - 1))].p;
+        : hemFree[Math.floor((i2 / NEM) * (hemFree.length - 1))].p;
       const seed = (i2 < NEM_CRUISE ? 1 : 2) + fPhase(i2 * 31 + 5 + seedSide * 137);
       const rate = 1.55 + wjit(i2 * 17 + 3 + seedSide * 211, 0.42);
       const travel = 0.11 * hs * (0.55 + 0.95 * fPhase(i2 * 23 + 11 + seedSide * 53));
@@ -1767,6 +1880,16 @@ function buildOneForgewing(M, d) {
       const v = i / NSK;
       const o = skOuterAt(v);
       const inn = flankAt(0.22 + v * 2.23);
+      // I4.1 — THE SKIRT SITS INBOARD OF THE FOLDED WING. Its outer edge was drawn out to
+      // the wing TE's aft-most point in X as well as in Z, which put the flank cover at
+      // x = 1.71 while §8.3 step 4 requires the folded packet to be "drawn in against the
+      // flank" at x < 1.52 — the skirt was WIDER than the space the fold is allowed to
+      // occupy, so the cloak could only ever pass inboard of it (1.1–1.4% of folded
+      // membrane vertices, §5.1's zero-interpenetration obligation, three of five arc
+      // points). The outer edge keeps its aft CURVE (which is the silhouette) and gives up
+      // 30% of its LATERAL reach (which is not — forward of the junction it lies under the
+      // wing sheet). Measured: through-skirt 0.00% at every point of the arc.
+      o[0] = inn[0] + (o[0] - inn[0]) * 0.70;
       skInner.push(inn); skOuter.push(o); skMid.push(add3(lerp3(inn, o, 0.52), [0, -bw * 0.55, 0]));
     }
     // The skirt is membrane over the BODY, so its optical path is effectively infinite:
@@ -1824,8 +1947,17 @@ function buildOneForgewing(M, d) {
   const wristFit = fitAxis(wristSeamPts.concat(sparSamples.map((sp) => sp.samples[0])));
   // FURL — digit III's own spar (the leading edge outboard of the wrist). Bay 0 welds
   // to it, so it is the only line the trailing fan may close about.
-  const fanSeam = sparSamples[0].samples.map((p, i) => add3(p, [0, -sparSamples[0].rAt(i / NS) * 0.55, 0]));
+  // I4.1: and one axis PER LOBE, because the fan closes as a fan (kill #69). Lobe i's
+  // axis is spar i's own weld line — the row of samples the bay's inboard edge is welded
+  // to — so lobe i's inner weld is a fixed set under its own rotation and its outer weld
+  // (spar i+1) rides the same lobe. Three lines, three residuals, all published.
+  const lobeSeam = (i) => sparSamples[i].samples.map((p, k) => add3(p, [0, -sparSamples[i].rAt(k / NS) * 0.55, 0]));
+  const fanSeam = lobeSeam(0);
   const fanFit = fitAxis(fanSeam);
+  const lobeFits = [];
+  for (let i = 0; i < NDIG - 1; i++) { const pts = lobeSeam(i); const f = fitAxis(pts);
+    lobeFits.push({ p: f.p.slice(), dir: f.dir.slice(), residual: f.residual, n: f.n,
+      pts: pts.map((q) => q.slice()), digit: ['III', 'IV', 'V'][i] || String(i) }); }
   const wristSeamAll = wristSeamPts.concat(sparSamples.map((sp) => sp.samples[0]));
   const seam = {
     elbow: { p: elbowFit.p.slice(), dir: elbowFit.dir.slice(), residual: elbowFit.residual, n: elbowFit.n,
@@ -1834,6 +1966,7 @@ function buildOneForgewing(M, d) {
       pts: wristSeamAll.map((q) => q.slice()), frames: ['fore', 'hand'] },
     fan: { p: fanFit.p.slice(), dir: fanFit.dir.slice(), residual: fanFit.residual, n: fanFit.n,
       pts: fanSeam.map((q) => q.slice()), frames: ['hand', 'fan'] },
+    lobes: lobeFits,
   };
 
   flush(arm); flush(fore); flush(hand); flush(fan); flush(frame);
@@ -1859,8 +1992,75 @@ function buildOneForgewing(M, d) {
     // numbers: a fold ratio bought by tearing the skin is not a fold.
     seam, uE, armSurface, propSurface,
     armLead, armTrail,
+    carpalLap: { lap: CARP_LAP, tuck: CARP_TUCK,
+      // how far inboard the tongue actually reaches, measured on the built geometry —
+      // the number the carpal slit's closure is argued on (it must exceed the worst
+      // flight-pose weld separation, which `wingfold` reports as the wrist gap).
+      reach: (() => { let w = 0;
+        for (let i = 0; i < NDIG - 1; i++) { const fA = CARP_F[i], fB = CARP_F[i + 1];
+          for (let j = 0; j <= 1; j++) { const fC = fA + (fB - fA) * j;
+            w = Math.max(w, len3(sub3(armSurface(1, fC), armSurface(1 - CARP_LAP, fC)))); } }
+        return w; })() },
   };
-  return { arm, fore, hand, fan, frame, K, E, tip: TIP3, seam, dump };
+  return { arm, fore, hand, fan, frame, K, E, tip: TIP3, seam, dump, lobeMeshes, lobeFits };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// I4.1 — THE FURL DEFORMER. Lobe 0 is the real `wingFurl` joint; lobes 1 and 2 are the
+// same rotation written into the fan's own vertex buffers, about their own published
+// axes, in the fan group's LOCAL space (where those axes are constant — the nesting is
+// R1 then R1·R2, exactly what three nested groups would compose).
+//
+// Recomputed FROM REST every time, never accumulated: a delta-composed buffer drifts,
+// and a fold that did not return exactly to rest would leave a permanent kink in the
+// flight pose and silently break the §5.4(3) furl-zero assertion the spread wing's
+// one-continuous-skin read depends on.
+// ═══════════════════════════════════════════════════════════════════════════════
+function makeFurlDeformer(meshes, fits) {
+  if (!meshes.length || fits.length < 3) return () => {};
+  const M1 = new THREE.Matrix4(), M2 = new THREE.Matrix4(), Mt = new THREE.Matrix4();
+  const R = new THREE.Matrix4(), T = new THREE.Matrix4();
+  const v = new THREE.Vector3();
+  const axisMat = (out, ax, ang) => {
+    out.makeTranslation(ax.p[0], ax.p[1], ax.p[2]);
+    R.makeRotationAxis(v.set(ax.dir[0], ax.dir[1], ax.dir[2]).normalize(), ang);
+    out.multiply(R);
+    T.makeTranslation(-ax.p[0], -ax.p[1], -ax.p[2]);
+    out.multiply(T);
+    return out;
+  };
+  let l1 = NaN, l2 = NaN;
+  // The skip is keyed on the ANGLES **and** on the buffers' own version counters: a probe
+  // (or anything else) that writes the position attribute behind this deformer's back
+  // bumps `version`, and an angle-only cache would then refuse to repair the geometry —
+  // which is exactly how a known-bad mutation leaked into three later reads the first time
+  // this ran. Cheap, and it keeps the property that the beat never pays for the fold.
+  const dirty = () => meshes.some((m) => m.__wlLobeVer !== m.geometry.attributes.position.version);
+  const drive = (a1, a2) => {
+    if (a1 === l1 && a2 === l2 && !dirty()) return false;
+    l1 = a1; l2 = a2;
+    axisMat(M1, fits[1], a1);
+    axisMat(Mt, fits[2], a2);                         // its OWN matrix — `axisMat` uses R internally
+    M2.copy(M1).multiply(Mt);
+    for (const mesh of meshes) {
+      const g = mesh.geometry, lob = g.userData.wlLobe, rest = g.userData.wlRest, restN = g.userData.wlRestN;
+      const pa = g.attributes.position, na = g.attributes.normal;
+      for (let i = 0; i < lob.length; i++) {
+        const L = lob[i]; if (!L) continue;           // lobe 0 rides the joint, not the buffer
+        const m = L === 1 ? M1 : M2, o = i * 3;
+        v.set(rest[o], rest[o + 1], rest[o + 2]).applyMatrix4(m);
+        pa.array[o] = v.x; pa.array[o + 1] = v.y; pa.array[o + 2] = v.z;
+        if (na && restN) { v.set(restN[o], restN[o + 1], restN[o + 2]).transformDirection(m);
+          na.array[o] = v.x; na.array[o + 1] = v.y; na.array[o + 2] = v.z; }
+      }
+      pa.needsUpdate = true; if (na) na.needsUpdate = true;
+      g.boundingBox = null; g.computeBoundingSphere();   // else a folded lobe frustum-culls / mis-frames
+      mesh.__wlLobeVer = pa.version + 1;              // `needsUpdate` bumps it on the next read
+    }
+    return true;
+  };
+  drive.mats = () => [new THREE.Matrix4(), M1.clone(), M2.clone()];
+  return drive;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1977,7 +2177,7 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
   let foldCold = false, preFold = 'cruise';
   surfaceDrive(0, 0);
 
-  const pivots = {}, wingElements = [];
+  const pivots = {}, wingElements = [], deformers = [];
   let dump = null, seamAxes = null;
   for (const side of [1, -1]) {
     const rt = attach.wingRoot(side);
@@ -1987,10 +2187,15 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     // §7.4: the two wings share every landmark and differ by SEED — temper rings, ash
     // break-up and the cord-end tooth train. Weathering asymmetry is free and mandatory;
     // the rig stays Δ0.000 because the seed never touches a joint (§2.6).
-    const built = buildOneForgewing(M, { ...dials, seed: side === 1 ? 0 : 1 });
+    // `wingSeedLock` forces BOTH wings onto seed 0. Nothing ships with it: it exists so
+    // the fold-pose cloud number can be ATTRIBUTED instead of asserted — build the same
+    // rig with the weathering asymmetry switched off and the cloud must collapse to the
+    // rig's own zero. A bound with no attribution is a number nobody can audit (R6 ruling).
+    const built = buildOneForgewing(M, { ...dials, seed: (model.wingSeedLock ? 0 : (side === 1 ? 0 : 1)) });
     dump = built.dump;
     const { arm, fore, hand, fan, frame, K, E, tip: F0, seam } = built;
     seamAxes = seam;
+    deformers.push(makeFurlDeformer(built.lobeMeshes, built.lobeFits));
     // …tag the four rigid frames so the seam-opening probe can find them and measure the
     // weld through the REAL scene graph (a residual computed from the fit alone would be
     // a claim about the maths; this is a claim about the shipped matrices — kill #67).
@@ -2032,6 +2237,19 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
     pivots['wingFurl' + s] = furl;
     wingElements.push({ root: [rt.x, rt.y, rt.z], tip: [rt.x + side * F0[0], rt.y + F0[1], rt.z + F0[2]], length: halfSpan, tipObj: marker });
   }
+  // ── I4.1 — THE PER-FINGER FURL ARRAY (§8.3 step 3, kill #69) ────────────────
+  // ONE entry point for the two outer lobes, driven from the same poser call that drives
+  // the joints, so the fan can never be caught half-staggered. Lobe 0 is the `wingFurl`
+  // JOINT (published above); these are lobes 1 and 2. Both wings take the SAME angles —
+  // they are built canonical (+X) and the LEFT is mirrored by the outer wrapper, so a
+  // per-side sign here would double-flip exactly like a per-side rig sign does (§8.1).
+  let lobeAng = [0, 0];
+  const furlLobes = (a1, a2) => { lobeAng = [a1, a2]; let ch = false;
+    for (const d of deformers) if (d(a1, a2)) ch = true; return ch; };
+  furlLobes.axes = seamAxes && seamAxes.lobes ? seamAxes.lobes : [];
+  furlLobes.angles = () => lobeAng.slice();
+  furlLobes.mats = () => (deformers[0] && deformers[0].mats ? deformers[0].mats() : []);
+  furlLobes(0, 0);
   group.userData.forgewingDump = dump;   // pure-math landmark table for the verify harness
   group.userData.forgeFire = { states: FIRE_STATES.slice(), setState: setFireState, fire: M.fire, ember: M.ember };
   // §7.1 wiring, verbatim from the shipped contract: window + arteries + embers go in
@@ -2043,6 +2261,7 @@ export function buildBasaltForgeWings(def, model, attach, _giM) {
   // is mirrored by the outer scale.x = −1 wrapper, so ONE axis set serves both — a per-side
   // axis would double-flip exactly like a per-side sign does (§8.1) and desync the probe.
   return { group, spineMats: [], flareMats: [M.fire, M.ember], wingMat: M.wingMat,
-    parts: { ...pivots, wingElements, wingSeamAxes: seamAxes, wingSurface: surfaceDrive } };
+    parts: { ...pivots, wingElements, wingSeamAxes: seamAxes, wingSurface: surfaceDrive,
+      wingFurlLobes: furlLobes } };
 }
 registerWings('basaltForgeWings', buildBasaltForgeWings);

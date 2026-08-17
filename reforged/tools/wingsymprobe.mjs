@@ -53,7 +53,16 @@ function cloudStats(pivot) {
   return { c, n, ymin, ymax, xmin, xmax };
 }
 
-const states = WING_DEBUG_STATES.filter((s) => s !== 'bank' && s !== 'fold');
+// STRAIGHT FLIGHT only — which is what the ≤0.03 bound below is calibrated on, and what
+// this probe's own verdict line claims. `bank` and `fold` were always excluded as
+// POSTURES; wing-lab I4.1 adds four more (tuck / drape / display / mantle) and they are
+// postures by the same argument — a fold-class pose stacks the §7.4 seeded weathering and
+// legitimately measures larger, which is why 90-SYNTHESIS §8.1 (R6) gives postures their
+// own ≤0.05 bound *with a per-system attribution table*. That bound is enforced, with its
+// table, in `wing-lab/tools/wingfold.mjs`; applying the flight number here instead would
+// be a probe carrying a tolerance the spec does not have (the reverse of the R6 finding).
+const POSTURES = new Set(['bank', 'fold', 'tuck', 'drape', 'display', 'mantle']);
+const states = WING_DEBUG_STATES.filter((s) => !POSTURES.has(s));
 let worst = 0, worstMsg = '';
 // ── THE RIG, MEASURED APART FROM THE DECORATION (added at wing-lab I3.1) ──────
 // The vertex-cloud test below cannot tell a POSER that is off-beat from a MESH that is
