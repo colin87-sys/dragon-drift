@@ -226,6 +226,11 @@
       // a KNOWN-BAD mutation may be applied to any render (kill #67): the same code path
       // that produces the shipped frame must be able to produce the defective one.
       const _mu = (o.mutate && window.wlMutate) ? window.wlMutate(b, o.mutate) : null;
+      // `dials` temporarily overrides flap knobs on the resolved def, so a probe can pose
+      // the SAME build with an earlier dial set — the only way to separate a pose step
+      // from a build step in one run (the R6 tier-isolation ruling).
+      let _dl = null;
+      if (o.dials) { _dl = {}; for (const k in o.dials) { _dl[k] = b.def.model[k]; b.def.model[k] = o.dials[k]; } }
       const pose = WING_DEBUG_STATES.includes(o.pose) ? o.pose : 'glide';
       const a = ANGLES[o.angle] || ANGLES.wing;
       let fb = null;
@@ -234,7 +239,9 @@
         b.group.updateMatrixWorld(true);
         fb = targetBox(a.t).clone();
       }
-      setFlapDebugPose(b.parts || {}, b.def.model, pose);
+      // `foldAmt` walks the fold ARC from a fixed camera — §8.3 step 3's read (one scallop
+      // at a time) does not exist at the two endpoints, which is the whole of kill #69.
+      setFlapDebugPose(b.parts || {}, b.def.model, pose, o.foldAmt);
       b.group.updateMatrixWorld(true);
       scene.background = new THREE.Color(BG[o.bg] ?? BG.pale);
       // `wingOnly` hides everything that is not under a wing root. It runs BEFORE the camera
@@ -287,6 +294,7 @@
       scene.overrideMaterial = null;
       LIGHT.front();
       if (_mu) for (const [t, k, v] of _mu) t[k] = v;
+      if (_dl) for (const k in _dl) b.def.model[k] = _dl[k];
       return true;
     };
     // Report the posed wing's world-space extents — geometry ground truth beside the pixels.
@@ -442,6 +450,43 @@
           for (let i = 0; i < kb.length; i++) arr[i * 4] = kb[i];
           af.array = arr; af.needsUpdate = true;
           undo.push([af, 'array', orig], [af, 'needsUpdate', true]);
+        });
+      }
+      // I4.1 / kill #67 — THE ROUND-6 CARPAL SLIT, PUT BACK. The pre-lap positions of the
+      // handwing's inboard row ship as `wlCarpalOrig` + `wlCarpalIdx` (see `flushMem`), so
+      // the exact wing that lost MOTION can be restored and the channel probe shown firing
+      // on it, at the same thresholds, in the same run as the pass. Same idiom as the ring.
+      if (mut.carpalOpen) {
+        b.group.traverse((o) => {
+          if (!o.isMesh || !o.geometry || !o.geometry.userData) return;
+          const idx = o.geometry.userData.wlCarpalIdx, org = o.geometry.userData.wlCarpalOrig;
+          const pa = o.geometry.getAttribute('position');
+          if (!idx || !org || !pa) return;
+          const orig = pa.array.slice(), arr = pa.array.slice();
+          for (let i = 0; i < idx.length; i++) { const d = idx[i] * 3;
+            arr[d] = org[i * 3]; arr[d + 1] = org[i * 3 + 1]; arr[d + 2] = org[i * 3 + 2]; }
+          pa.array = arr; pa.needsUpdate = true;
+          undo.push([pa, 'array', orig], [pa, 'needsUpdate', true]);
+        });
+      }
+      // …and the SYNTHETIC channel: collapse one tagged interior block of the
+      // plagiopatagium onto its own centroid, punching a hole through the middle of the
+      // article's largest continuous sheet. The SAME surface must clear intact and fire
+      // holed — the strongest form of the control, because nothing differs but the defect.
+      if (mut.slitTest) {
+        b.group.traverse((o) => {
+          if (!o.isMesh || !o.geometry || !o.geometry.userData) return;
+          const band = o.geometry.userData.wlSlitBand;
+          const pa = o.geometry.getAttribute('position');
+          if (!band || !pa) return;
+          const orig = pa.array.slice(), arr = pa.array.slice();
+          // NaN, not a displacement: every triangle touching a tagged vertex fails
+          // rasterisation and disappears, which leaves a real HOLE. Collapsing the block
+          // onto its centroid instead only fans the neighbouring quads into the gap and
+          // covers it again — the first version of this control did that and never fired.
+          for (let i = 0; i < band.length; i++) if (band[i]) { arr[i * 3] = NaN; arr[i * 3 + 1] = NaN; arr[i * 3 + 2] = NaN; }
+          pa.array = arr; pa.needsUpdate = true;
+          undo.push([pa, 'array', orig], [pa, 'needsUpdate', true]);
         });
       }
       for (const m of fireMats(b)) {
@@ -1030,6 +1075,223 @@
       return { size: S, inkPx: n, contourPx: contour.length, simplified: simp.length, minLen: +minLen.toFixed(1), corners };
     };
 
+    // ── THE CARPAL-SLIT / CHANNEL PROBE (I4.1, kill #69's sibling) ─────────────
+    // "No background-coloured channel crosses the wing interior in any delivered tile."
+    // R6 lost MOTION on a 0.296 u weld gap that reads as a PALE CHANNEL cutting the wing
+    // in two at the carpal — the R1-rectangle precedent, in a hole instead of a corner.
+    // The quad probe cannot see it: a slit is not a right angle, and the outline tracer
+    // walks the OUTSIDE of the shape, so a channel that opens at one end is simply part
+    // of the contour it never questions.
+    //
+    // THE MEASUREMENT, and why it can fail. Render the wing alone in pure black. Close
+    // the ink mask morphologically with a disc of radius R (dilate R, erode R): every
+    // background pixel that the closing swallows lies in a gap NARROWER than 2R. That
+    // alone is not a defect — a scallop cusp and the notch between two fingers are both
+    // narrow gaps, and both are legitimate. What separates a SLIT from a notch is DEPTH:
+    // how far inside the wing's own body the gap reaches, measured as the distance from
+    // each gap pixel to the nearest pixel that is neither ink nor closed gap. A notch at
+    // the hem is shallow by construction; a channel that crosses the interior is not.
+    // A component is a CHANNEL when it is both deep (≥ depthMin) and long (≥ lenMin).
+    //
+    // Blobs are NOT reduced to the largest one (the quad probe's rule, correct there):
+    // a slit that fully severs the wing would delete half the article and take the
+    // defect with it — the probe would pass BECAUSE the wing fell apart.
+    const _slitCv = document.createElement('canvas');
+    // squared Euclidean distance transform (Felzenszwalb–Huttenlocher, separable, exact)
+    const _edt2 = (mask, W, H) => {
+      const INF = 1e12, f = new Float64Array(Math.max(W, H)), d = new Float64Array(Math.max(W, H));
+      const vv = new Int32Array(Math.max(W, H) + 1), zz = new Float64Array(Math.max(W, H) + 1);
+      const out = new Float64Array(W * H);
+      for (let i = 0; i < W * H; i++) out[i] = mask[i] ? 0 : INF;
+      const dt1 = (n, get, set) => {
+        for (let i = 0; i < n; i++) f[i] = get(i);
+        let k = 0; vv[0] = 0; zz[0] = -INF; zz[1] = INF;
+        for (let q = 1; q < n; q++) {
+          let s = ((f[q] + q * q) - (f[vv[k]] + vv[k] * vv[k])) / (2 * q - 2 * vv[k]);
+          while (s <= zz[k]) { k--; s = ((f[q] + q * q) - (f[vv[k]] + vv[k] * vv[k])) / (2 * q - 2 * vv[k]); }
+          k++; vv[k] = q; zz[k] = s; zz[k + 1] = INF;
+        }
+        k = 0;
+        for (let q = 0; q < n; q++) { while (zz[k + 1] < q) k++; d[q] = (q - vv[k]) * (q - vv[k]) + f[vv[k]]; }
+        for (let i = 0; i < n; i++) set(i, d[i]);
+      };
+      for (let x = 0; x < W; x++) dt1(H, (y) => out[y * W + x], (y, v) => { out[y * W + x] = v; });
+      for (let y = 0; y < H; y++) dt1(W, (x) => out[y * W + x], (x, v) => { out[y * W + x] = v; });
+      return out;
+    };
+    window.wlSlitScan = (o) => {
+      const S = o.size || 480;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      // ONE SIDE OF THE ARTICLE — the right wing WITH the body, which is what every
+      // delivered tile shows. Both isolations were tried and both lie: hiding the second
+      // wing is necessary (the gap between the two wings is not a hole in either), but
+      // hiding the BODY as well detaches the body-frame skirt and the carpal claw cluster
+      // from the wing they overlap, and the probe then reports the isolation as a severed
+      // wing (measured: 3 pieces at glide on a wing with no slit in it at all).
+      window.wlRender({ ...o, bg: 'pale', silhouette: true, oneWing: true });
+      _slitCv.width = S; _slitCv.height = S;
+      const ctx = _slitCv.getContext('2d', { willReadFrequently: true });
+      const readInk = () => { ctx.drawImage(gl, 0, 0);
+        const px = ctx.getImageData(0, 0, S, S).data;
+        const m = new Uint8Array(S * S); let c = 0;
+        for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+          const l = (px[p] * 0.2126 + px[p + 1] * 0.7152 + px[p + 2] * 0.0722) / 255;
+          if (l < 0.35) { m[i] = 1; c++; } }
+        return { m, c }; };
+      const A = readInk();
+      const ink = A.m; let n = A.c;
+      if (n < 40) return { error: 'no silhouette found', inkPx: n };
+      // …and the SAME frame with only the wing drawn, so a hole can be asked the question
+      // that actually decides it: is this background enclosed by WING, or is it the sky
+      // between the wing and the body? Only the first is the defect the gate is about.
+      // (Same camera by construction: `wingOnly` frames on `wingR`, and every read this
+      // probe uses already targets `wingR`, so both passes fit the identical box.)
+      window.wlRender({ ...o, bg: 'pale', silhouette: true, oneWing: true, wingOnly: true });
+      const wingInk = readInk().m;
+      // drop antialiasing specks only (≥0.5% of the ink), never the second half of a wing
+      {
+        const lab = new Int32Array(S * S).fill(-1), q = new Int32Array(S * S), cnt = [];
+        let id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!ink[i] || lab[i] >= 0) continue;
+          let head = 0, tail = 0; q[tail++] = i; lab[i] = id; let c = 0;
+          while (head < tail) { const p2 = q[head++]; c++; const x = p2 % S, y = (p2 / S) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx; if (ink[j] && lab[j] < 0) { lab[j] = id; q[tail++] = j; } } }
+          cnt.push(c); id++;
+        }
+        const keep = cnt.map((c) => c >= 0.005 * n);
+        for (let i = 0; i < S * S; i++) if (ink[i] && !keep[lab[i]]) { ink[i] = 0; n--; }
+      }
+      // ── THE TWO VERDICTS, both threshold-free ─────────────────────────────
+      // (1) SEVERED — the wing's ink is more than one substantial blob. A channel that
+      //     crosses the interior does exactly this, and nothing legitimate does.
+      // (2) ENCLOSED BACKGROUND — a background region with no path to the frame edge:
+      //     a hole in the skin, at any size worth a pixel budget.
+      // …plus the NECK, reported as the margin: the narrowest isthmus holding the wing
+      // together, found by eroding until the shape falls in two. It is a length in
+      // pixels of the wing's own silhouette, so it can be compared build to build, and
+      // a shrinking neck is the defect arriving before it severs.
+      const comps8 = (mask) => {
+        const lab = new Int32Array(S * S).fill(-1), q = new Int32Array(S * S), sz = [];
+        let id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!mask[i] || lab[i] >= 0) continue;
+          let head = 0, tail2 = 0; q[tail2++] = i; lab[i] = id; let c = 0;
+          while (head < tail2) { const p2 = q[head++]; c++; const x = p2 % S, y = (p2 / S) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx; if (mask[j] && lab[j] < 0) { lab[j] = id; q[tail2++] = j; } } }
+          sz.push(c); id++;
+        }
+        return sz;
+      };
+      const MAJOR = 0.12;                       // a "substantial" piece of the wing
+      const parts = comps8(ink).sort((a, b) => b - a);
+      const severed = parts.length > 1 && parts[1] >= MAJOR * n;
+      // enclosed background: flood the OUTSIDE from the frame edge; whatever background
+      // is left is a hole. (The wing is fitted inside the frame, so the edge is outside.)
+      const bg = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) bg[i] = ink[i] ? 0 : 1;
+      const seen = new Uint8Array(S * S), q2 = new Int32Array(S * S);
+      let h2 = 0, t2 = 0;
+      for (let x = 0; x < S; x++) { for (const y of [0, S - 1]) { const i = y * S + x; if (bg[i] && !seen[i]) { seen[i] = 1; q2[t2++] = i; } } }
+      for (let y = 0; y < S; y++) { for (const x of [0, S - 1]) { const i = y * S + x; if (bg[i] && !seen[i]) { seen[i] = 1; q2[t2++] = i; } } }
+      while (h2 < t2) { const p2 = q2[h2++]; const x = p2 % S, y = (p2 / S) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+          const j = ny * S + nx; if (bg[j] && !seen[j]) { seen[j] = 1; q2[t2++] = j; } } }
+      const holeMask = new Uint8Array(S * S);
+      let holePx = 0;
+      for (let i = 0; i < S * S; i++) if (bg[i] && !seen[i]) { holeMask[i] = 1; holePx++; }
+      // classify every hole: what fraction of the ink it touches is WING?
+      const holeList = [];
+      {
+        const lab = new Int32Array(S * S).fill(-1), q3 = new Int32Array(S * S);
+        let id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!holeMask[i] || lab[i] >= 0) continue;
+          let h3 = 0, t3 = 0; q3[t3++] = i; lab[i] = id; let area = 0, bTot = 0, bWing = 0, bx = i % S, by = (i / S) | 0;
+          let x0 = S, x1 = -1, y0 = S, y1 = -1;
+          while (h3 < t3) { const p3 = q3[h3++]; area++;
+            const x = p3 % S, y = (p3 / S) | 0;
+            if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx;
+              if (holeMask[j]) { if (lab[j] < 0) { lab[j] = id; q3[t3++] = j; } }
+              else if (ink[j]) { bTot++; if (wingInk[j]) bWing++; } } }
+          holeList.push({ area, x: bx, y: by, len: +Math.hypot(x1 - x0, y1 - y0).toFixed(1),
+            wingFrac: bTot ? +(bWing / bTot).toFixed(2) : 0 });
+          id++;
+        }
+      }
+      holeList.sort((a, b) => b.area - a.area);
+      const holes = holeList.map((h) => h.area);
+      const holeBig = holes.length ? holes[0] : 0;
+      // THE NECK. Erode by r until a second substantial piece appears; 2r is the width of
+      // the narrowest isthmus. Reported always, verdict-free.
+      const dIn = _edt2(ink, S, S);             // distance² from every pixel to the nearest NON-ink
+      const invInk = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) invInk[i] = ink[i] ? 0 : 1;
+      const dEro = _edt2(invInk, S, S);
+      let neck = Infinity, ero = null;
+      for (let r = 1; r <= 40; r++) {
+        const m = new Uint8Array(S * S); let cnt = 0;
+        for (let i = 0; i < S * S; i++) if (dEro[i] > r * r) { m[i] = 1; cnt++; }
+        if (cnt < 0.10 * n) break;
+        const cs = comps8(m).sort((a, b) => b - a);
+        if (cs.length > 1 && cs[1] >= MAJOR * cnt) { neck = 2 * r; ero = cs.slice(0, 3); break; }
+      }
+      // the CLOSED-gap picture, kept for the debug overlay and for the record
+      const R = Math.max(2, Math.round((o.closeR ?? 0.030) * S));
+      const dil = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) dil[i] = dIn[i] <= R * R ? 1 : 0;
+      const inv2 = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) inv2[i] = dil[i] ? 0 : 1;
+      const dOut = _edt2(inv2, S, S);
+      const closed = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) closed[i] = dOut[i] > R * R ? 1 : 0;
+      let gapPx = 0;
+      const gap = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) if (closed[i] && !ink[i]) { gap[i] = 1; gapPx++; }
+      const comps = holeList.slice(0, 6);
+      // A hole is a CHANNEL when it is (a) enclosed by WING — ≥80% of the ink it touches —
+      // (b) bigger than a rasterisation pinhole, and (c) a CHANNEL rather than a pinprick,
+      // i.e. it RUNS: its bounding diagonal is at least 4% of the frame. All three are
+      // needed. Without (a) the sky between the folded wing and the body scores; without
+      // (c) an 11 px speck where two spars cross scores the same as a 100 px slot across
+      // the carpal. The word in the gate is "channel", and a channel has length.
+      const lenMin = o.lenMin ?? 0.04 * S;
+      const channels = [];
+      if (severed) channels.push({ kind: 'severed', parts: parts.slice(0, 3), x: 0, y: 0, area: parts[1] });
+      for (const h of holeList) if (h.wingFrac >= 0.80 && h.area >= 0.001 * n && h.len >= lenMin)
+        channels.push({ kind: 'hole', area: h.area, len: h.len, x: h.x, y: h.y, wingFrac: h.wingFrac });
+      return { size: S, inkPx: n, R, gapPx, lenMin: +lenMin.toFixed(1), parts: parts.slice(0, 3), severed,
+        holePx, holeBig, holeLen: holeList.length ? holeList[0].len : 0,
+        holeWingFrac: holeList.length ? holeList[0].wingFrac : 0,
+        neck: neck === Infinity ? null : neck, ero,
+        comps, channels, worstDepth: 0, worstRel: 0 };
+    };
+    // Debug view: the silhouette with every closed-gap pixel painted, channels ringed.
+    window.wlSlitDebug = (o) => {
+      const r = window.wlSlitScan(o);
+      const S = r.size || o.size || 480;
+      const sc = document.getElementById('sheet');
+      sc.width = S; sc.height = S; sc.style.display = 'block';
+      const ctx = sc.getContext('2d');
+      ctx.fillStyle = '#cfd6e4'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(gl, 0, 0, S, S);
+      ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 2;
+      ctx.font = '600 13px system-ui'; ctx.fillStyle = '#ff2d55';
+      for (const c of (r.comps || [])) {
+        ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillText(`d${c.depth}/L${c.len}`, c.x + 17, c.y + 4);
+      }
+      return r;
+    };
     // Debug view for the quad probe: the traced silhouette with every detected right-angle
     // corner ringed, so a builder can SEE which piece of geometry is the rectangle.
     window.wlSilhouetteDebug = (o) => {

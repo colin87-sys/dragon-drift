@@ -61,10 +61,59 @@ const ramp = (x, a, b) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a |
 //   4 the shoulder sweeps the packet aft along the flank and rolls it DOWN, so the tip
 //     lands at/behind the hip near the knee line and the membrane drapes over the skirt
 export const FOLD = {
-  fanAngle: -1.90, fanWin: [0.10, 0.50],
-  elbowAngle: 1.00, elbowWin: [0.30, 0.75],
-  wristAngle: -1.95, wristWin: [0.00, 0.52],
-  sweepY: -0.05, rollZ: -0.20, pitchX: 0.16, sweepWin: [0.10, 1.00],
+  // ── I4.1 — THE STAGGERED FURL (§8.3 step 3; kill #69) ──────────────────────
+  // R6: "the fan closes as a DOOR, not a fan — every scallop leaves the outline in the
+  // same instant." It did, because one `wingFurl` node carried all three bays on one
+  // hinge, and a rigid rotation foreshortens a rigid shape uniformly. The fix is inside
+  // the axis law, not against it: THREE lobes, each turning about its OWN spar's weld
+  // line (§5.4), on three windows that barely overlap — so at almost every f exactly one
+  // lobe is moving and the outline sheds ONE scallop at a time, trailing-first, with
+  // digit III (which IS the wrist frame) coming over the stack last.
+  //   lobe 2  digit VI + bay V–VI   about digit V's spar    — first
+  //   lobe 1  digit V  + bay IV–V   about digit IV's spar   — second
+  //   lobe 0  digit IV + bay III–IV about digit III's spar  — third (the real `wingFurl` joint)
+  //   wrist   digit III + the whole stack                   — last
+  // The three angles sum to the R6 total (−1.90 rad), so the closed packet is the same
+  // depth it measured at; only the ORDER changed.
+  lobeAngle: [-1.90, -1.35, -1.45],
+  lobeWin: [[0.34, 0.58], [0.22, 0.46], [0.10, 0.34]],
+  elbowAngle: 1.25, elbowWin: [0.30, 0.75],
+  // …and the wrist starts at 0.14, not 0.00. With three lobes tucking early, a wrist that
+  // begins on frame 1 thins the planform before the span has moved — §8.3 step 1's
+  // forbidden order, measured at f = 0.15 (chord −2.4% against span −0.2%). Starting it
+  // where the first lobe finishes restores span-before-chord across the whole loaded arc.
+  wristAngle: -1.95, wristWin: [0.14, 0.55],
+  // SHOULDER: yaw FORWARD, roll down, pitch neutral. The aft yaw was −0.05 (a rounding
+  // error pretending to be a choreography note) and it drove the sheet's inboard belly
+  // straight through the skirt's widest station — 1.1–1.4% of folded membrane vertices
+  // inboard of the body-frame skirt at f ≥ 0.5, §5.1's zero-interpenetration obligation
+  // broken at three of five arc points. Swinging the HUMERUS forward while the elbow and
+  // wrist fold the packet back is also the bat's own answer (the folded wing lies along
+  // the ribcage, not across the hip), and it takes the count to zero at EVERY arc point
+  // without moving the tip off the hip: the fold's aft travel was always the elbow's.
+  sweepY: 0.30, rollZ: -0.20, pitchX: 0.00, sweepWin: [0.10, 1.00],
+  // KNOWN-BAD (kill #67): the R6 build — one shared window, one shared hinge. Driving the
+  // three lobes off THIS makes the fan close as a door again, so the scallop-order probe
+  // can be shown firing on the very defect it was written for.
+  doorWin: [[0.10, 0.50], [0.10, 0.50], [0.10, 0.50]],
+};
+
+// ── I4.1 — THE FOUR ACTING SILHOUETTES (§8.3, "reachable from the same array with
+// zero new mechanics"). Each is the SAME four numbers the fold uses — the three lobe
+// furls, the wrist, the elbow and the shoulder triple — pinned at a different point of
+// the same space. Nothing here is a new joint, a new axis or a new triangle.
+//
+//   tuck     the travelling posture: the packet drawn in hard and low against the flank
+//   drape    the cape: elbow half-open, fan shut, the sheet hanging down the flank
+//   display  the threat: everything extended and the fan opened PAST rest (positive furl)
+//   mantle   the raptor's mantle: shoulders forward and down, hands low and turned in,
+//            the wing tented over the ground — GROUND CONTACT THROUGH THE CARPAL CLUSTER
+//            only, which is why the wrist stays high enough to keep the hem clear (§8.3).
+export const ACTING = {
+  tuck:    { fold: 1.00, lobe: [1.00, 1.00, 1.00], wrist: 1.00, elbow: 1.15, sweepY: 0.46, rollZ: -0.34, pitchX: 0.06 },
+  drape:   { fold: 0.66, lobe: [0.85, 1.00, 1.00], wrist: 0.72, elbow: 0.45, sweepY: 0.16, rollZ: -0.62, pitchX: 0.04 },
+  display: { fold: 0.00, lobe: [-0.50, -0.55, -0.60], wrist: -0.16, elbow: -0.42, sweepY: 0.10, rollZ: 0.06, pitchX: -0.18 },
+  mantle:  { fold: 0.34, lobe: [0.22, 0.30, 0.38], wrist: 0.30, elbow: 0.62, sweepY: 0.30, rollZ: -0.34, pitchX: 0.24 },
 };
 // ORDER, and the one place it departs from §8.3's prose. The spec sequences elbow → wrist →
 // fingers; MEASURED on this article the elbow must come THIRD, because the fold pose starts
@@ -80,15 +129,23 @@ export const FOLD = {
 // already computed (they arrive on rotation.z and are MOVED onto the seam axis — a ≤27°
 // change of axis, invisible in the beat, and the difference between a joint that can fold
 // and one that can only tilt). `fold` is the posture scalar, 0 in flight.
-function seamPose(parts, ax, side, fold) {
+// The per-lobe furl WEIGHTS at fold f — one ramp per lobe, published so the probes can
+// read the same array the rig is driven from instead of inferring it from pixels.
+export function furlWeights(fold, win) {
+  const f = Math.max(0, Math.min(1, fold));
+  const W = win || FOLD.lobeWin;
+  return [ramp(f, W[0][0], W[0][1]), ramp(f, W[1][0], W[1][1]), ramp(f, W[2][0], W[2][1])];
+}
+
+function seamPose(parts, ax, side, fold, act, win) {
   const S = side === 1 ? 'R' : 'L';
   const pv = parts['wingPivot' + S], md = parts['wingMid' + S];
   const tp = parts['wingTip' + S], fu = parts['wingFurl' + S];
   const f = Math.max(0, Math.min(1, fold));
-  const wFan = ramp(f, FOLD.fanWin[0], FOLD.fanWin[1]);
-  const wElb = ramp(f, FOLD.elbowWin[0], FOLD.elbowWin[1]);
-  const wWri = ramp(f, FOLD.wristWin[0], FOLD.wristWin[1]);
-  const wSwp = ramp(f, FOLD.sweepWin[0], FOLD.sweepWin[1]);
+  const wElb = act ? act.elbow : ramp(f, FOLD.elbowWin[0], FOLD.elbowWin[1]);
+  const wWri = act ? act.wrist : ramp(f, FOLD.wristWin[0], FOLD.wristWin[1]);
+  const wSwp = act ? 1 : ramp(f, FOLD.sweepWin[0], FOLD.sweepWin[1]);
+  const wLob = act ? act.lobe : furlWeights(f, win);
   if (md) {
     const z = md.rotation.z; md.rotation.z = 0;                    // the flap leaves the z axis…
     md.quaternion.multiply(axisQ(ax.elbow, z + FOLD.elbowAngle * wElb));   // …and lands on the seam
@@ -97,25 +154,32 @@ function seamPose(parts, ax, side, fold) {
     const z = tp.rotation.z; tp.rotation.z = 0;
     tp.quaternion.multiply(axisQ(ax.wrist, z + FOLD.wristAngle * wWri));
   }
-  if (fu) fu.quaternion.copy(axisQ(ax.fan, FOLD.fanAngle * wFan));
-  if (pv && f > 0) {
+  // lobe 0 is the real joint; lobes 1–2 are the deformer, driven once for both wings in
+  // `poseWingSeams` (the geometry is per-side but the angles are not — §8.1's one-axis-set law).
+  if (fu) fu.quaternion.copy(axisQ(ax.lobes && ax.lobes[0] ? ax.lobes[0] : ax.fan, FOLD.lobeAngle[0] * wLob[0]));
+  if (pv && (f > 0 || act)) {
     // The shoulder has no seam to honour — the sheet's inboard cusp sits ON the pivot, so
     // every shoulder DOF is free (that is what I1.1's root fix bought). It is the joint
     // that puts the packet on the flank.
-    pv.rotation.x += FOLD.pitchX * wSwp;
-    pv.rotation.y += FOLD.sweepY * wSwp;
-    pv.rotation.z += FOLD.rollZ * wSwp;
+    pv.rotation.x += (act ? act.pitchX : FOLD.pitchX) * wSwp;
+    pv.rotation.y += (act ? act.sweepY : FOLD.sweepY) * wSwp;
+    pv.rotation.z += (act ? act.rollZ : FOLD.rollZ) * wSwp;
   }
+  return wLob;
 }
 
 // THE ONE ENTRY POINT — called from `wingDebugPose` (studio/freeze) and from `dragon.js`
 // (live flight) with the same arguments, in lockstep. Returns false for every wing that
 // does not publish seam axes, which is every wing but this one.
-export function poseWingSeams(parts, model, fold, phase) {
+export function poseWingSeams(parts, model, fold, phase, act, win) {
   const ax = parts && parts.wingSeamAxes;
   if (!ax) return false;
-  seamPose(parts, ax, 1, fold);
-  seamPose(parts, ax, -1, fold);
+  const wLob = seamPose(parts, ax, 1, fold, act, win);
+  seamPose(parts, ax, -1, fold, act, win);
+  // …and the two outer lobes, from the SAME weights the joint took. One call for both
+  // wings: the geometry is per-side, the angles are not (a per-side sign here would
+  // double-flip exactly like a per-side rig sign does under the scale.x = −1 wrapper).
+  if (parts.wingFurlLobes) parts.wingFurlLobes(FOLD.lobeAngle[1] * wLob[1], FOLD.lobeAngle[2] * wLob[2]);
   // §8.2 — the surface's own state, driven from the SAME phase the rig is driven from,
   // so the membrane can never drift out of step with the beat that tensions it.
   if (parts.wingSurface) parts.wingSurface(phase, fold);
@@ -126,7 +190,9 @@ export function poseWingSeams(parts, model, fold, phase) {
 // deep-bottom, via phaseCenter); two are POSTURE pins layered on the glide phase:
 //   fold → hard tuck/furl (the §3 "fold contracts the span" read — dive + rollFold)
 //   bank → hard right bank (the rear-¾ chase read — turnBias saturated)
-export const WING_DEBUG_STATES = ['glide', 'recovery', 'apex', 'downstroke', 'settle', 'fold', 'bank'];
+//   tuck / drape / display / mantle → the four ACTING silhouettes (§8.3), same array
+export const WING_DEBUG_STATES = ['glide', 'recovery', 'apex', 'downstroke', 'settle', 'fold', 'bank',
+  'tuck', 'drape', 'display', 'mantle'];
 const CYCLE = new Set(['glide', 'recovery', 'apex', 'downstroke', 'settle']);
 
 export function isWingDebugState(state) { return WING_DEBUG_STATES.includes(state); }
@@ -135,12 +201,13 @@ export function isWingDebugState(state) { return WING_DEBUG_STATES.includes(stat
 // (no clock / random) so two runs are pixel-identical — determinism is a deliverable (§9).
 export function resolveWingDebug(state, flapCfg) {
   const cfg = flapCfg || {};
-  const cycle = CYCLE.has(state) ? state : 'glide';   // fold/bank pin at the glide phase
+  const cycle = CYCLE.has(state) ? state : 'glide';   // fold/bank/acting pin at the glide phase
   const phase = phaseCenter(cycle, cfg);
-  const fold = state === 'fold' ? 1 : 0;
+  const act = ACTING[state] || null;
+  const fold = state === 'fold' ? 1 : (act ? act.fold : 0);
   const bankDir = state === 'bank' ? 1 : 0;
   return {
-    state, isDebug: true, phase,
+    state, isDebug: true, phase, acting: act,
     turnBias: bankDir * 0.28,     // saturated hard bank (right); L is its mirror
     bank: bankDir,                // −1..1 normalised steer (right +1)
     rollFold: fold * 0.55,        // barrel-tuck fold that furls the span (§3 fold read)
@@ -157,9 +224,11 @@ export function resolveWingDebug(state, flapCfg) {
 // probes can walk the whole fold ARC instead of only its two endpoints — §8.3's "no bald
 // flank at ANY point of the fold arc" is not checkable from two stills. Omitted, the named
 // state decides (fold → 1, everything else → 0) and the call is byte-identical.
-export function setFlapDebugPose(parts, model, state, foldAmt) {
+export function setFlapDebugPose(parts, model, state, foldAmt, win) {
   const r = resolveWingDebug(state, model.flap);
   const { phase, turnBias, climbBias, bank } = r;
+  // an explicit arc sample overrides the acting pin, so `wingfold` can still walk f
+  const act = (foldAmt == null) ? r.acting : null;
   const dive = foldAmt == null ? r.dive : Math.max(0, Math.min(1, foldAmt));
   // …and the shipped barrel-roll tuck rides the SAME scalar, so an arc sample is a real
   // intermediate pose rather than the endpoint pose with one term already saturated (that
@@ -246,7 +315,7 @@ export function setFlapDebugPose(parts, model, state, foldAmt) {
     // …then the SEAM RIG re-aims the distal flap onto each joint's own weld axis and lays
     // the fold posture on top (no-op for every wing without `wingSeamAxes`). Must run AFTER
     // poseWing, which is what writes the flap angles it consumes.
-    poseWingSeams(parts, model, dive, phase);
+    poseWingSeams(parts, model, dive, phase, act, win);
     // FOLD (debug/studio): a wingParts blade-comb (azure) folds at the SHOULDER — swing the whole
     // comb hard back along the flank + roll it DOWN so the span contracts past 0.7× (§7 fold assert)
     // and the folded silhouette sits low (not a raised V). The per-blade lag groups cancel their rest

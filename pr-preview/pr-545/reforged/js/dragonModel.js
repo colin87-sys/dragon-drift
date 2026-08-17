@@ -343,7 +343,7 @@ export function buildDragonModel(def, opts = {}) {
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
     wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements,
-    wingFurlL, wingFurlR, wingSeamAxes, wingSurface,
+    wingFurlL, wingFurlR, wingSeamAxes, wingSurface, wingFurlLobes,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -459,6 +459,7 @@ export function buildDragonModel(def, opts = {}) {
         // lockstep law in FLAP-DESIGN §2 exists to prevent — two posers, one truth.)
         wingFurlL: wingFurlL ?? null, wingFurlR: wingFurlR ?? null,
         wingSeamAxes: wingSeamAxes ?? null, wingSurface: wingSurface ?? null,
+        wingFurlLobes: wingFurlLobes ?? null,
         // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
         // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.
         pearlMat: wingsResult.parts.pearlMat ?? null,
@@ -488,6 +489,7 @@ export function buildDragonModel(def, opts = {}) {
       // roster is byte-identical; the poser's whole seam path is gated on `wingSeamAxes`.
       wingFurlL: wingFurlL ?? null, wingFurlR: wingFurlR ?? null,
       wingSeamAxes: wingSeamAxes ?? null, wingSurface: wingSurface ?? null,
+        wingFurlLobes: wingFurlLobes ?? null,
       stormArcMats: stormArcMats.length ? stormArcMats : null,
       // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
       // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.

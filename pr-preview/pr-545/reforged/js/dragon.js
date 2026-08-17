@@ -123,6 +123,7 @@ let wingFurlL = null;        // wing-lab SEAM RIG: the per-fan furl joint (forge
 let wingFurlR = null;
 let wingSeamAxes = null;     // …and its published hinge axes (elbow / wrist / fan) + surface driver
 let wingSurfaceDrive = null;
+let wingFurlLobes = null;    // …and the I4.1 per-finger furl array (lobes 1–2), null otherwise
 let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,side}), null otherwise
 let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
@@ -427,6 +428,7 @@ export function createDragon(scene, def, riderDef) {
   wingFurlR = result.parts.wingFurlR || null;
   wingSeamAxes = result.parts.wingSeamAxes || null;
   wingSurfaceDrive = result.parts.wingSurface || null;
+  wingFurlLobes = result.parts.wingFurlLobes || null;
   wingLobePivotsL = result.parts.wingLobePivotsL || null;
   wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
@@ -1329,7 +1331,7 @@ export function updateDragon(dt, player, time) {
     // like the yoke dragons always could, and the studio captures the identical pose.
     setFlapDebugPose({ wingRigL, wingRigR, wingYokeL, wingYokeR, wingPivotL, wingPivotR,
       wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR,
-      wingFurlL, wingFurlR, wingSeamAxes, wingSurface: wingSurfaceDrive,
+      wingFurlL, wingFurlR, wingSeamAxes, wingSurface: wingSurfaceDrive, wingFurlLobes,
       carpalSpireL, carpalSpireR }, activeDef.model, WING_DEBUG);
     if (!wingDebugLogged) {
       // Prove gameplay reaches the harness pose: log the resolved state + (for yoke rigs) the
@@ -1454,7 +1456,7 @@ export function updateDragon(dt, player, time) {
     // a committed dive draws the hand and fan in instead of holding a flat spread — and the
     // membrane's own slack scalar is driven from the same phase. No-op without seam axes.
     poseWingSeams({ wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR,
-      wingFurlL, wingFurlR, wingSeamAxes, wingSurface: wingSurfaceDrive },
+      wingFurlL, wingFurlR, wingSeamAxes, wingSurface: wingSurfaceDrive, wingFurlLobes },
     activeDef.model, 0.45 * diveAmount, phase);
   } else if (wingLobePivotsL || wingLobePivotsR) {
     // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
