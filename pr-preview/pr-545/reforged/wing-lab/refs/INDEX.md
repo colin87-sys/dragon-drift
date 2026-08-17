@@ -55,6 +55,22 @@ node wing-lab/tools/wingshot.mjs vesper revenant tempest --compare   # the 1 COM
 node wing-lab/tools/wingshot.mjs vesper --tier=1                # a lower rung → wing-vesper-f1-*.png
 ```
 
+**The I2 MEMBRANE probe** (added with increment I2) turns the same stage into numbers instead
+of pixels — masked per-surface statistics, so "membrane luma" means the membrane and not
+membrane-plus-sky-plus-bone:
+
+```
+node wing-lab/tools/wingtiers.mjs forgewing        # §5.5 tiers · §6.2 polarity · the blue sheen
+node wing-lab/tools/wingtiers.mjs forgewing --no-control     # skip the kill-#67 control block
+```
+
+It reports the four §5.5 tiers **as authored** (read off a vertex-colour mask pass), the
+membrane's transmission gain (backlit mean ÷ front-lit mean — an opaque sheet can only get
+darker, so this one cannot be faked by being dark), the membrane:bone rank in both light
+regimes, and the worst 16 px tile of (B − R) over membrane pixels. Every threshold is then
+re-run against four KNOWN-BAD articles that must fail it; a green line in that block means the
+probe is broken, not that the wing is good.
+
 Every dragon is rendered at its **apex** (`maxTierFor(key)` — tag `apex`) unless `--tier=N`
 (tag `fN`). The driver also prints a **world-space measurement table per pose** (span / rise /
 chord / body length / wing-tris / tip position / fold ratio) — the numbers belong beside the
