@@ -470,7 +470,13 @@ apexMid 0.08 · apexTip 0.14 · tipApexSweep 0.28 · apexPitch 0.06
 - Banking = pose bias only. Cruise beat ≈ 1.2 Hz (0.9–1.5 band). A 750 kg-class creature
   beating at 0.3 Hz reads as falling; at 8 Hz as a sparrow. Both ruled out.
 - −anchor wrist (`tip.position=+K`, `hand.position=−K`) and the outer `scale.x=−1` LEFT wrapper,
-  copied verbatim. `wingsymprobe Δ0.000` is a gate.
+  copied verbatim. `wingsymprobe Δ0.000` is a gate. *(Amended R5: the Δ0.000 gate binds the
+  **RIG channel** — named joint nodes, decoration-free — with no exemptions ever. The
+  **vertex-cloud channel** carries the §7.4-mandated seeded L/R weathering and is exempt from
+  Δ0.000: bounded ≤ 0.03 worst, every unit attributable to an enumerated seeded system
+  (slots, temper series, saw teeth, hem hash), both numbers reported separately, permanently.
+  Cloud > 0.03 or rig > 0.000 is a real failure; a cloud number under the bound is the spec
+  working, not a regression. Ruling in the R5 log.)*
 
 ### 8.2 The surface through the beat (one scalar drives everything)
 
@@ -560,7 +566,8 @@ re-openable):
 | **I3** | window, arteries, states, embers, ash + temper | FIRE |
 | **I4** | flap dials, furl fold, slack-scalar binding, acting poses | MOTION, COST |
 
-**Verify chain, in failure-class order:** `tricount` → `wingsymprobe <key>` (Δ0.000) →
+**Verify chain, in failure-class order:** `tricount` → `wingsymprobe <key>` (RIG Δ0.000 hard;
+seeded-decoration cloud ≤ 0.03, reported separately — §8.1 R5 amendment) →
 pure-math segment dump (hand sign flips; furl-zero in flight poses; fold ratio ≤ 0.55) →
 `wingshot.mjs <key>` 4 sheets → `tiershots.mjs <key>` (always with a key — bare invocation
 crashes). **Required harness addition:** a BACKLIT tile (sun behind the wing) in the detail

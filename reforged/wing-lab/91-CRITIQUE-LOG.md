@@ -536,3 +536,110 @@ but I4's MOTION/COST gate does not open unless FIRE stands re-won by then.
    measurement block (cold ≤0.5%, all states re-run, clipped ≤1%, B−R, polarity — MEMBRANE
    must not regress), `tricount --ci`, `wingsymprobe`, and the closed-contour probe with its
    negative control.
+
+---
+## Round 5 — I3.1 (forgewing) — FIRE re-judge; all held gates re-checked
+
+**Compared against:** the fire canon and the bar's fire answer (the Tempest's always-on bolt
+frame) at the re-rendered 4×2 fire sheet, the six detail tiles, the cycle strip, the planform
+black tiles, and the COMPARE. **Verified with my own runs, not the builder's report:**
+`tricount --ci` exit 0, Eternal **5,477**; `wingdump` pair **3,156 in 16 draws** (form 83),
+landmark Δ0.0000, cold authored **0.14%** (band 0.04–0.30), states 3.59 / 7.41 / 10.72%
+authored, furthest emissive vertex **t = 0.510**, recruitment monotone root-first;
+`wingfire` full suite — measured **0.22 / 3.24 / 5.71 / 7.36%**, clipped ≤ 0.19% everywhere,
+hue law strict on every lit pixel in all four states, membrane worst 16 px B−R **0.0000**,
+mirror-plane L/R Δ **0.0%** (off-axis control 12.2%, fires), **0 closed emissive contours in
+all four states**, and **all ten negative controls fire** — including the R4 ring itself,
+parked on the geometry as `wlKnownBadStage` and firing at 1 hole / 312 px, and the ×20
+clipped-white control at 1.77%; `wingsymprobe` RIG **0.000** · cloud **0.010** (threshold
+0.03); `wingquadprobe` **0 right-angle corners across 5 angles**. The coordinator's numbers
+reconcile with every one of mine.
+
+### Round 5 — FIRE — **WIN**
+
+Verdict: ours, and this time nothing on the sheet argues back. The cold tile — the one that
+lost Round 4 — is now a black wing carrying one small hard-bordered coal at the pane's thick
+end, interior-celled so it *cannot* touch the border, at a gain that reads as a banked
+furnace, not a lit door. The "why is there a neon ring under its arm?" question is dead; the
+judge with stripped labels now sees a fire animal at rest on one side and permanently-lit
+jewellery on the other, and picks ours. Cruise / power / ignition are unchanged from the
+ladder R4 already judged best-in-repo (root-first, tip dark in every state, borders as abrupt
+skips, arteries dying at t = 0.510, a trailing edge that sheds and never glows), and the
+ember fix closes the last colour hole: over the sky the shed reads warm rods (core hue 9.6°,
+sat 0.404, 0.0% washed white) where R4's additive control washes 74.9% white. The kill that
+mattered is structural, not tuned — cold state cell-indexed away from the border, ring
+geometry demoted to a firing pin. **FIRE: WON.** Re-openable as always; every §7 band is now
+probe-fenced, so any later hand on fire geometry re-opens this gate automatically by tripping
+an assertion rather than by my noticing.
+
+### SILHOUETTE — re-check **HELD**. STRUCTURE — re-check **HELD**. MEMBRANE — re-check **HELD**.
+
+Black tiles unchanged in kind (knuckled "‹", scallops, claw-cluster, tip hook; quadprobe 0
+corners — my run); landmark dump Δ0.0000; the draw merge's only pixel cost is 1-px antialias
+seams, measured by the builder rendering with and without. MEMBRANE did not regress: polarity
+0.429 → 11.289 at gain ×1.63, tiers 3.73×, B−R 0.0000, mirror-plane assertion live with its
+control firing. The backlit planform remains the best surface frame in the repo.
+
+**The probe work is this round's real capital.** Two findings are ratified into law:
+(1) **the radius-2 morphological close is the kill-#68 standard** — the R4 ring pinches to
+2–3 px at the pane's tip cusp, the eye reads it closed, and a strict radius-1 flood-fill
+walked through it and CLEARED the very frame that lost Round 4. A probe tuned until it agrees
+with the eye on the known-bad, then locked, is exactly what kill #67 is for. (2) **#67 caught
+a silently-dead control:** the clipped-white check had been landing inside its own gate since
+I3 (0.96 vs 1.00 — a control that could never fire) and shipped green for two rounds. Raised
+to ×20, it fires. A green control block is now evidence only because this round proved the
+controls can go red.
+
+**RULING — the symmetry standard, two channels (§8.1 + §11 amended).** `wingsymprobe`'s
+0.010 is not a regression; it is my own order arriving (R4: one dropped slot per side,
+L ≠ R by seed — the article's first deliberate geometric L/R difference, mandated by §7.4).
+The standard is now explicitly two-channel: **the RIG channel — named joint nodes,
+decoration-free — remains Δ0.000, a hard gate, no exemptions ever.** The **vertex-cloud
+channel is exempt from Δ0.000** because §7.4 makes seeded L/R weathering mandatory; it is
+**bounded at ≤ 0.03 worst** (measured 0.010) and every unit of it must be **attributable to
+an enumerated seeded system** (slots, temper series, saw teeth, hem hash). The probe reports
+both numbers separately, permanently. A future round that reads the cloud number as a bug is
+misreading the spec; a cloud number over 0.03, or ANY rig number over 0.000, is a real
+failure. Per kill #67 the split probe owes its own controls: the I4 delivery must show the
+RIG channel firing on a known-bad (the classic per-side-sign double-flip or an epsilon joint
+perturbation) and the cloud channel firing past 0.03 (one side's membrane offset). Until
+then the split is trusted on the strength of the RIG channel's Δ0.000 agreeing with the
+pre-split history, which is corroboration, not proof.
+
+**Watch items, logged, not kills:** (1) the secondary slots still share one lozenge
+silhouette — scale/aspect/rotation jitter landed, the shape family did not vary; visible
+only at 3× ventral, order partly met, completion folded into I4's delivery under the fire
+probe fence (net-zero tris; if any §7 assertion moves, FIRE re-opens). (2) The cold coal is
+a four-sided chip — acceptable at tile scale, watch it at 4×; if it reads faceted-mechanical
+there, break it with one vertex. (3) Ignition measured area fell 9.20% → 7.36% (the dropped
+slots took real area with them) — inside band, but the margin over power (5.71%) is thin,
+so ignition's event-ness now leans on the outer recruits, capillaries and the ember burst;
+I4's motion clock (≤ 0.8 s burst) must make the event read in time, and I will judge it
+there.
+
+**Gate board after Round 5:** SILHOUETTE **WON** · STRUCTURE **WON** · MEMBRANE **WON** ·
+FIRE **WON** · MOTION / COST — open, I4. Freeze status, my own runs: form 5,477 / ≤ 5,600 ·
+pair 3,156 / ≤ 3,200 · draws **16** / ≤ 20 — the I4 entry condition (consolidation before
+addition) is satisfied a round early, with triangles unchanged.
+
+**Biggest remaining gap:** the fold — 0.977, unchanged. SPREAD and FOLDED are still the same
+photograph, on the article whose identity promises the roster's first working premium fold.
+Every other line on this wing has now been won; the wing is a finished photograph of an
+animal that has never once moved like one. I4 is the whole remaining distance.
+
+**Sent to builder (I4 — MOTION + COST, §8 scope; the gate is now OPEN, FIRE stands re-won):**
+1. The §8.1 flap set (verify the hand-sign flip with the pure-math dump BEFORE any render),
+   the §8.2 slack scalar driving wrinkle amplitude and window grazing-flare through the beat
+   — the R3 teeth stand: the MOTION gate FAILS unless wrinkle amplitude visibly differs
+   between bottom-of-downstroke and top-of-upstroke tiles of one strip.
+2. The §8.3 fold: elbow-first span shortening, per-finger furl trailing-first, digit III
+   over the stack last, tip behind the hip, **fold ÷ glide span ≤ 0.55 probe-asserted**,
+   §5.1 obligations held through the whole arc (skirt overlap ≥ 0.15 c in the folded pose,
+   zero interpenetration, no bald flank at any frame). Cold state at the end of the fold per
+   §7.1 R4.
+3. Acting silhouettes from the same furl array: tuck, cape-drape, display spread, mantle;
+   ground contact through the carpal cluster only.
+4. COST at the freeze: net-zero tris, draws ≤ 20/pair, and the mobile-profile frame measured
+   (framecap/perfprobe) — the R3 ALU ruling's binding number, with the cut orders standing.
+5. The two symmetry-probe negative controls (RIG + cloud), the slot shape-family completion,
+   and the full probe suite re-run green with controls red where they must be.
