@@ -182,10 +182,30 @@
       setFlapDebugPose(b.parts || {}, b.def.model, pose);
       b.group.updateMatrixWorld(true);
       scene.background = new THREE.Color(BG[o.bg] ?? BG.pale);
-      fit(a.dir, a.up, fb || targetBox(a.t), o.fill ?? a.fill, o.zoom || 1);
+      // `wingOnly` hides everything that is not under a wing root. It runs BEFORE the camera
+      // fit, so the frame is filled by the WING — otherwise the camera keeps framing the
+      // whole dragon, the wing shrinks to a third of the tile, and any pixel threshold
+      // measured on it silently means something different from angle to angle.
+      const hidden = [];
+      if (o.wingOnly) {
+        const keep = new Set();
+        // ONE level up from each wing root — that is the wings builder's own group (or a
+        // mirror wrapper), which also carries any STATIC body-frame parts the builder parked
+        // beside the pivot. Climbing further reaches an intermediate node that holds the
+        // torso as well, and then `wingOnly` silently keeps the whole dragon: the first
+        // version of this did exactly that, and a tail fin read as a rectangle "in the wing".
+        for (const k of WING_ROOTS) {
+          const n = (b.parts || {})[k];
+          if (!n || !n.isObject3D) continue;
+          (n.parent && n.parent !== b.group ? n.parent : n).traverse((x) => keep.add(x));
+        }
+        b.group.traverse((x) => { if ((x.isMesh || x.isSprite || x.isPoints) && x.visible && !keep.has(x)) { x.visible = false; hidden.push(x); } });
+      }
+      fit(a.dir, a.up, fb || targetBox(o.wingOnly ? 'wingR' : a.t), o.fill ?? a.fill, o.zoom || 1);
       (LIGHT[o.light] || LIGHT.front)(a.dir);
       scene.overrideMaterial = o.silhouette ? BLACK : null;
       renderer.render(scene, camera);
+      for (const x of hidden) x.visible = true;
       scene.overrideMaterial = null;
       LIGHT.front();
       return true;
@@ -234,6 +254,141 @@
         ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 12, oy + 12);
       }
       return true;
+    };
+
+    // ── SILHOUETTE QUAD PROBE ─────────────────────────────────────────────────
+    // "Zero quadrilaterals detectable in the pure-black tiles" made into a measurement.
+    // Renders the wing alone in pure black, traces the outline, simplifies it, and reports
+    // every vertex where two LONG straight runs meet at ~90° — i.e. a square corner, the
+    // thing a rectangle is made of. A membrane has cusps, arcs and scallops; it has no
+    // right angles, so any hit here is a card or a slab that should not exist.
+    const _probeCv = document.createElement('canvas');
+    window.wlSilhouetteScan = (o) => {
+      const S = o.size || 480;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      window.wlRender({ ...o, bg: 'pale', silhouette: true, wingOnly: true });
+      _probeCv.width = S; _probeCv.height = S;
+      const ctx = _probeCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const px = ctx.getImageData(0, 0, S, S).data;
+      const ink = new Uint8Array(S * S);
+      let n = 0;
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const l = (px[p] * 0.2126 + px[p + 1] * 0.7152 + px[p + 2] * 0.0722) / 255;
+        if (l < 0.35) { ink[i] = 1; n++; }
+      }
+      if (n < 40) return { error: 'no silhouette found', inkPx: n };
+      // Keep only the LARGEST connected blob. Antialiasing leaves isolated dark specks, and
+      // seeding the trace on one of them returns a 1-pixel "outline" that silently passes.
+      {
+        const lab = new Int32Array(S * S).fill(-1);
+        const q = new Int32Array(S * S);
+        let best = -1, bestN = 0, id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!ink[i] || lab[i] >= 0) continue;
+          let head = 0, tail = 0; q[tail++] = i; lab[i] = id; let cnt = 0;
+          while (head < tail) {
+            const p2 = q[head++]; cnt++;
+            const x = p2 % S, y = (p2 / S) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx;
+              if (ink[j] && lab[j] < 0) { lab[j] = id; q[tail++] = j; }
+            }
+          }
+          if (cnt > bestN) { bestN = cnt; best = id; }
+          id++;
+        }
+        for (let i = 0; i < S * S; i++) if (ink[i] && lab[i] !== best) ink[i] = 0;
+        n = bestN;
+      }
+      // Moore-neighbour contour trace (textbook form: enter from the WEST, scan the 8
+      // neighbours CLOCKWISE from the pixel we came from, stop when we re-enter the start
+      // the same way). The naive "resume from dir+6" variant terminates after a few pixels
+      // on concave shapes — it produced 1-pixel outlines here before this was fixed.
+      let sx = -1, sy = -1;
+      outer: for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (ink[y * S + x]) { sx = x; sy = y; break outer; }
+      const NB = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];   // clockwise, screen coords
+      const at = (x, y) => (x < 0 || y < 0 || x >= S || y >= S) ? 0 : ink[y * S + x];
+      const contour = [[sx, sy]];
+      let bx = sx, by = sy, cx = sx - 1, cy = sy;         // c = where we entered b from
+      for (let guard = 0; guard < 400000; guard++) {
+        let ci = 0;
+        for (let k = 0; k < 8; k++) if (bx + NB[k][0] === cx && by + NB[k][1] === cy) { ci = k; break; }
+        let moved = false;
+        for (let k = 1; k <= 8; k++) {
+          const d = (ci + k) % 8, nx = bx + NB[d][0], ny = by + NB[d][1];
+          if (at(nx, ny)) {
+            const pd = (ci + k - 1) % 8;
+            cx = bx + NB[pd][0]; cy = by + NB[pd][1];
+            bx = nx; by = ny; contour.push([bx, by]); moved = true; break;
+          }
+        }
+        if (!moved) break;                                  // isolated pixel
+        if (bx === sx && by === sy && contour.length > 8) break;
+      }
+      // Douglas–Peucker. A CLOSED contour cannot be simplified as one open run — the chord
+      // from start to end is degenerate, every perpendicular distance is 0, and the whole
+      // outline collapses to two points. Split it at the far end first, simplify each half.
+      const dp = (pts, eps) => {
+        if (pts.length < 3) return pts;
+        let mx = 0, mi = 0;
+        const [ax, ay] = pts[0], [bx2, by2] = pts[pts.length - 1];
+        const dx = bx2 - ax, dy = by2 - ay, L = Math.hypot(dx, dy) || 1;
+        for (let i = 1; i < pts.length - 1; i++) {
+          const d = Math.abs((pts[i][0] - ax) * dy - (pts[i][1] - ay) * dx) / L;
+          if (d > mx) { mx = d; mi = i; }
+        }
+        if (mx <= eps) return [pts[0], pts[pts.length - 1]];
+        return dp(pts.slice(0, mi + 1), eps).slice(0, -1).concat(dp(pts.slice(mi), eps));
+      };
+      let far = 0, fd = -1;
+      for (let i = 1; i < contour.length; i++) {
+        const d = Math.hypot(contour[i][0] - contour[0][0], contour[i][1] - contour[0][1]);
+        if (d > fd) { fd = d; far = i; }
+      }
+      const eps = o.eps ?? 2.0;
+      const simp = far > 1
+        ? dp(contour.slice(0, far + 1), eps).concat(dp(contour.slice(far), eps).slice(1))
+        : dp(contour, eps);
+      const minLen = o.minLen ?? Math.max(12, S * 0.035);
+      const corners = [];
+      // walk the CLOSED polyline, so the seam vertex is tested like any other
+      for (let i = 0; i < simp.length; i++) {
+        const a = simp[(i - 1 + simp.length) % simp.length], b = simp[i], c = simp[(i + 1) % simp.length];
+        const v1 = [b[0] - a[0], b[1] - a[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+        const l1 = Math.hypot(v1[0], v1[1]), l2 = Math.hypot(v2[0], v2[1]);
+        if (l1 < minLen || l2 < minLen) continue;
+        // A shape clipped by the canvas makes right angles with the FRAME, not with itself.
+        // Reject anything sitting on the border — the fix for those is a wider fill, not
+        // geometry, and counting them would hide the real corners under noise.
+        const M2 = 3;
+        if (b[0] <= M2 || b[1] <= M2 || b[0] >= S - 1 - M2 || b[1] >= S - 1 - M2) continue;
+        const turn = Math.abs(Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2)))) * 180 / Math.PI);
+        if (turn >= 75 && turn <= 105) corners.push({ x: b[0], y: b[1], turn: +turn.toFixed(1), run1: +l1.toFixed(1), run2: +l2.toFixed(1) });
+      }
+      return { size: S, inkPx: n, contourPx: contour.length, simplified: simp.length, minLen: +minLen.toFixed(1), corners };
+    };
+
+    // Debug view for the quad probe: the traced silhouette with every detected right-angle
+    // corner ringed, so a builder can SEE which piece of geometry is the rectangle.
+    window.wlSilhouetteDebug = (o) => {
+      const r = window.wlSilhouetteScan(o);
+      const S = r.size || o.size || 480;
+      const sc = document.getElementById('sheet');
+      sc.width = S; sc.height = S; sc.style.display = 'block';
+      const ctx = sc.getContext('2d');
+      ctx.fillStyle = '#cfd6e4'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(gl, 0, 0, S, S);
+      ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 2;
+      ctx.font = '600 13px system-ui'; ctx.fillStyle = '#ff2d55';
+      for (const c of (r.corners || [])) {
+        ctx.beginPath(); ctx.arc(c.x, c.y, 13, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillText(`${c.turn}°`, c.x + 16, c.y + 4);
+      }
+      return r;
     };
     window.__ready = true;
   </script>

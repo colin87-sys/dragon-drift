@@ -1360,7 +1360,10 @@ DRAGONS.forgewing = {
   title: 'The wing lab',
   lanceTint: 0xc4531a,   // Eternal wisp: forge-orange — distinct from every shipped tint
   parts: { ...DRAGONS.tempest.parts, wings: 'basaltForgeWings' },
-  model: { ...DRAGONS.tempest.model, wingDigits: 4, wingCoverts: 9, wingClusterStubs: 2 },
+  // The elbow joint now sits at the §3 landmark (t=0.28) instead of doubling the shoulder,
+  // so `mid` is held at AMPLITUDE ZERO until I4 owns driving it — a rig that is structurally
+  // right and motionally inert. Everything else is the Tempest's flap set, untouched.
+  model: { ...DRAGONS.tempest.model, midAmp: 0, apexMid: 0, wingDigits: 4, wingCoverts: 9, wingClusterStubs: 2 },
   // The wing hardware ladders with the form: digits III→VI arrive one at a time, the covert
   // rank grows to its 9-flake terminus, and the carpal cluster gains its two stubs.
   forms: DRAGONS.tempest.forms.map((f, i) => ({
