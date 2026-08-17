@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Wing Lab Shot</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #sheet{position:fixed;left:0;top:0;display:none;background:#0a0e1a}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ff9a9a;font-size:13px;white-space:pre-wrap;
+      background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../../lib/three.module.js" } }</script>
+  <script>
+    window.__wlerr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display='block'; e.textContent = 'Wing-lab error:\n' + m; } window.__wlErrText = m; };
+    window.addEventListener('error', (ev) => window.__wlerr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__wlerr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="600" height="600"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '../../js/dragons.js';
+    import { ascendedDef, maxTierFor } from '../../js/ascension.js';
+    import { buildDragonModel } from '../../js/dragonModel.js';
+    import { setFlapDebugPose, WING_DEBUG_STATES } from '../../js/wingDebugPose.js';
+
+    // ── Neutral lit stage — copied verbatim from tools/dragonstudio.html so a wing-lab
+    //    frame is directly comparable to a shipped studio gate frame. ACES, same 4 lights.
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 400);
+    const hemi = new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0); scene.add(hemi);
+    const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a, sky: 0x8fb8dd };
+
+    // ── LIGHT MODES ───────────────────────────────────────────────────────────
+    // 'front' (default) is the shipped neutral stage, byte-identical to before.
+    // 'back' is THE BACKLIT TILE the spec requires (90-SYNTHESIS §11): the sun placed on the
+    // FAR side of the subject from the camera, ambient pulled almost to nothing. A membrane
+    // gate cannot be judged without it — transmission fires ONLY with the sun behind, and
+    // the backlit↔front-lit polarity flip (membrane:bone ≈0.35 → ≈3.3) is itself a pass
+    // criterion. Even at I1, before any shading exists, it is the cleanest read of the
+    // planform-as-a-shape and of any hole the skin has that front light hides.
+    // A DirectionalLight only cares about its DIRECTION (position → its target at the
+    // origin), so aiming it at −cameraDir works wherever the subject sits.
+    // 'backmirror' is the R3(a) HARNESS ORDER. The Round-3 backlit planform showed one
+    // wing crimson and one bright orange; the director ruled that physics (d_eff grows as
+    // |N·V| falls, so the two wings diverge the moment the camera leaves the mirror plane
+    // — an authored feature in a bank) PLUS an off-axis capture, and made the falsifiable
+    // separation mandatory: a symmetric article, under a camera EXACTLY on the mirror
+    // plane, with the sun EXACTLY on the camera axis, must render symmetric. Any residual
+    // is then a bug, not physics. Two things in the stage had to move for that claim to be
+    // testable at all: the key's +1.2 y nudge (which tilts the sun off the camera axis) and
+    // the rim light at x = −3 (which is not mirror-symmetric and paints one wing at 0.10).
+    // The rim stays, at the same intensity, moved onto the sagittal plane.
+    const LIGHT = {
+      front: () => { hemi.intensity = 1.0; keyL.intensity = 1.7; rimL.intensity = 1.0; fillL.intensity = 0.4;
+        keyL.position.set(2.5, 3, 4); rimL.position.set(-3, 1.5, -3); },
+      back: (d) => { hemi.intensity = 0.14; keyL.intensity = 3.4; rimL.intensity = 0.10; fillL.intensity = 0.05;
+        rimL.position.set(-3, 1.5, -3);
+        keyL.position.set(-d[0] * 10, -d[1] * 10 + 1.2, -d[2] * 10); },
+      backmirror: (d) => { hemi.intensity = 0.14; keyL.intensity = 3.4; rimL.intensity = 0.10; fillL.intensity = 0.05;
+        rimL.position.set(0, 1.5, -3);
+        keyL.position.set(-d[0] * 10, -d[1] * 10, -d[2] * 10); },
+    };
+    // Pure-black override — the I1 SILHOUETTE gate is judged in pure black, so the shape is
+    // all there is to argue about. MeshBasicMaterial ignores every light, so the read cannot
+    // be rescued (or flattered) by the stage.
+    const BLACK = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+    // Angles. `t` = which bounding box to frame ('model' | 'wingR').
+    const ANGLES = {
+      rear:     { dir: [0.06, 0.20, 0.95], up: [0,1,0], t: 'model', fill: 0.86 },
+      rear3q:   { dir: [0.72, 0.42, 0.72], up: [0,1,0], t: 'model', fill: 0.82 },
+      side:     { dir: [1.0, 0.14, 0.001], up: [0,1,0], t: 'model', fill: 0.86 },
+      top:      { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'model', fill: 0.88 },
+      front:    { dir: [0.0, 0.16, -1], up: [0,1,0], t: 'model', fill: 0.86 },
+      // Single-RIGHT-wing framings — the lab's money crops.
+      wing:     { dir: [-0.30, 0.44, 0.85], up: [0,1,0], t: 'wingR', fill: 0.94 }, // rear-above from the OFF side: the right wing sweeps across frame
+      wingtop:  { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'wingR', fill: 0.94 },// PLANFORM — the shape/finger read
+      wingfront:{ dir: [0.0, 0.10, -1], up: [0,1,0], t: 'model', fill: 0.90 },     // head-on — dihedral + camber (whole span)
+      wingside: { dir: [1.0, 0.10, 0.02], up: [0,1,0], t: 'model', fill: 0.90 },   // edge-on — thickness/plank test
+      wingrear: { dir: [0.06, 0.18, 0.98], up: [0,1,0], t: 'wingR', fill: 0.94 },  // the chase-cam read of ONE wing
+      // I3 additions.
+      // `wingunder` is the FIRE money crop, and its direction is MEASURED, not guessed:
+      // it is the right wing's own ventral normal at glide, (0.795, −0.601, 0.085) — the
+      // roll angle at which the furnace is fully presented. The radiator is ventral (F1
+      // B2), so the emissive budget must be read where it can actually be seen; from the
+      // chase camera it reports ~0% and passes §7.1 for the wrong reason, and from a
+      // guessed "below and behind" it reports 7 pixels because the glide dihedral leaves
+      // the ventral face 84° off that axis — the wing is edge-on to it.
+      wingunder:{ dir: [0.795, -0.601, 0.085], up: [0,1,0], t: 'wingR', fill: 0.88 },
+      // …and the same read as a BEAUTY tile at the bank pose, where the ventral normal
+      // measures (0.380, −0.925, −0.023): the furnace rolling into view under the arm.
+      wingbank: { dir: [0.38, -0.90, 0.20], up: [0,1,0], t: 'wingR', fill: 0.86 },
+      // `mirrortop` is the R3(a) capture: dead overhead, framed on a box forced symmetric
+      // about x = 0 (`mirror`), so the camera sits exactly on the sagittal plane. With
+      // LIGHT.backmirror the sun is exactly anti-camera and L/R must match.
+      mirrortop: { dir: [0.0001, 1, 0.0001], up: [0,0,-1], t: 'model', fill: 0.84, mirror: true },
+      // …and the same view WITHOUT the mirror-plane constraint: the negative control for
+      // that assertion (kill #67). It must FIRE where the honest shot clears.
+      offaxistop:{ dir: [0.55, 1, 0.16], up: [0,0,-1], t: 'model', fill: 0.84 },
+    };
+
+    const WING_ROOTS = ['wingYokeL','wingYokeR','wingRigL','wingRigR','wingPivotL','wingPivotR','wingPivot2L','wingPivot2R'];
+    const WING_R = ['wingYokeR','wingRigR','wingPivotR','wingPivot2R'];
+
+    let built = null, curKey = null, curTier = null;
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+
+    function disposeCur() {
+      if (!built) return;
+      scene.remove(built.group);
+      built.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
+      built = null;
+    }
+    function load(key, tier) {
+      if (built && key === curKey && tier === curTier) return built;
+      disposeCur();
+      const def = ascendedDef(DRAGONS[key], tier, 0);
+      built = buildDragonModel(def, { preview: true });
+      built.def = def;
+      scene.add(built.group);
+      curKey = key; curTier = tier;
+      return built;
+    }
+    // MESH-ONLY bounding box. `Box3.setFromObject` (what dragonstudio uses) includes the
+    // idle-aura SPRITE — a 9.1u additive billboard on Vesper — which silently doubles the
+    // box and shrinks every dragon to ~40% of the frame. Sprites/Points are FX, never
+    // silhouette; skip them (and anything invisible).
+    function boxOfMeshes(root, into) {
+      into.makeEmpty();
+      const b = new THREE.Box3();
+      root.traverse((o) => {
+        if (!o.visible || !o.isMesh || o.isSprite || o.isPoints || !o.geometry) return;
+        b.setFromObject(o);
+        if (b.isEmpty() || !isFinite(b.min.x) || !isFinite(b.max.x)) return;
+        into.union(b);
+      });
+      if (into.isEmpty()) into.setFromObject(root);
+      return into;
+    }
+    const _wbox = new THREE.Box3(), _tmpbox = new THREE.Box3();
+    function targetBox(part) {
+      const parts = built.parts || {};
+      if (part === 'wingR' || part === 'wing') {
+        const roots = part === 'wingR' ? WING_R : WING_ROOTS;
+        _wbox.makeEmpty();
+        for (const k of roots) if (parts[k] && parts[k].isObject3D) _wbox.union(boxOfMeshes(parts[k], _tmpbox));
+        if (!_wbox.isEmpty()) return _box.copy(_wbox);
+      }
+      return boxOfMeshes(built.group, _box);
+    }
+    // PERPENDICULAR-EXTENT fit. Two fits were wrong before this one:
+    //  * dragonstudio's sphere fit (radius = max(sx,sy,sz)/2) CLIPS a long oblique wing;
+    //  * a naive perspective fit on the 8 box corners BLOWS OUT on the rear-chase view,
+    //    because the tail tip sits close to the lens and its NDC explodes — the dragon
+    //    ends up a speck.
+    // Measure the box's extent along the SCREEN axes only (depth ignored), then solve the
+    // distance in closed form. `zoom` > 1 magnifies (a detail crop).
+    const _right = new THREE.Vector3(), _tup = new THREE.Vector3(), _v = new THREE.Vector3();
+    function fit(dir, up, box, fillFrac, zoom) {
+      box.getCenter(_c);
+      const vfov = camera.fov * Math.PI / 180;
+      const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      const u0 = new THREE.Vector3(up[0], up[1], up[2]);
+      _right.crossVectors(d, u0).normalize();
+      if (!isFinite(_right.x) || _right.lengthSq() < 1e-6) _right.set(1, 0, 0);
+      _tup.crossVectors(_right, d).normalize();
+      let ex = 0, ey = 0;
+      for (let i = 0; i < 8; i++) {
+        _v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(_c);
+        ex = Math.max(ex, Math.abs(_v.dot(_right)));
+        ey = Math.max(ey, Math.abs(_v.dot(_tup)));
+      }
+      const half = Math.max(ex, ey, 1e-3);                       // square frame → one number
+      const target = Math.max(0.05, fillFrac * (zoom || 1));
+      const dist = half / (Math.tan(vfov / 2) * target);
+      camera.up.copy(u0);
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = Math.max(0.01, dist / 400); camera.far = dist * 40;
+      camera.updateProjectionMatrix();
+      camera.lookAt(_c);
+    }
+
+    // ── public API ────────────────────────────────────────────────────────────
+    // Any of the SEVEN wingDebug states is a legal pose here (the shipped studio only
+    // maps glide/fold/bank and silently falls back to glide for the cycle states).
+    window.wlStates = () => WING_DEBUG_STATES.slice();
+    function forgeFireOf(b) { let f = null;
+      b.group.traverse((x) => { if (!f && x.userData && x.userData.forgeFire) f = x.userData.forgeFire; });
+      return f; }
+    function applyFire(b, state, time) {
+      globalThis.__wlFireTime = (time != null) ? time : 0;
+      const f = forgeFireOf(b);
+      if (f) f.setState(state || 'cruise');
+      return f;
+    }
+    window.wlFireStates = (key, tier) => { const f = forgeFireOf(load(key, tier)); return f ? f.states.slice() : []; };
+    window.wlMaxTier = (key) => maxTierFor(key);
+    window.wlKeys = () => Object.keys(DRAGONS);
+    // `framePose` freezes the camera on ANOTHER pose's bounding box — so a 5-frame cycle
+    // strip shares ONE camera and the poses are directly comparable (a per-pose refit
+    // rescales every tile and hides the very amplitude the strip exists to show).
+    window.wlRender = (o) => {
+      const b = load(o.key, o.tier);
+      // §7 THE FIRE STATE + A PINNED CLOCK. The three rhythms are functions of time, so a
+      // capture is only reproducible if the clock is frozen — same contract the surge
+      // montage uses. Default 0 so an un-annotated tile is still deterministic.
+      // `keepFire` exists because a MULTI-PASS caller (wlSurfaceScan) sets the state ONCE
+      // and then mutates on top of it; letting every pass re-run setState would repair the
+      // very known-bad a fire control exists to prove the probe can see.
+      globalThis.__wlFireTime = (o.fireTime != null) ? o.fireTime : 0;
+      if (!o.keepFire) applyFire(b, o.fire, o.fireTime);
+      // a KNOWN-BAD mutation may be applied to any render (kill #67): the same code path
+      // that produces the shipped frame must be able to produce the defective one.
+      const _mu = (o.mutate && window.wlMutate) ? window.wlMutate(b, o.mutate) : null;
+      // `dials` temporarily overrides flap knobs on the resolved def, so a probe can pose
+      // the SAME build with an earlier dial set — the only way to separate a pose step
+      // from a build step in one run (the R6 tier-isolation ruling).
+      let _dl = null;
+      if (o.dials) { _dl = {}; for (const k in o.dials) { _dl[k] = b.def.model[k]; b.def.model[k] = o.dials[k]; } }
+      const pose = WING_DEBUG_STATES.includes(o.pose) ? o.pose : 'glide';
+      const a = ANGLES[o.angle] || ANGLES.wing;
+      let fb = null;
+      if (o.framePose) {
+        setFlapDebugPose(b.parts || {}, b.def.model, o.framePose);
+        b.group.updateMatrixWorld(true);
+        fb = targetBox(a.t).clone();
+      }
+      // `foldAmt` walks the fold ARC from a fixed camera — §8.3 step 3's read (one scallop
+      // at a time) does not exist at the two endpoints, which is the whole of kill #69.
+      setFlapDebugPose(b.parts || {}, b.def.model, pose, o.foldAmt);
+      b.group.updateMatrixWorld(true);
+      scene.background = new THREE.Color(BG[o.bg] ?? BG.pale);
+      // `wingOnly` hides everything that is not under a wing root. It runs BEFORE the camera
+      // fit, so the frame is filled by the WING — otherwise the camera keeps framing the
+      // whole dragon, the wing shrinks to a third of the tile, and any pixel threshold
+      // measured on it silently means something different from angle to angle.
+      const hidden = [];
+      // FX are not SURFACE. Sprites and Points are already excluded from the framing box
+      // for exactly this reason; the §7.5 ember shed is a Mesh only because a rod needs an
+      // orientation, so it carries `wlFX` and obeys the same rule. It is hidden in the
+      // pure-black tiles (an additive spark is not silhouette — left in, 40 rods would put
+      // detached black rectangles outside the outline and the quad probe would be measuring
+      // FX) and in every masked SCAN (an ember drifts aft in the vertex shader, so a mask
+      // pass without that displacement would label the wrong pixels — a probe firing for
+      // the wrong reason is worse than no probe).
+      if (o.silhouette || o.hideFX) {
+        b.group.traverse((x) => { if (x.isMesh && x.visible && x.userData && x.userData.wlFX) { x.visible = false; hidden.push(x); } });
+      }
+      // ONE wing, for a measurement whose denominator is "one wing's projected area".
+      if (o.oneWing) {
+        const pl = (b.parts || {}).wingPivotL;
+        const rootL = pl && pl.isObject3D ? (pl.parent && pl.parent !== b.group ? pl.parent : pl) : null;
+        if (rootL) rootL.traverse((x) => { if ((x.isMesh || x.isSprite || x.isPoints) && x.visible) { x.visible = false; hidden.push(x); } });
+      }
+      if (o.wingOnly) {
+        const keep = new Set();
+        // ONE level up from each wing root — that is the wings builder's own group (or a
+        // mirror wrapper), which also carries any STATIC body-frame parts the builder parked
+        // beside the pivot. Climbing further reaches an intermediate node that holds the
+        // torso as well, and then `wingOnly` silently keeps the whole dragon: the first
+        // version of this did exactly that, and a tail fin read as a rectangle "in the wing".
+        for (const k of WING_ROOTS) {
+          const n = (b.parts || {})[k];
+          if (!n || !n.isObject3D) continue;
+          (n.parent && n.parent !== b.group ? n.parent : n).traverse((x) => keep.add(x));
+        }
+        b.group.traverse((x) => { if ((x.isMesh || x.isSprite || x.isPoints) && x.visible && !keep.has(x)) { x.visible = false; hidden.push(x); } });
+      }
+      const fbox = fb || targetBox(o.wingOnly ? 'wingR' : a.t);
+      // `mirror`: force the framing box symmetric about x = 0 so the camera lands EXACTLY
+      // on the sagittal plane. Framing on the mesh box instead puts it wherever the head,
+      // tail and rider socket happen to average out — which is a few hundredths of a unit
+      // off-axis, and a few hundredths is all the |N·V| term needs to split L from R.
+      if (a.mirror) { const m = Math.max(Math.abs(fbox.min.x), Math.abs(fbox.max.x)); fbox.min.x = -m; fbox.max.x = m; }
+      fit(a.dir, a.up, fbox, o.fill ?? a.fill, o.zoom || 1);
+      (LIGHT[o.light] || LIGHT.front)(a.dir);
+      scene.overrideMaterial = o.silhouette ? BLACK : null;
+      renderer.render(scene, camera);
+      for (const x of hidden) x.visible = true;
+      scene.overrideMaterial = null;
+      LIGHT.front();
+      if (_mu) for (const [t, k, v] of _mu) t[k] = v;
+      if (_dl) for (const k in _dl) b.def.model[k] = _dl[k];
+      return true;
+    };
+    // Report the posed wing's world-space extents — geometry ground truth beside the pixels.
+    window.wlMeasure = (o) => {
+      const b = load(o.key, o.tier);
+      setFlapDebugPose(b.parts || {}, b.def.model, o.pose || 'glide');
+      b.group.updateMatrixWorld(true);
+      const wb = new THREE.Box3(); wb.makeEmpty();
+      for (const k of WING_ROOTS) if (b.parts[k] && b.parts[k].isObject3D) wb.expandByObject(b.parts[k]);
+      const mb = new THREE.Box3().setFromObject(b.group);
+      let tris = 0, wingTris = 0;
+      b.group.traverse((o2) => { if (o2.isMesh && o2.geometry) { const g = o2.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+      for (const k of WING_R.concat(['wingPivotL','wingRigL','wingYokeL','wingPivot2L'])) {
+        const n = b.parts[k]; if (!n || !n.isObject3D) continue;
+        n.traverse((o2) => { if (o2.isMesh && o2.geometry) { const g = o2.geometry; wingTris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+      }
+      // …and the EXACT span beside the box one. `expandByObject` bounds each mesh by its own
+      // AABB and transforms that box's corners, which over-reports a part rotated ~100° — a
+      // folded wing — by up to sqrt(3). It agreed with the truth for every pose this harness
+      // captured before a real fold existed; from I4 the two must both be on the record.
+      let exLo = Infinity, exHi = -Infinity; const _ev = new THREE.Vector3();
+      for (const k of WING_ROOTS) { const n = b.parts[k]; if (!n || !n.isObject3D) continue;
+        n.traverse((o2) => { if (!o2.isMesh || !o2.geometry || (o2.userData && o2.userData.wlFX)) return;
+          const pa = o2.geometry.attributes.position;
+          for (let i = 0; i < pa.count; i++) { _ev.fromBufferAttribute(pa, i).applyMatrix4(o2.matrixWorld);
+            if (_ev.x < exLo) exLo = _ev.x; if (_ev.x > exHi) exHi = _ev.x; } }); }
+      const sz = new THREE.Vector3(); wb.getSize(sz);
+      const msz = new THREE.Vector3(); mb.getSize(msz);
+      const tm = b.parts.tipMarkerR, tp = new THREE.Vector3();
+      if (tm) tm.getWorldPosition(tp);
+      return { pose: o.pose || 'glide', wingSpanX: +sz.x.toFixed(3), exactSpanX: +(exHi - exLo).toFixed(3), wingRiseY: +sz.y.toFixed(3), wingChordZ: +sz.z.toFixed(3),
+        bodyLenZ: +msz.z.toFixed(3), modelSpanX: +msz.x.toFixed(3), tris: Math.round(tris), wingTris: Math.round(wingTris),
+        tipR: tm ? [+tp.x.toFixed(3), +tp.y.toFixed(3), +tp.z.toFixed(3)] : null };
+    };
+    // in-page contact sheet (dragonstudio pattern)
+    const _sheet = document.getElementById('sheet');
+    window.wlSheetInit = (cols, rows, cell) => {
+      _sheet.width = cols * cell; _sheet.height = rows * cell; _sheet.style.display = 'block';
+      const ctx = _sheet.getContext('2d');
+      ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height);
+      _sheet.__cell = cell; _sheet.__cols = cols;
+      gl.width = cell; gl.height = cell; renderer.setSize(cell, cell, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      return true;
+    };
+    window.wlTile = (quad, label) => {
+      const cell = _sheet.__cell, cols = _sheet.__cols, ctx = _sheet.getContext('2d');
+      const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell;
+      ctx.drawImage(gl, ox, oy, cell, cell);
+      ctx.strokeStyle = 'rgba(140,200,255,0.22)'; ctx.lineWidth = 2; ctx.strokeRect(ox+1, oy+1, cell-2, cell-2);
+      if (label) {
+        ctx.font = '600 20px system-ui, sans-serif'; ctx.textBaseline = 'top';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 12, oy + 12);
+        ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 12, oy + 12);
+      }
+      return true;
+    };
+
+    // ── SURFACE SCAN — the I2 MEMBRANE measurement (90-SYNTHESIS §5.5 / §6.2) ──
+    // "MEASURE the tiers, numbers not eyeballs." Renders the frame twice: once LIT, once
+    // as a ROLE MASK (membrane red / wing structure green / skirt blue / everything else
+    // black), then reports statistics over exactly the pixels that belong to each role.
+    // Masking is why this is a measurement and not a vibe: without it a "membrane luma"
+    // is really "membrane + sky + bone + torso", and the sky alone moves it by 10×.
+    //
+    // `mutate` is the kill-#67 hook: it forces the article into a KNOWN-BAD configuration
+    // (I1's albedo/roughness, or the transmission term switched off) so every threshold
+    // here can be shown to FIRE as well as to clear.
+    // side: DoubleSide is LOAD-BEARING. MeshBasicMaterial defaults to FrontSide, and half
+    // this dragon (the membrane sheet, the torso loft) is DoubleSide — so a FrontSide mask
+    // silently DELETES every back-facing surface, the depth buffer never gets it, and
+    // whatever lies behind (the torso, or the sky) is classified as whatever the next
+    // surface happens to be. Proved by a negative control: with the membrane forced to
+    // PURE BLACK, zero specular and zero transmission, the probe still reported a blue
+    // sheen of 0.148 — a black surface cannot be blue, so the probe, not the wing, was wrong.
+    const MASK_MEM = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+    // …and a second membrane material that paints the AUTHORED §5.5 tier straight out of
+    // the vertex colour's green channel (the vermilion blush touches only R and B), so the
+    // tiers can be measured as authored instead of being guessed from luminance quartiles.
+    // The tier multipliers run to 1.62, so the mask is scaled by 0.5 (set RAW, not via a
+    // hex — setHex would sRGB-decode it) to keep the top tier off the 8-bit ceiling; two
+    // tiers clipping to 255 is how a tier probe reports "3 tiers" and passes anyway.
+    const MASK_TIER = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+    MASK_TIER.color.setScalar(0.5);
+    const MASK_BONE = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+    const MASK_SKIRT = new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide });
+    // I3: the §7 fire panes get their own role. Without this they classify as wing
+    // STRUCTURE and silently inflate the bone mean the I2 polarity ratio divides by —
+    // which would make MEMBRANE look like it regressed (or, worse, like it improved).
+    // Magenta and cyan: no backdrop can be mistaken for either (sky is 143,184,221 —
+    // its red fails >200; pale is 207,214,228 — its green fails <40).
+    const MASK_FIRE = new THREE.MeshBasicMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
+    const MASK_OFF = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+    // A mask material is HARNESS state, not article state. Tagging them means `wlMutate`
+    // can never write to one: while a mask pass is up, every mesh is wearing a mask, and a
+    // collector that finds materials by mesh role finds masks. A known-bad that recolours
+    // MASK_MEM silently deletes the membrane from the role map and the probe then reports
+    // n = 0 membrane pixels and "fires" for a reason that has nothing to do with the wing.
+    for (const m of [MASK_MEM, MASK_TIER, MASK_BONE, MASK_SKIRT, MASK_FIRE, MASK_OFF]) m.userData.wlMask = true;
+    const _scanCv = document.createElement('canvas');
+    // Every mesh that lives under a wing root — computed from the PARTS contract, not from
+    // a userData tag, so the same probe classifies a shipped hero (tempest) and the lab
+    // article identically. Without this the control article has no "bone" set at all and
+    // the polarity ratio silently divides by nothing.
+    function wingMeshSet(b) {
+      const keep = new Set();
+      for (const k of WING_ROOTS) { const n = (b.parts || {})[k]; if (n && n.isObject3D) n.traverse((x) => { if (x.isMesh) keep.add(x); }); }
+      return keep;
+    }
+    function roleOf(mesh, b, wingSet) {
+      const u = mesh.userData || {};
+      if (u.wlSurface === 'membrane') return 'mem';
+      if (u.wlSurface === 'skirt') return 'skirt';
+      if (u.wlSurface === 'fire') return 'fire';
+      const m = mesh.material;
+      if (!m) return null;
+      const wm = (b.materials || {}).wingMat;
+      if (m === wm || (Array.isArray(m) && m.indexOf(wm) >= 0)) return 'mem';
+      return wingSet.has(mesh) ? 'bone' : null;      // wing STRUCTURE: bones, ash, claws
+    }
+    function memMats(b) {
+      const out = new Set(), ws = wingMeshSet(b);
+      b.group.traverse((o) => { if (o.isMesh && roleOf(o, b, ws) === 'mem' && o.material) out.add(o.material); });
+      return [...out].filter((m) => !(m.userData && m.userData.wlMask));
+    }
+    // every material the §7 fire system owns (window + arteries + the ember shed), found
+    // through the shipped `flareMats` contract, so the probe cannot drift from the wiring.
+    function fireMats(b) {
+      const out = new Set();
+      for (const m of ((b.materials || {}).flareMats || [])) out.add(m);
+      b.group.traverse((o) => { if (o.isMesh && o.userData && (o.userData.wlSurface === 'fire' || o.userData.wlSurface === 'ember') && o.material) out.add(o.material); });
+      return [...out].filter((m) => !(m.userData && m.userData.wlMask));
+    }
+    // knobs a mutation may move — kept HERE, in the harness, never in the shipped module
+    window.wlMutate = (b, mut) => {
+      const undo = [];
+      if (!mut) return undo;
+      // I3.1 / kill #67 — THE RING, PUT BACK. The R4 cold rim is parked on the fire
+      // geometry as `wlKnownBadStage` (see `flushFire`), so the exact defect that lost
+      // Round 4 can be swapped in as a stage-tag array and swapped out again. A probe
+      // that claims to detect a closed emissive contour has to be shown detecting THIS
+      // one; anything else is a probe certifying its own opinion. Restoring the saved
+      // array and then touching `needsUpdate` is the undo — the version counter is what
+      // three watches, so assigning `true` after the array is what re-uploads it.
+      if (mut.coldRing) {
+        b.group.traverse((o) => {
+          if (!o.isMesh || !o.geometry || !o.geometry.userData) return;
+          const kb = o.geometry.userData.wlKnownBadStage;
+          const af = o.geometry.getAttribute('aFire');
+          if (!kb || !af) return;
+          const orig = af.array.slice();
+          const arr = af.array.slice();
+          for (let i = 0; i < kb.length; i++) arr[i * 4] = kb[i];
+          af.array = arr; af.needsUpdate = true;
+          undo.push([af, 'array', orig], [af, 'needsUpdate', true]);
+        });
+      }
+      // I4.1 / kill #67 — THE ROUND-6 CARPAL SLIT, PUT BACK. The pre-lap positions of the
+      // handwing's inboard row ship as `wlCarpalOrig` + `wlCarpalIdx` (see `flushMem`), so
+      // the exact wing that lost MOTION can be restored and the channel probe shown firing
+      // on it, at the same thresholds, in the same run as the pass. Same idiom as the ring.
+      if (mut.carpalOpen) {
+        b.group.traverse((o) => {
+          if (!o.isMesh || !o.geometry || !o.geometry.userData) return;
+          const idx = o.geometry.userData.wlCarpalIdx, org = o.geometry.userData.wlCarpalOrig;
+          const pa = o.geometry.getAttribute('position');
+          if (!idx || !org || !pa) return;
+          const orig = pa.array.slice(), arr = pa.array.slice();
+          for (let i = 0; i < idx.length; i++) { const d = idx[i] * 3;
+            arr[d] = org[i * 3]; arr[d + 1] = org[i * 3 + 1]; arr[d + 2] = org[i * 3 + 2]; }
+          pa.array = arr; pa.needsUpdate = true;
+          undo.push([pa, 'array', orig], [pa, 'needsUpdate', true]);
+        });
+      }
+      // …and the SYNTHETIC channel: collapse one tagged interior block of the
+      // plagiopatagium onto its own centroid, punching a hole through the middle of the
+      // article's largest continuous sheet. The SAME surface must clear intact and fire
+      // holed — the strongest form of the control, because nothing differs but the defect.
+      if (mut.slitTest) {
+        b.group.traverse((o) => {
+          if (!o.isMesh || !o.geometry || !o.geometry.userData) return;
+          const band = o.geometry.userData.wlSlitBand;
+          const pa = o.geometry.getAttribute('position');
+          if (!band || !pa) return;
+          const orig = pa.array.slice(), arr = pa.array.slice();
+          // NaN, not a displacement: every triangle touching a tagged vertex fails
+          // rasterisation and disappears, which leaves a real HOLE. Collapsing the block
+          // onto its centroid instead only fans the neighbouring quads into the gap and
+          // covers it again — the first version of this control did that and never fired.
+          for (let i = 0; i < band.length; i++) if (band[i]) { arr[i * 3] = NaN; arr[i * 3 + 1] = NaN; arr[i * 3 + 2] = NaN; }
+          pa.array = arr; pa.needsUpdate = true;
+          undo.push([pa, 'array', orig], [pa, 'needsUpdate', true]);
+        });
+      }
+      for (const m of fireMats(b)) {
+        const su = (m.userData && m.userData.surfaceUniforms) || {};
+        for (const k of ['uFireGain', 'uFireStage', 'uFireLoad', 'uEmbGain', 'uEmbStage', 'uEmbFlat']) {
+          if (mut[k] != null && su[k]) { undo.push([su[k], 'value', su[k].value]); su[k].value = mut[k]; }
+        }
+        // I3.1 / kill #67 — THE ADDITIVE SHED, PUT BACK. Paired with `uEmbFlat: 1` this
+        // reproduces R4's ember exactly (flat alpha, AdditiveBlending), which is the only
+        // configuration in which the hue test's verdict means anything.
+        if (mut.emberAdditive && m.name === 'forge:ember') {
+          undo.push([m, 'blending', m.blending], [m, 'needsUpdate', true]);
+          m.blending = THREE.AdditiveBlending; m.needsUpdate = true;
+        }
+        // …guarded: during a masked pass these meshes are wearing a MeshBasicMaterial
+        // role mask, which has no `emissive` at all.
+        if (mut.fireEmissive != null && m.emissive) { undo.push([m, 'emissive', m.emissive.clone()]); m.emissive.setHex(mut.fireEmissive); }
+      }
+      for (const m of memMats(b)) {
+        const su = (m.userData && m.userData.surfaceUniforms) || {};
+        if (mut.color != null) { undo.push([m, 'color', m.color.clone()]); m.color.setHex(mut.color); }
+        if (mut.roughness != null) { undo.push([m, 'roughness', m.roughness]); m.roughness = mut.roughness; }
+        if (mut.env != null) { undo.push([m, 'envMapIntensity', m.envMapIntensity]); m.envMapIntensity = mut.env; }
+        for (const k of ['uMemScale', 'uMemAmbient', 'uMemFringe', 'uMemCord', 'uMemWrinkleAmp',
+          'uMemFieldAmt', 'uMemSpecMul', 'uMemSpecF90', 'uMemSigma0']) {
+          if (mut[k] != null && su[k]) { undo.push([su[k], 'value', su[k].value]); su[k].value = mut[k]; }
+        }
+      }
+      return undo;
+    };
+    const _unmutate = (undo) => { for (const [o, k, v] of undo) o[k] = v; };
+
+    window.wlSurfaceScan = (o) => {
+      const S = o.size || 560;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      const b = load(o.key, o.tier);
+      // ORDER IS LOAD-BEARING: state first, mutation second, and neither is re-applied by
+      // the three passes below. Letting wlRender re-run either one is how a mask pass ends
+      // up rendering with a mutated MASK material — which is exactly the failure the whole
+      // negative-control apparatus exists to catch, in the apparatus itself.
+      applyFire(b, o.fire, o.fireTime);
+      const undo = window.wlMutate(b, o.mutate);
+      o = { hideFX: true, ...o, mutate: null, keepFire: true };   // a masked scan never measures FX
+      window.wlRender(o);
+      _scanCv.width = S; _scanCv.height = S;
+      const ctx = _scanCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const lit = ctx.getImageData(0, 0, S, S).data;
+      // …the same frame as a role mask (unlit basic materials: the mask cannot be shaded)
+      const swapped = [], ws = wingMeshSet(b);
+      b.group.traverse((m) => {
+        if (!m.isMesh || !m.visible) return;
+        const r = roleOf(m, b, ws);
+        swapped.push([m, m.material]);
+        m.material = r === 'mem' ? MASK_MEM : r === 'bone' ? MASK_BONE : r === 'skirt' ? MASK_SKIRT
+          : r === 'fire' ? MASK_FIRE : MASK_OFF;
+      });
+      // ACES must come OFF for the mask pass. Its input matrix mixes the channels
+      // (pure green enters the RRT as 0.355, 0.908, 0.016), so a tone-mapped 0x00ff00
+      // lands near (150, 230, 60) and a "G high, R low" test silently classifies every
+      // bone pixel as nothing at all — which is how this probe first reported n=0 bones
+      // and no polarity ratio, i.e. it passed the tiers for the wrong reason.
+      // The mask pass keeps the LIT pass's background. That is not cosmetic: MSAA blends
+      // the role colour with whatever is behind it, so a mask rendered on a dark backdrop
+      // and a lit frame rendered on a bright sky resolve their shared silhouette pixels
+      // DIFFERENTLY — and the probe then reads sky through a hole it made itself. (None of
+      // the mask colours can be confused with a backdrop: sky is 143,184,221, which fails
+      // every "one channel over 200, the others under 40" test.)
+      const tm = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
+      window.wlRender(o);
+      renderer.toneMapping = tm;
+      ctx.drawImage(gl, 0, 0);
+      const msk = ctx.getImageData(0, 0, S, S).data;
+      // third pass: the authored tier, unlit, un-tone-mapped
+      for (const [m, mat] of swapped) if (m.material === MASK_MEM) m.material = MASK_TIER;   // eslint-disable-line no-unused-vars
+      renderer.toneMapping = THREE.NoToneMapping;
+      window.wlRender(o);
+      renderer.toneMapping = tm;
+      ctx.drawImage(gl, 0, 0);
+      const tiermap = ctx.getImageData(0, 0, S, S).data;
+      for (const [m, mat] of swapped) m.material = mat;
+      _unmutate(undo);
+
+      const acc = { mem: [], bone: [], skirt: [], fire: [] };
+      const byTier = [[], [], [], []];
+      const blue = { n: 0, bgt: 0, sum: 0, max: 0 };
+      const tile = new Map();
+      // Build the role map, then ERODE it by one pixel. This is not fussiness: MSAA blends
+      // the role colour with the mask pass's own dark background, so a silhouette pixel
+      // that is 90% membrane still reads as pure red — while in the LIT pass the same
+      // pixel is dominated by the BRIGHT SKY behind it. Un-eroded, the probe imported
+      // hundreds of sky pixels into the membrane set and reported a "blue sheen" of 0.065
+      // at downstroke that was, in fact, the sky. A probe that fires for the wrong reason
+      // is worse than no probe (kill #67) — and it is the metric's own edge case that
+      // proves it, not the article's.
+      const roles = new Uint8Array(S * S);      // 0 none · 1 mem · 2 bone · 3 skirt · 4 fire
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const R = msk[p], G = msk[p + 1], B = msk[p + 2];
+        roles[i] = (R > 200 && G < 40 && B < 40) ? 1
+          : (G > 200 && R < 40 && B < 40) ? 2
+          : (B > 200 && R < 40 && G < 40) ? 3
+          : (R > 200 && B > 200 && G < 40) ? 4 : 0;
+      }
+      const eroded = new Uint8Array(S * S);
+      for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) {
+        const i = y * S + x, r = roles[i];
+        if (!r) continue;
+        let ok = true;
+        for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1; dx++)
+          if (roles[i + dy * S + dx] !== r) { ok = false; break; }
+        if (ok) eroded[i] = r;
+      }
+      window.__lastRoles = eroded;      // debug hook for the role-overlay image
+      // ── §7.1 THE EMISSIVE BUDGET, measured ─────────────────────────────────
+      // Deliberately read off the UN-eroded map. Erosion exists to stop the membrane set
+      // importing sky through a one-pixel MSAA seam; applied to the fire set it would
+      // DELETE the artery lines outright (they are 1–3 px wide at the money crop) and the
+      // probe would report a budget of "almost nothing" and pass. The un-eroded set
+      // over-counts a fire pixel's border by one pixel instead — into the membrane, never
+      // into the sky — which biases every band test the HARD way. A budget probe that errs
+      // must err toward failing.
+      //
+      // A gated-off pane renders exactly (0,0,0): the fire material has a black albedo and
+      // its specular is zeroed in the patch, so "lit" is a real test and not a threshold
+      // hunt. FIRE_ON sits an order of magnitude above the char field's brightest pixel.
+      const FIRE_ON = 0.10;
+      let wingPx = 0, firePx = 0, fireOnPx = 0, clipPx = 0, wingSkirtPx = 0;
+      // §7.1's hue law measured where §12 kill #48 actually points — at the THERMAL RAMP.
+      // Every lit emissive pixel must satisfy R >= G >= B strictly; a single pixel with
+      // B > G (or a hue rotating toward green) is an automatic loss at this gate.
+      let fireBG = 0, fireGR = 0;
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const rr = roles[i];
+        if (!rr) continue;
+        if (rr === 1 || rr === 2 || rr === 4) wingPx++;
+        wingSkirtPx++;
+        const r = lit[p], g = lit[p + 1], bl = lit[p + 2];
+        // CLIPPED WHITE = a pixel that READS white: every channel at the ceiling. Counting
+        // "any channel saturated" instead would score a saturated deep orange as white and
+        // report ~30% on a wing whose core is correctly amber.
+        if (r >= 245 && g >= 245 && bl >= 245) clipPx++;
+        if (rr === 4) {
+          firePx++;
+          if ((0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255 > FIRE_ON) {
+            fireOnPx++;
+            if (bl > g) fireBG++;
+            if (g > r) fireGR++;
+          }
+        }
+      }
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const role = eroded[i] === 1 ? 'mem' : eroded[i] === 2 ? 'bone' : eroded[i] === 3 ? 'skirt'
+          : eroded[i] === 4 ? 'fire' : null;
+        if (!role) continue;
+        const r = lit[p], g = lit[p + 1], bl = lit[p + 2];
+        const lum = (0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255;
+        acc[role].push(lum);
+        // MEM_TIERS [1.95, 1.20, 0.66, 0.36] * 0.5, sRGB-encoded → bytes 252 / 204 / 156 / 118
+        // (the hem's 0.30 lands at 109 and joins the darkest band, which is correct: the
+        // hem is the darkest membrane value there is).
+        if (role === 'mem') {
+          const tv = tiermap[p + 1];
+          const k = tv >= 228 ? 0 : tv >= 180 ? 1 : tv >= 137 ? 2 : 3;
+          byTier[k].push(lum);
+        }
+        if (role === 'mem' || (role === 'skirt' && o.blueSkirt)) {
+          blue.n++; const d = (bl - r) / 255;
+          if (d > 0) blue.bgt++;
+          blue.sum += d; blue.max = Math.max(blue.max, d);
+          const tx = ((i % S) >> 4), ty = ((i / S) | 0) >> 4, key = ty * 64 + tx;
+          const t = tile.get(key) || [0, 0]; t[0] += d; t[1]++; tile.set(key, t);
+        }
+      }
+      // the blue DOOR PANEL is a large contiguous cool area, not a stray pixel — so the
+      // detector is the worst 16×16 tile mean, over tiles that are mostly membrane.
+      let worstTile = 0, worstAt = null;
+      for (const [k, t] of tile) if (t[1] >= 160 && t[0] / t[1] > worstTile) { worstTile = t[0] / t[1]; worstAt = [(k % 64) * 16, ((k / 64) | 0) * 16]; }
+      const q = (a, f) => (a.length ? a[Math.min(a.length - 1, Math.max(0, Math.round(f * (a.length - 1))))] : null);
+      const stat = (a) => {
+        if (!a.length) return null;
+        a.sort((x, y) => x - y);
+        return { n: a.length, p05: +q(a, 0.05).toFixed(4), p25: +q(a, 0.25).toFixed(4), p50: +q(a, 0.50).toFixed(4),
+          p75: +q(a, 0.75).toFixed(4), p95: +q(a, 0.95).toFixed(4),
+          mean: +(a.reduce((s, v) => s + v, 0) / a.length).toFixed(4) };
+      };
+      // §5.5's FOUR tiers, measured: quartile band means over the membrane pixels. The
+      // spread that matters is the ratio of the top band to the bottom one (spec >= 3x).
+      const mem = acc.mem.slice().sort((x, y) => x - y);
+      const tiers = [];
+      for (let k = 0; k < 4; k++) {
+        const a = Math.floor(mem.length * k / 4), z = Math.floor(mem.length * (k + 1) / 4);
+        const seg = mem.slice(a, z);
+        tiers.push(seg.length ? +(seg.reduce((s, v) => s + v, 0) / seg.length).toFixed(4) : null);
+      }
+      const authored = byTier.map((a) => (a.length
+        ? { n: a.length, mean: +(a.reduce((s, v) => s + v, 0) / a.length).toFixed(4),
+            p50: +a.slice().sort((x, y) => x - y)[a.length >> 1].toFixed(4) }
+        : null));
+      // ── R3(a) THE L/R ASSERTION ────────────────────────────────────────────
+      // Membrane mean luma left half vs right half of the frame. Only meaningful on the
+      // `mirrortop` capture (camera on the sagittal plane, sun anti-camera) — on any other
+      // angle a difference is the |N·V| term doing its job, which is the whole point of
+      // having a control that fires.
+      const half = { l: 0, ln: 0, r: 0, rn: 0 };
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const i = y * S + x;
+        if (eroded[i] !== 1) continue;
+        const p = i * 4;
+        const lum = (0.2126 * lit[p] + 0.7152 * lit[p + 1] + 0.0722 * lit[p + 2]) / 255;
+        if (x < S / 2) { half.l += lum; half.ln++; } else { half.r += lum; half.rn++; }
+      }
+      const memL = half.ln ? half.l / half.ln : 0, memR = half.rn ? half.r / half.rn : 0;
+      return {
+        size: S, mem: stat(acc.mem), bone: stat(acc.bone), skirt: stat(acc.skirt), fire: stat(acc.fire),
+        memL: +memL.toFixed(4), memR: +memR.toFixed(4), memLn: half.ln, memRn: half.rn,
+        lrDelta: +(Math.abs(memL - memR) / Math.max(1e-6, 0.5 * (memL + memR))).toFixed(4),
+        wingPx, wingSkirtPx, firePx, fireOnPx, clipPx,
+        fireBGFrac: fireOnPx ? +(fireBG / fireOnPx).toFixed(5) : 0,
+        fireGRFrac: fireOnPx ? +(fireGR / fireOnPx).toFixed(5) : 0,
+        emissiveFrac: wingPx ? +(fireOnPx / wingPx).toFixed(5) : null,
+        emissiveFracSkirt: wingSkirtPx ? +(fireOnPx / wingSkirtPx).toFixed(5) : null,
+        clippedFrac: wingPx ? +(clipPx / wingPx).toFixed(5) : null,
+        tiers, tierSpread: tiers[0] > 0 ? +(tiers[3] / tiers[0]).toFixed(2) : null,
+        authored,
+        authoredSpread: (authored[3] && authored[0] && authored[3].mean > 0)
+          ? +(authored[0].mean / authored[3].mean).toFixed(2) : null,
+        blueFrac: blue.n ? +(blue.bgt / blue.n).toFixed(4) : null,
+        blueMean: blue.n ? +(blue.sum / blue.n).toFixed(4) : null,
+        blueMax: +blue.max.toFixed(4), blueWorstTile: +worstTile.toFixed(4), blueWorstAt: worstAt,
+      };
+    };
+
+    // ── I3.1 · THE CLOSED-CONTOUR PROBE (kill #68) ────────────────────────────
+    // "No state's light may trace a pane's border" made into a measurement that a
+    // builder cannot argue with. The defect is not "a ring" as a shape — it is a LIT
+    // REGION WITH A DARK INTERIOR, at any scale, in any state. So the test is topological
+    // rather than geometric: take the lit fire pixels, and ask whether the UNLIT pixels
+    // they surround can reach the edge of the frame. Anything that cannot is enclosed —
+    // and light that encloses darkness is an outline (#33 in fire clothing, #46 at
+    // window scale).
+    //
+    // Two details are load-bearing:
+    //  · The lit set is CLOSED by one dilate/erode pass first. MSAA punches single-pixel
+    //    gaps in a 2-px-wide ring, and an un-closed test would report the R4 defect as
+    //    "open" and pass it — the probe would then certify the exact frame that lost the
+    //    gate. (This is why the control matters: the ring must still fire after closing.)
+    //  · Holes are counted with an AREA FLOOR. A 1–3 px hole is antialiasing between two
+    //    artery ribbons crossing; a ring's interior is hundreds of pixels. The floor
+    //    biases the probe toward FAILING an ambiguous case, never toward passing one.
+    const _ctrCv = document.createElement('canvas');
+    window.wlContourScan = (o) => {
+      const S = o.size || 600;
+      const MIN_HOLE = o.minHole || 12;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      const b = load(o.key, o.tier);
+      applyFire(b, o.fire, o.fireTime);
+      const undo = window.wlMutate(b, o.mutate);
+      const oo = { hideFX: true, ...o, mutate: null, keepFire: true };
+      window.wlRender(oo);
+      _ctrCv.width = S; _ctrCv.height = S;
+      const ctx = _ctrCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const lit = ctx.getImageData(0, 0, S, S).data;
+      // the fire ROLE mask, exactly as wlSurfaceScan builds it — so "emissive" means
+      // "geometry the §7 fire system owns", never "anything bright in the frame".
+      const swapped = [], ws = wingMeshSet(b);
+      b.group.traverse((m) => {
+        if (!m.isMesh || !m.visible) return;
+        const r = roleOf(m, b, ws);
+        swapped.push([m, m.material]);
+        m.material = r === 'fire' ? MASK_FIRE : MASK_OFF;
+      });
+      const tm = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
+      window.wlRender(oo);
+      renderer.toneMapping = tm;
+      ctx.drawImage(gl, 0, 0);
+      const msk = ctx.getImageData(0, 0, S, S).data;
+      for (const [m, mat] of swapped) m.material = mat;
+      _unmutate(undo);
+
+      const FIRE_ON = 0.10;
+      const on = new Uint8Array(S * S);
+      let onPx = 0;
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        if (!(msk[p] > 200 && msk[p + 2] > 200 && msk[p + 1] < 40)) continue;
+        const l = (0.2126 * lit[p] + 0.7152 * lit[p + 1] + 0.0722 * lit[p + 2]) / 255;
+        if (l > FIRE_ON) { on[i] = 1; onPx++; }
+      }
+      // morphological CLOSE (dilate → erode) at radius R. R = 2 is not a free parameter:
+      // the R4 ring converges to the pane's TIP CUSP, where the two lit strips pinch
+      // together across a 2–3 px gap that the eye reads as closed and a strict
+      // 4-connectivity flood-fill walks straight through. At R = 1 this probe reported
+      // "no closed contour" on the exact frame that lost Round 4 — it certified the
+      // defect. R = 2 seals a cusp and still leaves the artery doublets (which run 6+ px
+      // apart at this crop) separate, which is what the control pair is there to prove.
+      const R = o.closeR == null ? 2 : o.closeR;
+      const dil = new Uint8Array(S * S), cls = new Uint8Array(S * S);
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const i = y * S + x; if (!on[i]) continue;
+        for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+          const yy = y + dy, xx = x + dx;
+          if (yy >= 0 && yy < S && xx >= 0 && xx < S) dil[yy * S + xx] = 1;
+        }
+      }
+      for (let y = R; y < S - R; y++) for (let x = R; x < S - R; x++) {
+        const i = y * S + x; if (!dil[i]) continue;
+        let ok = 1;
+        for (let dy = -R; dy <= R && ok; dy++) for (let dx = -R; dx <= R; dx++)
+          if (!dil[i + dy * S + dx]) { ok = 0; break; }
+        cls[i] = ok;
+      }
+      // flood the NOT-lit set from the frame border; whatever it cannot reach is enclosed.
+      const seen = new Uint8Array(S * S);
+      const stack = [];
+      const seed = (i) => { if (!cls[i] && !seen[i]) { seen[i] = 1; stack.push(i); } };
+      for (let x = 0; x < S; x++) { seed(x); seed((S - 1) * S + x); }
+      for (let y = 0; y < S; y++) { seed(y * S); seed(y * S + S - 1); }
+      while (stack.length) {
+        const i = stack.pop(), x = i % S, y = (i / S) | 0;
+        if (x > 0) seed(i - 1);
+        if (x < S - 1) seed(i + 1);
+        if (y > 0) seed(i - S);
+        if (y < S - 1) seed(i + S);
+      }
+      // group the unreached pixels into holes and measure each
+      const holes = [];
+      const lab = new Uint8Array(S * S);
+      for (let i0 = 0; i0 < S * S; i0++) {
+        if (cls[i0] || seen[i0] || lab[i0]) continue;
+        const q = [i0]; lab[i0] = 1;
+        let n = 0, minx = S, maxx = 0, miny = S, maxy = 0;
+        while (q.length) {
+          const i = q.pop(), x = i % S, y = (i / S) | 0;
+          n++;
+          if (x < minx) minx = x; if (x > maxx) maxx = x;
+          if (y < miny) miny = y; if (y > maxy) maxy = y;
+          const nb = [x > 0 ? i - 1 : -1, x < S - 1 ? i + 1 : -1, y > 0 ? i - S : -1, y < S - 1 ? i + S : -1];
+          for (const j of nb) if (j >= 0 && !cls[j] && !seen[j] && !lab[j]) { lab[j] = 1; q.push(j); }
+        }
+        if (n >= MIN_HOLE) holes.push({ px: n, box: [minx, miny, maxx - minx + 1, maxy - miny + 1] });
+      }
+      holes.sort((a, c) => c.px - a.px);
+      let png = null;
+      if (o.debug) {
+        // lit = white · enclosed dark = red · reachable dark = black. The one image that
+        // says WHY a verdict landed, so a disagreement is settled by looking rather than
+        // by arguing about a number.
+        const dc = document.createElement('canvas'); dc.width = S; dc.height = S;
+        const dx = dc.getContext('2d'); const im = dx.createImageData(S, S);
+        for (let i = 0; i < S * S; i++) {
+          const p = i * 4;
+          if (cls[i]) { im.data[p] = im.data[p + 1] = im.data[p + 2] = 255; }
+          else if (!seen[i]) { im.data[p] = 255; im.data[p + 1] = 40; im.data[p + 2] = 40; }
+          im.data[p + 3] = 255;
+        }
+        dx.putImageData(im, 0, 0); png = dc.toDataURL('image/png');
+      }
+      return { size: S, litPx: onPx, minHole: MIN_HOLE, holes: holes.slice(0, 6), holeCount: holes.length,
+        holePx: holes.reduce((t, h) => t + h.px, 0), png };
+    };
+
+    // ── I3.1 · THE EMBER HUE PROBE (§7.5 over the sky tile) ───────────────────
+    // The ember shed is FX: it is hidden from every masked scan by design (a rod is flown
+    // by the vertex shader, so a mask pass would label the wrong pixels). That makes the
+    // ember set un-maskable — so it is isolated by DIFFERENCE instead: render the tile
+    // twice, once with the shed and once without, and every pixel that moved is an ember
+    // pixel by construction. Nothing else in the frame changes between the two passes.
+    //
+    // What is reported is HUE, because the R4 finding was about hue and not about
+    // brightness: an ember that washes to white has lost the one property §7.1 makes
+    // non-negotiable (R ≥ G ≥ B strictly). `warm` = R > G > B with real saturation;
+    // `white` = a pixel whose channels have collapsed together. The verdict the director
+    // set is "warm or absent — white is the only forbidden outcome".
+    window.wlEmberScan = (o) => {
+      const S = o.size || 600;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      const b = load(o.key, o.tier);
+      applyFire(b, o.fire, o.fireTime);
+      const undo = window.wlMutate(b, o.mutate);
+      const oo = { ...o, mutate: null, keepFire: true };
+      window.wlRender(oo);
+      _ctrCv.width = S; _ctrCv.height = S;
+      const ctx = _ctrCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const withE = ctx.getImageData(0, 0, S, S).data;
+      const hid = [];
+      b.group.traverse((m) => { if (m.isMesh && m.visible && m.userData && m.userData.wlSurface === 'ember') { m.visible = false; hid.push(m); } });
+      window.wlRender(oo);
+      ctx.drawImage(gl, 0, 0);
+      const noE = ctx.getImageData(0, 0, S, S).data;
+      for (const m of hid) m.visible = true;
+      _unmutate(undo);
+
+      // Three strata by how much of the pixel the ember actually OWNS. A wing-lab rod is
+      // a few pixels of a 600 px frame, so most "changed" pixels are antialiasing fringe
+      // — 90% backdrop by area, and reporting their colour as "the ember's colour" would
+      // be reporting the SKY. The verdict rides the CORE stratum (the pixels a viewer
+      // would point at and call an ember); the fringe is printed beside it so nothing is
+      // hidden, and the FULL set is printed too.
+      const CORE_D = o.coreDelta || 45;
+      // …and the OVER-SKY filter. The director's requirement is about embers on the SKY
+      // tile, and on this camera most of the shed is in front of the DARK dragon, where
+      // an additive spark has never had a problem. Pixels whose ember-free value is the
+      // backdrop are the ones the verdict is about; keeping the rest in would average the
+      // defect away with the frames that were never at risk.
+      const skyB = o.skyRGB || [143, 184, 221];
+      let n = 0, warm = 0, white = 0, clip = 0, sr = 0, sg = 0, sb = 0, ssat = 0, cool = 0;
+      const core = { n: 0, r: 0, g: 0, b: 0, sat: 0, warm: 0, white: 0, clip: 0, cool: 0 };
+      const sats = [];
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const d = Math.max(Math.abs(withE[p] - noE[p]), Math.abs(withE[p + 1] - noE[p + 1]), Math.abs(withE[p + 2] - noE[p + 2]));
+        if (d < 5) continue;
+        if (o.overSky !== false) {
+          const bd = Math.max(Math.abs(noE[p] - skyB[0]), Math.abs(noE[p + 1] - skyB[1]), Math.abs(noE[p + 2] - skyB[2]));
+          if (bd > 10) continue;              // this ember is over the dragon, not over sky
+        }
+        const r = withE[p], g = withE[p + 1], bl = withE[p + 2];
+        const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl);
+        const sat = mx ? (mx - mn) / mx : 0;
+        const isWarm = r > g && g >= bl && sat >= 0.25;
+        // WHITE means the ember MADE a pixel bright and colourless. A fringe pixel the
+        // shed barely touched is desaturated because it is still the backdrop, and
+        // scoring the backdrop as a defect would let a probe fail a wing for the colour
+        // of its sky. The additive control is what proves this still catches the real
+        // thing: an added spark can only ever brighten, so every washed pixel it makes
+        // is counted.
+        const lumW = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+        const lumN = 0.2126 * noE[p] + 0.7152 * noE[p + 1] + 0.0722 * noE[p + 2];
+        const isWhite = sat < 0.15 && lumW > lumN + 5;
+        const isClip = r >= 245 && g >= 245 && bl >= 245;
+        n++; sr += r; sg += g; sb += bl; ssat += sat; sats.push(sat);
+        if (isClip) clip++;
+        if (isWarm) warm++; else if (isWhite) white++;
+        if (bl > r) cool++;
+        if (d >= CORE_D) {
+          core.n++; core.r += r; core.g += g; core.b += bl; core.sat += sat;
+          if (isClip) core.clip++;
+          if (isWarm) core.warm++; else if (isWhite) core.white++;
+          if (bl > r) core.cool++;
+        }
+      }
+      sats.sort((a, c) => a - c);
+      const mean = (v) => (n ? v / n : 0);
+      const R = mean(sr), G = mean(sg), B = mean(sb);
+      // HSV hue of the mean ember pixel, in degrees. Amber sits at ~20–45°.
+      const mx = Math.max(R, G, B), mn = Math.min(R, G, B), c = mx - mn;
+      let hue = 0;
+      if (c > 0) hue = (mx === R ? ((G - B) / c + 6) % 6 : mx === G ? (B - R) / c + 2 : (R - G) / c + 4) * 60;
+      const cm = (v) => (core.n ? v / core.n : 0);
+      const cR = cm(core.r), cG = cm(core.g), cB = cm(core.b);
+      const cmx = Math.max(cR, cG, cB), cmn = Math.min(cR, cG, cB), cc = cmx - cmn;
+      let cHue = 0;
+      if (cc > 0) cHue = (cmx === cR ? ((cG - cB) / cc + 6) % 6 : cmx === cG ? (cB - cR) / cc + 2 : (cR - cG) / cc + 4) * 60;
+      return { size: S, emberPx: n, coreDelta: CORE_D,
+        meanR: +R.toFixed(1), meanG: +G.toFixed(1), meanB: +B.toFixed(1),
+        hueDeg: +hue.toFixed(1), satMean: +mean(ssat).toFixed(3),
+        satP50: +(sats.length ? sats[sats.length >> 1] : 0).toFixed(3),
+        warmFrac: n ? +(warm / n).toFixed(4) : null,
+        whiteFrac: n ? +(white / n).toFixed(4) : null,
+        clipFrac: n ? +(clip / n).toFixed(4) : null,
+        coolFrac: n ? +(cool / n).toFixed(4) : null,
+        corePx: core.n, coreR: +cR.toFixed(1), coreG: +cG.toFixed(1), coreB: +cB.toFixed(1),
+        coreHue: +cHue.toFixed(1), coreSat: +cm(core.sat).toFixed(3),
+        coreWarmFrac: core.n ? +(core.warm / core.n).toFixed(4) : null,
+        coreWhiteFrac: core.n ? +(core.white / core.n).toFixed(4) : null,
+        coreClipFrac: core.n ? +(core.clip / core.n).toFixed(4) : null,
+        coreCoolFrac: core.n ? +(core.cool / core.n).toFixed(4) : null };
+    };
+
+    // ── SILHOUETTE QUAD PROBE ─────────────────────────────────────────────────
+    // "Zero quadrilaterals detectable in the pure-black tiles" made into a measurement.
+    // Renders the wing alone in pure black, traces the outline, simplifies it, and reports
+    // every vertex where two LONG straight runs meet at ~90° — i.e. a square corner, the
+    // thing a rectangle is made of. A membrane has cusps, arcs and scallops; it has no
+    // right angles, so any hit here is a card or a slab that should not exist.
+    const _probeCv = document.createElement('canvas');
+    window.wlSilhouetteScan = (o) => {
+      const S = o.size || 480;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      window.wlRender({ ...o, bg: 'pale', silhouette: true, wingOnly: true });
+      _probeCv.width = S; _probeCv.height = S;
+      const ctx = _probeCv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(gl, 0, 0);
+      const px = ctx.getImageData(0, 0, S, S).data;
+      const ink = new Uint8Array(S * S);
+      let n = 0;
+      for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+        const l = (px[p] * 0.2126 + px[p + 1] * 0.7152 + px[p + 2] * 0.0722) / 255;
+        if (l < 0.35) { ink[i] = 1; n++; }
+      }
+      if (n < 40) return { error: 'no silhouette found', inkPx: n };
+      // Keep only the LARGEST connected blob. Antialiasing leaves isolated dark specks, and
+      // seeding the trace on one of them returns a 1-pixel "outline" that silently passes.
+      {
+        const lab = new Int32Array(S * S).fill(-1);
+        const q = new Int32Array(S * S);
+        let best = -1, bestN = 0, id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!ink[i] || lab[i] >= 0) continue;
+          let head = 0, tail = 0; q[tail++] = i; lab[i] = id; let cnt = 0;
+          while (head < tail) {
+            const p2 = q[head++]; cnt++;
+            const x = p2 % S, y = (p2 / S) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx;
+              if (ink[j] && lab[j] < 0) { lab[j] = id; q[tail++] = j; }
+            }
+          }
+          if (cnt > bestN) { bestN = cnt; best = id; }
+          id++;
+        }
+        for (let i = 0; i < S * S; i++) if (ink[i] && lab[i] !== best) ink[i] = 0;
+        n = bestN;
+      }
+      // Moore-neighbour contour trace (textbook form: enter from the WEST, scan the 8
+      // neighbours CLOCKWISE from the pixel we came from, stop when we re-enter the start
+      // the same way). The naive "resume from dir+6" variant terminates after a few pixels
+      // on concave shapes — it produced 1-pixel outlines here before this was fixed.
+      let sx = -1, sy = -1;
+      outer: for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (ink[y * S + x]) { sx = x; sy = y; break outer; }
+      const NB = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];   // clockwise, screen coords
+      const at = (x, y) => (x < 0 || y < 0 || x >= S || y >= S) ? 0 : ink[y * S + x];
+      const contour = [[sx, sy]];
+      let bx = sx, by = sy, cx = sx - 1, cy = sy;         // c = where we entered b from
+      for (let guard = 0; guard < 400000; guard++) {
+        let ci = 0;
+        for (let k = 0; k < 8; k++) if (bx + NB[k][0] === cx && by + NB[k][1] === cy) { ci = k; break; }
+        let moved = false;
+        for (let k = 1; k <= 8; k++) {
+          const d = (ci + k) % 8, nx = bx + NB[d][0], ny = by + NB[d][1];
+          if (at(nx, ny)) {
+            const pd = (ci + k - 1) % 8;
+            cx = bx + NB[pd][0]; cy = by + NB[pd][1];
+            bx = nx; by = ny; contour.push([bx, by]); moved = true; break;
+          }
+        }
+        if (!moved) break;                                  // isolated pixel
+        if (bx === sx && by === sy && contour.length > 8) break;
+      }
+      // Douglas–Peucker. A CLOSED contour cannot be simplified as one open run — the chord
+      // from start to end is degenerate, every perpendicular distance is 0, and the whole
+      // outline collapses to two points. Split it at the far end first, simplify each half.
+      const dp = (pts, eps) => {
+        if (pts.length < 3) return pts;
+        let mx = 0, mi = 0;
+        const [ax, ay] = pts[0], [bx2, by2] = pts[pts.length - 1];
+        const dx = bx2 - ax, dy = by2 - ay, L = Math.hypot(dx, dy) || 1;
+        for (let i = 1; i < pts.length - 1; i++) {
+          const d = Math.abs((pts[i][0] - ax) * dy - (pts[i][1] - ay) * dx) / L;
+          if (d > mx) { mx = d; mi = i; }
+        }
+        if (mx <= eps) return [pts[0], pts[pts.length - 1]];
+        return dp(pts.slice(0, mi + 1), eps).slice(0, -1).concat(dp(pts.slice(mi), eps));
+      };
+      let far = 0, fd = -1;
+      for (let i = 1; i < contour.length; i++) {
+        const d = Math.hypot(contour[i][0] - contour[0][0], contour[i][1] - contour[0][1]);
+        if (d > fd) { fd = d; far = i; }
+      }
+      const eps = o.eps ?? 2.0;
+      const simp = far > 1
+        ? dp(contour.slice(0, far + 1), eps).concat(dp(contour.slice(far), eps).slice(1))
+        : dp(contour, eps);
+      const minLen = o.minLen ?? Math.max(12, S * 0.035);
+      const corners = [];
+      // walk the CLOSED polyline, so the seam vertex is tested like any other
+      for (let i = 0; i < simp.length; i++) {
+        const a = simp[(i - 1 + simp.length) % simp.length], b = simp[i], c = simp[(i + 1) % simp.length];
+        const v1 = [b[0] - a[0], b[1] - a[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+        const l1 = Math.hypot(v1[0], v1[1]), l2 = Math.hypot(v2[0], v2[1]);
+        if (l1 < minLen || l2 < minLen) continue;
+        // A shape clipped by the canvas makes right angles with the FRAME, not with itself.
+        // Reject anything sitting on the border — the fix for those is a wider fill, not
+        // geometry, and counting them would hide the real corners under noise.
+        const M2 = 3;
+        if (b[0] <= M2 || b[1] <= M2 || b[0] >= S - 1 - M2 || b[1] >= S - 1 - M2) continue;
+        const turn = Math.abs(Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2)))) * 180 / Math.PI);
+        if (turn >= 75 && turn <= 105) corners.push({ x: b[0], y: b[1], turn: +turn.toFixed(1), run1: +l1.toFixed(1), run2: +l2.toFixed(1) });
+      }
+      return { size: S, inkPx: n, contourPx: contour.length, simplified: simp.length, minLen: +minLen.toFixed(1), corners };
+    };
+
+    // ── THE CARPAL-SLIT / CHANNEL PROBE (I4.1, kill #69's sibling) ─────────────
+    // "No background-coloured channel crosses the wing interior in any delivered tile."
+    // R6 lost MOTION on a 0.296 u weld gap that reads as a PALE CHANNEL cutting the wing
+    // in two at the carpal — the R1-rectangle precedent, in a hole instead of a corner.
+    // The quad probe cannot see it: a slit is not a right angle, and the outline tracer
+    // walks the OUTSIDE of the shape, so a channel that opens at one end is simply part
+    // of the contour it never questions.
+    //
+    // THE MEASUREMENT, and why it can fail. Render the wing alone in pure black. Close
+    // the ink mask morphologically with a disc of radius R (dilate R, erode R): every
+    // background pixel that the closing swallows lies in a gap NARROWER than 2R. That
+    // alone is not a defect — a scallop cusp and the notch between two fingers are both
+    // narrow gaps, and both are legitimate. What separates a SLIT from a notch is DEPTH:
+    // how far inside the wing's own body the gap reaches, measured as the distance from
+    // each gap pixel to the nearest pixel that is neither ink nor closed gap. A notch at
+    // the hem is shallow by construction; a channel that crosses the interior is not.
+    // A component is a CHANNEL when it is both deep (≥ depthMin) and long (≥ lenMin).
+    //
+    // Blobs are NOT reduced to the largest one (the quad probe's rule, correct there):
+    // a slit that fully severs the wing would delete half the article and take the
+    // defect with it — the probe would pass BECAUSE the wing fell apart.
+    const _slitCv = document.createElement('canvas');
+    // squared Euclidean distance transform (Felzenszwalb–Huttenlocher, separable, exact)
+    const _edt2 = (mask, W, H) => {
+      const INF = 1e12, f = new Float64Array(Math.max(W, H)), d = new Float64Array(Math.max(W, H));
+      const vv = new Int32Array(Math.max(W, H) + 1), zz = new Float64Array(Math.max(W, H) + 1);
+      const out = new Float64Array(W * H);
+      for (let i = 0; i < W * H; i++) out[i] = mask[i] ? 0 : INF;
+      const dt1 = (n, get, set) => {
+        for (let i = 0; i < n; i++) f[i] = get(i);
+        let k = 0; vv[0] = 0; zz[0] = -INF; zz[1] = INF;
+        for (let q = 1; q < n; q++) {
+          let s = ((f[q] + q * q) - (f[vv[k]] + vv[k] * vv[k])) / (2 * q - 2 * vv[k]);
+          while (s <= zz[k]) { k--; s = ((f[q] + q * q) - (f[vv[k]] + vv[k] * vv[k])) / (2 * q - 2 * vv[k]); }
+          k++; vv[k] = q; zz[k] = s; zz[k + 1] = INF;
+        }
+        k = 0;
+        for (let q = 0; q < n; q++) { while (zz[k + 1] < q) k++; d[q] = (q - vv[k]) * (q - vv[k]) + f[vv[k]]; }
+        for (let i = 0; i < n; i++) set(i, d[i]);
+      };
+      for (let x = 0; x < W; x++) dt1(H, (y) => out[y * W + x], (y, v) => { out[y * W + x] = v; });
+      for (let y = 0; y < H; y++) dt1(W, (x) => out[y * W + x], (x, v) => { out[y * W + x] = v; });
+      return out;
+    };
+    window.wlSlitScan = (o) => {
+      const S = o.size || 480;
+      gl.width = S; gl.height = S; renderer.setSize(S, S, false);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+      // ONE SIDE OF THE ARTICLE — the right wing WITH the body, which is what every
+      // delivered tile shows. Both isolations were tried and both lie: hiding the second
+      // wing is necessary (the gap between the two wings is not a hole in either), but
+      // hiding the BODY as well detaches the body-frame skirt and the carpal claw cluster
+      // from the wing they overlap, and the probe then reports the isolation as a severed
+      // wing (measured: 3 pieces at glide on a wing with no slit in it at all).
+      window.wlRender({ ...o, bg: 'pale', silhouette: true, oneWing: true });
+      _slitCv.width = S; _slitCv.height = S;
+      const ctx = _slitCv.getContext('2d', { willReadFrequently: true });
+      const readInk = () => { ctx.drawImage(gl, 0, 0);
+        const px = ctx.getImageData(0, 0, S, S).data;
+        const m = new Uint8Array(S * S); let c = 0;
+        for (let i = 0, p = 0; i < S * S; i++, p += 4) {
+          const l = (px[p] * 0.2126 + px[p + 1] * 0.7152 + px[p + 2] * 0.0722) / 255;
+          if (l < 0.35) { m[i] = 1; c++; } }
+        return { m, c }; };
+      const A = readInk();
+      const ink = A.m; let n = A.c;
+      if (n < 40) return { error: 'no silhouette found', inkPx: n };
+      // …and the SAME frame with only the wing drawn, so a hole can be asked the question
+      // that actually decides it: is this background enclosed by WING, or is it the sky
+      // between the wing and the body? Only the first is the defect the gate is about.
+      // (Same camera by construction: `wingOnly` frames on `wingR`, and every read this
+      // probe uses already targets `wingR`, so both passes fit the identical box.)
+      window.wlRender({ ...o, bg: 'pale', silhouette: true, oneWing: true, wingOnly: true });
+      const wingInk = readInk().m;
+      // drop antialiasing specks only (≥0.5% of the ink), never the second half of a wing
+      {
+        const lab = new Int32Array(S * S).fill(-1), q = new Int32Array(S * S), cnt = [];
+        let id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!ink[i] || lab[i] >= 0) continue;
+          let head = 0, tail = 0; q[tail++] = i; lab[i] = id; let c = 0;
+          while (head < tail) { const p2 = q[head++]; c++; const x = p2 % S, y = (p2 / S) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx; if (ink[j] && lab[j] < 0) { lab[j] = id; q[tail++] = j; } } }
+          cnt.push(c); id++;
+        }
+        const keep = cnt.map((c) => c >= 0.005 * n);
+        for (let i = 0; i < S * S; i++) if (ink[i] && !keep[lab[i]]) { ink[i] = 0; n--; }
+      }
+      // ── THE TWO VERDICTS, both threshold-free ─────────────────────────────
+      // (1) SEVERED — the wing's ink is more than one substantial blob. A channel that
+      //     crosses the interior does exactly this, and nothing legitimate does.
+      // (2) ENCLOSED BACKGROUND — a background region with no path to the frame edge:
+      //     a hole in the skin, at any size worth a pixel budget.
+      // …plus the NECK, reported as the margin: the narrowest isthmus holding the wing
+      // together, found by eroding until the shape falls in two. It is a length in
+      // pixels of the wing's own silhouette, so it can be compared build to build, and
+      // a shrinking neck is the defect arriving before it severs.
+      const comps8 = (mask) => {
+        const lab = new Int32Array(S * S).fill(-1), q = new Int32Array(S * S), sz = [];
+        let id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!mask[i] || lab[i] >= 0) continue;
+          let head = 0, tail2 = 0; q[tail2++] = i; lab[i] = id; let c = 0;
+          while (head < tail2) { const p2 = q[head++]; c++; const x = p2 % S, y = (p2 / S) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx; if (mask[j] && lab[j] < 0) { lab[j] = id; q[tail2++] = j; } } }
+          sz.push(c); id++;
+        }
+        return sz;
+      };
+      const MAJOR = 0.12;                       // a "substantial" piece of the wing
+      const parts = comps8(ink).sort((a, b) => b - a);
+      const severed = parts.length > 1 && parts[1] >= MAJOR * n;
+      // enclosed background: flood the OUTSIDE from the frame edge; whatever background
+      // is left is a hole. (The wing is fitted inside the frame, so the edge is outside.)
+      const bg = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) bg[i] = ink[i] ? 0 : 1;
+      const seen = new Uint8Array(S * S), q2 = new Int32Array(S * S);
+      let h2 = 0, t2 = 0;
+      for (let x = 0; x < S; x++) { for (const y of [0, S - 1]) { const i = y * S + x; if (bg[i] && !seen[i]) { seen[i] = 1; q2[t2++] = i; } } }
+      for (let y = 0; y < S; y++) { for (const x of [0, S - 1]) { const i = y * S + x; if (bg[i] && !seen[i]) { seen[i] = 1; q2[t2++] = i; } } }
+      while (h2 < t2) { const p2 = q2[h2++]; const x = p2 % S, y = (p2 / S) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+          const j = ny * S + nx; if (bg[j] && !seen[j]) { seen[j] = 1; q2[t2++] = j; } } }
+      const holeMask = new Uint8Array(S * S);
+      let holePx = 0;
+      for (let i = 0; i < S * S; i++) if (bg[i] && !seen[i]) { holeMask[i] = 1; holePx++; }
+      // classify every hole: what fraction of the ink it touches is WING?
+      const holeList = [];
+      {
+        const lab = new Int32Array(S * S).fill(-1), q3 = new Int32Array(S * S);
+        let id = 0;
+        for (let i = 0; i < S * S; i++) {
+          if (!holeMask[i] || lab[i] >= 0) continue;
+          let h3 = 0, t3 = 0; q3[t3++] = i; lab[i] = id; let area = 0, bTot = 0, bWing = 0, bx = i % S, by = (i / S) | 0;
+          let x0 = S, x1 = -1, y0 = S, y1 = -1;
+          while (h3 < t3) { const p3 = q3[h3++]; area++;
+            const x = p3 % S, y = (p3 / S) | 0;
+            if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= S || ny >= S) continue;
+              const j = ny * S + nx;
+              if (holeMask[j]) { if (lab[j] < 0) { lab[j] = id; q3[t3++] = j; } }
+              else if (ink[j]) { bTot++; if (wingInk[j]) bWing++; } } }
+          holeList.push({ area, x: bx, y: by, len: +Math.hypot(x1 - x0, y1 - y0).toFixed(1),
+            wingFrac: bTot ? +(bWing / bTot).toFixed(2) : 0 });
+          id++;
+        }
+      }
+      holeList.sort((a, b) => b.area - a.area);
+      const holes = holeList.map((h) => h.area);
+      const holeBig = holes.length ? holes[0] : 0;
+      // THE NECK. Erode by r until a second substantial piece appears; 2r is the width of
+      // the narrowest isthmus. Reported always, verdict-free.
+      const dIn = _edt2(ink, S, S);             // distance² from every pixel to the nearest NON-ink
+      const invInk = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) invInk[i] = ink[i] ? 0 : 1;
+      const dEro = _edt2(invInk, S, S);
+      let neck = Infinity, ero = null;
+      for (let r = 1; r <= 40; r++) {
+        const m = new Uint8Array(S * S); let cnt = 0;
+        for (let i = 0; i < S * S; i++) if (dEro[i] > r * r) { m[i] = 1; cnt++; }
+        if (cnt < 0.10 * n) break;
+        const cs = comps8(m).sort((a, b) => b - a);
+        if (cs.length > 1 && cs[1] >= MAJOR * cnt) { neck = 2 * r; ero = cs.slice(0, 3); break; }
+      }
+      // the CLOSED-gap picture, kept for the debug overlay and for the record
+      const R = Math.max(2, Math.round((o.closeR ?? 0.030) * S));
+      const dil = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) dil[i] = dIn[i] <= R * R ? 1 : 0;
+      const inv2 = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) inv2[i] = dil[i] ? 0 : 1;
+      const dOut = _edt2(inv2, S, S);
+      const closed = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) closed[i] = dOut[i] > R * R ? 1 : 0;
+      let gapPx = 0;
+      const gap = new Uint8Array(S * S);
+      for (let i = 0; i < S * S; i++) if (closed[i] && !ink[i]) { gap[i] = 1; gapPx++; }
+      const comps = holeList.slice(0, 6);
+      // A hole is a CHANNEL when it is (a) enclosed by WING — ≥80% of the ink it touches —
+      // (b) bigger than a rasterisation pinhole, and (c) a CHANNEL rather than a pinprick,
+      // i.e. it RUNS: its bounding diagonal is at least 4% of the frame. All three are
+      // needed. Without (a) the sky between the folded wing and the body scores; without
+      // (c) an 11 px speck where two spars cross scores the same as a 100 px slot across
+      // the carpal. The word in the gate is "channel", and a channel has length.
+      const lenMin = o.lenMin ?? 0.04 * S;
+      const channels = [];
+      if (severed) channels.push({ kind: 'severed', parts: parts.slice(0, 3), x: 0, y: 0, area: parts[1] });
+      for (const h of holeList) if (h.wingFrac >= 0.80 && h.area >= 0.001 * n && h.len >= lenMin)
+        channels.push({ kind: 'hole', area: h.area, len: h.len, x: h.x, y: h.y, wingFrac: h.wingFrac });
+      return { size: S, inkPx: n, R, gapPx, lenMin: +lenMin.toFixed(1), parts: parts.slice(0, 3), severed,
+        holePx, holeBig, holeLen: holeList.length ? holeList[0].len : 0,
+        holeWingFrac: holeList.length ? holeList[0].wingFrac : 0,
+        neck: neck === Infinity ? null : neck, ero,
+        comps, channels, worstDepth: 0, worstRel: 0 };
+    };
+    // Debug view: the silhouette with every closed-gap pixel painted, channels ringed.
+    window.wlSlitDebug = (o) => {
+      const r = window.wlSlitScan(o);
+      const S = r.size || o.size || 480;
+      const sc = document.getElementById('sheet');
+      sc.width = S; sc.height = S; sc.style.display = 'block';
+      const ctx = sc.getContext('2d');
+      ctx.fillStyle = '#cfd6e4'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(gl, 0, 0, S, S);
+      ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 2;
+      ctx.font = '600 13px system-ui'; ctx.fillStyle = '#ff2d55';
+      for (const c of (r.comps || [])) {
+        ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillText(`d${c.depth}/L${c.len}`, c.x + 17, c.y + 4);
+      }
+      return r;
+    };
+    // Debug view for the quad probe: the traced silhouette with every detected right-angle
+    // corner ringed, so a builder can SEE which piece of geometry is the rectangle.
+    window.wlSilhouetteDebug = (o) => {
+      const r = window.wlSilhouetteScan(o);
+      const S = r.size || o.size || 480;
+      const sc = document.getElementById('sheet');
+      sc.width = S; sc.height = S; sc.style.display = 'block';
+      const ctx = sc.getContext('2d');
+      ctx.fillStyle = '#cfd6e4'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(gl, 0, 0, S, S);
+      ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 2;
+      ctx.font = '600 13px system-ui'; ctx.fillStyle = '#ff2d55';
+      for (const c of (r.corners || [])) {
+        ctx.beginPath(); ctx.arc(c.x, c.y, 13, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillText(`${c.turn}°`, c.x + 16, c.y + 4);
+      }
+      return r;
+    };
+    // Ad-hoc probing hooks: the scene and the built model, so a one-off diagnostic can
+    // hide everything but one system and render it alone (which is how the I3 fire panes
+    // were proved to be rendering-and-bright while the camera was 84° off their normal).
+    window.__wlScene = scene; window.__wlBuilt = () => built;
+    window.__ready = true;
+  </script>
+</body>
+</html>

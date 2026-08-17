@@ -27,6 +27,7 @@ import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): 
 import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
 import './dragonTempest.js';        // Thunderhead Tempest (billowed charcoal cloud + the STORMFORK bolt-frame wing): cumulonimbusTorso + stormforkWings + stormbrowHead + virgaTail (living-thundercloud storm drake; the near-white STORM CIRCUIT flickers on the pulseTimer clock — I0 stub, TEMPEST-THUNDERHEAD §B/§D)
 import './dragonAzure.js';          // Azure Drake (falcon-fused sky courier, AAA revision): falconKeelTorso + falconCombWings (+ shared draconic head / clean tail); wedge-thick primary comb, 4-tier value-ladder hull, withheld SLIPSTREAM signature — Radiant-capped (never out-blazes Eternal)
+import './dragonForgewing.js';     // WING LAB (wing-lab/90-SYNTHESIS.md I1): 'basaltForgeWings' — the western-fire-dragon wing test article (real arm: elbow t=0.28 + wrist t=0.50 + propatagium + carpal claw cluster). Used by the `forgewing` roster key, which reuses the Tempest's torso/head/tail UNCHANGED so the lab judges a WING, not a dragon.
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -342,6 +343,7 @@ export function buildDragonModel(def, opts = {}) {
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
     wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements,
+    wingFurlL, wingFurlR, wingSeamAxes, wingSurface, wingFurlLobes,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -450,6 +452,14 @@ export function buildDragonModel(def, opts = {}) {
     return {
       group: wrapper,
       parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null,
+        // WING-LAB seam rig — forwarded on the PREVIEW path too. Every wing-lab capture and
+        // the shop/showcase build through here; without these four keys the poser silently
+        // skips the seam path and the studio renders a wing that does not fold while the
+        // pure-math dump says it does. (That divergence is exactly the class of bug the
+        // lockstep law in FLAP-DESIGN §2 exists to prevent — two posers, one truth.)
+        wingFurlL: wingFurlL ?? null, wingFurlR: wingFurlR ?? null,
+        wingSeamAxes: wingSeamAxes ?? null, wingSurface: wingSurface ?? null,
+        wingFurlLobes: wingFurlLobes ?? null,
         // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
         // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.
         pearlMat: wingsResult.parts.pearlMat ?? null,
@@ -474,6 +484,12 @@ export function buildDragonModel(def, opts = {}) {
       wingRigL, wingRigR,
       coreGlow,
       wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
+      // WING-LAB seam rig (§8.3) — the per-fan FURL joints, the three published hinge axes
+      // and the §8.2 surface driver. Nullable + absent on every other wings builder, so the
+      // roster is byte-identical; the poser's whole seam path is gated on `wingSeamAxes`.
+      wingFurlL: wingFurlL ?? null, wingFurlR: wingFurlR ?? null,
+      wingSeamAxes: wingSeamAxes ?? null, wingSurface: wingSurface ?? null,
+        wingFurlLobes: wingFurlLobes ?? null,
       stormArcMats: stormArcMats.length ? stormArcMats : null,
       // JADE pearl-chain plumbing (§4.2/B1) — nullable, absent for every other dragon → roster
       // byte-identical. Without this forwarding the shipped pearl-breath + dew-gem ticks are dead.

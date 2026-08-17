@@ -696,7 +696,23 @@ A crest/tooth/finger rank decaying at **~0.62–0.70 per element** (§6.3) is th
 |---|---|---|---|
 | **Knuckled leading edge** (gull ARCH in Y, `wingArchY`; OGEE in Z, `vesperArmZ`) — never a straight bar | Bat MCP knuckles + both lineages' dedicated LE tensioner `[S]` | carpal apex at **t ≈ 0.35–0.45** (repo); knuckle count = finger count − 1 | A straight LE is unsupported in **both** membrane lineages (§4.1) |
 | **Radiating finger-BONES**, dominant + decay | Bat digits II–V `[S]`; pterosaur phalanx taper `[S]` | **3–4 struts** (fan) or **1 dominant + 3** (hybrid, dominant **1.5–1.8×**); decay **0.62–0.82 per element** | 4 spars = 3 interior bays + 3 knuckles (§4.1). 3 struts is the cheap-but-legible floor |
-| **`wristT`** (medial wrist: short arm, long-fingered hand) | The bat proportion `[S]` | **0.20–0.30** (repo); Tempest 0.24 ⇒ **hand ≈ 76% of the wing** | The mass split is what makes the fold read (`FLAP-DESIGN.md` §2). Span is pinned by the tip vertex, so pulling the wrist inboard GROWS the fan |
+| **`wristT`** (medial wrist: short arm, long-fingered hand) | ⚠ **CONTESTED — see note below** | **0.20–0.30** (repo); Tempest 0.24 ⇒ **hand ≈ 76% of the wing** | The mass split is what makes the fold read (`FLAP-DESIGN.md` §2). Span is pinned by the tip vertex, so pulling the wrist inboard GROWS the fan |
+
+> ⚠ **`wristT`'s "bat proportion `[S]`" attribution is contested by
+> [`wing-lab/data/D1-anatomy-numbers.md`](./wing-lab/data/D1-anatomy-numbers.md).** Chaining a
+> measured *Rousettus* digit-III index (LD3/FL = 1.64) to a measured *P. vampyrus*
+> humerus:radius (1 : 1.36) puts the wrist at **t ≈ 0.51–0.56** and the hand at **44–49%** of
+> the semi-span — roughly **half** the 76% this row implies. The derivation reproduces
+> *P. vampyrus*' published 1.5 m wingspan to under 1%, so it is self-consistent.
+>
+> **This does not make the repo's dial wrong — it makes its label wrong.** A hand at 76% is a
+> legitimate, deliberate exaggeration *pterosaur-ward* (§4.1 explicitly sanctions the hybrid,
+> and the pterosaur wing finger genuinely is >2/3 of wing length). What it is not, is "the bat
+> proportion". Choose it knowing which lineage you are borrowing from.
+>
+> Caveat on the challenge itself: D1's sources are **WebSearch-summary grade**, not
+> read-the-paper grade (WebFetch is egress-blocked in this environment), so treat the
+> 0.51–0.56 figure as a strong `[D]` rather than a settled `[S]`.
 | **Membrane cup (concave bézier, `cup ≈ 0.35`, ≥4 segments)** | Membrane camber `[S]`; scalloped trailing edge is a named studied phenomenon `[S]` | camber **0.06–0.10 c** cruise, **0.14–0.20 c** hover/launch/climb; **deepest sag at ~40% chord** | ≥4 segments is the single highest-value fix in the repo's wing rework; 2 segments = sawtooth |
 | **Bay widths** | Armwing ~52% / handwing ~39% / propatagium ~9% `[D from S]` | inboard bay ≈ **2× any outboard bay** | Equal-width bays = plane wing (§4.2) |
 | **Propatagium / forward sheet** | Pteroid + occipitopollicalis `[S]` | depth **unknown** — art-direct by eye | A wing with **no** forward sheet is a paper dart (§4.6) |

@@ -1346,6 +1346,50 @@ DRAGONS.vesperLean = {
   forms: DRAGONS.vesper.forms.map((f) => ({ ...f, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: Math.min(3, f.earFinPairs ?? 3) })),
 };
 
+// ── BASALT FORGEWING — the WING-LAB test article (wing-lab/90-SYNTHESIS.md, I1) ──
+// "A bellows, not a lantern: a coal-dark, hand-built storm sail on a basalt-pipe arm."
+// A near-clone of `tempest` — the SAME torso/head/tail builders and every one of its body,
+// palette and motion dials, byte-for-byte — with exactly ONE thing changed: `parts.wings`.
+// That isolation is the point: the lab gates a WING against the roster's premium bar at
+// matched wingshot angles, so any difference the critic sees IS the wing. The `wing*` dials
+// below are the only new data, and they ladder the wing's own hardware per form.
+// Coexists with tempest (vesperLean precedent) and never touches it.
+DRAGONS.forgewing = {
+  ...DRAGONS.tempest,
+  name: 'Basalt Forgewing',
+  title: 'The wing lab',
+  lanceTint: 0xc4531a,   // Eternal wisp: forge-orange — distinct from every shipped tint
+  parts: { ...DRAGONS.tempest.parts, wings: 'basaltForgeWings' },
+  // I4 — §8.1's OWN dial set, distinct from all three heroes (photocopied motion is a
+  // defect). The elbow is now a driven joint: `midAmp 0.30` is only safe because the seam
+  // rig moves the distal flap onto each joint's weld axis, so the sheet cannot open at the
+  // elbow at any amplitude (the I1 debt "the elbow is a drawn kink, not a driven joint",
+  // paid). `tipLag 1.90` is deep enough that the hand's sign FLIPS against the forearm
+  // between top and bottom (asserted in the wingdump MOTION block, not eyeballed);
+  // `tipApexSweep 0.28` is FLAP-DESIGN LAW 3's in-plane dogleg — the recovery fold has to
+  // live in the silhouette the chase camera sees, not in depth; `apexPitch 0.06` is the
+  // dial no other dragon uses (a nose-down hand at the apex — the supination hint).
+  model: { ...DRAGONS.tempest.model,
+    rootAmp: 0.78, apexRoot: 0.26, midAmp: 0.30, tipAmp: 0.72,
+    midLag: 0.90, tipLag: 1.90, glidePow: 1.25, restLift: 0.04,
+    apexMid: 0.08, apexTip: 0.14, tipApexSweep: 0.28, apexPitch: 0.06,
+    // …and §3's contract is the MEASURED outcome, not a dial: the §8.1 glide pose sits
+    // flatter than the Tempest set it replaced, which pushed span/body to 1.226 — ABOVE
+    // the 1.10–1.20 band. `hs` is the sanctioned lever (uniform, span and chord together,
+    // so every landmark fraction and the aspect ratio survive untouched), so it takes the
+    // correction: 6.20 → 5.95 lands 1.18, level with the bar.
+    wingHalfSpan: 5.95,
+    wingDigits: 4, wingCoverts: 9, wingClusterStubs: 2 },
+  // The wing hardware ladders with the form: digits III→VI arrive one at a time, the covert
+  // rank grows to its 9-flake terminus, and the carpal cluster gains its two stubs.
+  forms: DRAGONS.tempest.forms.map((f, i) => ({
+    ...f,
+    wingDigits: [2, 3, 4, 4][i],
+    wingCoverts: [4, 6, 8, 9][i],
+    wingClusterStubs: [0, 1, 2, 2][i],
+  })),
+};
+
 // Highest multipliers in the roster (for shop stat-bar normalisation).
 export const DRAGON_STAT_CAP = { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 };
 

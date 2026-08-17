@@ -24,7 +24,7 @@ on('ember', () => { swallowT = SWALLOW_DUR; });
 const OVERTAKE_GOLD = 0xffd86a;
 let trailGoldT = 0;
 on('overtake', () => { trailGoldT = 1.0; });
-import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
+import { setFlapDebugPose, resolveWingDebug, poseWingSeams } from './wingDebugPose.js';
 import { createPulseTimer, mulberry32 } from './pulseTimer.js';
 import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
@@ -119,6 +119,11 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let wingFurlL = null;        // wing-lab SEAM RIG: the per-fan furl joint (forgewing), null otherwise
+let wingFurlR = null;
+let wingSeamAxes = null;     // …and its published hinge axes (elbow / wrist / fan) + surface driver
+let wingSurfaceDrive = null;
+let wingFurlLobes = null;    // …and the I4.1 per-finger furl array (lobes 1–2), null otherwise
 let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,side}), null otherwise
 let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
@@ -419,6 +424,11 @@ export function createDragon(scene, def, riderDef) {
   wingRigR = result.parts.wingRigR || null;
   wingBladePivotsL = result.parts.wingBladePivotsL || null;
   wingBladePivotsR = result.parts.wingBladePivotsR || null;
+  wingFurlL = result.parts.wingFurlL || null;
+  wingFurlR = result.parts.wingFurlR || null;
+  wingSeamAxes = result.parts.wingSeamAxes || null;
+  wingSurfaceDrive = result.parts.wingSurface || null;
+  wingFurlLobes = result.parts.wingFurlLobes || null;
   wingLobePivotsL = result.parts.wingLobePivotsL || null;
   wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
@@ -1321,6 +1331,7 @@ export function updateDragon(dt, player, time) {
     // like the yoke dragons always could, and the studio captures the identical pose.
     setFlapDebugPose({ wingRigL, wingRigR, wingYokeL, wingYokeR, wingPivotL, wingPivotR,
       wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR,
+      wingFurlL, wingFurlR, wingSeamAxes, wingSurface: wingSurfaceDrive, wingFurlLobes,
       carpalSpireL, carpalSpireR }, activeDef.model, WING_DEBUG);
     if (!wingDebugLogged) {
       // Prove gameplay reaches the harness pose: log the resolved state + (for yoke rigs) the
@@ -1438,6 +1449,15 @@ export function updateDragon(dt, player, time) {
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+    // ── THE SEAM RIG (wing-lab §8.3), in LOCKSTEP with wingDebugPose.js ────────────
+    // Re-aims the distal flap onto each joint's own weld axis (so the membrane cannot tear
+    // at any amplitude) and lays the fold posture on top. In live flight the fold scalar is
+    // the DIVE tuck — §8.3's `tuck` acting silhouette off the same array, at 45% depth, so
+    // a committed dive draws the hand and fan in instead of holding a flat spread — and the
+    // membrane's own slack scalar is driven from the same phase. No-op without seam axes.
+    poseWingSeams({ wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR,
+      wingFurlL, wingFurlR, wingSeamAxes, wingSurface: wingSurfaceDrive, wingFurlLobes },
+    activeDef.model, 0.45 * diveAmount, phase);
   } else if (wingLobePivotsL || wingLobePivotsR) {
     // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
     // The user's ask: the N lobes per side beat so L1↔R1, L2↔R2, L3↔R3 fire TOGETHER.

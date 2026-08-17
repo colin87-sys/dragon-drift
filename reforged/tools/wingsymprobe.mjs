@@ -53,8 +53,42 @@ function cloudStats(pivot) {
   return { c, n, ymin, ymax, xmin, xmax };
 }
 
-const states = WING_DEBUG_STATES.filter((s) => s !== 'bank' && s !== 'fold');
+// STRAIGHT FLIGHT only — which is what the ≤0.03 bound below is calibrated on, and what
+// this probe's own verdict line claims. `bank` and `fold` were always excluded as
+// POSTURES; wing-lab I4.1 adds four more (tuck / drape / display / mantle) and they are
+// postures by the same argument — a fold-class pose stacks the §7.4 seeded weathering and
+// legitimately measures larger, which is why 90-SYNTHESIS §8.1 (R6) gives postures their
+// own ≤0.05 bound *with a per-system attribution table*. That bound is enforced, with its
+// table, in `wing-lab/tools/wingfold.mjs`; applying the flight number here instead would
+// be a probe carrying a tolerance the spec does not have (the reverse of the R6 finding).
+const POSTURES = new Set(['bank', 'fold', 'tuck', 'drape', 'display', 'mantle']);
+const states = WING_DEBUG_STATES.filter((s) => !POSTURES.has(s));
 let worst = 0, worstMsg = '';
+// ── THE RIG, MEASURED APART FROM THE DECORATION (added at wing-lab I3.1) ──────
+// The vertex-cloud test below cannot tell a POSER that is off-beat from a MESH that is
+// seeded — and one of those is a bug while the other is mandatory (the forgewing's §7.4
+// makes weathering asymmetry law: temper rings, ash break-up, the cord-tooth train and the
+// fire-slot row all differ L from R by design, and a wing whose two halves are stamped
+// copies is the tell that law exists to kill). The named JOINT NODES carry no decoration,
+// so their world positions isolate exactly the claim the probe was written to make: the
+// shared direct-pivot poser applies no L/R phase offset (§12 kill #55). This must read
+// 0.000 on every article, seeded or not — and if it ever does not, the cloud number below
+// is measuring a real rig break rather than a seed.
+const JOINTS = ['wingPivot', 'wingMid', 'wingTip', 'tipMarker', 'wingYoke', 'wingRig', 'wingPivot2'];
+let rigWorst = 0, rigMsg = 'no joint pairs on this rig';
+const _w = new THREE.Vector3(), _w2 = new THREE.Vector3();
+for (const st of states) {
+  setFlapDebugPose(P, def.model, st);
+  root.updateWorldMatrix(true, true);
+  for (const j of JOINTS) {
+    const R = P[j + 'R'], L = P[j + 'L'];
+    if (!R || !L || !R.isObject3D || !L.isObject3D) continue;
+    R.getWorldPosition(_w); L.getWorldPosition(_w2);
+    const e = Math.max(Math.abs(_w.x + _w2.x), Math.abs(_w.y - _w2.y), Math.abs(_w.z - _w2.z));
+    if (e > rigWorst) { rigWorst = e; rigMsg = `${st} · ${j}`; }
+    else if (rigMsg === 'no joint pairs on this rig') rigMsg = `${st} · ${j}`;
+  }
+}
 // sagittal plane: midpoint of the two pivot roots' X (the body centreline)
 for (const st of states) {
   setFlapDebugPose(P, def.model, st);
@@ -72,6 +106,7 @@ for (const st of states) {
   const tag = err < 0.03 ? '✓' : '✗';
   console.log(`  ${tag} ${st.padEnd(10)} Rc(${Rs.c.x.toFixed(2)},${Rs.c.y.toFixed(2)},${Rs.c.z.toFixed(2)}) Lc(${Ls.c.x.toFixed(2)},${Ls.c.y.toFixed(2)},${Ls.c.z.toFixed(2)})  Yband R[${Rs.ymin.toFixed(2)},${Rs.ymax.toFixed(2)}] L[${Ls.ymin.toFixed(2)},${Ls.ymax.toFixed(2)}]  Δ${err.toFixed(3)}`);
 }
-console.log(`\n${KEY}: worst asymmetry ${worst.toFixed(3)}  (${worstMsg})`);
+console.log(`\n${KEY}: RIG (joint nodes, decoration-free) worst mirror error ${rigWorst.toFixed(3)}  (${rigMsg})`);
+console.log(`${KEY}: worst asymmetry ${worst.toFixed(3)}  (${worstMsg})   — vertex clouds; includes any SEEDED weathering`);
 console.log(worst < 0.03 ? 'PASS — wings bilaterally symmetric in straight flight' : 'FAIL — residual asymmetry');
 process.exitCode = worst < 0.03 ? 0 : 1;
