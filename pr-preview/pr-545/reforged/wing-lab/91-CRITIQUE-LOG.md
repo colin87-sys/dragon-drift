@@ -643,3 +643,169 @@ animal that has never once moved like one. I4 is the whole remaining distance.
    (framecap/perfprobe) — the R3 ALU ruling's binding number, with the cut orders standing.
 5. The two symmetry-probe negative controls (RIG + cloud), the slot shape-family completion,
    and the full probe suite re-run green with controls red where they must be.
+
+---
+## Round 6 — I4 (forgewing) — MOTION + COST; all four held gates re-checked
+
+**Compared against:** the bar's motion answer (the Tempest beat — the roster's only articulated
+stroke — and its 0.986 non-fold) at the regenerated cycle / poses / planform / detail / fire
+sheets, plus the pure-math record. **Verified with my own runs, not the builder's report:**
+`tricount --ci` exit 0, Eternal **5,477** and pair **3,156 in 18 draws** — byte-identical to R5's
+triangles, freeze honoured (form ≤5,600 · pair ≤3,200 · draws ≤20); `wingdump` landmark Δ0.0000,
+span/body 1.178, fire bands all inside §7.1 with terminus t = 0.510 (the FIRE fence is intact);
+`wingfold` full arc — **fold ÷ glide = 0.497 EXACT** (arc 1.00 · 0.79 · 0.60 · 0.49, span
+shortens before the planform thins, tip Δz +2.26 / Δy −0.94 against the hip, furl 0.00000 in all
+six flight poses, fold adds **0.035 u** of weld on 0.296 inherited, +Y-axis control fires at
+1.037 = 3.1×, plank control fires, pinned-slack control fires, fold-ratio control fires on all
+three shipped heroes); slack top-vs-bottom wrinkle **0.2993 / 0.1309 = 2.29×** with the
+apex-vs-downstroke difference visible in the strip; `wingsymprobe` RIG **0.000** · flight cloud
+0.009; `wingtiers` — polarity **0.459 → 23.741**, gain ×1.53, B−R worst tile 0.0000, authored
+tiers **2.47× (the probe's own verdict prints ✗)**, quartile 3.85×; `wingperf` — **the
+whole-frame instrument is VOID, verified by my own run**: 2.9 fps CPU-rasterised and the control's
+sign is inverted (vesperLean, 993 tris, measures SLOWER than forgewing); `wingfill` — patched ↔
+plain ratio **1.74×** (builder said 1.79×), ≈1.21 ms/frame at 6% chase coverage on a renderer 1–2
+orders slower than any phone, control resolves; exp2-swap savings measured **0.483 ms/frame at
+50.7% coverage** (≈0.07 ms at chase coverage).
+
+### Round 6 — MOTION — **LOSS**
+
+Verdict: the substance is the roster's first working premium fold and the bar has no answer to
+it — 0.497 against 0.986, a real driven elbow (the R1 debt paid), a hand whose sign flips, a
+surface that visibly slackens and tightens through one beat (#29 closes), FOLDED and SPREAD
+finally two different photographs — **and the delivery as shipped cannot win a blind.** Four
+causes, in weight order:
+
+1. **The carpal slit is on screen.** The inherited 0.296 u weld gap now reads as a pale channel
+   cutting the wing in two at the carpal — in the SPREAD tile, the 4× pale detail crop, two
+   fire-sheet chase tiles, and faintly in the pure-black planform silhouette. A judge with
+   labels stripped asks "why is the wing cut in half?" and picks the bar — the R1 rectangle
+   precedent exactly. This also **re-opens SILHOUETTE** (below): I4's own pose set is what put
+   an I3-era defect on camera.
+2. **The fan closes as a door, not a fan.** One `wingFurl` node per side; every scallop leaves
+   the outline in the same instant. §8.3 step 3 ("the outline losing one scallop at a time") is
+   the read the topology was chosen FOR (§2.1, §2.5); the builder saw it and said so. Codified
+   as **kill #69** per the live-list rule. The axis law that earned this round's find does not
+   force one hinge — each finger's lobe welds to its OWN spar line (§5.4), so per-finger axes
+   with a trailing-first stagger are exactly what the law prescribes, and the +Y control already
+   proves the method for setting them.
+3. **§5.1's fold obligations are violated at three of five arc points** — membrane THROUGH the
+   skirt 1.27 / 1.43 / 1.11% at f = 0.50/0.75/1.00; my own probe prints ✗✗✗ against an explicit
+   "zero interpenetration at any point of the arc".
+4. **The acting silhouettes were not delivered.** No tuck, cape-drape, display-spread or mantle
+   state exists in the poser (grepped, not assumed) — R5 send-back item 3, silently dropped.
+
+What stands WON inside MOTION and is not re-argued at the re-judge: the §8.1 beat (dial set
+verbatim, dogleg visible at recovery from the chase cam, distal < shoulder), the slack binding
+and its controls, the fold-arc numbers (ratio, ordering, tip placement, furl-zero, rig Δ0.000),
+and the seam-axis law itself — **a joint may rotate only about the line its own weld lies on**
+enters the spec as this round's find (it is why the fold added only 0.035 u where the naive axis
+costs 1.037).
+
+### Round 6 — COST — **WIN**
+
+Verdict: every number that can bind in this container is inside its line, all verified by my own
+runs — triangles byte-identical at 5,477 / 3,156 (net-zero as ordered), draws 18 ≤ 20, fragment
+ratio 1.74× with a firing control and a chase-coverage cost of ≈1.2 ms/frame measured on a
+renderer one to two orders slower than the target device. The builder measured the whole-frame
+instrument, found its control giving a wrong-sign answer, and **refused to quote the number** —
+that is kill #67 practised as ethics, and my own run reproduces the void exactly.
+
+**RULING (the coordinator's question 2) — what COST is measured against, §11 amended.** In this
+lab COST binds on: (1) the §11 freezes (tris, draws, textures, passes) — met; (2) the isolated
+fragment A/B with its negative control — met at 1.74×; (3) the comparative delta instrument
+(`wingperf`) is retained for real hardware, where its design is sound. The 60 fps device frame
+**cannot be measured here** — an honest unknown, not a waiver — so it transfers to the standing
+exit condition: the wing ships through the house PR-preview gate like every other change, and
+the owner's device is the final instrument. Quoting a headless-fps number instead would have
+been fabrication, the one unforgivable act.
+
+**RULING — the exp2 reversion: ACCEPTED, cut order item 1 struck, §11 amended.** The builder's
+inequality is correct — ln d ≤ d−1 ⟹ exp(−n(1−d)) ≥ dⁿ, so the swap can only brighten the
+lobe and break the §5.5 ladder — and my own `wingfill` run prices the entire saving at 0.48
+ms/frame at 50.7% coverage (≈0.07 ms at chase coverage). Wrong on correctness AND worth nothing.
+Instances four and five of the standing pattern (R1 span, R3 sheen, R4 ash, R6 exp2 + R6 fps):
+the builder corrects the spec with evidence, the finding wins, I own the error in the open.
+
+**RULING (the coordinator's question 1) — MEMBRANE: re-opened NARROWLY, on the tier criterion
+only; §5.5 amended.** Not re-opened: polarity (0.459 → 23.741, improved 2×), darkest-element
+(0.459), transmission gain (×1.53), blue (0.0000) — all my own runs, all passing. Re-opened: the
+probe's own verdict prints **✗ tiers 2.47×** against the ≥3× the spec binds on, and the R3
+amendment left ambiguous WHICH meter binds — my ambiguity, owned. The ruling: **the AUTHORED
+meter binds** (the quartile number can be juiced by lighting alone — the Revenant control
+measures 1.45× on a one-value membrane, so quartile is corroboration, never the criterion) —
+**but it binds at a face-presenting pose.** The criterion's job is "the banding reads where the
+face reads"; I4's raised glide presents almost no face to the fixed crop, so the instrument now
+points at the wrong pose. `MEM_TIERS` thresholds stay locked (the builder is right that retuning
+them moves the instrument, not the wing). Re-close condition, exact: `wingtiers` re-measured at
+settle or downstroke on sky at the money crop — authored ≥ 3× AND ≥3 bands countable at 2.2×,
+all four at 4×, on the matching re-shot detail crop; glide keeps binding darkest-element and
+polarity. Two instrument defects must close with it: **(a)** the polarity mask counts
+hem-fringe sparkle as membrane — the pure-black control PASSES the polarity check and the probe
+prints its own "PROBE IS BROKEN" line; exclude the fringe pixels (or disable the fringe term for
+the polarity pass) and show the control firing; **(b)** the isolation claim "pose-dependent, not
+material" does not reconcile — 3.73 (R5) → 2.93 (old dials on the I4 build) is a build-side
+step; deliver the three-way isolation (old-pose/old-build · old-pose/new-build ·
+new-pose/new-build). If the face-pose authored spread lands under 3×, it is a real regression
+(prime suspect: the rest-state slack binding flattening the band contribution) and is fixed
+within the freeze.
+
+**RULING — the folded elbow at 102°: ACCEPTED, §13 amended.** The ~55° was a DIRECTED sketch
+filling §4.6's `[no-assert]` gap — a dial number, not a measurement, the R1 span error in
+choreography clothing. The binding law was always the outcome set, and the outcome set is met:
+monotone arc, span-before-chord, ≤0.55, tip behind the hip, cloak drape. The directed row now
+reads "elbow flexes as far as the drape needs".
+
+**RULING — the fold-pose cloud at 0.0400: bounded, attributed, and the instrument snaps to the
+spec.** The R5 ≤0.03 bound was calibrated on flight states; the fold stacks the seeded
+weathering and legitimately measures larger. Amended: flight cloud ≤0.03 (measured 0.009 ✓),
+**fold-pose cloud ≤0.05, valid only with a per-system attribution table** (slots, temper, saw
+teeth, hem hash) in the delivery — 0.0400 currently ships with no attribution, so it is not yet
+a pass. And `wingfold`'s self-set 0.06 tolerance is an instrument looser than the spec it
+serves — #67 in spirit; it snaps to 0.05.
+
+### Gate re-checks
+
+**SILHOUETTE — RE-OPENED** (the carpal slit reads in the delivered black tile and spread/fire
+tiles; everything else unchanged in kind — knuckled "‹", scallops, claw-cluster, tip hook,
+quadprobe 0 corners). **STRUCTURE — HELD** (landmark Δ0.0000 my run; taper, 151° elbow, fan
+rhythm intact; the R1 elbow debt is PAID — `midAmp 0.30` drives a real joint on the weld axis).
+**MEMBRANE — RE-OPENED narrowly** per the ruling above. **FIRE — HELD** (my `wingdump` re-run:
+every band inside §7.1, terminus 0.510, recruitment monotone; the sheet's ladder unchanged;
+embers warm over sky; the fence held through a full rig rebuild — the R5 design working).
+
+**Gate board after Round 6:** SILHOUETTE **re-opened** · STRUCTURE **held** · MEMBRANE
+**re-opened (tiers only)** · FIRE **held** · MOTION **LOSS** · COST **WON**. **The wing does
+NOT yet stand won on all six.** This is not the last gate; the loop continues per the charter —
+no exit on rounds elapsed.
+
+**Ruled-out tells present:** **#69** (the door-fold — added this round), the carpal-slit channel
+(§5.4 mitigation-1 breach exhibited; R1-rectangle class in the black tile). Closed this round:
+**#29** (slack binding live, 2.29×), **#52** (0.497 — the non-fold is dead). Checked and clear:
+#41–#50 (fire tiles), #51 (no plank), #53 (no pleats — the membrane shrinks onto the fingers),
+#54 (drapes down the flank, not over the back), #55 (no phase offset), #56 (ripple varies),
+#63 (1.178), #65 (root drift 0.000), #66 (no machine edge).
+
+**Biggest remaining gap:** one seam and one phase array — the carpal slit and the door-fold.
+Everything else on this article is measurement closure.
+
+**Sent to builder (I4.1 — MOTION re-judge + the two narrow re-opens; net-zero tris, draws ≤ 20,
+every probe suite re-run with controls red where they must be):**
+1. **Close the carpal slit on camera.** The weld stays the rig's truth (0.296 inherited); the
+   READ must go: hide the seam under the carpal cluster / spar dark side per §5.4(1) — or close
+   the gap itself. Assert: no background-coloured channel crosses the wing interior in any
+   delivered tile (black tiles included), and add the slit to the quadprobe-family checks with
+   a negative control (the current build IS the known-bad).
+2. **Stagger the furl.** Per-finger furl about each finger's OWN weld line, trailing-first,
+   digit III over the stack last (§8.3 step 3); the fold-arc tile row must show the outline
+   losing scallops one at a time (kill #69's negative is the current build). Fold ratio stays
+   ≤ 0.55; weld-opening budget stays ≤ 0.10 added.
+3. **Clamp the through-skirt vertices** (≤1.4% at f ≥ 0.5 → zero) — the §5.1 obligation is
+   zero at every arc point; the probe's ✗ rows go green with the existing check, no threshold
+   moves.
+4. **Deliver the four acting silhouettes** (tuck, cape-drape, display spread, mantle) from the
+   same furl array + a captured acting row; carpal-cluster ground contact only.
+5. **Instrument closures:** the §5.5 face-pose tier re-measure + countability crop; the
+   polarity-mask fringe fix with its control firing; the three-way tier isolation table; the
+   fold-cloud attribution table with `wingfold`'s tolerance snapped to 0.05; INDEX rows for the
+   I4-regenerated sheets and the three new probes (wingfold / wingperf / wingfill — an image
+   with no INDEX entry is not usable, and neither is a probe).

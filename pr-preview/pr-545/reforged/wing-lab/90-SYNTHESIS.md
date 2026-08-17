@@ -294,6 +294,14 @@ conflicts with the darkest-element criterion on this article. Binding criteria: 
 ≥ 3 bands countable at 2.2×, all four at 4× (a spar-hugging taut seam counts as a tier if it
 reads as a BAND at 4×); membrane:bone < 1 front-lit. Measured R3: 3.65× authored / 4.73×
 quartile, 0.435 front-lit — passes. Builder-caught, Director-owned.)*
+*(Amended Round 6 — WHICH meter binds, and WHERE: the **AUTHORED tier spread is the binding
+meter** — the quartile number is corroboration only, because lighting alone can juice it (the
+Revenant control measures 1.45× quartile on a one-value membrane) — **and it binds at a
+face-presenting pose** (settle or downstroke at the money crop on sky), because the criterion's
+job is "the banding reads where the face reads" and a raised glide presents no face to the
+fixed crop. Glide keeps binding the darkest-element and polarity criteria. `MEM_TIERS` probe
+thresholds are LOCKED — retuning them moves the instrument, not the wing. The polarity mask
+must exclude hem-fringe sparkle pixels: a pure-black membrane must FAIL the polarity check.)*
 Front-lit the membrane is **the darkest element on the dragon** (albedo 3–7%: warm near-black
 `#241a16`-class); the bones + ash read lighter. The bone↔membrane boundary carries the wing's
 whole contrast budget, in both light regimes; the membrane is never tinted up toward bone value.
@@ -476,7 +484,10 @@ apexMid 0.08 · apexTip 0.14 · tipApexSweep 0.28 · apexPitch 0.06
   Δ0.000: bounded ≤ 0.03 worst, every unit attributable to an enumerated seeded system
   (slots, temper series, saw teeth, hem hash), both numbers reported separately, permanently.
   Cloud > 0.03 or rig > 0.000 is a real failure; a cloud number under the bound is the spec
-  working, not a regression. Ruling in the R5 log.)*
+  working, not a regression. Ruling in the R5 log. *R6 extension: the FOLD pose stacks the
+  seeded weathering and legitimately measures larger — fold-pose cloud bound is ≤ 0.05, valid
+  only with a per-system attribution table in the delivery; flight-state bound stays ≤ 0.03;
+  and no probe may carry a tolerance looser than the spec's own number.*)*
 
 ### 8.2 The surface through the beat (one scalar drives everything)
 
@@ -508,7 +519,11 @@ Target: **folded span ≤ 0.55× glide span**, probe-asserted. Choreography over
    (the banked-coal state of §7.1 R4 — never a ring).
 
 Engineering: per-finger furl array published; fold clause added to **both** `wingDebugPose.js`
-and `dragon.js` (the ~20-line azure/jade pattern). Acting silhouettes reachable from the same
+and `dragon.js` (the ~20-line azure/jade pattern). *(R6 law, proven by control:* **a joint may
+rotate only about the line its own weld lies on** *— each joint's axis is the least-squares line
+through its own weld vertices, so the sheet cannot open at any angle; the naive in-plane +Y
+wrist axis measures 3.1× the weld gap. Applies PER FINGER: each lobe's furl axis is its own
+spar line — one shared hinge is kill #69.)* Acting silhouettes reachable from the same
 array with zero new mechanics: **tuck, cape-drape, display spread, mantle** — plus ground
 contact through the carpal cluster (the membrane never touches the ground).
 
@@ -552,7 +567,7 @@ contact through the carpal cluster (the membrane never touches the ground).
 | Allocation guide | bays + ventral window overlay 1,100 · spars/knuckles/claws 800 · propatagium 180 · hem+fringe 250 · cowl/fairing 300 · coverts+transition 250 · slack 120 |
 | Draw calls | ≤ 8 materials/wing via per-material accumulators into `flatTriMesh` (the Tempest batching pattern) |
 | Spend triangles on | EDGES, articulation, the ventral overlay, NSEG ≥ 10 arcs — **never on a finer smooth grid** (tris buy smoothness; facets, tiers and light buy richness) |
-| Shader | the §6 patches — ≈ 20 ALU estimated for the transmission term; **≈ 45 ALU as delivered** *(Amended R3: accepted provisionally — the third compose seam's specular remap killed a gate-blocking defect; the binding number is the measured frame on the mobile profile at the I4 COST gate, cut order in the R3 log: exp2 spherical-Gaussian swap → wrinkle-into-DataTexture → vein-order LOD)* — 1 R8 DataTexture (64 KB), no new passes, no `MeshPhysicalMaterial.transmission`, no grab-pass, no screen-space anything |
+| Shader | the §6 patches — ≈ 20 ALU estimated for the transmission term; **≈ 45 ALU as delivered** *(Amended R3: accepted provisionally — the third compose seam's specular remap killed a gate-blocking defect; the binding number is the measured frame on the mobile profile at the I4 COST gate; cut order amended R6 — **item 1 (exp2 spherical-Gaussian swap) is STRUCK**: proven uniformly brighter (ln d ≤ d−1 ⟹ exp(−n(1−d)) ≥ dⁿ, breaking the §5.5 ladder) and measured worth only 0.48 ms/frame at 50.7% coverage; remaining order: wrinkle-into-DataTexture → vein-order LOD. **R6 COST-instrument ruling:** whole-frame fps in this container is VOID (control sign inverts — a 993-tri wing measures slower at 2.9 fps CPU raster); in-lab COST binds on the freezes + the fragment A/B ratio with its #67 control (measured 1.74×, ≈1.2 ms/frame at 6% chase coverage on a renderer 1–2 orders slower than target); the 60 fps device frame transfers to the exit condition, verified on the house PR preview — quoting a headless fps would be fabrication)* — 1 R8 DataTexture (64 KB), no new passes, no `MeshPhysicalMaterial.transmission`, no grab-pass, no screen-space anything |
 | Textures | procedural DataTexture only; a CanvasTexture in the build path breaks node tests |
 | *(Amended R4)* The I4 freeze | Measured after I3: form **5,477** (91% of ceiling) · pair **3,156** (past the 3,000 target) · draws **32/pair** (26→32, wrong direction). Ruling: **I4 adds NET-ZERO triangles and consolidates draws before adding anything.** Hard lines at the I4 COST gate: form ≤ **5,600** · pair ≤ **3,200** · draws ≤ **20/pair** (the R1 ≤~10-per-wing discipline). Fire states are **uniform/mask switches on ≤2 emissive buckets per wing + 1 ember system — never per-state meshes.** Tri-cut order if the freeze breaks, in this sequence: (1) ignition capillary stubs → the DataTexture heatMask, (2) secondary-slot consolidation inside the R4 variety fix, (3) temper rings → vertex-colour bands on existing bone geometry. ALU cut order unchanged from R3. |
 
@@ -716,6 +731,13 @@ everything else.** Phrased so a critic can point at pixels.
     chrome tell in fire clothing, and #46's closed loop at window scale). The cold state is
     OFF or a core-coal, never an "O".
 
+69. *(R6)* **A fold that closes as a DOOR** — all bays leaving the outline in the same instant
+    because the furl rides one shared hinge. The fan topology was chosen (§2.1, §2.5) because a
+    fan folds legibly, **losing one scallop at a time**, trailing-first, digit III over the
+    stack last (§8.3 step 3); a one-hinge close forfeits the very read the topology paid for.
+    The seam-axis law does not force one hinge: each finger's lobe welds to its OWN spar line
+    (§5.4), so per-finger furl axes are exactly what the law prescribes.
+
 ---
 
 ## §13 Directed gaps (honest register)
@@ -727,7 +749,7 @@ direction, changeable by me only, never silently:
 |---|---|
 | Actinofibril/cord spacing | 20 mm-equivalent (1/75 chord), d/s ≈ 0.09 — inside D2's three-route derivation |
 | Propatagium depth | 0.20 c at the elbow (from D1's `[D, wide]` 0.15–0.25) |
-| Folded joint angles | §8.3's set (elbow ~55°, wrist ~130°+35° sup.) — from §4.6's `[no-assert]` starting pose |
+| Folded joint angles | *(amended R6)* the elbow flexes **as far as the drape needs** — the binding law is the outcome set (monotone arc, span-before-chord, ≤0.55×, tip behind the hip, cloak over the skirt), met at a measured 102°; the original ~55° was a directed sketch from §4.6's `[no-assert]`, a dial number masquerading as a measurement (the R1 span error in choreography clothing). Wrist ~130°+35° sup. stands as built |
 | Elbow-extension ceiling | spread pose held at ~150° included; the 111.0° figure is single-source and convention-ambiguous — I take the visible law ("never straight, sail always bulged") not the number |
 | Wrinkle wavelength | 8–14 striations per bay (only "10× denser than naive" is sourced) |
 | κ (membrane emission coefficient) | tuned to 0.15 face-on / 0.9 at 8° grazing |
