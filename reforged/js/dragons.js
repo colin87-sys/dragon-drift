@@ -1346,6 +1346,45 @@ DRAGONS.vesperLean = {
   forms: DRAGONS.vesper.forms.map((f) => ({ ...f, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: Math.min(3, f.earFinPairs ?? 3) })),
 };
 
+// RATH — an old-world scarlet hunting wyvern. Its hierarchy is intentionally
+// naturalistic: broad ochre membranes first, iron-red body second, black crown
+// and venom mace third. No neon panels; specular breakup and value contrast do
+// the readability work in daylight and storm biomes alike.
+DRAGONS.rath = {
+  name: 'Rath', title: 'King of the hunting sky', rarity: 'SSSR', maxRarity: 'SSSR', cost: 5000,
+  parts: { torso: 'rathHunterTorso', wings: 'rathWarWings', head: 'rathCrownHead', tail: 'rathMaceTail', surface: { shader: [] } },
+  stats: { speed: 1.12, handling: 1.08, drain: 0.78, regen: 1.18 },
+  model: {
+    scale: 1.08, wingScale: 1.18, bodyGirth: 1.16, bodyOvalW: 1.12, bodyOvalH: 1.08,
+    neckSegments: 5, tailSegments: 10, tailStyle: 'finned', tailLength: 1.12, tailGirth: 1.12,
+    hornLen: 1.3, hornPairs: 2, crest: 1, tusks: true, eyeScale: 0.9, headStretch: 1.14, headNarrow: 0.88,
+    ridgeCount: 0, rathScutes: 19, wingParts: 3, wingVeins: true, wingOpacity: 0.96,
+    wingSSS: 0.34, membraneCamber: 0.20, wingBillow: 0.16, scallop: 0.48,
+    flapBias: 0.88, flapAmp: 0.86, flapFreqScale: 0.82,
+  },
+  wingForms: [
+    { tips: [[4.2, 0.30], [3.25, -0.52], [2.10, -0.82]], lead: [2.8, 0.52], scallop: 0.30, arc: { bow: 0.62, hump: 0.35, humpAt: 0.55, hook: 0.22 } },
+    { tips: [[4.8, 0.38], [3.95, -0.62], [2.75, -1.02], [1.55, -1.04]], lead: [3.3, 0.66], scallop: 0.40, arc: { bow: 0.74, hump: 0.75, humpAt: 0.57, hook: 0.38 } },
+    { tips: [[5.35, 0.48], [4.5, -0.65], [3.25, -1.18], [1.9, -1.22]], lead: [3.75, 0.78], scallop: 0.50, arc: { bow: 0.86, hump: 1.05, humpAt: 0.58, hook: 0.58 } },
+    { tips: [[5.85, 0.58], [5.0, -0.68], [3.65, -1.28], [2.2, -1.36], [1.15, -1.12]], lead: [4.05, 0.88], scallop: 0.58, arc: { bow: 0.98, hump: 1.34, humpAt: 0.60, hook: 0.78 } },
+  ],
+  forms: [
+    { wingForm: 0, bodyScale: 0.67, wingSpan: 0.78, hornLen: 0.55, hornPairs: 1, rathScutes: 8, tailSegments: 7, wingVeins: false,
+      colors: { body: 0x6b241c, belly: 0xc18b58, scales: 0x44201b, horn: 0x2a211d, wingInner: 0xb96c43, wingOuter: 0x6e2c21, wingEmissive: 0x5b211b, eye: 0xe5bd42 } },
+    { wingForm: 1, bodyScale: 0.79, wingSpan: 0.88, hornLen: 0.85, hornPairs: 1, rathScutes: 12, tailSegments: 8, wingVeins: true,
+      colors: { body: 0x84291e, belly: 0xd0a06a, scales: 0x51211b, horn: 0x241d1a, wingInner: 0xc77b50, wingOuter: 0x772a20, wingEmissive: 0x682019, eye: 0xf0d151 } },
+    { wingForm: 2, bodyScale: 0.91, wingSpan: 0.96, hornLen: 1.1, hornPairs: 2, rathScutes: 16, tailSegments: 9, wingBillow: 0.18,
+      colors: { body: 0x982e20, belly: 0xdeb47c, scales: 0x5d211a, horn: 0x1e1917, wingInner: 0xd48b5a, wingOuter: 0x862b20, wingEmissive: 0x742219, eye: 0xffdf55 } },
+    { wingForm: 3, bodyScale: 1, wingSpan: 1, hornLen: 1.3, hornPairs: 2, rathScutes: 19, tailSegments: 10, wingBillow: 0.22, glowIntensity: 1.05,
+      colors: { body: 0xaa3422, belly: 0xefd09a, scales: 0x67241b, horn: 0x171412, wingInner: 0xe09a65, wingOuter: 0x912c20, wingEmissive: 0x7d251b, eye: 0xffe36a } },
+  ],
+  fx: { auraColor: '198,62,35', auraIdle: 0.01, auraIdleRamp: 0, sparkle: false },
+  body: 0xaa3422, belly: 0xefd09a, scales: 0x67241b, horn: 0x171412,
+  wingInner: 0xe09a65, wingOuter: 0x912c20, wingEmissive: 0x7d251b,
+  apexEye: 0xffe36a, apexSeam: 0xbd4a28, coreGlow: 0xd76432, surgeHi: 0xffd9a0,
+  eye: 0xffdf55, trail: 0xc64d2e, boostTrail: 0xef9a50,
+};
+
 // Highest multipliers in the roster (for shop stat-bar normalisation).
 export const DRAGON_STAT_CAP = { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 };
 
