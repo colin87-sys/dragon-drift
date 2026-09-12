@@ -123,7 +123,7 @@ const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS]
   : bossId === 'unmasked' ? [...STATES, ...UM_EXTRAS] : STATES;
 
-const ALL_BGS = ['dark', 'pale', 'sunset', 'white'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies); white = pure-silhouette check
+const ALL_BGS = ['dark', 'pale', 'sunset', 'white', 'biome'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies); white = pure-silhouette check; biome = the home astral-purple (§3b.7 — void-black interiors hide on the black studio bg, show on the home value)
 // Fast-iteration filters: ONLY_STATE=s2idle ONLY_BG=pale,dark renders just those (skips the
 // full 27-sheet sweep during a tight design loop). Unset → the full canonical sweep.
 const ONLY_STATE = (process.env.ONLY_STATE || '').split(',').filter(Boolean);
@@ -176,7 +176,8 @@ const srv = await serve();
 const browser = await pw.chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, deviceScaleFactor: 2 });
 page.on('pageerror', (e) => console.error('PAGEERR', e.message));
-await page.goto(`${srv.url}/tools/bossstudio.html?boss=${bossId}&seed=${SEED}&bg=dark`);
+const EXTRA_QS = process.env.EXTRA_QS ? '&' + process.env.EXTRA_QS : '';   // e.g. EXTRA_QS=wingparts for the material-ID diagnostic
+await page.goto(`${srv.url}/tools/bossstudio.html?boss=${bossId}&seed=${SEED}&bg=dark${EXTRA_QS}`);
 await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
 
 // Hide the interactive chrome — the sheet element is captured on its own.

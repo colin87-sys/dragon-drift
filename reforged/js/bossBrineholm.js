@@ -103,16 +103,26 @@ export function buildBrineholm(def, quality = 1) {
   // fangs carry a DIM always-on abalone ember (so the jagged jawline reads as a lit
   // edge at fight distance even in idle — without it the maw is dark-on-dark and the
   // head half-reads as a lone cyclops orb).
-  const toothMat = track(new THREE.MeshStandardMaterial({ color: 0x0e1512, emissive: accent, emissiveIntensity: 0.16, roughness: 0.5, metalness: 0.2, flatShading: true }));
+  const toothMat = track(new THREE.MeshStandardMaterial({ color: 0x0e1512, emissive: accent, emissiveIntensity: 0.13, roughness: 0.5, metalness: 0.2, flatShading: true }));
+  // Registry tell #2 fix (BOSS-VISUAL-AUDIT): equal flat-green fangs read as a picket fence /
+  // plastic grin. A SECOND, dimmer tooth tier — alternating fangs drop to a kelp-dark ember —
+  // breaks the uniform rank into irregular lit/dark fingers (two merge buckets, +1 draw).
+  const toothMatB = track(new THREE.MeshStandardMaterial({ color: 0x0b110f, emissive: accent, emissiveIntensity: 0.06, roughness: 0.55, metalness: 0.2, flatShading: true }));
   const ironMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1c20, emissive: 0x101216, emissiveIntensity: 0.05, roughness: 0.55, metalness: 0.55, flatShading: true }));
   const cageMat = track(new THREE.LineBasicMaterial({ color: 0x040807, transparent: true, opacity: 0.85, depthWrite: false }));
 
   // THE EYE (the L142 recipe — lens sclera + iris ring + pupil + proud catchlight).
-  const EYE_HOT = 1.5, CORE_HOT = 17.0;
+  // T7 FOCAL-CLIP fix (BOSS-VISUAL-AUDIT): at EYE_HOT 1.5 the ENTIRE sclera dome sat above
+  // 1.0 linear in every channel — the whole eyeball clipped to a blown white crescent at the
+  // rel-26 fight frame and the iris/pupil anatomy never survived tone-mapping. The CORE
+  // carries brightness, the sclera carries the pale VALUE, the iris carries the hue: sclera
+  // capped below the bloom knee (0.85 — still the palest thing on the head), core pulled
+  // 17→6 (a hot point, not a screen nuke; G1 max-lum still saturates off the small core).
+  const EYE_HOT = 0.85, CORE_HOT = 6.0;
   const EYE_BASE = new THREE.Color(0xd8efe8);
   const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xd8efe8 })); eyeMat.toneMapped = false; eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeCoreMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff })); eyeCoreMat.toneMapped = false; eyeCoreMat.color.setScalar(CORE_HOT);
-  const irisMat = track(new THREE.MeshStandardMaterial({ color: 0x0a1512, emissive: accent, emissiveIntensity: 1.5, roughness: 0.4, metalness: 0.1, flatShading: true }));
+  const irisMat = track(new THREE.MeshStandardMaterial({ color: 0x0a1512, emissive: accent, emissiveIntensity: 2.1, roughness: 0.4, metalness: 0.1, flatShading: true }));   // lifted with the T7 sclera cap — the abalone ring is now the hue the eye reads by
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x03110e }));
   const ventMat = track(new THREE.MeshStandardMaterial({ color: 0x0a1512, emissive: accent, emissiveIntensity: 1.3, roughness: 0.5, metalness: 0.0, flatShading: true }));
   const gougeMat = track(new THREE.MeshStandardMaterial({ color: 0x2a3a34, emissive: 0x33463f, emissiveIntensity: 0.22, roughness: 0.7, metalness: 0.0, flatShading: true }));
@@ -212,7 +222,7 @@ export function buildBrineholm(def, quality = 1) {
   // ---- THE TEETH — kelp-dark jagged fangs on the upper jaw (pointing DOWN) and
   // the lower jaw (pointing UP), silhouetted against the glowing gullet. The hard
   // jagged JAWLINE is the load-bearing "maw" silhouette cue.
-  const upperTeeth = [], lowerTeeth = [];
+  const upperTeeth = [], lowerTeeth = [], upperTeethB = [], lowerTeethB = [];
   const N_TEETH = lowQ ? 7 : 11;
   // deterministic per-tooth jitter (irregular = predatory; a clean arc = a grin).
   const jit = (n) => { const s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); };
@@ -222,18 +232,25 @@ export function buildBrineholm(def, quality = 1) {
     const z = 5.6 - Math.abs(t) * 2.2;            // near-LEVEL bite line (not an up-curved smile)
     // LONG irregular dark fangs (silhouetted against the deep throat glow) — a few
     // hero fangs hang well into the gape so the maw reads FANGED, not a tidy grin.
+    // Registry tell #2 (BOSS-VISUAL-AUDIT): width jitter joins the height jitter (equal-width
+    // cones still read as a comb), and alternating fangs land in the DIM tier below.
     const hU = 2.3 + jit(i) * 2.2 - Math.abs(t) * 0.7;
-    const up = strip(new THREE.ConeGeometry(0.6 - Math.abs(t) * 0.14, hU, 5));
+    const wU = (0.6 - Math.abs(t) * 0.14) * (0.78 + jit(i + 11) * 0.5);
+    const up = strip(new THREE.ConeGeometry(wU, hU, 5));
     up.rotateX(Math.PI); up.translate(x, -3.0 - hU * 0.5, z);   // hang from the upper jaw (raised bite line)
-    upperTeeth.push(up);
+    (i % 2 ? upperTeethB : upperTeeth).push(up);
     const hL = 1.9 + jit(i + 7) * 1.9 - Math.abs(t) * 0.6;
-    const lo = strip(new THREE.ConeGeometry(0.54 - Math.abs(t) * 0.12, hL, 5));
+    const wL = (0.54 - Math.abs(t) * 0.12) * (0.78 + jit(i + 17) * 0.5);
+    const lo = strip(new THREE.ConeGeometry(wL, hL, 5));
     lo.translate(x * 0.92 + (jit(i + 3) - 0.5) * 0.5, -5.0 + hL * 0.5, z * 0.95);   // rise from the lower jaw
-    lowerTeeth.push(lo);
+    (i % 2 ? lowerTeeth : lowerTeethB).push(lo);   // offset parity vs the uppers — lit/dark never aligns top-to-bottom
   }
   rig.add(new THREE.Mesh(mergeBh(upperTeeth, 'upperTeeth'), toothMat));
+  rig.add(new THREE.Mesh(mergeBh(upperTeethB, 'upperTeethB'), toothMatB));
   const lowerToothMesh = new THREE.Mesh(mergeBh(lowerTeeth, 'lowerTeeth'), toothMat);
   jawPivot.add(lowerToothMesh);
+  const lowerToothMeshB = new THREE.Mesh(mergeBh(lowerTeethB, 'lowerTeethB'), toothMatB);
+  jawPivot.add(lowerToothMeshB);
 
   // ---- GILL RAKES — glowing abalone slits on the flanks (the lit-edge + the
   // "it breathes" cue; they flex on the breath in the tick).
@@ -243,8 +260,12 @@ export function buildBrineholm(def, quality = 1) {
     pivot.name = `gillPivot${sx > 0 ? 'R' : 'L'}`;
     pivot.position.set(sx * (HEAD_HW - 1.5), 1.5, 2.0);
     for (let g = 0; g < 3; g++) {
-      const slit = new THREE.Mesh(strip(new THREE.BoxGeometry(0.4, 3.2 - g * 0.4, 0.3)), g % 2 ? gillMat : gulletVMat);
-      slit.rotation.z = sx * 0.3; slit.position.set(sx * g * 0.9, -g * 0.6, -g * 0.5);
+      // Registry tell #12 fix (BOSS-VISUAL-AUDIT): the uniform boxes read as flat purple/mint
+      // paddle-pop sticks. A flattened tapered blade (4-sided cone, squashed in z) reads as an
+      // organic gill rake — widest at the root, dying to a point.
+      const slit = new THREE.Mesh(strip(new THREE.ConeGeometry(0.30, 3.2 - g * 0.4, 4)), g % 2 ? gillMat : gulletVMat);
+      slit.scale.z = 0.45;
+      slit.rotation.z = sx * 0.3 + Math.PI; slit.position.set(sx * g * 0.9, -g * 0.6, -g * 0.5);
       pivot.add(slit);
     }
     rig.add(pivot);
