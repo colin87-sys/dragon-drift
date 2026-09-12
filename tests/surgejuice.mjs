@@ -27,9 +27,9 @@ const env = await page.evaluate(() => {
   for (let t = 0.01; t < beats.apexStart; t += 0.01) { const v = at(t, false); if (v > prev + 1e-6) mono = false; prev = v; }
   return { beats, floorMin: mn, floorMax: mx, apexLen: beats.releaseAt - beats.apexStart, slope, peak, settled, mono, start: at(0, false) };
 });
-check(`APEX floor in 0.22–0.28 and FLAT (min ${env.floorMin.toFixed(3)} / max ${env.floorMax.toFixed(3)}, var ≤0.01)`,
-  env.floorMin >= 0.22 && env.floorMax <= 0.28 && (env.floorMax - env.floorMin) <= 0.01);
-check(`APEX window 230–270ms (${Math.round(env.apexLen * 1000)}ms)`, env.apexLen >= 0.23 && env.apexLen <= 0.27);
+check(`APEX floor in 0.33–0.37 and FLAT (min ${env.floorMin.toFixed(3)} / max ${env.floorMax.toFixed(3)}, var ≤0.01)`,
+  env.floorMin >= 0.33 && env.floorMax <= 0.37 && (env.floorMax - env.floorMin) <= 0.01);
+check(`APEX window 130–170ms (${Math.round(env.apexLen * 1000)}ms)`, env.apexLen >= 0.13 && env.apexLen <= 0.17);
 check(`RELEASE snap slope ≥12/s (edge-sharpness guard; ${env.slope.toFixed(1)}/s)`, env.slope >= 12);
 check(`overshoot ≤1.06 (peak ${env.peak.toFixed(3)})`, env.peak >= 1.01 && env.peak <= 1.06);
 check(`settles to 1.00±0.02 by +300ms (${env.settled.toFixed(3)})`, Math.abs(env.settled - 1) <= 0.02);

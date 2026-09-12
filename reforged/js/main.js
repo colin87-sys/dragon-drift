@@ -468,6 +468,10 @@ if (urlParams.has('debug')) {
     surgeBeamWobbleAt: (t, l) => surgeBeamWobbleAt(t, l),
     surgeCascadePin: (t) => { if (t == null) delete globalThis.__ddSurgeCascadePin; else globalThis.__ddSurgeCascadePin = t; },  // pin the cascade clock for capture (undefined in play)
     clearRings: () => resetRings(),   // capture hook: clear ring pickups so a cascade still isn't polluted by the ring's bright torus
+    // capture hook: despawn the COLLECTIBLES (ember lines, orbs, gold embers) — a burst still
+    // read them as dragon anatomy (the ember line = a "gold dot chain", an orb = a cyan bead),
+    // so a clean-field capture must drop them like rings/obstacles/vents above.
+    clearCollectibles: () => { resetEmbers(); resetPowerups(); resetGoldEmbers(); },
     surgeSeam: (beat) => {
       if (beat == null) delete globalThis.__ddSurgeForce;
       else globalThis.__ddSurgeForce = (typeof beat === 'string') ? { beat } : beat;
